@@ -6,6 +6,7 @@ import {
   Mail,
   Phone,
   PhoneCall,
+  User,
 } from "lucide-react";
 
 import { useFormContext } from "../../context/useFormContext";
@@ -22,6 +23,10 @@ import {
   changeLandlineNumber,
   changeMobileNumber,
   changeStarRating,
+  changeOwnerEmail,
+  changeOwnerFirstName,
+  changeOwnerLastName,
+  changeOwnerPhoneNumber,
   setBasicInfo,
 } from "../../state/actionCreators";
 import { propertyService } from "../../services/propertyService";
@@ -47,6 +52,10 @@ const errors = errorsFromContext.basicInfo ;
     email,
     mobileNumber,
     landlineNumber,
+    ownerEmail,
+    ownerFirstName,
+    ownerLastName,
+    ownerPhoneNumber,
   } = formDataState.basicInfo;
   useEffect(() => {
     async function fetchBasicInfo() {
@@ -61,6 +70,10 @@ const errors = errorsFromContext.basicInfo ;
             email: response.contactEmail,
             mobileNumber: response.mobileNumber,
             landlineNumber: response.landlineNumber,
+            ownerEmail: response.ownerEmail || "",
+            ownerFirstName: response.ownerFirstName || "",
+            ownerLastName: response.ownerLastName || "",
+            ownerPhoneNumber: response.ownerPhoneNumber || "",
           })
         );
       } catch (error) {
@@ -109,6 +122,30 @@ const errors = errorsFromContext.basicInfo ;
     setFormDataState(changeLandlineNumber(value));
     if (errors?.landlineNumber) {
       resetFieldError("basicInfo", "landlineNumber");
+    }
+  };
+  const handleOwnerEmailChange = (value: string) => {
+    setFormDataState(changeOwnerEmail(value));
+    if (errors?.ownerEmail) {
+      resetFieldError("basicInfo", "ownerEmail");
+    }
+  };
+  const handleOwnerFirstNameChange = (value: string) => {
+    setFormDataState(changeOwnerFirstName(value));
+    if (errors?.ownerFirstName) {
+      resetFieldError("basicInfo", "ownerFirstName");
+    }
+  };
+  const handleOwnerLastNameChange = (value: string) => {
+    setFormDataState(changeOwnerLastName(value));
+    if (errors?.ownerLastName) {
+      resetFieldError("basicInfo", "ownerLastName");
+    }
+  };
+  const handleOwnerPhoneNumberChange = (value: string) => {
+    setFormDataState(changeOwnerPhoneNumber(value));
+    if (errors?.ownerPhoneNumber) {
+      resetFieldError("basicInfo", "ownerPhoneNumber");
     }
   };
   // Generate year options (from 1900 to current year)
@@ -271,6 +308,103 @@ const errors = errorsFromContext.basicInfo ;
                   onChange={(e) => handleLandlineNumberChange(e.target.value)}
                   error={errors?.landlineNumber}
                   placeholder="Landline number with STD code"
+                  className="pl-10"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Owner Information Section */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-md overflow-hidden">
+        <div className="bg-linear-to-r from-purple-50 via-indigo-50 to-blue-50 px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-linear-to-br from-purple-500 via-indigo-600 to-blue-600 flex items-center justify-center shadow-sm">
+              <User className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">
+                Owner Information
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Enter the property owner's details
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Owner Email */}
+            <div className="md:col-span-2">
+              <div className="relative">
+                <div className="absolute left-3 top-[38px] z-10 pointer-events-none">
+                  <Mail className="w-4 h-4 text-gray-400" />
+                </div>
+                <Input
+                  label="Owner Email ID"
+                  type="email"
+                  value={ownerEmail}
+                  onChange={(e) => handleOwnerEmailChange(e.target.value)}
+                  error={errors?.ownerEmail}
+                  placeholder="owner@example.com"
+                  required
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Owner First Name */}
+            <div>
+              <div className="relative">
+                <div className="absolute left-3 top-[38px] z-10 pointer-events-none">
+                  <User className="w-4 h-4 text-gray-400" />
+                </div>
+                <Input
+                  label="Owner First Name"
+                  value={ownerFirstName}
+                  onChange={(e) => handleOwnerFirstNameChange(e.target.value)}
+                  error={errors?.ownerFirstName}
+                  placeholder="Enter first name"
+                  required
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Owner Last Name */}
+            <div>
+              <div className="relative">
+                <div className="absolute left-3 top-[38px] z-10 pointer-events-none">
+                  <User className="w-4 h-4 text-gray-400" />
+                </div>
+                <Input
+                  label="Owner Last Name"
+                  value={ownerLastName}
+                  onChange={(e) => handleOwnerLastNameChange(e.target.value)}
+                  error={errors?.ownerLastName}
+                  placeholder="Enter last name"
+                  required
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Owner Phone Number */}
+            <div className="md:col-span-2">
+              <div className="relative">
+                <div className="absolute left-3 top-[38px] z-10 pointer-events-none">
+                  <Phone className="w-4 h-4 text-gray-400" />
+                </div>
+                <Input
+                  label="Owner Phone Number (Indian)"
+                  type="tel"
+                  value={ownerPhoneNumber}
+                  onChange={(e) => handleOwnerPhoneNumberChange(e.target.value)}
+                  error={errors?.ownerPhoneNumber}
+                  placeholder="10-digit phone number"
+                  maxLength={10}
+                  required
                   className="pl-10"
                 />
               </div>

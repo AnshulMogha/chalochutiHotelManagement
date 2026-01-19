@@ -44,6 +44,22 @@ export type FormActionType =
       payload: { landlineNumber: string };
     }
   | {
+      type: "OWNER_EMAIL_CHANGE";
+      payload: { ownerEmail: string };
+    }
+  | {
+      type: "OWNER_FIRST_NAME_CHANGE";
+      payload: { ownerFirstName: string };
+    }
+  | {
+      type: "OWNER_LAST_NAME_CHANGE";
+      payload: { ownerLastName: string };
+    }
+  | {
+      type: "OWNER_PHONE_NUMBER_CHANGE";
+      payload: { ownerPhoneNumber: string };
+    }
+  | {
       type: "SET_META_INFO";
       payload: { metaInfo: metaInfo };
     }

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Lock, LogOut, ChevronDown } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import userApi from "@/services/api/user";
 import type { User } from "@/types";
 import { RiMenuUnfold3Line } from "react-icons/ri";
@@ -32,6 +32,8 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   
   const isBasicInfoPage = location.pathname === ROUTES.PROPERTY_INFO.BASIC_INFO;
+  const isRoomsRatePlansPage = location.pathname === ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS;
+  const isPropertyInfoPage = isBasicInfoPage || isRoomsRatePlansPage;
   const selectedHotelId = searchParams.get("hotelId");
 
   useEffect(() => {
@@ -42,9 +44,9 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     getUserProfile();
   }, []);
 
-  const handleHotelChange = (hotelId: string) => {
+  const handleHotelChange = useCallback((hotelId: string) => {
     setSearchParams({ hotelId });
-  };
+  }, [setSearchParams]);
 
   const getInitials = (email: string) => {
     return email.charAt(0).toUpperCase();
@@ -91,8 +93,8 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
               </div>
             </Link>
 
-            {/* Hotel Selector - Only show on Basic Info page */}
-            {isBasicInfoPage && (
+            {/* Hotel Selector - Show on Property Info pages */}
+            {isPropertyInfoPage && (
               <div className="ml-4">
                 <HotelSelector
                   selectedHotelId={selectedHotelId}

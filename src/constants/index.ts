@@ -24,6 +24,7 @@ export const ROUTES = {
   PROPERTY_INFO: {
     LIST: "/property/information",
     BASIC_INFO: "/property/information/basic-info",
+    ROOMS_RATEPLANS: "/property/information/rooms-rateplans",
   },
   RATE_INVENTORY: {
     LIST: "/rate-inventory",
@@ -123,6 +124,18 @@ export const API_ENDPOINTS = {
 
   USER: {
     GET_USER: "/users/me/profile",
+  },
+  HOTEL_ADMIN: {
+    GET_HOTEL_BASIC_INFO: (hotelId: string) => `/hotel/${hotelId}/basic-info`,
+    UPDATE_HOTEL_PROFILE: (hotelId: string) => `/hotel/${hotelId}/profile`,
+    GET_HOTEL_CONTACT: (hotelId: string) => `/hotel/${hotelId}/contact`,
+    UPDATE_HOTEL_CONTACT: (hotelId: string) => `/hotel/${hotelId}/contact`,
+    GET_HOTEL_LOCATION: (hotelId: string) => `/hotel/${hotelId}/location`,
+    GET_HOTEL_ADDRESS: (hotelId: string) => `/hotel/${hotelId}/address`,
+    GET_HOTEL_ROOMS: (hotelId: string) => `/hotel/${hotelId}/rooms`,
+    UPDATE_ROOM_ACTIVE_STATUS: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/active-status`,
+    GET_ROOM_RATE_PLANS: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans`,
+    UPDATE_RATE_PLAN_ACTIVE_STATUS: (hotelId: string, roomId: string, ratePlanId: number) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans/${ratePlanId}/active-status`,
   },
 } as const;
 

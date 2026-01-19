@@ -50,6 +50,9 @@ const UsersPage = lazy(() => import("../features/admin/pages/UsersPage"));
 const BasicInformationPage = lazy(
   () => import("../features/properties/pages/BasicInformationPage")
 );
+const RoomsAndRatePlansPage = lazy(
+  () => import("../features/properties/pages/RoomsAndRatePlansPage")
+);
 
 // Route configuration
 
@@ -153,6 +156,10 @@ export const routes: RouteObject[] = [
       {
         path: "property/information/basic-info",
         element: <BasicInformationPage />,
+      },
+      {
+        path: "property/information/rooms-rateplans",
+        element: <RoomsAndRatePlansPage />,
       },
     ],
   },

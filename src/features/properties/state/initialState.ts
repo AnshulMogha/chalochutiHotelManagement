@@ -9,6 +9,10 @@ export const initialState: FormStateType = {
     email: "",
     mobileNumber: "",
     landlineNumber: "",
+    ownerEmail: "",
+    ownerFirstName: "",
+    ownerLastName: "",
+    ownerPhoneNumber: "",
   },
   metaInfo: {
     hotelId: "",
@@ -108,6 +112,10 @@ export const errorsState: Errors = {
     email: "",
     mobileNumber: "",
     landlineNumber: "",
+    ownerEmail: "",
+    ownerFirstName: "",
+    ownerLastName: "",
+    ownerPhoneNumber: "",
   },
   locationInfo: {
     address: "",

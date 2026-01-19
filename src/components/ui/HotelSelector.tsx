@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Building2, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
@@ -13,6 +13,8 @@ import type { HotelListResponse } from "@/features/properties/services/api.types
 import type { ApprovedHotelItem } from "@/features/admin/services/adminService";
 import { useLocation } from "react-router";
 import { ROUTES } from "@/constants";
+import { useAuth } from "@/hooks";
+import { isHotelOwner } from "@/constants/roles";
 
 interface HotelSelectorProps {
   selectedHotelId: string | null;
@@ -25,11 +27,16 @@ export function HotelSelector({
   onHotelChange,
   className = "",
 }: HotelSelectorProps) {
+  const { user } = useAuth();
+  const isHotelOwnerUser = isHotelOwner(user?.roles);
   const [hotels, setHotels] = useState<(HotelListResponse | ApprovedHotelItem)[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
-  const isPropertyInfoPage = location.pathname === ROUTES.PROPERTY_INFO.BASIC_INFO;
+  const isBasicInfoPage = location.pathname === ROUTES.PROPERTY_INFO.BASIC_INFO;
+  const isRoomsRatePlansPage = location.pathname === ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS;
+  const isPropertyInfoPage = isBasicInfoPage || isRoomsRatePlansPage;
+  const hasAutoSelectedRef = useRef(false);
 
   useEffect(() => {
     const fetchHotels = async () => {
@@ -37,8 +44,9 @@ export function HotelSelector({
         setIsLoading(true);
         let data: (HotelListResponse | ApprovedHotelItem)[] = [];
         
-        // Use approved hotels API when on property info page
-        if (isPropertyInfoPage) {
+        // For hotel owner on property info pages, use getAllHotels() which returns ALL hotels (LIVE, INPROCESS, etc.)
+        // For super admin on property info page, use approved hotels API
+        if (isPropertyInfoPage && !isHotelOwnerUser) {
           const approvedHotels = await adminService.getApprovedHotels();
           // Convert ApprovedHotelItem to HotelListResponse format
           data = approvedHotels.map((hotel) => ({
@@ -47,12 +55,21 @@ export function HotelSelector({
             hotelCode: hotel.hotelCode,
           }));
         } else {
-          data = await propertyService.getAllHotels();
+          // For hotel owners, getAllHotels() returns all hotels regardless of status
+          // But on property info pages, we only want to show LIVE hotels
+          const allHotels = await propertyService.getAllHotels();
+          if (isPropertyInfoPage && isHotelOwnerUser) {
+            // Filter to show only LIVE hotels for hotel owners on property info pages
+            data = allHotels.filter((hotel) => hotel.status === "LIVE");
+          } else {
+            data = allHotels;
+          }
         }
         
         setHotels(data);
-        // Auto-select first hotel if none selected
-        if (!selectedHotelId && data.length > 0) {
+        // Auto-select first hotel if none selected (only once per mount)
+        if (!selectedHotelId && !hasAutoSelectedRef.current && data.length > 0 && data[0].hotelId) {
+          hasAutoSelectedRef.current = true;
           onHotelChange(data[0].hotelId);
         }
       } catch (error) {
@@ -63,7 +80,8 @@ export function HotelSelector({
     };
 
     fetchHotels();
-  }, [selectedHotelId, onHotelChange, isPropertyInfoPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPropertyInfoPage, isHotelOwnerUser]);
 
   const selectedHotel = hotels.find((h) => h.hotelId === selectedHotelId);
 

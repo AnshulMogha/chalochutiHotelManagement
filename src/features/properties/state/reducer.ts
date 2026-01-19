@@ -61,6 +61,38 @@ const formReducer = (
           landlineNumber: action.payload.landlineNumber,
         },
       };
+    case "OWNER_EMAIL_CHANGE":
+      return {
+        ...state,
+        basicInfo: {
+          ...state.basicInfo,
+          ownerEmail: action.payload.ownerEmail,
+        },
+      };
+    case "OWNER_FIRST_NAME_CHANGE":
+      return {
+        ...state,
+        basicInfo: {
+          ...state.basicInfo,
+          ownerFirstName: action.payload.ownerFirstName,
+        },
+      };
+    case "OWNER_LAST_NAME_CHANGE":
+      return {
+        ...state,
+        basicInfo: {
+          ...state.basicInfo,
+          ownerLastName: action.payload.ownerLastName,
+        },
+      };
+    case "OWNER_PHONE_NUMBER_CHANGE":
+      return {
+        ...state,
+        basicInfo: {
+          ...state.basicInfo,
+          ownerPhoneNumber: action.payload.ownerPhoneNumber,
+        },
+      };
     case "SET_META_INFO":
       return {
         ...state,

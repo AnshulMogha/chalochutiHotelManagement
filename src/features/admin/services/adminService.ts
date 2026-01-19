@@ -187,6 +187,56 @@ export interface UpdateHotelAddressRequest {
   landmark: string;
 }
 
+// Hotel Admin specific interfaces
+export interface UpdateHotelAdminProfileRequest {
+  description: string;
+}
+
+export interface UpdateHotelAdminContactRequest {
+  hotelPhone: string;
+  hotelMobile: string;
+  hotelEmail: string;
+  phoneList: string;
+  websiteList: string;
+  emailList: string;
+  customerCareNumber: string;
+}
+
+export interface HotelRoom {
+  roomId: string;
+  roomName: string;
+  description: string;
+  active: boolean;
+  ratePlans: string[];
+}
+
+export interface HotelRoomsResponse {
+  totalRooms: number;
+  rooms: HotelRoom[];
+}
+
+export interface UpdateRoomActiveStatusRequest {
+  active: boolean;
+}
+
+export interface UpdateRatePlanActiveStatusRequest {
+  active: boolean;
+}
+
+export interface RatePlan {
+  ratePlanId: number;
+  ratePlanName: string;
+  mealPlan: string;
+  paymentMode: string | null;
+  active: boolean;
+}
+
+export interface RoomRatePlansResponse {
+  roomName: string;
+  total: number;
+  ratePlans: RatePlan[];
+}
+
 export const adminService = {
   getHotelsForReview: async (): Promise<HotelReviewItem[]> => {
     const response = await apiClient.get<
@@ -338,6 +388,100 @@ export const adminService = {
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.UPDATE_HOTEL_ADDRESS(hotelId),
+      data
+    );
+    return response.data;
+  },
+  // Hotel Admin specific methods (without /admin prefix)
+  getHotelAdminBasicInfo: async (
+    hotelId: string
+  ): Promise<HotelBasicInfoResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<HotelBasicInfoResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_BASIC_INFO(hotelId));
+    return response.data;
+  },
+  updateHotelAdminProfile: async (
+    hotelId: string,
+    data: UpdateHotelAdminProfileRequest
+  ): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_HOTEL_PROFILE(hotelId),
+      data
+    );
+    return response.data;
+  },
+  getHotelAdminContact: async (
+    hotelId: string
+  ): Promise<HotelContactResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<HotelContactResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_CONTACT(hotelId));
+    return response.data;
+  },
+  updateHotelAdminContact: async (
+    hotelId: string,
+    data: UpdateHotelAdminContactRequest
+  ): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_HOTEL_CONTACT(hotelId),
+      data
+    );
+    return response.data;
+  },
+  getHotelAdminLocation: async (
+    hotelId: string
+  ): Promise<HotelLocationResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<HotelLocationResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_LOCATION(hotelId));
+    return response.data;
+  },
+  getHotelAdminAddress: async (
+    hotelId: string
+  ): Promise<HotelAddressResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<HotelAddressResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_ADDRESS(hotelId));
+    return response.data;
+  },
+  // Hotel Rooms Management
+  getHotelAdminRooms: async (
+    hotelId: string
+  ): Promise<HotelRoomsResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<HotelRoomsResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_ROOMS(hotelId));
+    return response.data;
+  },
+  updateRoomActiveStatus: async (
+    hotelId: string,
+    roomId: string,
+    data: UpdateRoomActiveStatusRequest
+  ): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_ROOM_ACTIVE_STATUS(hotelId, roomId),
+      data
+    );
+    return response.data;
+  },
+  getRoomRatePlans: async (
+    hotelId: string,
+    roomId: string
+  ): Promise<RoomRatePlansResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<RoomRatePlansResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_ROOM_RATE_PLANS(hotelId, roomId));
+    return response.data;
+  },
+  updateRatePlanActiveStatus: async (
+    hotelId: string,
+    roomId: string,
+    ratePlanId: number,
+    data: UpdateRatePlanActiveStatusRequest
+  ): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_RATE_PLAN_ACTIVE_STATUS(hotelId, roomId, ratePlanId),
       data
     );
     return response.data;

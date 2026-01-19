@@ -5,14 +5,19 @@ import { Label } from "@/components/ui/Label";
 import { AlertCircle, Phone, Smartphone, Mail, Globe, PhoneCall } from "lucide-react";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { adminService } from "@/features/admin/services/adminService";
+import { useAuth } from "@/hooks";
+import { isHotelOwner } from "@/constants/roles";
 
 interface PropertyContactDetailsTabProps {
   hotelId: string;
 }
 
 export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTabProps) {
+  const { user } = useAuth();
+  const isHotelOwnerUser = isHotelOwner(user?.roles);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [contactData, setContactData] = useState<any>(null);
   const [formData, setFormData] = useState({
     hotelPhone: "",
     hotelMobile: "",
@@ -29,8 +34,11 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const data = await adminService.getHotelContact(hotelId);
+        const data = isHotelOwnerUser
+          ? await adminService.getHotelAdminContact(hotelId)
+          : await adminService.getHotelContact(hotelId);
         if (data) {
+          setContactData(data);
           setFormData({
             hotelPhone: data.hotelPhone || "",
             hotelMobile: data.hotelMobile || "",
@@ -53,7 +61,7 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hotelId]);
+  }, [hotelId, isHotelOwnerUser]);
 
   const validatePhoneNumber = (phone: string): boolean => {
     // Remove spaces and dashes, check if it's exactly 10 digits
@@ -170,15 +178,32 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
 
     setIsSaving(true);
     try {
-      await adminService.updateHotelContact(hotelId, {
-        hotelPhone: formData.hotelPhone,
-        hotelMobile: formData.hotelMobile,
-        hotelEmail: formData.hotelEmail,
-        phoneList: formData.phoneList,
-        websiteList: formData.websiteList,
-        emailList: formData.emailList,
-        customerCareNumber: formData.customerCareNumber,
-      });
+      if (isHotelOwnerUser) {
+        await adminService.updateHotelAdminContact(hotelId, {
+          hotelPhone: formData.hotelPhone,
+          hotelMobile: formData.hotelMobile,
+          hotelEmail: formData.hotelEmail,
+          phoneList: formData.phoneList,
+          websiteList: formData.websiteList,
+          emailList: formData.emailList,
+          customerCareNumber: formData.customerCareNumber,
+        });
+        // Refresh data after update
+        const data = await adminService.getHotelAdminContact(hotelId);
+        if (data) {
+          setContactData(data);
+        }
+      } else {
+        await adminService.updateHotelContact(hotelId, {
+          hotelPhone: formData.hotelPhone,
+          hotelMobile: formData.hotelMobile,
+          hotelEmail: formData.hotelEmail,
+          phoneList: formData.phoneList,
+          websiteList: formData.websiteList,
+          emailList: formData.emailList,
+          customerCareNumber: formData.customerCareNumber,
+        });
+      }
       setErrors({}); // Clear errors on success
       showToast("Contact details updated successfully!", "success");
     } catch (error) {
@@ -367,6 +392,47 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
           </Button>
         </div>
       </form>
+      
+      {/* Additional Information - Readonly for hotel admin */}
+      {isHotelOwnerUser && contactData && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mt-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Additional Information</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label>Created By</Label>
+              <Input 
+                value={contactData.createdByEmail || ""} 
+                readOnly 
+                className="bg-gray-50"
+              />
+            </div>
+            <div>
+              <Label>Updated By</Label>
+              <Input 
+                value={contactData.updatedByEmail || ""} 
+                readOnly 
+                className="bg-gray-50"
+              />
+            </div>
+            <div>
+              <Label>Created At</Label>
+              <Input 
+                value={contactData.createdAt ? new Date(contactData.createdAt).toLocaleString() : ""} 
+                readOnly 
+                className="bg-gray-50"
+              />
+            </div>
+            <div>
+              <Label>Updated At</Label>
+              <Input 
+                value={contactData.updatedAt ? new Date(contactData.updatedAt).toLocaleString() : ""} 
+                readOnly 
+                className="bg-gray-50"
+              />
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </>
   );

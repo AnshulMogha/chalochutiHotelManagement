@@ -11,6 +11,10 @@ export interface SubmitBasicInfoRequest {
   contactEmail: string;
   mobileNumber: string;
   landlineNumber: string;
+  ownerEmail: string;
+  ownerFirstName: string;
+  ownerLastName: string;
+  ownerPhoneNumber: string;
   draft: boolean;
 }
 
@@ -111,6 +115,10 @@ export interface GetAllBasicInfoResponse {
   contactEmail: string;
   mobileNumber: string;
   landlineNumber: string;
+  ownerEmail?: string;
+  ownerFirstName?: string;
+  ownerLastName?: string;
+  ownerPhoneNumber?: string;
   draft: boolean;
 }
 

@@ -60,6 +60,30 @@ const changeLandlineNumber = (value: string): FormActionType => {
     payload: { landlineNumber: value },
   };
 };
+const changeOwnerEmail = (value: string): FormActionType => {
+  return {
+    type: "OWNER_EMAIL_CHANGE" as const,
+    payload: { ownerEmail: value },
+  };
+};
+const changeOwnerFirstName = (value: string): FormActionType => {
+  return {
+    type: "OWNER_FIRST_NAME_CHANGE" as const,
+    payload: { ownerFirstName: value },
+  };
+};
+const changeOwnerLastName = (value: string): FormActionType => {
+  return {
+    type: "OWNER_LAST_NAME_CHANGE" as const,
+    payload: { ownerLastName: value },
+  };
+};
+const changeOwnerPhoneNumber = (value: string): FormActionType => {
+  return {
+    type: "OWNER_PHONE_NUMBER_CHANGE" as const,
+    payload: { ownerPhoneNumber: value },
+  };
+};
 const setMetaInfo = (value: metaInfo): FormActionType => {
   return {
     type: "SET_META_INFO" as const,
@@ -189,6 +213,10 @@ export {
   changeEmail,
   changeMobileNumber,
   changeLandlineNumber,
+  changeOwnerEmail,
+  changeOwnerFirstName,
+  changeOwnerLastName,
+  changeOwnerPhoneNumber,
   setMetaInfo,
   setLocationInfo,
   setCountry,

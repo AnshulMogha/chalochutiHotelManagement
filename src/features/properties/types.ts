@@ -8,6 +8,10 @@ export interface BasicInfo {
   email: string;
   mobileNumber: string;
   landlineNumber: string;
+  ownerEmail: string;
+  ownerFirstName: string;
+  ownerLastName: string;
+  ownerPhoneNumber: string;
 }
 export interface LocationInfo {
   latitude: number;

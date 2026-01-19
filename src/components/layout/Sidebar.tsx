@@ -12,6 +12,7 @@ import {
   Star,
   BarChart3,
   MoreHorizontal,
+  BedDouble,
   type LucideIcon 
 } from "lucide-react";
 
@@ -54,6 +55,11 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
             label: "Basic Information",
             path: ROUTES.PROPERTY_INFO.BASIC_INFO,
             icon: Info,
+          },
+          {
+            label: "Rooms & Rate Plans",
+            path: ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS,
+            icon: BedDouble,
           },
         ],
       },

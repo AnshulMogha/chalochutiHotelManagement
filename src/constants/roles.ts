@@ -51,3 +51,14 @@ export function hasAnyRole(userRoles: string[] | undefined, roles: Role[]): bool
   return roles.some((role) => userRoles.includes(role));
 }
 
+/**
+ * Check if user is a hotel owner (HOTEL_OWNER, but not SUPER_ADMIN)
+ */
+export function isHotelOwner(userRoles: string[] | undefined): boolean {
+  if (!userRoles) return false;
+  return (
+    userRoles.includes(ROLES.HOTEL_OWNER) &&
+    !userRoles.includes(ROLES.SUPER_ADMIN)
+  );
+}
+
