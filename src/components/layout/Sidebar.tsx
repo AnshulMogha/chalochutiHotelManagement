@@ -13,6 +13,8 @@ import {
   BarChart3,
   MoreHorizontal,
   BedDouble,
+  Package,
+  Tag,
   type LucideIcon 
 } from "lucide-react";
 
@@ -67,6 +69,18 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
         label: "Rate and Inventory",
         path: ROUTES.RATE_INVENTORY.LIST,
         icon: DollarSign,
+        children: [
+          {
+            label: "Room Inventory",
+            path: ROUTES.ROOM_INVENTORY.LIST,
+            icon: Package,
+          },
+          {
+            label: "Rate Plans",
+            path: ROUTES.RATE_INVENTORY.LIST,
+            icon: Tag,
+          },
+        ],
       },
       {
         label: "Bookings",

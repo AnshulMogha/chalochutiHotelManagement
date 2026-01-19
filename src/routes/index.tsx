@@ -11,6 +11,7 @@ import {
   PoliciesStep,
   RoomsPage,
 } from "@/features/properties/components/steps";
+import Layout from "@/features/inventory/Layout";
 
 // Lazy load layouts
 const MainLayout = lazy(() => import("../components/layout/MainLayout"));
@@ -52,6 +53,9 @@ const BasicInformationPage = lazy(
 );
 const RoomsAndRatePlansPage = lazy(
   () => import("../features/properties/pages/RoomsAndRatePlansPage")
+);
+const BulkUpdateRatesPage = lazy(
+  () => import("../features/inventory/pages/BulkUpdateRatesPage")
 );
 
 // Route configuration
@@ -160,6 +164,18 @@ export const routes: RouteObject[] = [
       {
         path: "property/information/rooms-rateplans",
         element: <RoomsAndRatePlansPage />,
+      },
+      {
+        path: "inventory/room-types",
+        element: <Layout/>,
+      },
+      {
+        path: "inventory/rate-plans",
+        element: <Layout/>,
+      },
+      {
+        path: "rates/bulk-update",
+        element: <BulkUpdateRatesPage/>,
       },
     ],
   },

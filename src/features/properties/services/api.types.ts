@@ -183,7 +183,7 @@ export interface HotelListResponse {
   locked: boolean;
   submittedAt?: string;
   requestedByEmail?: string;
-  rejectionReason?: string;
+  rejectionReason?: string | null;
 }
 
 export interface GetRoomDetailsResponse {

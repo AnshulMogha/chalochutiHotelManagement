@@ -1,6 +1,5 @@
 import { Link, useLocation, useSearchParams } from "react-router";
 import { useAuth } from "@/hooks";
-import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +16,8 @@ import type { User } from "@/types";
 import { RiMenuUnfold3Line } from "react-icons/ri";
 import { RiMenuFold3Line } from "react-icons/ri";
 import { HotelSelector } from "@/components/ui/HotelSelector";
-import { ROUTES } from "@/constants";
+import { ROUTES, ROLES } from "@/constants";
+import { hasRole } from "@/constants/roles";
 
 interface TopbarProps {
   onSidebarToggle?: () => void;
@@ -34,6 +34,18 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   const isBasicInfoPage = location.pathname === ROUTES.PROPERTY_INFO.BASIC_INFO;
   const isRoomsRatePlansPage = location.pathname === ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS;
   const isPropertyInfoPage = isBasicInfoPage || isRoomsRatePlansPage;
+  const isRoomInventoryPage = location.pathname === ROUTES.ROOM_INVENTORY.LIST;
+  const isRatePlanPage = location.pathname === ROUTES.RATE_INVENTORY.LIST;
+  const isInventoryPage = isRoomInventoryPage || isRatePlanPage;
+  
+  // Check if user is HOTEL_OWNER
+  const isHotelOwner = hasRole(user?.roles, ROLES.HOTEL_OWNER);
+  
+  // Show hotel selector for HOTEL_OWNER on: basic info, room inventory, and rate plan pages
+  const shouldShowHotelSelector = 
+    isPropertyInfoPage || 
+    (isHotelOwner && isInventoryPage);
+  
   const selectedHotelId = searchParams.get("hotelId");
 
   useEffect(() => {
@@ -93,8 +105,8 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
               </div>
             </Link>
 
-            {/* Hotel Selector - Show on Property Info pages */}
-            {isPropertyInfoPage && (
+            {/* Hotel Selector - Show on Property Info pages and Inventory pages for HOTEL_OWNER */}
+            {shouldShowHotelSelector && (
               <div className="ml-4">
                 <HotelSelector
                   selectedHotelId={selectedHotelId}

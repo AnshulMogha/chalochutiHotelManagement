@@ -26,8 +26,11 @@ export const ROUTES = {
     BASIC_INFO: "/property/information/basic-info",
     ROOMS_RATEPLANS: "/property/information/rooms-rateplans",
   },
+  ROOM_INVENTORY: {
+    LIST: "/inventory/room-types",
+  },
   RATE_INVENTORY: {
-    LIST: "/rate-inventory",
+    LIST: "/inventory/rate-plans",
   },
   BOOKINGS: {
     LIST: "/bookings",
@@ -136,6 +139,18 @@ export const API_ENDPOINTS = {
     UPDATE_ROOM_ACTIVE_STATUS: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/active-status`,
     GET_ROOM_RATE_PLANS: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans`,
     UPDATE_RATE_PLAN_ACTIVE_STATUS: (hotelId: string, roomId: string, ratePlanId: number) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans/${ratePlanId}/active-status`,
+  },
+  INVENTORY: {
+    GET_CALENDAR: (hotelId: string, fromDate: string, toDate: string) =>
+      `/hotel/inventory/${hotelId}/calendar?from=${fromDate}&to=${toDate}`,
+    UPDATE_SINGLE: "/hotel/inventory/single",
+    UPDATE_BULK: "/hotel/inventory/bulk",
+  },
+  RATES: {
+    GET_CALENDAR: (hotelId: string, fromDate: string, toDate: string, customerType: string = "RETAIL") =>
+      `/hotel/${hotelId}/rates/calendar?from=${fromDate}&to=${toDate}&customerType=${customerType}`,
+    UPDATE_SINGLE: "/hotel/rates/single",
+    UPDATE_BULK: "/hotel/rates/bulk",
   },
 } as const;
 
