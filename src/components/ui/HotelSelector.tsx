@@ -35,7 +35,12 @@ export function HotelSelector({
   const location = useLocation();
   const isBasicInfoPage = location.pathname === ROUTES.PROPERTY_INFO.BASIC_INFO;
   const isRoomsRatePlansPage = location.pathname === ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS;
-  const isPropertyInfoPage = isBasicInfoPage || isRoomsRatePlansPage;
+  const isPhotosVideosPage = location.pathname === ROUTES.PROPERTY_INFO.PHOTOS_VIDEOS;
+  const isAmenitiesRestaurantsPage = location.pathname === ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS;
+  const isPolicyRulesPage = location.pathname === ROUTES.PROPERTY_INFO.POLICY_RULES;
+  const isFinancePage = location.pathname === ROUTES.PROPERTY_INFO.FINANCE;
+  const isPropertyInfoPage = isBasicInfoPage || isRoomsRatePlansPage || isPhotosVideosPage || 
+                             isAmenitiesRestaurantsPage || isPolicyRulesPage || isFinancePage;
   const hasAutoSelectedRef = useRef(false);
 
   useEffect(() => {

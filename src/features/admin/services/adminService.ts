@@ -223,6 +223,34 @@ export interface UpdateRatePlanActiveStatusRequest {
   active: boolean;
 }
 
+export interface CreateRatePlanRequest {
+  ratePlanName: string;
+  mealPlan: string;
+  active: boolean;
+}
+
+export interface MealPlanOption {
+  code: string;
+  label: string;
+}
+
+export interface RatePlanEditResponse {
+  ratePlan: {
+    id: number;
+    name: string;
+    mealPlan: string;
+    active: boolean;
+    cancellationPolicyId?: number | null;
+  };
+  mealPlans: MealPlanOption[];
+}
+
+export interface UpdateRatePlanRequest {
+  ratePlanName: string;
+  mealPlan: string;
+  cancellationPolicyId: number | null;
+}
+
 export interface RatePlan {
   ratePlanId: number;
   ratePlanName: string;
@@ -235,6 +263,132 @@ export interface RoomRatePlansResponse {
   roomName: string;
   total: number;
   ratePlans: RatePlan[];
+}
+
+export interface HotelRoomDetailsRequest {
+  roomKey?: string;
+  draft: boolean;
+  roomDetails: {
+    roomName: string;
+    roomType: string;
+    roomView: string;
+    roomSize: number;
+    roomSizeUnit: "SQFT" | "SQM";
+    totalRooms: number;
+    numberOfBathrooms: number;
+    description: string;
+  };
+  occupancy: {
+    baseAdults: number;
+    maxAdults: number;
+    baseChildren: number;
+    maxChildren: number;
+    maxOccupancy: number;
+    extraBedAllowed: boolean;
+    alternateArrangement: boolean;
+  };
+  beds: {
+    bedType: string;
+    numberOfBeds: number;
+    standard: boolean;
+  }[];
+  amenities: {
+    amenityCode: string;
+    categoryCode?: string;
+  }[];
+}
+
+export interface HotelRoomDetailsResponse {
+  roomKey: string;
+  draft: boolean;
+  roomDetails: {
+    roomName: string;
+    roomType: string;
+    roomView: string;
+    roomSize: number;
+    roomSizeUnit: "SQFT" | "SQM";
+    totalRooms: number;
+    description: string;
+    numberOfBathrooms: number;
+  };
+  occupancy: {
+    baseAdults: number;
+    maxAdults: number;
+    baseChildren: number;
+    maxChildren: number;
+    maxOccupancy: number;
+    extraBedAllowed: boolean;
+    alternateArrangement: boolean;
+  };
+  beds: {
+    bedType: string;
+    numberOfBeds: number;
+    standard: boolean;
+  }[];
+  amenities: {
+    amenityCode: string;
+    categoryCode?: string;
+  }[];
+}
+
+export interface HotelMediaItem {
+  imageId: number;
+  imageUrl: string;
+  thumbnailUrl: string;
+  category: string;
+  sortOrder: number;
+  roomId: string | null;
+  roomKey: string | null;
+  roomName: string | null;
+  cover: boolean;
+}
+
+export interface AssignMediaTagRequest {
+  category: string;
+}
+
+export interface AssignMediaToRoomRequest {
+  roomId: string;
+}
+
+export interface ReorderMediaRequest {
+  imageId: number;
+  sortOrder: number;
+}
+
+export interface FinanceData {
+  gstin: string;
+  pan: string;
+  businessName: string;
+  businessAddress: string;
+  bankAccountNumber: string;
+  bankName: string;
+  bankIfsc: string;
+  bankBranch: string;
+}
+
+export interface FinanceResponse {
+  total: number;
+  finances: FinanceData[];
+}
+
+export interface HotelAmenityItem {
+  amenityCode: string;
+  createdBy: number;
+  createdByEmail: string;
+  updatedBy: number;
+  updatedByEmail: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AmenitiesResponse {
+  total: number;
+  amenities: HotelAmenityItem[];
+}
+
+export interface UpdateAmenitiesRequest {
+  amenityCodes: string[];
 }
 
 export const adminService = {
@@ -474,6 +628,39 @@ export const adminService = {
     >(API_ENDPOINTS.HOTEL_ADMIN.GET_ROOM_RATE_PLANS(hotelId, roomId));
     return response.data;
   },
+  getRatePlanForEdit: async (
+    hotelId: string,
+    roomId: string,
+    ratePlanId: number
+  ): Promise<RatePlanEditResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<RatePlanEditResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_RATE_PLAN_EDIT(hotelId, roomId, ratePlanId));
+    return response.data;
+  },
+  createRatePlan: async (
+    hotelId: string,
+    roomId: string,
+    data: CreateRatePlanRequest
+  ): Promise<RatePlan> => {
+    const response = await apiClient.post<ApiSuccessResponse<RatePlan>>(
+      API_ENDPOINTS.HOTEL_ADMIN.CREATE_RATE_PLAN(hotelId, roomId),
+      data
+    );
+    return response.data;
+  },
+  updateRatePlan: async (
+    hotelId: string,
+    roomId: string,
+    ratePlanId: number,
+    data: UpdateRatePlanRequest
+  ): Promise<RatePlan> => {
+    const response = await apiClient.put<ApiSuccessResponse<RatePlan>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_RATE_PLAN(hotelId, roomId, ratePlanId),
+      data
+    );
+    return response.data;
+  },
   updateRatePlanActiveStatus: async (
     hotelId: string,
     roomId: string,
@@ -482,6 +669,133 @@ export const adminService = {
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_RATE_PLAN_ACTIVE_STATUS(hotelId, roomId, ratePlanId),
+      data
+    );
+    return response.data;
+  },
+  // Hotel Room Create/Update
+  createOrUpdateRoom: async (
+    hotelId: string,
+    data: HotelRoomDetailsRequest
+  ): Promise<{ roomKey: string }> => {
+    const response = await apiClient.post<ApiSuccessResponse<{ roomKey: string }>>(
+      API_ENDPOINTS.HOTEL_ADMIN.CREATE_OR_UPDATE_ROOM(hotelId),
+      data
+    );
+    return response.data;
+  },
+  getRoomDetails: async (
+    hotelId: string,
+    roomId: string
+  ): Promise<HotelRoomDetailsResponse> => {
+    const response = await apiClient.get<ApiSuccessResponse<HotelRoomDetailsResponse>>(
+      API_ENDPOINTS.HOTEL_ADMIN.GET_ROOM_DETAILS(hotelId, roomId)
+    );
+    return response.data;
+  },
+  // Media APIs
+  getHotelMedia: async (hotelId: string): Promise<HotelMediaItem[]> => {
+    const response = await apiClient.get<ApiSuccessResponse<HotelMediaItem[]>>(
+      API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_MEDIA(hotelId)
+    );
+    return response.data;
+  },
+  getRoomMedia: async (hotelId: string, roomId: string): Promise<HotelMediaItem[]> => {
+    const response = await apiClient.get<ApiSuccessResponse<HotelMediaItem[]>>(
+      API_ENDPOINTS.HOTEL_ADMIN.GET_ROOM_MEDIA(hotelId, roomId)
+    );
+    return response.data;
+  },
+  uploadHotelMedia: async (hotelId: string, file: File): Promise<{ imageId: number; imageUrl: string }> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await apiClient.post<ApiSuccessResponse<{ imageId: number; imageUrl: string }>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPLOAD_HOTEL_MEDIA(hotelId),
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    return response.data;
+  },
+  assignMediaTag: async (hotelId: string, imageId: number, data: AssignMediaTagRequest): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.ASSIGN_MEDIA_TAG(hotelId, imageId),
+      data
+    );
+    return response.data;
+  },
+  assignMediaToRoom: async (hotelId: string, imageId: number, data: AssignMediaToRoomRequest): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.ASSIGN_MEDIA_TO_ROOM(hotelId, imageId),
+      data
+    );
+    return response.data;
+  },
+  assignMediaToHotel: async (hotelId: string, imageId: number): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.ASSIGN_MEDIA_TO_HOTEL(hotelId, imageId)
+    );
+    return response.data;
+  },
+  detachMedia: async (hotelId: string, imageId: number): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.DETACH_MEDIA(hotelId, imageId)
+    );
+    return response.data;
+  },
+  reorderMedia: async (hotelId: string, data: ReorderMediaRequest): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.REORDER_MEDIA(hotelId),
+      data
+    );
+    return response.data;
+  },
+  setMediaCover: async (hotelId: string, mediaId: number): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.SET_MEDIA_COVER(hotelId, mediaId)
+    );
+    return response.data;
+  },
+  // Finance APIs
+  getHotelFinance: async (hotelId: string): Promise<FinanceResponse> => {
+    const response = await apiClient.get<ApiSuccessResponse<FinanceResponse>>(
+      API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_FINANCE(hotelId)
+    );
+    return response.data;
+  },
+  updateHotelFinance: async (hotelId: string, data: FinanceData): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_HOTEL_FINANCE(hotelId),
+      data
+    );
+    return response.data;
+  },
+  // Amenities APIs
+  getHotelAmenities: async (hotelId: string): Promise<AmenitiesResponse> => {
+    const response = await apiClient.get<ApiSuccessResponse<AmenitiesResponse>>(
+      API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_AMENITIES(hotelId)
+    );
+    return response.data;
+  },
+  getRoomAmenities: async (hotelId: string, roomId: string): Promise<AmenitiesResponse> => {
+    const response = await apiClient.get<ApiSuccessResponse<AmenitiesResponse>>(
+      API_ENDPOINTS.HOTEL_ADMIN.GET_ROOM_AMENITIES(hotelId, roomId)
+    );
+    return response.data;
+  },
+  updateHotelAmenities: async (hotelId: string, data: UpdateAmenitiesRequest): Promise<null> => {
+    const response = await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_HOTEL_AMENITIES(hotelId),
+      data
+    );
+    return response.data;
+  },
+  updateRoomAmenities: async (hotelId: string, roomId: string, data: UpdateAmenitiesRequest): Promise<null> => {
+    const response = await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_ROOM_AMENITIES(hotelId, roomId),
       data
     );
     return response.data;

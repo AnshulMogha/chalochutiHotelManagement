@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Toggle } from "@/components/ui/Toggle";
 import { Toast, useToast } from "@/components/ui/Toast";
-import { adminService, type HotelRoom, type RatePlan } from "@/features/admin/services/adminService";
+import { adminService, type HotelRoom, type RatePlan, type CreateRatePlanRequest, type UpdateRatePlanRequest, type RatePlanEditResponse, type MealPlanOption } from "@/features/admin/services/adminService";
 import { Plus, Pencil, Eye, Building2, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks";
 import { isHotelOwner } from "@/constants/roles";
+import { AddRatePlanModal } from "./AddRatePlanModal";
+import { PropertyInfoRoomsForm } from "./PropertyInfoRoomsForm";
 
 interface RoomsAndRatePlansTabProps {
   hotelId: string;
@@ -20,7 +22,21 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
   const [expandedRatePlans, setExpandedRatePlans] = useState<Set<string>>(new Set());
   const [ratePlansData, setRatePlansData] = useState<Record<string, RatePlan[]>>({});
   const [loadingRatePlans, setLoadingRatePlans] = useState<Set<string>>(new Set());
+  const [isAddRatePlanModalOpen, setIsAddRatePlanModalOpen] = useState(false);
+  const [selectedRoomIdForRatePlan, setSelectedRoomIdForRatePlan] = useState<string | null>(null);
+  const [isCreatingRatePlan, setIsCreatingRatePlan] = useState(false);
+  const [isEditRatePlanModalOpen, setIsEditRatePlanModalOpen] = useState(false);
+  const [selectedRatePlanForEdit, setSelectedRatePlanForEdit] = useState<{
+    roomId: string;
+    ratePlanId: number;
+  } | null>(null);
+  const [isUpdatingRatePlan, setIsUpdatingRatePlan] = useState(false);
+  const [ratePlanEditData, setRatePlanEditData] = useState<RatePlanEditResponse | null>(null);
+  const [availableMealPlans, setAvailableMealPlans] = useState<MealPlanOption[]>([]);
   const { toast, showToast, hideToast } = useToast();
+  const [showRoomForm, setShowRoomForm] = useState(false);
+  const [roomFormMode, setRoomFormMode] = useState<"CREATE" | "EDIT">("CREATE");
+  const [editingRoomId, setEditingRoomId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -120,15 +136,151 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
   };
 
   const handleEditRoom = (roomId: string) => {
-    // TODO: Navigate to edit room page or open edit modal
-    console.log("Edit room:", roomId);
-    showToast("Edit room functionality coming soon!", "info");
+    setEditingRoomId(roomId);
+    setRoomFormMode("EDIT");
+    setShowRoomForm(true);
   };
 
   const handleAddRatePlan = (roomId: string) => {
-    // TODO: Open add rate plan modal or navigate to add rate plan page
-    console.log("Add rate plan for room:", roomId);
-    showToast("Add rate plan functionality coming soon!", "info");
+    setSelectedRoomIdForRatePlan(roomId);
+    setIsAddRatePlanModalOpen(true);
+  };
+
+  const handleCreateRatePlan = async (data: CreateRatePlanRequest) => {
+    if (!selectedRoomIdForRatePlan) return;
+
+    try {
+      setIsCreatingRatePlan(true);
+      const newRatePlan = await adminService.createRatePlan(
+        hotelId,
+        selectedRoomIdForRatePlan,
+        data
+      );
+
+      // Add the new rate plan to the existing list
+      setRatePlansData((prev) => ({
+        ...prev,
+        [selectedRoomIdForRatePlan]: [
+          ...(prev[selectedRoomIdForRatePlan] || []),
+          newRatePlan,
+        ],
+      }));
+
+      // Expand the rate plans section if not already expanded
+      if (!expandedRatePlans.has(selectedRoomIdForRatePlan)) {
+        setExpandedRatePlans((prev) => {
+          const newSet = new Set(prev);
+          newSet.add(selectedRoomIdForRatePlan);
+          return newSet;
+        });
+      }
+
+      showToast("Rate plan created successfully!", "success");
+      setIsAddRatePlanModalOpen(false);
+      setSelectedRoomIdForRatePlan(null);
+    } catch (error: any) {
+      console.error("Error creating rate plan:", error);
+      
+      // Extract error message from API response
+      // API returns: { data: { mealPlan: "error.rate.plan.duplicate.meal.plan" } }
+      // After interceptor: error.data.data contains the field errors
+      const errorData = error?.data?.data || error?.response?.data?.data || {};
+      
+      // Don't show toast, let modal handle the error display
+      throw error; // Re-throw to let modal handle it
+    } finally {
+      setIsCreatingRatePlan(false);
+    }
+  };
+
+  const handleEditRatePlan = (roomId: string, ratePlanId: number) => {
+    setSelectedRatePlanForEdit({ roomId, ratePlanId });
+    setIsEditRatePlanModalOpen(true);
+  };
+
+  const loadRatePlanForEdit = async (): Promise<{
+    ratePlanName: string;
+    mealPlan: string;
+    cancellationPolicyId: number | null;
+    active: boolean;
+    mealPlans?: MealPlanOption[];
+  }> => {
+    if (!selectedRatePlanForEdit) {
+      throw new Error("No rate plan selected for edit");
+    }
+
+    try {
+      const data = await adminService.getRatePlanForEdit(
+        hotelId,
+        selectedRatePlanForEdit.roomId,
+        selectedRatePlanForEdit.ratePlanId
+      );
+      setRatePlanEditData(data);
+      // Store meal plans for use in modal
+      if (data.mealPlans && data.mealPlans.length > 0) {
+        setAvailableMealPlans(data.mealPlans);
+      }
+      return {
+        ratePlanName: data.ratePlan.name,
+        mealPlan: data.ratePlan.mealPlan,
+        active: data.ratePlan.active,
+        mealPlans: data.mealPlans,
+      };
+    } catch (error) {
+      console.error("Error loading rate plan for edit:", error);
+      showToast("Failed to load rate plan details. Please try again.", "error");
+      throw error;
+    }
+  };
+
+  const handleUpdateRatePlan = async (data: {
+    ratePlanName: string;
+    mealPlan: string;
+  }) => {
+    if (!selectedRatePlanForEdit) return;
+
+    try {
+      setIsUpdatingRatePlan(true);
+      const updatePayload: UpdateRatePlanRequest = {
+        ratePlanName: data.ratePlanName,
+        mealPlan: data.mealPlan,
+        cancellationPolicyId: null, // Removed from UI, set to null
+      };
+      const updatedRatePlan = await adminService.updateRatePlan(
+        hotelId,
+        selectedRatePlanForEdit.roomId,
+        selectedRatePlanForEdit.ratePlanId,
+        updatePayload
+      );
+
+      // Update the rate plan in the existing list
+      setRatePlansData((prev) => ({
+        ...prev,
+        [selectedRatePlanForEdit.roomId]: (prev[selectedRatePlanForEdit.roomId] || []).map(
+          (rp) =>
+            rp.ratePlanId === selectedRatePlanForEdit.ratePlanId
+              ? { ...rp, ...updatedRatePlan }
+              : rp
+        ),
+      }));
+
+      showToast("Rate plan updated successfully!", "success");
+      setIsEditRatePlanModalOpen(false);
+      setSelectedRatePlanForEdit(null);
+      setRatePlanEditData(null);
+    } catch (error: any) {
+      console.error("Error updating rate plan:", error);
+      
+      // Extract error message from API response
+      // API returns: { data: { mealPlan: "error.rate.plan.duplicate.meal.plan" } }
+      // After interceptor: error.data.data contains the field errors
+      const errorData = error?.data?.data || error?.response?.data?.data || {};
+      
+      // Don't show toast, let modal handle the error display
+      throw error; // Re-throw to let modal handle it
+    } finally {
+      setIsUpdatingRatePlan(false);
+    }
   };
 
   const handleViewRatePlans = async (roomId: string) => {
@@ -182,18 +334,71 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
   };
 
   const handleCreateNewRoom = () => {
-    // TODO: Navigate to create room page or open create room modal
-    console.log("Create new room");
-    showToast("Create room functionality coming soon!", "info");
+    setEditingRoomId(undefined);
+    setRoomFormMode("CREATE");
+    setShowRoomForm(true);
   };
 
-  if (isLoading) {
+  const handleRoomFormSuccess = () => {
+    setShowRoomForm(false);
+    setEditingRoomId(undefined);
+    // Refresh rooms list
+    const fetchRooms = async () => {
+      try {
+        setIsLoading(true);
+        const data = isHotelOwnerUser
+          ? await adminService.getHotelAdminRooms(hotelId)
+          : await adminService.getHotelAdminRooms(hotelId);
+        if (data) {
+          setRooms(data.rooms || []);
+          setTotalRooms(data.totalRooms || 0);
+        }
+      } catch (error) {
+        console.error("Error fetching rooms:", error);
+        showToast("Failed to load rooms. Please try again.", "error");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRooms();
+    showToast("Room saved successfully!", "success");
+  };
+
+  const handleRoomFormCancel = () => {
+    setShowRoomForm(false);
+    setEditingRoomId(undefined);
+  };
+
+  if (isLoading && !showRoomForm) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="flex items-center justify-center min-h-[400px]">
           <p className="text-gray-500">Loading rooms...</p>
         </div>
       </div>
+    );
+  }
+
+  // Show room form if needed
+  if (showRoomForm) {
+    return (
+      <>
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          isVisible={toast.isVisible}
+          onClose={hideToast}
+        />
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <PropertyInfoRoomsForm
+            mode={roomFormMode}
+            hotelId={hotelId}
+            editingRoomId={editingRoomId}
+            onCancel={handleRoomFormCancel}
+            onSuccess={handleRoomFormSuccess}
+          />
+        </div>
+      </>
     );
   }
 
@@ -204,6 +409,30 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
         type={toast.type}
         isVisible={toast.isVisible}
         onClose={hideToast}
+      />
+      <AddRatePlanModal
+        isOpen={isAddRatePlanModalOpen}
+        onClose={() => {
+          setIsAddRatePlanModalOpen(false);
+          setSelectedRoomIdForRatePlan(null);
+        }}
+        onSubmit={handleCreateRatePlan}
+        isLoading={isCreatingRatePlan}
+        mode="create"
+      />
+      <AddRatePlanModal
+        isOpen={isEditRatePlanModalOpen}
+        onClose={() => {
+          setIsEditRatePlanModalOpen(false);
+          setSelectedRatePlanForEdit(null);
+          setRatePlanEditData(null);
+          setAvailableMealPlans([]);
+        }}
+        onSubmit={handleUpdateRatePlan}
+        isLoading={isUpdatingRatePlan}
+        mode="edit"
+        onLoadData={loadRatePlanForEdit}
+        mealPlans={availableMealPlans}
       />
       <div className="space-y-6">
         {/* Header */}
@@ -400,22 +629,11 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
                                               </div>
                                               <div className="flex flex-col gap-2">
                                                 <button
-                                                  onClick={() => {
-                                                    showToast("Edit rate plan functionality coming soon!", "info");
-                                                  }}
+                                                  onClick={() => handleEditRatePlan(room.roomId, ratePlan.ratePlanId)}
                                                   className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors w-fit"
                                                 >
                                                   <Pencil className="w-4 h-4" />
                                                   EDIT RATEPLAN
-                                                </button>
-                                                <button
-                                                  onClick={() => {
-                                                    showToast("Offer inclusion functionality coming soon!", "info");
-                                                  }}
-                                                  className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors w-fit"
-                                                >
-                                                  <Plus className="w-4 h-4" />
-                                                  OFFER AN INCLUSION
                                                 </button>
                                               </div>
                                             </div>

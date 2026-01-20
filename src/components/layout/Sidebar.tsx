@@ -7,7 +7,7 @@ import {
   ClipboardCheck, 
   Users, 
   Info,
-  DollarSign,
+  IndianRupee,
   BookOpen,
   Star,
   BarChart3,
@@ -15,6 +15,10 @@ import {
   BedDouble,
   Package,
   Tag,
+  Image as ImageIcon,
+  UtensilsCrossed,
+  FileText,
+  CreditCard,
   type LucideIcon 
 } from "lucide-react";
 
@@ -63,12 +67,32 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
             path: ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS,
             icon: BedDouble,
           },
+          {
+            label: "Photos and Videos",
+            path: ROUTES.PROPERTY_INFO.PHOTOS_VIDEOS,
+            icon: ImageIcon,
+          },
+          {
+            label: "Amenities and Restaurants",
+            path: ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS,
+            icon: UtensilsCrossed,
+          },
+          {
+            label: "Policy and Rules",
+            path: ROUTES.PROPERTY_INFO.POLICY_RULES,
+            icon: FileText,
+          },
+          {
+            label: "Finance",
+            path: ROUTES.PROPERTY_INFO.FINANCE,
+            icon: CreditCard,
+          },
         ],
       },
       {
         label: "Rate and Inventory",
         path: ROUTES.RATE_INVENTORY.LIST,
-        icon: DollarSign,
+        icon: IndianRupee,
         children: [
           {
             label: "Room Inventory",
@@ -98,6 +122,16 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
         icon: BarChart3,
       }
     );
+  }
+
+  // Items visible only to HOTEL_OWNER
+  const isHotelOwner = hasAnyRole(userRoles, [ROLES.HOTEL_OWNER]);
+  if (isHotelOwner) {
+    items.push({
+      label: "My Team",
+      path: ROUTES.TEAM.LIST,
+      icon: Users,
+    });
   }
 
   // Items visible only to SUPER_ADMIN

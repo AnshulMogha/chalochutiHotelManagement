@@ -83,22 +83,6 @@ export default function SuperAdminLoginPage() {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      {/* Brand Header */}
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center mb-4">
-          <div className="relative">
-            <div className="absolute inset-0 bg-blue-600 rounded-2xl blur-xl opacity-50"></div>
-            <div className="relative bg-linear-to-br from-blue-600 to-indigo-600 p-4 rounded-2xl shadow-2xl">
-              <Shield className="w-8 h-8 text-white" />
-            </div>
-          </div>
-        </div>
-        <h1 className="text-3xl font-bold bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
-          Hotel Onboard
-        </h1>
-        <p className="text-gray-600 font-medium">Super Admin Portal</p>
-      </div>
-
       {/* Main Card */}
       <Card
         variant="elevated"
@@ -120,7 +104,7 @@ export default function SuperAdminLoginPage() {
             </div>
 
             <CardTitle className="text-3xl font-bold text-gray-900 mb-2">
-              Admin Access
+              Super Admin Access
             </CardTitle>
             <p className="text-gray-600 text-base">
               Sign in with your admin credentials

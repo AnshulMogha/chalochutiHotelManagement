@@ -165,3 +165,33 @@
 .animation-delay-4000 {
   animation-delay: 4s;
 }
+
+/* Custom Scrollbar Styles for Sidebar */
+aside::-webkit-scrollbar,
+nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+aside::-webkit-scrollbar-track,
+nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+aside::-webkit-scrollbar-thumb,
+nav::-webkit-scrollbar-thumb {
+  background: rgba(74, 91, 184, 0.4);
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+aside::-webkit-scrollbar-thumb:hover,
+nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(90, 107, 200, 0.6);
+}
+
+/* Firefox scrollbar */
+aside,
+nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(74, 91, 184, 0.4) transparent;
+}

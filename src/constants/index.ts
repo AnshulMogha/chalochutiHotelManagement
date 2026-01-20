@@ -25,6 +25,10 @@ export const ROUTES = {
     LIST: "/property/information",
     BASIC_INFO: "/property/information/basic-info",
     ROOMS_RATEPLANS: "/property/information/rooms-rateplans",
+    PHOTOS_VIDEOS: "/property/information/photos-videos",
+    AMENITIES_RESTAURANTS: "/property/information/amenities-restaurants",
+    POLICY_RULES: "/property/information/policy-rules",
+    FINANCE: "/property/information/finance",
   },
   ROOM_INVENTORY: {
     LIST: "/inventory/room-types",
@@ -44,6 +48,9 @@ export const ROUTES = {
   },
   MORE: {
     LIST: "/more",
+  },
+  TEAM: {
+    LIST: "/team",
   },
 } as const;
 
@@ -136,9 +143,29 @@ export const API_ENDPOINTS = {
     GET_HOTEL_LOCATION: (hotelId: string) => `/hotel/${hotelId}/location`,
     GET_HOTEL_ADDRESS: (hotelId: string) => `/hotel/${hotelId}/address`,
     GET_HOTEL_ROOMS: (hotelId: string) => `/hotel/${hotelId}/rooms`,
+    CREATE_OR_UPDATE_ROOM: (hotelId: string) => `/hotel/${hotelId}/rooms`,
+    GET_ROOM_DETAILS: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}`,
     UPDATE_ROOM_ACTIVE_STATUS: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/active-status`,
     GET_ROOM_RATE_PLANS: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans`,
+    GET_RATE_PLAN_EDIT: (hotelId: string, roomId: string, ratePlanId: number) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans/${ratePlanId}/edit`,
+    CREATE_RATE_PLAN: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans`,
+    UPDATE_RATE_PLAN: (hotelId: string, roomId: string, ratePlanId: number) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans/${ratePlanId}`,
     UPDATE_RATE_PLAN_ACTIVE_STATUS: (hotelId: string, roomId: string, ratePlanId: number) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans/${ratePlanId}/active-status`,
+    GET_HOTEL_MEDIA: (hotelId: string) => `/hotel/${hotelId}/media`,
+    GET_ROOM_MEDIA: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/media`,
+    UPLOAD_HOTEL_MEDIA: (hotelId: string) => `/hotel/${hotelId}/media/upload`,
+    ASSIGN_MEDIA_TAG: (hotelId: string, imageId: number) => `/hotel/${hotelId}/media/${imageId}/tag`,
+    ASSIGN_MEDIA_TO_ROOM: (hotelId: string, imageId: number) => `/hotel/${hotelId}/media/${imageId}/assign-room`,
+    ASSIGN_MEDIA_TO_HOTEL: (hotelId: string, imageId: number) => `/hotel/${hotelId}/media/${imageId}/assign-hotel`,
+    DETACH_MEDIA: (hotelId: string, imageId: number) => `/hotel/${hotelId}/media/${imageId}/detach`,
+    REORDER_MEDIA: (hotelId: string) => `/hotel/${hotelId}/media/reorder`,
+    SET_MEDIA_COVER: (hotelId: string, mediaId: number) => `/hotel/${hotelId}/media/${mediaId}/cover`,
+    GET_HOTEL_FINANCE: (hotelId: string) => `/hotel/${hotelId}/finance`,
+    UPDATE_HOTEL_FINANCE: (hotelId: string) => `/hotel/${hotelId}/finance`,
+    GET_HOTEL_AMENITIES: (hotelId: string) => `/hotel/${hotelId}/amenities`,
+    UPDATE_HOTEL_AMENITIES: (hotelId: string) => `/hotel/${hotelId}/amenities`,
+    GET_ROOM_AMENITIES: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/amenities`,
+    UPDATE_ROOM_AMENITIES: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/amenities`,
   },
   INVENTORY: {
     GET_CALENDAR: (hotelId: string, fromDate: string, toDate: string) =>

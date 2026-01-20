@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 import { format, addDays, startOfToday, isBefore, isSameDay, parseISO } from "date-fns";
 import { ArrowLeft, Calendar, ChevronDown, ChevronUp, Search, Users, AlertTriangle } from "lucide-react";
 import { rateService } from "../services/rateService";

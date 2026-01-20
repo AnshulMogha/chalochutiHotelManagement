@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useLocation, useSearchParams, useNavigate } from "react-router-dom";
+import { useLocation, useSearchParams, useNavigate } from "react-router";
 import { startOfToday, addDays, format } from "date-fns";
 import { DateSelector } from "./inventoryComponents/DateSelector";
 import { NavigationTabs } from "./inventoryComponents/NavigationTabs";

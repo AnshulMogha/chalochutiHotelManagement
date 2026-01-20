@@ -33,7 +33,12 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   
   const isBasicInfoPage = location.pathname === ROUTES.PROPERTY_INFO.BASIC_INFO;
   const isRoomsRatePlansPage = location.pathname === ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS;
-  const isPropertyInfoPage = isBasicInfoPage || isRoomsRatePlansPage;
+  const isPhotosVideosPage = location.pathname === ROUTES.PROPERTY_INFO.PHOTOS_VIDEOS;
+  const isAmenitiesRestaurantsPage = location.pathname === ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS;
+  const isPolicyRulesPage = location.pathname === ROUTES.PROPERTY_INFO.POLICY_RULES;
+  const isFinancePage = location.pathname === ROUTES.PROPERTY_INFO.FINANCE;
+  const isPropertyInfoPage = isBasicInfoPage || isRoomsRatePlansPage || isPhotosVideosPage || 
+                             isAmenitiesRestaurantsPage || isPolicyRulesPage || isFinancePage;
   const isRoomInventoryPage = location.pathname === ROUTES.ROOM_INVENTORY.LIST;
   const isRatePlanPage = location.pathname === ROUTES.RATE_INVENTORY.LIST;
   const isInventoryPage = isRoomInventoryPage || isRatePlanPage;
@@ -45,7 +50,6 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   const shouldShowHotelSelector = 
     isPropertyInfoPage || 
     (isHotelOwner && isInventoryPage);
-  
   const selectedHotelId = searchParams.get("hotelId");
 
   useEffect(() => {

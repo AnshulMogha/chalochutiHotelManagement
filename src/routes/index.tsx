@@ -57,6 +57,21 @@ const RoomsAndRatePlansPage = lazy(
 const BulkUpdateRatesPage = lazy(
   () => import("../features/inventory/pages/BulkUpdateRatesPage")
 );
+const PhotosAndVideosPage = lazy(
+  () => import("../features/properties/pages/PhotosAndVideosPage")
+);
+const AmenitiesAndRestaurantsPage = lazy(
+  () => import("../features/properties/pages/AmenitiesAndRestaurantsPage")
+);
+const PolicyAndRulesPage = lazy(
+  () => import("../features/properties/pages/PolicyAndRulesPage")
+);
+const FinancePage = lazy(
+  () => import("../features/properties/pages/FinancePage")
+);
+const MyTeamPage = lazy(
+  () => import("../features/team/pages/MyTeamPage")
+);
 
 // Route configuration
 
@@ -166,6 +181,22 @@ export const routes: RouteObject[] = [
         element: <RoomsAndRatePlansPage />,
       },
       {
+        path: "property/information/photos-videos",
+        element: <PhotosAndVideosPage />,
+      },
+      {
+        path: "property/information/amenities-restaurants",
+        element: <AmenitiesAndRestaurantsPage />,
+      },
+      {
+        path: "property/information/policy-rules",
+        element: <PolicyAndRulesPage />,
+      },
+      {
+        path: "property/information/finance",
+        element: <FinancePage />,
+      },
+      {
         path: "inventory/room-types",
         element: <Layout/>,
       },
@@ -176,6 +207,10 @@ export const routes: RouteObject[] = [
       {
         path: "rates/bulk-update",
         element: <BulkUpdateRatesPage/>,
+      },
+      {
+        path: "team",
+        element: <MyTeamPage />,
       },
     ],
   },

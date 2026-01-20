@@ -21,7 +21,7 @@
 
 import { useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import {
   parseISO,
   format,
