@@ -1,7 +1,8 @@
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useSearchParams } from "react-router";
 import { ChevronDown, ChevronRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { ROUTES } from "@/constants";
 
 interface NavItem {
   label: string;
@@ -19,8 +20,23 @@ interface SidebarItemProps {
 
 export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [isExpanded, setIsExpanded] = useState(false);
   const hasChildren = item.children && item.children.length > 0;
+  
+  // Helper function to check if a path is a property info route
+  const isPropertyInfoRoute = (path: string) => {
+    return Object.values(ROUTES.PROPERTY_INFO).includes(path as any);
+  };
+  
+  // Helper function to build URL with preserved hotelId for property info routes
+  const buildUrl = (path: string) => {
+    const hotelId = searchParams.get("hotelId");
+    if (isPropertyInfoRoute(path) && hotelId) {
+      return `${path}?hotelId=${hotelId}`;
+    }
+    return path;
+  };
   
   const isActive = (path: string) => {
     if (path === "/") {
@@ -47,7 +63,7 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
     <li className="min-w-0">
       <div className="relative group/item min-w-0">
         <Link
-          to={hasChildren ? "#" : item.path}
+          to={hasChildren ? "#" : buildUrl(item.path)}
           onClick={handleClick}
           className={cn(
             "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
@@ -105,7 +121,7 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
               return (
                 <li key={child.path} className="min-w-0">
                   <Link
-                    to={child.path}
+                    to={buildUrl(child.path)}
                     onClick={() => {
                       if (window.innerWidth < 1024) {
                         onToggle();

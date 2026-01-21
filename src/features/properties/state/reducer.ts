@@ -487,8 +487,8 @@ const RoomDetailsReducer = (
     case "SET_NUMBER_OF_BATHROOMS":
       return {
         ...state,
-        bathroomDetails: {
-          ...state.bathroomDetails,
+        roomDetails: {
+          ...state.roomDetails,
           numberOfBathrooms: action.payload.numberOfBathrooms,
         },
       };

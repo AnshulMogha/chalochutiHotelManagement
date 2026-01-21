@@ -34,6 +34,7 @@ export interface RoomDetails {
   roomSize: number;
   roomSizeUnit: "SQFT" | "SQM";
   totalRooms: number;
+  numberOfBathrooms: number;
   description: string;
 }
 

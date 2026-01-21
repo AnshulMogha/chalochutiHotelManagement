@@ -72,7 +72,8 @@ export function HotelSelector({
         }
         
         setHotels(data);
-        // Auto-select first hotel if none selected (only once per mount)
+        // Auto-select first hotel if none selected (only once per mount and only if no hotelId in URL)
+        // Don't auto-select if we already have a selectedHotelId - preserve user's selection
         if (!selectedHotelId && !hasAutoSelectedRef.current && data.length > 0 && data[0].hotelId) {
           hasAutoSelectedRef.current = true;
           onHotelChange(data[0].hotelId);
@@ -87,6 +88,13 @@ export function HotelSelector({
     fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPropertyInfoPage, isHotelOwnerUser]);
+  
+  // Reset auto-select ref when selectedHotelId changes (user manually selects a hotel)
+  useEffect(() => {
+    if (selectedHotelId) {
+      hasAutoSelectedRef.current = true;
+    }
+  }, [selectedHotelId]);
 
   const selectedHotel = hotels.find((h) => h.hotelId === selectedHotelId);
 

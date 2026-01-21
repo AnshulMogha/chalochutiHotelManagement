@@ -1,11 +1,8 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-
-import { useEffect, useState } from "react";
-import { propertyService } from "@/features/properties/services/propertyService";
+import { useState } from "react";
 import { useFormContext } from "@/features/properties/context/useFormContext";
-import { setAvailableRoomAmenities, setSelectedRoomAmenity } from "@/features/properties/state/actionCreators";
+import { setSelectedRoomAmenity } from "@/features/properties/state/actionCreators";
 import type { roomStepErrors, roomStepKeys } from "@/features/properties/types";
 export function RoomAmenitiesStep({
   errors,
@@ -18,32 +15,13 @@ export function RoomAmenitiesStep({
   const { availableAmenities, selectedAmenities } =
     roomDetailsState.roomAmenities;
   const [activeCategory, setActiveCategory] = useState<string>("mandatory");
-  const [loading, setLoading] = useState(false);
   const roomAmenitiesErrors = errors.roomAmenities;
 
   const toggleAmenity = (amenityId: string) => {
     setRoomDetailsState(setSelectedRoomAmenity(activeCategory, amenityId));
     resetFieldError("roomAmenities", activeCategory);
   };
-  useEffect(() => {
-    async function fetchAvailableRoomAmenities() {
-      setLoading(true);
-      try {
-        const response = await propertyService.getAvailableRoomAmenities();
-        setRoomDetailsState(
-          setAvailableRoomAmenities({
-            availableAmenities: response,
-            // selectedAmenities: initializeSelectedAmenities(response),
-          })
-        );
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchAvailableRoomAmenities();
-  }, [ setRoomDetailsState]);
+
   const getCategoryCount = (categoryCode: string) => {
     const category = availableAmenities.find(
       (category) => category.categoryCode === categoryCode
@@ -58,7 +36,8 @@ export function RoomAmenitiesStep({
     (category) => category.categoryCode === activeCategory
   );
 
-  if (loading) {
+  // Show a lightweight loading state while amenities are being fetched
+  if (!availableAmenities || availableAmenities.length === 0) {
     return <div>Loading...</div>;
   }
   return (

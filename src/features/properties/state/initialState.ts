@@ -71,6 +71,7 @@ export const initialRoomState: RoomStateType = {
     roomSize: 0,
     roomSizeUnit: "SQFT",
     totalRooms: 0,
+    numberOfBathrooms: 1,
     description: "",
   },
  

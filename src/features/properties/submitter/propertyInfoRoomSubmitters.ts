@@ -22,7 +22,7 @@ function transformAmenitiesPayload(
 }
 
 // Build room details payload
-function buildRoomDetails(roomDetails: RoomDetails, numberOfBathrooms: number) {
+function buildRoomDetails(roomDetails: RoomDetails) {
   return {
     roomName: roomDetails.roomName,
     roomType: roomDetails.roomType,
@@ -30,7 +30,7 @@ function buildRoomDetails(roomDetails: RoomDetails, numberOfBathrooms: number) {
     roomSize: roomDetails.roomSize,
     roomSizeUnit: roomDetails.roomSizeUnit,
     totalRooms: roomDetails.totalRooms,
-    numberOfBathrooms: numberOfBathrooms,
+    numberOfBathrooms: roomDetails.numberOfBathrooms,
     description: roomDetails.description,
   };
 }
@@ -73,14 +73,13 @@ function buildAmenities(amenities: Record<string, string[]>) {
 // Submit room details step
 export async function submitPropertyInfoRoomDetailsStep(
   roomDetails: RoomDetails,
-  numberOfBathrooms: number,
   hotelId: string,
   roomKey?: string
 ): Promise<{ roomKey: string }> {
   const payload: HotelRoomDetailsRequest = {
     roomKey,
     draft: false,
-    roomDetails: buildRoomDetails(roomDetails, numberOfBathrooms),
+    roomDetails: buildRoomDetails(roomDetails),
     occupancy: {
       baseAdults: 0,
       maxAdults: 0,
@@ -107,7 +106,7 @@ export async function submitPropertyInfoSleepingArrangementStep(
   const payload: HotelRoomDetailsRequest = {
     roomKey,
     draft: false,
-    roomDetails: buildRoomDetails(state.roomDetails, state.bathroomDetails.numberOfBathrooms),
+    roomDetails: buildRoomDetails(state.roomDetails),
     ...buildSleepingArrangement(state.sleepingArrangement),
     amenities: [],
   };
@@ -116,23 +115,6 @@ export async function submitPropertyInfoSleepingArrangementStep(
   return result;
 }
 
-// Submit bathroom details step
-export async function submitPropertyInfoBathroomDetailsStep(
-  state: RoomStateType,
-  hotelId: string,
-  roomKey?: string
-): Promise<{ roomKey: string }> {
-  const payload: HotelRoomDetailsRequest = {
-    roomKey,
-    draft: false,
-    roomDetails: buildRoomDetails(state.roomDetails, state.bathroomDetails.numberOfBathrooms),
-    ...buildSleepingArrangement(state.sleepingArrangement),
-    amenities: [],
-  };
-
-  const result = await adminService.createOrUpdateRoom(hotelId, payload);
-  return result;
-}
 
 // Submit room amenities step (final step)
 export async function submitPropertyInfoRoomAmenitiesStep(
@@ -143,7 +125,7 @@ export async function submitPropertyInfoRoomAmenitiesStep(
   const payload: HotelRoomDetailsRequest = {
     roomKey,
     draft: false,
-    roomDetails: buildRoomDetails(state.roomDetails, state.bathroomDetails.numberOfBathrooms),
+    roomDetails: buildRoomDetails(state.roomDetails),
     ...buildSleepingArrangement(state.sleepingArrangement),
     ...buildAmenities(state.roomAmenities.selectedAmenities),
   };

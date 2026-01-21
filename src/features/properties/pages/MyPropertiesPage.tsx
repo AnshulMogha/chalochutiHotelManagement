@@ -66,6 +66,7 @@ export default function MyPropertiesPage() {
 
   const [activeHotels, setActiveHotels] = useState<HotelList[]>([]);
   const [inProcessHotels, setInProcessHotels] = useState<HotelList[]>([]);
+  const [rejectedHotels, setRejectedHotels] = useState<HotelList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("active");
 
@@ -80,13 +81,19 @@ export default function MyPropertiesPage() {
         setIsLoading(true);
         const response = await propertyService.getAllHotels();
        
-        const activeHotels = response.filter(
+        const activeHotelsRaw = response.filter(
           (hotel) => hotel.status === "LIVE"
         );
-        const inProcessHotels = response.filter(
-          (hotel) => hotel.status !== "LIVE"
+        // In Process: everything that is not LIVE and not REJECTED
+        const inProcessHotelsRaw = response.filter(
+          (hotel) => hotel.status !== "LIVE" && hotel.status !== "REJECTED"
         );
-        const activeHotelsList = activeHotels.map((hotel) => ({
+        // Rejected: only REJECTED status
+        const rejectedHotelsRaw = response.filter(
+          (hotel) => hotel.status === "REJECTED"
+        );
+
+        const activeHotelsList = activeHotelsRaw.map((hotel) => ({
           hotelId: hotel.hotelId,
           hotelCode: hotel.hotelCode,
           hotelName: hotel.hotelName,
@@ -97,7 +104,18 @@ export default function MyPropertiesPage() {
           requestedByEmail: hotel.requestedByEmail,
           rejectionReason: hotel.rejectionReason,
         }));
-        const inProcessHotelsList = inProcessHotels.map((hotel) => ({
+        const inProcessHotelsList = inProcessHotelsRaw.map((hotel) => ({
+          hotelId: hotel.hotelId,
+          hotelCode: hotel.hotelCode,
+          hotelName: hotel.hotelName,
+          status: hotel.status as HotelStatus,
+          currentStep: hotel.currentStep,
+          locked: hotel.locked,
+          submittedAt: hotel.submittedAt,
+          requestedByEmail: hotel.requestedByEmail,
+          rejectionReason: hotel.rejectionReason,
+        }));
+        const rejectedHotelsList = rejectedHotelsRaw.map((hotel) => ({
           hotelId: hotel.hotelId,
           hotelCode: hotel.hotelCode,
           hotelName: hotel.hotelName,
@@ -110,6 +128,7 @@ export default function MyPropertiesPage() {
         }));
         setActiveHotels(activeHotelsList);
         setInProcessHotels(inProcessHotelsList);
+        setRejectedHotels(rejectedHotelsList);
       } catch (error) {
         console.error("Error fetching properties:", error);
       } finally {
@@ -118,12 +137,15 @@ export default function MyPropertiesPage() {
     }
     fetchProperties();
   }, []);
-  const handleExportCSV = (hotels: HotelList[], isActiveTab: boolean) => {
+  const handleExportCSV = (
+    hotels: HotelList[],
+    tab: "active" | "inprocess" | "rejected"
+  ) => {
     const exportColumns: ExportColumn[] = [
       { field: "hotelName", headerName: "Hotel Name" },
       { field: "hotelCode", headerName: "Hotel Code" },
       { field: "status", headerName: "Status" },
-      ...(!isActiveTab
+      ...(tab !== "active"
         ? [{ field: "currentStep", headerName: "Current Step", valueGetter: (row) => formatStep(row.currentStep) }]
         : []),
       {
@@ -132,22 +154,29 @@ export default function MyPropertiesPage() {
         valueGetter: (row) => formatDate(row.submittedAt),
       },
       { field: "requestedByEmail", headerName: "Requested By" },
-      ...(!isActiveTab
+      ...(tab !== "active"
         ? [{ field: "rejectionReason", headerName: "Rejection Reason" }]
         : []),
     ];
-    const filename = isActiveTab
-      ? `active-hotels-${new Date().toISOString().split('T')[0]}`
-      : `in-process-hotels-${new Date().toISOString().split('T')[0]}`;
+    const today = new Date().toISOString().split("T")[0];
+    const filename =
+      tab === "active"
+        ? `active-hotels-${today}`
+        : tab === "inprocess"
+        ? `in-process-hotels-${today}`
+        : `rejected-hotels-${today}`;
     exportToCSV(hotels, exportColumns, filename);
   };
 
-  const handleExportExcel = (hotels: HotelList[], isActiveTab: boolean) => {
+  const handleExportExcel = (
+    hotels: HotelList[],
+    tab: "active" | "inprocess" | "rejected"
+  ) => {
     const exportColumns: ExportColumn[] = [
       { field: "hotelName", headerName: "Hotel Name" },
       { field: "hotelCode", headerName: "Hotel Code" },
       { field: "status", headerName: "Status" },
-      ...(!isActiveTab
+      ...(tab !== "active"
         ? [{ field: "currentStep", headerName: "Current Step", valueGetter: (row) => formatStep(row.currentStep) }]
         : []),
       {
@@ -156,13 +185,17 @@ export default function MyPropertiesPage() {
         valueGetter: (row) => formatDate(row.submittedAt),
       },
       { field: "requestedByEmail", headerName: "Requested By" },
-      ...(!isActiveTab
+      ...(tab !== "active"
         ? [{ field: "rejectionReason", headerName: "Rejection Reason" }]
         : []),
     ];
-    const filename = isActiveTab
-      ? `active-hotels-${new Date().toISOString().split('T')[0]}`
-      : `in-process-hotels-${new Date().toISOString().split('T')[0]}`;
+    const today = new Date().toISOString().split("T")[0];
+    const filename =
+      tab === "active"
+        ? `active-hotels-${today}`
+        : tab === "inprocess"
+        ? `in-process-hotels-${today}`
+        : `rejected-hotels-${today}`;
     exportToExcel(hotels, exportColumns, filename);
   };
 
@@ -534,20 +567,36 @@ export default function MyPropertiesPage() {
                 {inProcessHotels.length}
               </span>
             </TabsTrigger>
+            <TabsTrigger
+              value="rejected"
+              className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
+            >
+              <span>Rejected</span>
+              <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
+                {rejectedHotels.length}
+              </span>
+            </TabsTrigger>
           </TabsList>
 
           {/* Export Buttons - Show based on active tab */}
           {activeTab === "active" && activeHotels.length > 0 && (
             <ExportButton
-              onExportCSV={() => handleExportCSV(activeHotels, true)}
-              onExportExcel={() => handleExportExcel(activeHotels, true)}
+              onExportCSV={() => handleExportCSV(activeHotels, "active")}
+              onExportExcel={() => handleExportExcel(activeHotels, "active")}
             />
           )}
 
           {activeTab === "inprocess" && inProcessHotels.length > 0 && (
             <ExportButton
-              onExportCSV={() => handleExportCSV(inProcessHotels, false)}
-              onExportExcel={() => handleExportExcel(inProcessHotels, false)}
+              onExportCSV={() => handleExportCSV(inProcessHotels, "inprocess")}
+              onExportExcel={() => handleExportExcel(inProcessHotels, "inprocess")}
+            />
+          )}
+
+          {activeTab === "rejected" && rejectedHotels.length > 0 && (
+            <ExportButton
+              onExportCSV={() => handleExportCSV(rejectedHotels, "rejected")}
+              onExportExcel={() => handleExportExcel(rejectedHotels, "rejected")}
             />
           )}
         </div>
@@ -560,6 +609,11 @@ export default function MyPropertiesPage() {
         {/* In Process Properties Tab */}
         <TabsContent value="inprocess" className="mt-0">
           {renderTable(inProcessHotels, false)}
+        </TabsContent>
+
+        {/* Rejected Properties Tab */}
+        <TabsContent value="rejected" className="mt-0">
+          {renderTable(rejectedHotels, false)}
         </TabsContent>
       </Tabs>
     </div>

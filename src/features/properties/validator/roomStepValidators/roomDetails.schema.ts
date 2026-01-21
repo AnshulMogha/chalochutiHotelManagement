@@ -9,6 +9,7 @@ const roomDetailsSchema = z.object({
     message: "Room size unit is required",
   }),
   totalRooms: z.number().min(1, "Total rooms is required"),
+  numberOfBathrooms: z.number().min(1, "Number of bathrooms must be at least 1"),
   description: z.string().optional(),
 });
 

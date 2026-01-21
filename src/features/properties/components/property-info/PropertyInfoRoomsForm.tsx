@@ -2,7 +2,6 @@ import { useEffect, useState, useReducer } from "react";
 import { cn } from "@/lib/utils";
 import { RoomDetailsStep } from "../steps/RoomsSteps/steps/RoomDetailsStep";
 import { SleepingArrangementStep } from "../steps/RoomsSteps/steps/SleepingArrangementStep";
-import { BathroomDetailsStep } from "../steps/RoomsSteps/steps/BathroomDetailsStep";
 import { RoomAmenitiesStep } from "../steps/RoomsSteps/steps/RoomAmenitiesStep";
 import type { roomStepErrors, RoomStateType } from "@/features/properties/types";
 import {
@@ -13,15 +12,15 @@ import {
 import {
   submitPropertyInfoRoomDetailsStep,
   submitPropertyInfoSleepingArrangementStep,
-  submitPropertyInfoBathroomDetailsStep,
   submitPropertyInfoRoomAmenitiesStep,
 } from "@/features/properties/submitter/propertyInfoRoomSubmitters";
 import { adminService, type HotelRoomDetailsResponse } from "@/features/admin/services/adminService";
 import { RoomDetailsReducer } from "@/features/properties/state/reducer";
-import { initialRoomState } from "@/features/properties/state/initialState";
-import { setRoomDetails } from "@/features/properties/state/actionCreators";
+import { initialRoomState, initialState } from "@/features/properties/state/initialState";
+import { setRoomDetails, setAvailableRoomAmenities } from "@/features/properties/state/actionCreators";
 import type { RoomInfoActionType } from "@/features/properties/state/actions";
 import { FormContext } from "@/features/properties/context/FormContextProvider";
+import { propertyService } from "@/features/properties/services/propertyService";
 
 interface PropertyInfoRoomsFormProps {
   mode: "CREATE" | "EDIT";
@@ -34,18 +33,19 @@ interface PropertyInfoRoomsFormProps {
 const steps = [
   { id: 1, name: "Room Details" },
   { id: 2, name: "Sleeping Arrangement" },
-  { id: 3, name: "Bathroom Details" },
-  { id: 4, name: "Room Amenities" },
+  { id: 3, name: "Room Amenities" },
 ];
 
 // Helper to transform API response to form state
 // Supports both direct hotel-admin response shape and wrapped onboarding-like shape
-function transformRoomResponseToState(rawResponse: HotelRoomDetailsResponse | any): RoomStateType {
+function transformRoomResponseToState(
+  rawResponse: HotelRoomDetailsResponse | { data?: HotelRoomDetailsResponse }
+): RoomStateType {
   // If API returns { data: { ... } } (onboarding style), unwrap it
   const response: HotelRoomDetailsResponse =
-    rawResponse && rawResponse.roomDetails
-      ? rawResponse
-      : rawResponse?.data ?? rawResponse;
+    (rawResponse as HotelRoomDetailsResponse).roomDetails
+      ? (rawResponse as HotelRoomDetailsResponse)
+      : (rawResponse as { data: HotelRoomDetailsResponse }).data;
 
   const selectedAmenities = (response.amenities || []).reduce<
     Record<string, string[]>
@@ -69,6 +69,7 @@ function transformRoomResponseToState(rawResponse: HotelRoomDetailsResponse | an
       roomSize: response.roomDetails?.roomSize ?? 0,
       roomSizeUnit: response.roomDetails?.roomSizeUnit ?? "SQFT",
       totalRooms: response.roomDetails?.totalRooms ?? 0,
+      numberOfBathrooms: response.roomDetails?.numberOfBathrooms ?? 1,
       description: response.roomDetails?.description ?? "",
     },
     sleepingArrangement: {
@@ -96,7 +97,7 @@ function transformRoomResponseToState(rawResponse: HotelRoomDetailsResponse | an
       maxOccupancy: response.occupancy?.maxOccupancy ?? 0,
     },
     bathroomDetails: {
-      numberOfBathrooms: response.roomDetails?.numberOfBathrooms ?? 1,
+      numberOfBathrooms: response.roomDetails?.numberOfBathrooms ?? 1, // Kept for backward compatibility
     },
     mealPlanDetails: {
       mealPlan: "",
@@ -155,6 +156,24 @@ export function PropertyInfoRoomsForm({
     }
   }, [editingRoomId, hotelId]);
 
+  // Fetch available room amenities once when the room form is opened
+  useEffect(() => {
+    async function fetchAvailableRoomAmenities() {
+      try {
+        const response = await propertyService.getAvailableRoomAmenities();
+        dispatchRoomDetails(
+          setAvailableRoomAmenities({
+            availableAmenities: response,
+          })
+        );
+      } catch (error) {
+        console.error("Error fetching room amenities:", error);
+      }
+    }
+
+    fetchAvailableRoomAmenities();
+  }, []);
+
   const resetFieldError = <S extends keyof roomStepErrors, F extends string>(
     step: S,
     field: F
@@ -188,7 +207,6 @@ export function PropertyInfoRoomsForm({
 
       const { roomKey: newRoomKey } = await submitPropertyInfoRoomDetailsStep(
         roomDetailsState.roomDetails,
-        roomDetailsState.bathroomDetails.numberOfBathrooms,
         hotelId,
         roomKey
       );
@@ -218,17 +236,7 @@ export function PropertyInfoRoomsForm({
       setRoomKey(newRoomKey);
       return true;
     },
-    // STEP 2 — Bathroom Details
-    async () => {
-      const { roomKey: newRoomKey } = await submitPropertyInfoBathroomDetailsStep(
-        roomDetailsState,
-        hotelId,
-        roomKey
-      );
-      setRoomKey(newRoomKey);
-      return true;
-    },
-    // STEP 3 — Room Amenities
+    // STEP 2 — Room Amenities
     async () => {
       const stepErrors = amenitiesValidator(roomDetailsState.roomAmenities);
       if (stepErrors) {
@@ -271,7 +279,7 @@ export function PropertyInfoRoomsForm({
 
   // Create a local context value for the form components
   const contextValue = {
-    formDataState: {} as any,
+    formDataState: initialState,
     setFormDataState: () => {},
     roomDetailsState,
     setRoomDetailsState: (action: RoomInfoActionType) => {
@@ -293,31 +301,56 @@ export function PropertyInfoRoomsForm({
     <FormContext.Provider value={contextValue}>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">
-            {mode === "CREATE" ? "Add New Room" : "Edit Room"}
-          </h2>
-          <button onClick={onCancel} className="text-sm text-gray-600">
+        <div className="flex justify-between items-center pb-4 border-b border-gray-200">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {mode === "CREATE" ? "Add New Room" : "Edit Room"}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {mode === "CREATE" 
+                ? "Create a new room type for your property" 
+                : "Update room information"}
+            </p>
+          </div>
+          <button 
+            onClick={onCancel} 
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
             Cancel
           </button>
         </div>
 
         {/* Step Tabs */}
-        <div className="flex items-center gap-2 pb-4 flex-wrap">
+        <div className="flex items-center gap-3 pb-6 flex-wrap">
           {steps.map((step, index) => (
             <button
               key={step.id}
               type="button"
               onClick={() => handleStepClick(index)}
               className={cn(
-                "px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
+                "px-6 py-3 rounded-lg text-sm font-semibold whitespace-nowrap transition-all relative",
                 currentStep === index
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200",
-                ongoingStep === index ? "ring-2 ring-blue-500" : "ring-0"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : index <= ongoingStep
+                  ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  : "bg-gray-50 text-gray-400 cursor-not-allowed",
+                ongoingStep === index ? "ring-2 ring-blue-500 ring-offset-2" : "ring-0"
               )}
+              disabled={index > ongoingStep}
             >
-              {step.id}. {step.name}
+              <span className="flex items-center gap-2">
+                <span className={cn(
+                  "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                  currentStep === index 
+                    ? "bg-white text-blue-600" 
+                    : index <= ongoingStep
+                    ? "bg-gray-200 text-gray-700"
+                    : "bg-gray-100 text-gray-400"
+                )}>
+                  {step.id}
+                </span>
+                {step.name}
+              </span>
             </button>
           ))}
         </div>
@@ -336,28 +369,27 @@ export function PropertyInfoRoomsForm({
             resetFieldError={resetFieldError}
           />
         )}
-        {currentStep === 2 && <BathroomDetailsStep />}
-        {currentStep === 3 && (
+        {currentStep === 2 && (
           <RoomAmenitiesStep errors={errors} resetFieldError={resetFieldError} />
         )}
 
         {/* Footer */}
-        <div className="flex justify-between items-center pt-4">
+        <div className="flex justify-between items-center pt-6 border-t border-gray-200">
           <button
             type="button"
             onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
             disabled={currentStep === 0}
             className={cn(
-              "px-4 py-2 rounded-md text-sm font-medium transition-colors",
+              "px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
               currentStep === 0
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400"
             )}
           >
-            Previous
+            ← Previous
           </button>
 
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-500 font-medium">
             Step {currentStep + 1} of {steps.length}
           </div>
 
@@ -365,10 +397,11 @@ export function PropertyInfoRoomsForm({
             type="button"
             onClick={handleNextStep}
             className={cn(
-              "px-4 py-2 rounded-md text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
+              "px-6 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm",
+              "bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md active:scale-95"
             )}
           >
-            {currentStep === steps.length - 1 ? "Submit" : "Next"}
+            {currentStep === steps.length - 1 ? "Save Room" : "Next →"}
           </button>
         </div>
       </div>
