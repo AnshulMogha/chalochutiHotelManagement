@@ -9,6 +9,7 @@ export interface UpdateSingleRateRequest {
   customerType: string;
   date: string; // YYYY-MM-DD
   baseRate: number;
+  singleOccupancyRate?: number | null;
   extraAdultCharge: number;
   paidChildCharge: number;
   minStay: number | null;
@@ -23,7 +24,9 @@ export interface BulkUpdateRatesRequest {
   customerType: string;
   from: string; // YYYY-MM-DD (start date)
   to: string; // YYYY-MM-DD (end date)
+  weekDays?: string[]; // ["MON","TUE","WED","THU","FRI","SAT","SUN"]
   baseRate?: number;
+  singleOccupancyRate?: number;
   extraAdultCharge?: number;
   paidChildCharge?: number;
   minStay?: number | null;

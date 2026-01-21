@@ -26,7 +26,7 @@ const getDateHeaderClasses = (date: Date, isSelected: boolean, isPastDate: boole
     case 'WEEKEND':
       return isSelected
         ? 'bg-blue-600 text-white shadow-sm'
-        : 'bg-blue-50/80 text-blue-700 hover:bg-blue-100/80';
+        : 'bg-green-50/80 text-green-700 hover:bg-green-100/80';
     default:
       return isSelected
         ? 'bg-blue-600 text-white shadow-sm'
@@ -37,7 +37,7 @@ const getDateHeaderClasses = (date: Date, isSelected: boolean, isPastDate: boole
 const getSelectedColumnBg = (date: Date) => {
   const type = getDateType(date);
   return type === 'WEEKEND' 
-    ? 'bg-blue-50/30' 
+    ? 'bg-green-50/30' 
     : 'bg-slate-50/50';
 };
 
@@ -74,10 +74,10 @@ export const RoomTypesGrid = ({
   const today = startOfToday();
 
   return (
-    <div className="border border-slate-200/60 rounded-xl overflow-hidden shadow-sm bg-white">
+    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-md bg-white">
       {/* Header Row */}
-      <div className="grid grid-cols-[280px_repeat(7,1fr)] bg-slate-50/50 border-b border-slate-200/60">
-        <div className="flex items-center px-6 py-4 font-medium text-xs text-slate-600 border-r border-slate-200/60 uppercase tracking-wide">
+      <div className="grid grid-cols-[280px_repeat(7,1fr)] bg-slate-100/80 border-b border-slate-200">
+        <div className="flex items-center px-6 py-4 font-bold text-xs text-slate-700 border-r border-slate-200 uppercase tracking-wider">
           Room Types
         </div>
 
@@ -115,11 +115,11 @@ export const RoomTypesGrid = ({
         <div
           key={room.roomId}
           className={`grid grid-cols-[280px_repeat(7,1fr)] ${
-            roomIndex > 0 ? 'border-t border-slate-200/60' : ''
-          } bg-white hover:bg-slate-50/30 transition-colors duration-150`}
+            roomIndex > 0 ? 'border-t border-slate-200' : ''
+          } bg-white hover:bg-slate-50/50 transition-colors duration-150`}
         >
           {/* Room Name Column */}
-          <div className="flex items-center px-6 py-4 font-semibold text-sm text-slate-800 border-r border-slate-200/60 bg-slate-50/40">
+          <div className="flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
             {room.roomName}
           </div>
 
@@ -143,7 +143,7 @@ export const RoomTypesGrid = ({
               <div
                 key={dateStr}
                 className={`
-                  border-r border-slate-200/60 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
+                  border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                   transition-colors duration-150
                   ${isColumnSelected ? getSelectedColumnBg(date) : ''}
                 `}

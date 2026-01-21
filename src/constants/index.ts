@@ -172,6 +172,8 @@ export const API_ENDPOINTS = {
       `/hotel/inventory/${hotelId}/calendar?from=${fromDate}&to=${toDate}`,
     UPDATE_SINGLE: "/hotel/inventory/single",
     UPDATE_BULK: "/hotel/inventory/bulk",
+    UPDATE_BULK_RESTRICTIONS: (hotelId: string) =>
+      `/hotel/inventory/${hotelId}/restrictions/bulk`,
   },
   RATES: {
     GET_CALENDAR: (hotelId: string, fromDate: string, toDate: string, customerType: string = "RETAIL") =>

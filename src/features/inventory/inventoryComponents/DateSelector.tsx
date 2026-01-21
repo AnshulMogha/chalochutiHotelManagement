@@ -1,5 +1,6 @@
 import { format, subDays, addDays, startOfToday, isBefore, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { ReactNode } from 'react';
 
 /**
  * Date Selector Component
@@ -17,12 +18,14 @@ interface DateSelectorProps {
   baseDate: Date;
   onBaseDateChange: (date: Date) => void;
   onActiveDateChange: (date: Date) => void;
+  rightAction?: ReactNode;
 }
 
 export const DateSelector = ({
   baseDate,
   onBaseDateChange,
   onActiveDateChange,
+  rightAction,
 }: DateSelectorProps) => {
   const today = startOfToday();
   // Check if going back one week would result in a past date
@@ -109,6 +112,12 @@ export const DateSelector = ({
               }}
             />
           </div>
+
+          {rightAction && (
+            <div className="flex-shrink-0">
+              {rightAction}
+            </div>
+          )}
         </div>
       </div>
     </div>

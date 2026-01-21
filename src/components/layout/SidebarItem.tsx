@@ -28,11 +28,16 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
   const isPropertyInfoRoute = (path: string) => {
     return Object.values(ROUTES.PROPERTY_INFO).includes(path as any);
   };
+
+  // Helper to check inventory routes that require hotel context
+  const isInventoryRoute = (path: string) => {
+    return path === ROUTES.ROOM_INVENTORY.LIST || path === ROUTES.RATE_INVENTORY.LIST;
+  };
   
-  // Helper function to build URL with preserved hotelId for property info routes
+  // Helper function to build URL with preserved hotelId for hotel-scoped routes
   const buildUrl = (path: string) => {
     const hotelId = searchParams.get("hotelId");
-    if (isPropertyInfoRoute(path) && hotelId) {
+    if (hotelId && (isPropertyInfoRoute(path) || isInventoryRoute(path))) {
       return `${path}?hotelId=${hotelId}`;
     }
     return path;

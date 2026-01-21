@@ -2,6 +2,7 @@ import { apiClient } from "@/services/api/client";
 import { API_ENDPOINTS } from "@/constants";
 import type { ApiSuccessResponse } from "@/services/api/types/api";
 import type { InventoryRoom } from "../type";
+import type { HotelRoomsResponse } from "@/features/admin/services/adminService";
 
 export interface InventoryCalendarApiResponse {
   data: {
@@ -42,7 +43,24 @@ export interface BulkUpdateInventoryRequest {
   status: "OPEN" | "CLOSED";
 }
 
+export interface BulkUpdateRestrictionsRequest {
+  from: string; // YYYY-MM-DD
+  to: string; // YYYY-MM-DD
+  status: "OPEN" | "CLOSED";
+  cta: boolean;
+  ctd: boolean;
+  minStay: number | null;
+  cutoffTime: string | null; // HH:mm:ss format
+}
+
 export const inventoryService = {
+  getHotelRooms: async (hotelId: string) => {
+    const response = await apiClient.get<ApiSuccessResponse<HotelRoomsResponse>>(
+      API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_ROOMS(hotelId)
+    );
+    return response.data.rooms || [];
+  },
+
   getCalendar: async (
     hotelId: string,
     fromDate: string,
@@ -92,6 +110,17 @@ export const inventoryService = {
       request
     );
     // API returns: { statusCode: 200, status: "SUCCESS", message: "Inventory bulk updated successfully." }
+  },
+
+  bulkUpdateRestrictions: async (
+    hotelId: string,
+    request: BulkUpdateRestrictionsRequest
+  ): Promise<void> => {
+    await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.INVENTORY.UPDATE_BULK_RESTRICTIONS(hotelId),
+      request
+    );
+    // API returns: { statusCode: 200, status: "SUCCESS", message: "Inventory restrictions bulk updated successfully." }
   },
 };
 

@@ -57,6 +57,9 @@ const RoomsAndRatePlansPage = lazy(
 const BulkUpdateRatesPage = lazy(
   () => import("../features/inventory/pages/BulkUpdateRatesPage")
 );
+const BulkUpdateRestrictionsPage = lazy(
+  () => import("../features/inventory/pages/BulkUpdateRestrictionsPage")
+);
 const PhotosAndVideosPage = lazy(
   () => import("../features/properties/pages/PhotosAndVideosPage")
 );
@@ -207,6 +210,10 @@ export const routes: RouteObject[] = [
       {
         path: "rates/bulk-update",
         element: <BulkUpdateRatesPage/>,
+      },
+      {
+        path: "restrictions/bulk-update",
+        element: <BulkUpdateRestrictionsPage />,
       },
       {
         path: "team",

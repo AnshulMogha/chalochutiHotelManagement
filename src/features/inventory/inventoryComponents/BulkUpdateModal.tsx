@@ -1,12 +1,19 @@
-import { useState,useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format, startOfToday, addDays, isBefore, isSameDay } from 'date-fns';
 import { X, Calendar as CalendarIcon } from 'lucide-react';
+import type { HotelRoom } from '@/features/admin/services/adminService';
 
 interface BulkUpdateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (startDate: Date, endDate: Date, value: number | null, field?: 'baseRateAdult1' | 'baseRateAdult2') => void;
+  onApply: (startDate: Date, endDate: Date, value: number | null, roomId: string, field?: 'baseRateAdult1' | 'baseRateAdult2') => void;
   section: 'room-types' | 'rate-plans';
+  rooms: HotelRoom[];
+  selectedRoomId: string;
+  onSelectRoom: (roomId: string) => void;
+  isLoadingRooms?: boolean;
+  roomsError?: string | null;
+  isSubmitting?: boolean;
 }
 
 export const BulkUpdateModal = ({
@@ -14,6 +21,12 @@ export const BulkUpdateModal = ({
   onClose,
   onApply,
   section,
+  rooms,
+  selectedRoomId,
+  onSelectRoom,
+  isLoadingRooms = false,
+  roomsError = null,
+  isSubmitting = false,
 }: BulkUpdateModalProps) => {
   const today = useMemo(() => startOfToday(), []);
   const defaultEndDate = useMemo(() => addDays(today, 6), [today]);
@@ -23,9 +36,16 @@ export const BulkUpdateModal = ({
   const [endDate, setEndDate] = useState(defaultEndDate);
   const [value, setValue] = useState<string>('');
   const [selectedField, setSelectedField] = useState<'baseRateAdult1' | 'baseRateAdult2'>('baseRateAdult1');
+  const [selectionError, setSelectionError] = useState<string | null>(null);
 
-  // REMOVE THE USEEFFECT COMPLETELY
-  
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelectionError(null);
+    setValue('');
+    setStartDate(today);
+    setEndDate(defaultEndDate);
+  }, [isOpen, today, defaultEndDate]);
+
   if (!isOpen) return null;
 
   const handleStartDateChange = (date: Date) => {
@@ -49,6 +69,11 @@ export const BulkUpdateModal = ({
   };
 
   const handleApply = () => {
+    if (!selectedRoomId) {
+      setSelectionError('Please select a room type.');
+      return;
+    }
+
     const numValue = value === '' ? null : Number(value);
     if (numValue !== null && (isNaN(numValue) || numValue < 0)) {
       alert('Please enter a valid number (0 or greater)');
@@ -59,6 +84,7 @@ export const BulkUpdateModal = ({
       startDate, 
       endDate, 
       numValue, 
+      selectedRoomId,
       section === 'rate-plans' ? selectedField : undefined
     );
     onClose();
@@ -68,9 +94,53 @@ export const BulkUpdateModal = ({
     return section === 'room-types' ? 'Total Inventory' : 'Rate Amount';
   };
 
+  const renderRoomSelection = () => {
+    const hasRooms = rooms.length > 0;
+    return (
+      <div className="space-y-1.5">
+        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+          Select Room Type
+        </label>
+        <div className="flex flex-col gap-1">
+          <select
+            value={selectedRoomId}
+            onChange={(e) => {
+              onSelectRoom(e.target.value);
+              setSelectionError(null);
+            }}
+            disabled={isLoadingRooms || !hasRooms}
+            className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            <option value="">Select room type</option>
+            {rooms.map((room) => (
+              <option key={room.roomId} value={room.roomId}>
+                {room.roomName}
+              </option>
+            ))}
+          </select>
+          {isLoadingRooms && (
+            <p className="text-[11px] text-slate-500">Loading room types...</p>
+          )}
+          {!isLoadingRooms && roomsError && (
+            <p className="text-[11px] text-red-600 font-semibold">{roomsError}</p>
+          )}
+          {!isLoadingRooms && !roomsError && !hasRooms && (
+            <p className="text-[11px] text-red-600 font-semibold">No room types available.</p>
+          )}
+          {selectionError && (
+            <p className="text-[11px] text-red-600 font-semibold">{selectionError}</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const isApplyDisabled =
+    isLoadingRooms || isSubmitting || !selectedRoomId;
+
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6">
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
           <div>
@@ -87,6 +157,8 @@ export const BulkUpdateModal = ({
 
         {/* Content */}
         <div className="p-6 space-y-5">
+          {renderRoomSelection()}
+
           {/* Date Range Group */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -175,9 +247,14 @@ export const BulkUpdateModal = ({
           </button>
           <button
             onClick={handleApply}
-            className="px-6 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all active:scale-95"
+            disabled={isApplyDisabled}
+            className={`px-6 py-2 text-sm font-bold text-white rounded-lg shadow-sm transition-all active:scale-95 ${
+              isApplyDisabled
+                ? 'bg-blue-300 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
-            Update Range
+            {isSubmitting ? 'Updating...' : 'Update Range'}
           </button>
         </div>
       </div>

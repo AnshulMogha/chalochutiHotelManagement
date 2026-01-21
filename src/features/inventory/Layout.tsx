@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useSearchParams, useNavigate } from "react-router";
 import { startOfToday, addDays, format } from "date-fns";
+import { ChevronDown } from "lucide-react";
 import { DateSelector } from "./inventoryComponents/DateSelector";
 import { NavigationTabs } from "./inventoryComponents/NavigationTabs";
 import { RoomTypesGrid } from "./inventoryComponents/RoomTypesGrid";
@@ -12,7 +13,13 @@ import { inventoryService } from "./services/inventoryService";
 import { rateService } from "./services/rateService";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { RatePlansGrid } from "./inventoryComponents/RatePlansGrid";
-// import { updateAvailability } from "@/services/api";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui";
+import type { HotelRoom } from "@/features/admin/services/adminService";
 
 // Track the single active edit
 interface ActiveEdit {
@@ -27,6 +34,12 @@ interface ActiveRateEdit {
   roomId: number;
   date: string;
   baseRate: number;
+  singleOccupancyRate?: number | null;
+  extraAdultCharge?: number;
+  paidChildCharge?: number;
+  minStay?: number | null;
+  maxStay?: number | null;
+  cutoffTime?: string | null;
 }
 
 export default function Layout() {
@@ -55,19 +68,24 @@ export default function Layout() {
   const [baseDate, setBaseDate] = useState(today);
   const [activeDate, setActiveDate] = useState(today);
   const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
+  const [isBulkUpdateDropdownOpen, setIsBulkUpdateDropdownOpen] = useState(false);
 
   const [rooms, setRooms] = useState<InventoryRoom[]>([]);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [ratePlansFromDate, setRatePlansFromDate] = useState<string>("");
   const [ratePlansToDate, setRatePlansToDate] = useState<string>("");
   const [customerType, setCustomerType] = useState<string>("RETAIL");
+  const [roomTypes, setRoomTypes] = useState<HotelRoom[]>([]);
+  const [isLoadingRoomTypes, setIsLoadingRoomTypes] = useState(false);
+  const [roomTypesError, setRoomTypesError] = useState<string | null>(null);
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<string>("");
 
   // Map navigation tab ID to customerType
   const getCustomerTypeFromTab = (tabId: string): string => {
     const tabToCustomerType: Record<string, string> = {
       'b2c': 'RETAIL',
-      'mybiz': 'MYBIZ',
-      'b2b': 'B2B',
+      'mybiz': 'CORPORATE',
+      'b2b': 'AGENT',
     };
     return tabToCustomerType[tabId] || 'RETAIL';
   };
@@ -98,6 +116,7 @@ export default function Layout() {
   const isCancelingRef = useRef(false);
 
   const hasChanges = activeEdit !== null || activeRateEdit !== null;
+  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
 
   // Calculate date range: fromDate = baseDate, toDate = baseDate + 6 days
   const fromDate = useMemo(() => format(baseDate, "yyyy-MM-dd"), [baseDate]);
@@ -169,6 +188,34 @@ export default function Layout() {
 
     fetchRatePlans();
   }, [hotelId, fromDate, toDate, activeSidebarSection, currentCustomerType]);
+
+  useEffect(() => {
+    if (!hotelId || !isBulkUpdateModalOpen) return;
+
+    const fetchRoomTypes = async () => {
+      setIsLoadingRoomTypes(true);
+      setRoomTypesError(null);
+      setSelectedRoomTypeId("");
+      try {
+        const roomTypeList = await inventoryService.getHotelRooms(hotelId);
+        setRoomTypes(roomTypeList);
+
+        if (roomTypeList.length === 0) {
+          const message = "No room types available for this hotel.";
+          setRoomTypesError(message);
+          showToast(message, "error");
+        }
+      } catch (error: any) {
+        const message = error?.message || "Failed to load room types";
+        setRoomTypesError(message);
+        showToast(message, "error");
+      } finally {
+        setIsLoadingRoomTypes(false);
+      }
+    };
+
+    fetchRoomTypes();
+  }, [hotelId, isBulkUpdateModalOpen]);
 
   const handleAvailabilityUpdate = (
     roomId: number,
@@ -329,6 +376,12 @@ export default function Layout() {
         activeRateEdit.roomId,
         activeRateEdit.date,
         activeRateEdit.baseRate,
+        activeRateEdit.singleOccupancyRate,
+        activeRateEdit.extraAdultCharge,
+        activeRateEdit.paidChildCharge,
+        activeRateEdit.minStay,
+        activeRateEdit.maxStay,
+        activeRateEdit.cutoffTime,
       );
     }
   };
@@ -368,8 +421,39 @@ export default function Layout() {
     startDate: Date,
     endDate: Date,
     value: number | null,
+    roomId: string,
   ) => {
-    if (!hotelId || value === null) return;
+    if (!hotelId) return;
+
+    if (roomTypes.length === 0) {
+      showToast("No room types available for this hotel.", "error");
+      return;
+    }
+
+    if (!roomId) {
+      showToast("Please select a room type before applying.", "error");
+      return;
+    }
+
+    if (value === null) {
+      showToast("Please enter a value for total rooms.", "error");
+      return;
+    }
+
+    if (isBulkSubmitting) return;
+
+    // Map selected room type (admin room list) to numeric inventory roomId by room name
+    const selectedRoom = roomTypes.find((r) => r.roomId === roomId);
+    const matchingInventoryRoom = rooms.find(
+      (r) =>
+        r.roomName.toLowerCase().trim() ===
+        (selectedRoom?.roomName.toLowerCase().trim() || "")
+    );
+    const numericRoomId = matchingInventoryRoom?.roomId;
+    if (!numericRoomId) {
+      showToast("Invalid room type selected. Please refresh inventory and try again.", "error");
+      return;
+    }
 
     const fromDateStr = format(startDate, "yyyy-MM-dd");
     const toDateStr = format(endDate, "yyyy-MM-dd");
@@ -377,25 +461,22 @@ export default function Layout() {
     // Determine status: OPEN if totalRooms > 0, CLOSED if totalRooms === 0
     const status: "OPEN" | "CLOSED" = value > 0 ? "OPEN" : "CLOSED";
 
+    setIsBulkSubmitting(true);
     setIsLoading(true);
     try {
-      // Call bulk update API for each room
-      const updatePromises = rooms.map((room) =>
-        inventoryService.bulkUpdateInventory({
-          roomId: room.roomId,
-          from: fromDateStr,
-          to: toDateStr,
-          totalRooms: value,
-          status,
-        })
-      );
-
-      await Promise.all(updatePromises);
+      await inventoryService.bulkUpdateInventory({
+        roomId: numericRoomId,
+        from: fromDateStr,
+        to: toDateStr,
+        totalRooms: value,
+        status,
+      });
 
       // Refetch data to get updated inventory
-      const data = await inventoryService.getCalendar(hotelId, fromDate, toDate);
+      const data = await inventoryService.getCalendar(hotelId, fromDateStr, toDateStr);
       setRooms(data);
       setActiveEdit(null);
+      setIsBulkUpdateModalOpen(false);
 
       // Show success toast
       showToast("Inventory bulk updated successfully", "success");
@@ -406,15 +487,22 @@ export default function Layout() {
       showToast(errorMessage, "error");
     } finally {
       setIsLoading(false);
+      setIsBulkSubmitting(false);
     }
   };
 
-  // Handle rate plan base rate update (local state only - NOT API call)
+  // Handle rate plan update (local state only - NOT API call)
   const handleRatePlanUpdate = (
     ratePlanId: number,
     roomId: number,
     date: string,
     baseRate: number,
+    singleOccupancyRate?: number | null | undefined,
+    extraAdultCharge?: number | undefined,
+    paidChildCharge?: number | undefined,
+    minStay?: number | null | undefined,
+    maxStay?: number | null | undefined,
+    cutoffTime?: string | null | undefined,
   ) => {
     // Update local state optimistically
     setRatePlans((prev) =>
@@ -430,7 +518,16 @@ export default function Layout() {
                       ...room,
                       days: room.days.map((day) =>
                         day.date === date
-                          ? { ...day, baseRate }
+                          ? { 
+                              ...day, 
+                              baseRate,
+                              ...(singleOccupancyRate !== undefined && { singleOccupancyRate }),
+                              ...(extraAdultCharge !== undefined && { extraAdultCharge }),
+                              ...(paidChildCharge !== undefined && { paidChildCharge }),
+                              ...(minStay !== undefined && { minStay }),
+                              ...(maxStay !== undefined && { maxStay }),
+                              ...(cutoffTime !== undefined && { cutoffTime }),
+                            }
                           : day,
                       ),
                     },
@@ -439,7 +536,18 @@ export default function Layout() {
       ),
     );
     // Track active edit
-    setActiveRateEdit({ ratePlanId, roomId, date, baseRate });
+    setActiveRateEdit((prev) => ({
+      ratePlanId,
+      roomId,
+      date,
+      baseRate,
+      ...(singleOccupancyRate !== undefined && { singleOccupancyRate }),
+      ...(extraAdultCharge !== undefined && { extraAdultCharge }),
+      ...(paidChildCharge !== undefined && { paidChildCharge }),
+      ...(minStay !== undefined && { minStay }),
+      ...(maxStay !== undefined && { maxStay }),
+      ...(cutoffTime !== undefined && { cutoffTime }),
+    }));
   };
 
   // Handle single day rate update via API - ONLY called from Save button
@@ -448,6 +556,12 @@ export default function Layout() {
     roomId: number,
     date: string,
     baseRate: number,
+    singleOccupancyRate?: number | null,
+    extraAdultCharge?: number,
+    paidChildCharge?: number,
+    minStay?: number | null,
+    maxStay?: number | null,
+    cutoffTime?: string | null,
   ) => {
     if (!hotelId) return;
     
@@ -459,10 +573,16 @@ export default function Layout() {
     const room = ratePlan?.rooms.find((r) => r.roomId === roomId);
     const dayData = room?.days.find((d) => d.date === date);
 
-    // Store previous value for reverting on error
+    // Store previous values for reverting on error
     const previousBaseRate = dayData?.baseRate ?? 0;
+    const previousSingleOccupancyRate = dayData?.singleOccupancyRate ?? null;
+    const previousExtraAdultCharge = dayData?.extraAdultCharge ?? 0;
+    const previousPaidChildCharge = dayData?.paidChildCharge ?? 0;
+    const previousMinStay = dayData?.minStay ?? null;
+    const previousMaxStay = dayData?.maxStay ?? null;
+    const previousCutoffTime = dayData?.cutoffTime ?? null;
 
-    // Build payload using existing values from day data or defaults
+    // Build payload using values from activeEdit or existing day data
     // Use customerType from active navigation tab
     const payload = {
       roomId,
@@ -470,11 +590,12 @@ export default function Layout() {
       customerType: currentCustomerType, // Use customerType from active tab
       date,
       baseRate: baseRate || 0, // Send 0 if empty
-      extraAdultCharge: dayData?.extraAdultCharge ?? 0,
-      paidChildCharge: dayData?.paidChildCharge ?? 0,
-      minStay: dayData?.minStay ?? null,
-      maxStay: dayData?.maxStay ?? null,
-      cutoffTime: dayData?.cutoffTime ?? null,
+      singleOccupancyRate: singleOccupancyRate !== undefined ? singleOccupancyRate : (dayData?.singleOccupancyRate ?? null),
+      extraAdultCharge: extraAdultCharge !== undefined ? extraAdultCharge : (dayData?.extraAdultCharge ?? 0),
+      paidChildCharge: paidChildCharge !== undefined ? paidChildCharge : (dayData?.paidChildCharge ?? 0),
+      minStay: minStay !== undefined ? minStay : (dayData?.minStay ?? null),
+      maxStay: maxStay !== undefined ? maxStay : (dayData?.maxStay ?? null),
+      cutoffTime: cutoffTime !== undefined ? cutoffTime : (dayData?.cutoffTime ?? null),
       currency: dayData?.currency ?? "INR",
     };
 
@@ -488,15 +609,26 @@ export default function Layout() {
       }
       showToast("Rate updated successfully", "success");
     } catch (error: any) {
-      // Revert to previous value on error
-      handleRatePlanUpdate(ratePlanId, roomId, date, previousBaseRate);
+      // Revert to previous values on error
+      handleRatePlanUpdate(
+        ratePlanId, 
+        roomId, 
+        date, 
+        previousBaseRate,
+        previousSingleOccupancyRate,
+        previousExtraAdultCharge,
+        previousPaidChildCharge,
+        previousMinStay,
+        previousMaxStay,
+        previousCutoffTime
+      );
       const errorMessage = error?.message || "Failed to update rate";
       showToast(errorMessage, "error");
     }
   };
 
   return (
-    <div className="w-full h-full bg-gray-50 pb-24 overflow-x-auto">
+    <div className="w-full h-full bg-slate-100 pb-24 overflow-x-auto">
       <div className="max-w-450 mx-auto">
         <div className="flex pt-3 px-6">
           <div className="flex-1">
@@ -509,37 +641,62 @@ export default function Layout() {
             )}
 
             <div className="pt-6 mb-4">
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <DateSelector
-                    baseDate={baseDate}
-                    onBaseDateChange={setBaseDate}
-                    onActiveDateChange={setActiveDate}
-                  />
-                </div>
-
-                {/* Show Bulk Update button only for room-types section */}
-                {activeSidebarSection === "room-types" && (
-                  <button
-                    onClick={() => setIsBulkUpdateModalOpen(true)}
-                    className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
+              <DateSelector
+                baseDate={baseDate}
+                onBaseDateChange={setBaseDate}
+                onActiveDateChange={setActiveDate}
+                rightAction={
+                  /* Bulk Update Dropdown Button - Available for both sections */
+                  <DropdownMenu
+                    open={isBulkUpdateDropdownOpen}
+                    onOpenChange={setIsBulkUpdateDropdownOpen}
                   >
-                    Bulk Update
-                  </button>
-                )}
-
-                {/* Show Bulk Update Rate button only for rate-plans section */}
-                {activeSidebarSection === "rate-plans" && hotelId && (
-                  <button
-                    onClick={() => {
-                      navigate(`/rates/bulk-update?hotelId=${hotelId}`);
-                    }}
-                    className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
-                  >
-                    Bulk Update Rate
-                  </button>
-                )}
-              </div>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap flex items-center gap-2"
+                      >
+                        Bulk Update
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setIsBulkUpdateModalOpen(true);
+                          setIsBulkUpdateDropdownOpen(false);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        Bulk Update Inventory
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (hotelId) {
+                            navigate(`/rates/bulk-update?hotelId=${hotelId}`);
+                          }
+                          setIsBulkUpdateDropdownOpen(false);
+                        }}
+                        className="cursor-pointer"
+                        disabled={!hotelId}
+                      >
+                        Bulk Update Rates
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (hotelId) {
+                            navigate(`/restrictions/bulk-update?hotelId=${hotelId}`);
+                          }
+                          setIsBulkUpdateDropdownOpen(false);
+                        }}
+                        className="cursor-pointer"
+                        disabled={!hotelId}
+                      >
+                        Bulk Restrictions
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                }
+              />
             </div>
 
             {isLoading ? (
@@ -551,29 +708,33 @@ export default function Layout() {
                 </span>
               </div>
             ) : activeSidebarSection === "room-types" ? (
-              <RoomTypesGrid
-                rooms={rooms}
-                baseDate={baseDate}
-                activeDate={activeDate}
-                onUpdate={handleAvailabilityUpdate}
-                onActiveDateChange={setActiveDate}
-                isLocked={hasChanges}
-                activeEdit={activeEdit}
-                updatingCells={updatingCells}
-              />
-            ) : (
-              ratePlansFromDate && ratePlansToDate ? (
-                <RatePlansGrid
-                  ratePlans={ratePlans}
-                  fromDate={ratePlansFromDate}
-                  toDate={ratePlansToDate}
+              <div className="mt-4">
+                <RoomTypesGrid
+                  rooms={rooms}
+                  baseDate={baseDate}
                   activeDate={activeDate}
-                  customerType={customerType}
-                  onUpdate={handleRatePlanUpdate}
+                  onUpdate={handleAvailabilityUpdate}
                   onActiveDateChange={setActiveDate}
                   isLocked={hasChanges}
-                  activeEdit={activeRateEdit}
+                  activeEdit={activeEdit}
+                  updatingCells={updatingCells}
                 />
+              </div>
+            ) : (
+              ratePlansFromDate && ratePlansToDate ? (
+                <div className="mt-4">
+                  <RatePlansGrid
+                    ratePlans={ratePlans}
+                    fromDate={ratePlansFromDate}
+                    toDate={ratePlansToDate}
+                    activeDate={activeDate}
+                    customerType={customerType}
+                    onUpdate={handleRatePlanUpdate}
+                    onActiveDateChange={setActiveDate}
+                    isLocked={hasChanges}
+                    activeEdit={activeRateEdit}
+                  />
+                </div>
               ) : (
                 <div className="flex items-center justify-center py-12">
                   <span className="text-gray-500">No rate plans data available</span>
@@ -590,16 +751,20 @@ export default function Layout() {
         onCancel={handleCancel}
       />
 
-      {/* Only show Bulk Update Modal for room-types section */}
-      {activeSidebarSection === "room-types" && (
-        <BulkUpdateModal
-          key={isBulkUpdateModalOpen ? "open" : "closed"}
-          isOpen={isBulkUpdateModalOpen}
-          onClose={() => setIsBulkUpdateModalOpen(false)}
-          onApply={handleBulkUpdate}
-          section={activeSidebarSection}
-        />
-      )}
+      {/* Bulk Update Modal - Available from both sections */}
+      <BulkUpdateModal
+        key={isBulkUpdateModalOpen ? "open" : "closed"}
+        isOpen={isBulkUpdateModalOpen}
+        onClose={() => setIsBulkUpdateModalOpen(false)}
+        onApply={handleBulkUpdate}
+        rooms={roomTypes}
+        selectedRoomId={selectedRoomTypeId}
+        onSelectRoom={setSelectedRoomTypeId}
+        isLoadingRooms={isLoadingRoomTypes}
+        roomsError={roomTypesError}
+        isSubmitting={isBulkSubmitting}
+        section="room-types"
+      />
 
       <Toast
         message={toast.message}

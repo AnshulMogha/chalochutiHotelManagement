@@ -90,6 +90,7 @@ export interface RatePlanRoom {
 export interface RatePlanDay {
   date: string; // YYYY-MM-DD
   baseRate: number; // Can be 0, which should be treated as empty/not set
+  singleOccupancyRate?: number | null; // Optional single occupancy rate
   extraAdultCharge: number;
   paidChildCharge: number;
   minStay: number | null;
