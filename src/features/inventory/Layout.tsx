@@ -8,7 +8,7 @@ import { RoomTypesGrid } from "./inventoryComponents/RoomTypesGrid";
 import { SaveCancelButtons } from "./inventoryComponents/SaveCancelButtons";
 import { BulkUpdateModal } from "./inventoryComponents/BulkUpdateModal";
 import { TAB_OPTIONS } from "@/data/dummyData";
-import { type InventoryRoom, type RatePlan } from "./type";
+import { type InventoryRoom, type RatesRoom } from "./type";
 import { inventoryService } from "./services/inventoryService";
 import { rateService } from "./services/rateService";
 import { Toast, useToast } from "@/components/ui/Toast";
@@ -71,7 +71,7 @@ export default function Layout() {
   const [isBulkUpdateDropdownOpen, setIsBulkUpdateDropdownOpen] = useState(false);
 
   const [rooms, setRooms] = useState<InventoryRoom[]>([]);
-  const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
+  const [rateRooms, setRateRooms] = useState<RatesRoom[]>([]);
   const [ratePlansFromDate, setRatePlansFromDate] = useState<string>("");
   const [ratePlansToDate, setRatePlansToDate] = useState<string>("");
   const [customerType, setCustomerType] = useState<string>("RETAIL");
@@ -110,7 +110,7 @@ export default function Layout() {
   const originalRoomsRef = useRef<InventoryRoom[]>([]);
   
   // Store original rate plans state for cancel functionality
-  const originalRatePlansRef = useRef<RatePlan[]>([]);
+  const originalRateRoomsRef = useRef<RatesRoom[]>([]);
   
   // Flag to prevent API calls when canceling
   const isCancelingRef = useRef(false);
@@ -168,17 +168,17 @@ export default function Layout() {
         const customerTypeToFetch = currentCustomerType;
         const data = await rateService.getCalendar(hotelId, fromDate, toDate, customerTypeToFetch);
         console.log("rate plans data", data);
-        setRatePlans(data.ratePlans);
+        setRateRooms(data.rooms);
         setRatePlansFromDate(data.from);
         setRatePlansToDate(data.to);
         setCustomerType(data.customerType);
         // Store original state for cancel functionality
-        originalRatePlansRef.current = JSON.parse(JSON.stringify(data.ratePlans));
+        originalRateRoomsRef.current = JSON.parse(JSON.stringify(data.rooms));
         // Clear any active edits when data is refetched
         setActiveRateEdit(null);
       } catch (error) {
         console.error("Error fetching rate plans:", error);
-        setRatePlans([]);
+        setRateRooms([]);
         setRatePlansFromDate("");
         setRatePlansToDate("");
       } finally {
@@ -398,10 +398,10 @@ export default function Layout() {
     }
     setActiveEdit(null);
     
-    // Revert rate plans to original state
-    if (originalRatePlansRef.current.length > 0) {
-      const originalData = JSON.parse(JSON.stringify(originalRatePlansRef.current));
-      setRatePlans(originalData);
+    // Revert rate rooms to original state
+    if (originalRateRoomsRef.current.length > 0) {
+      const originalData = JSON.parse(JSON.stringify(originalRateRoomsRef.current));
+      setRateRooms(originalData);
     }
     setActiveRateEdit(null);
     
@@ -505,18 +505,19 @@ export default function Layout() {
     cutoffTime?: string | null | undefined,
   ) => {
     // Update local state optimistically
-    setRatePlans((prev) =>
-      prev.map((ratePlan) =>
-        ratePlan.ratePlanId !== ratePlanId
-          ? ratePlan
+    // New structure: rooms → ratePlans → days
+    setRateRooms((prev) =>
+      prev.map((room) =>
+        room.roomId !== roomId
+          ? room
           : {
-              ...ratePlan,
-              rooms: ratePlan.rooms.map((room) =>
-                room.roomId !== roomId
-                  ? room
+              ...room,
+              ratePlans: room.ratePlans.map((ratePlan) =>
+                ratePlan.ratePlanId !== ratePlanId
+                  ? ratePlan
                   : {
-                      ...room,
-                      days: room.days.map((day) =>
+                      ...ratePlan,
+                      days: ratePlan.days.map((day) =>
                         day.date === date
                           ? { 
                               ...day, 
@@ -569,9 +570,10 @@ export default function Layout() {
     if (isCancelingRef.current) return;
 
     // Find the day data to get existing values
-    const ratePlan = ratePlans.find((rp) => rp.ratePlanId === ratePlanId);
-    const room = ratePlan?.rooms.find((r) => r.roomId === roomId);
-    const dayData = room?.days.find((d) => d.date === date);
+    // New structure: rooms → ratePlans → days
+    const room = rateRooms.find((r) => r.roomId === roomId);
+    const ratePlan = room?.ratePlans.find((rp) => rp.ratePlanId === ratePlanId);
+    const dayData = ratePlan?.days.find((d) => d.date === date);
 
     // Store previous values for reverting on error
     const previousBaseRate = dayData?.baseRate ?? 0;
@@ -724,7 +726,7 @@ export default function Layout() {
               ratePlansFromDate && ratePlansToDate ? (
                 <div className="mt-4">
                   <RatePlansGrid
-                    ratePlans={ratePlans}
+                    rooms={rateRooms}
                     fromDate={ratePlansFromDate}
                     toDate={ratePlansToDate}
                     activeDate={activeDate}

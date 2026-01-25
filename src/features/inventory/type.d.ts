@@ -67,14 +67,40 @@ export interface RatesApiResponse {
   data: RatesData;
 }
 
+// New API Response Structure: rooms → ratePlans → days
 export interface RatesData {
   hotelId: string;
   customerType: 'RETAIL' | 'CORPORATE' | string;
   from: string; // YYYY-MM-DD
   to: string;   // YYYY-MM-DD
-  ratePlans: RatePlan[];
+  rooms: RatesRoom[];
 }
 
+export interface RatesRoom {
+  roomId: number;
+  roomName: string;
+  ratePlans: RoomRatePlan[];
+}
+
+export interface RoomRatePlan {
+  ratePlanId: number;
+  ratePlanName: string;
+  days: RoomRateDay[];
+}
+
+export interface RoomRateDay {
+  date: string; // YYYY-MM-DD
+  baseRate: number; // Can be 0
+  singleOccupancyRate?: number | null;
+  extraAdultCharge: number;
+  paidChildCharge: number;
+  minStay: number | null;
+  maxStay: number | null;
+  cutoffTime: string | null;
+  currency: string | null;
+}
+
+// Legacy types for backward compatibility (if needed elsewhere)
 export interface RatePlan {
   ratePlanId: number;
   ratePlanName: string;

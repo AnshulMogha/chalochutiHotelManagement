@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   addDays,
   format,
@@ -66,6 +66,8 @@ export const RoomTypesGrid = ({
   activeEdit,
   updatingCells,
 }: RoomTypesGridProps) => {
+  // Track local input values as strings: key = `${roomId}-${dateStr}`
+  const [localValues, setLocalValues] = useState<Map<string, string>>(new Map());
   
   const dates = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => addDays(baseDate, i));
@@ -136,8 +138,18 @@ export const RoomTypesGrid = ({
             const isUpdating = updatingCells.has(cellKey);
 
             const availableValue = dayData?.available ?? 0;
-            const hasInventory = availableValue > 0;
             const totalValue = dayData?.total ?? 0;
+            
+            // Display priority logic (evaluate in exact order)
+            const isNotSet = totalValue === 0;
+            const isSoldOut = totalValue > 0 && availableValue === 0;
+            const showNormal = !isNotSet && !isSoldOut;
+            
+            // Get display value: use local string value if editing, otherwise show total
+            const localValue = localValues.get(cellKey);
+            const displayValue = localValue !== undefined 
+              ? localValue 
+              : totalValue.toString();
 
             return (
               <div
@@ -148,62 +160,157 @@ export const RoomTypesGrid = ({
                   ${isColumnSelected ? getSelectedColumnBg(date) : ''}
                 `}
               >
-                <input
-                  type="number"
-                  value={totalValue}
-                  readOnly={!canEdit || isUpdating}
-                  disabled={isUpdating}
-                  onChange={(e) => {
-                    const val = Math.max(0, parseInt(e.target.value) || 0);
-                    onUpdate(room.roomId, dateStr, val);
-                  }}
-                  onBlur={() => {
-                    // Blur does NOT call API - only updates local state via onChange
-                    // API is called ONLY when Save Changes button is clicked
-                  }}
-                  onKeyDown={(e) => {
-                    // Enter key does NOT call API - only updates local state
-                    // API is called ONLY when Save Changes button is clicked
-                    if (canEdit && !isUpdating && isThisCellEdited && e.key === 'Enter') {
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  className={`
-                    w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
-                    tabular-nums
-                    ${canEdit && !isUpdating
-                      ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600' 
-                      : 'cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400'}
-                    ${isUpdating ? 'opacity-50' : ''}
-                    ${hasInventory && canEdit && !isUpdating ? 'text-emerald-700' : ''}
-                    ${!hasInventory && canEdit && !isUpdating ? 'text-rose-600' : ''}
-                    focus:outline-none
-                  `}
-                />
-                
-                <div className="flex flex-col items-center mt-2.5 gap-0.5">
-                  {isUpdating ? (
-                    <span className="text-[10px] font-medium uppercase tracking-wide text-blue-600">
+                {isUpdating ? (
+                  <>
+                    <input
+                      type="number"
+                      value={displayValue}
+                      readOnly={!canEdit || isUpdating}
+                      disabled={isUpdating}
+                      className={`
+                        w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
+                        tabular-nums
+                        cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400 opacity-50
+                        focus:outline-none
+                      `}
+                    />
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-blue-600 mt-2.5">
                       Updating...
                     </span>
-                  ) : (
-                    <span className={`
-                      text-[10px] font-medium uppercase tracking-wide
-                      ${hasInventory ? 'text-emerald-600' : 'text-rose-500'}
-                    `}>
-                      {hasInventory ? `${availableValue} Left` : 'Sold Out'}
-                    </span>
-                  )}
-                  
-                  {isLocked && !isThisCellEdited && isColumnSelected && !isUpdating && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
-                      <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                      </svg>
-                      Locked
-                    </span>
-                  )}
-                </div>
+                  </>
+                ) : isNotSet ? (
+                  // Not Set: total === 0 - show input field so user can update value
+                  <>
+                    <input
+                      type="number"
+                      value={canEdit ? (localValue !== undefined ? localValue : '0') : ''}
+                      placeholder={canEdit ? undefined : '-'}
+                      readOnly={!canEdit || isUpdating}
+                      disabled={isUpdating}
+                      onChange={(e) => {
+                        if (canEdit && !isUpdating) {
+                          const rawValue = e.target.value;
+                          // Store raw string value for display (allows empty string)
+                          setLocalValues((prev) => {
+                            const next = new Map(prev);
+                            next.set(cellKey, rawValue);
+                            return next;
+                          });
+                          // Convert to number only when updating parent state (empty string becomes 0)
+                          const numericValue = rawValue === '' ? 0 : Math.max(0, Number(rawValue) || 0);
+                          onUpdate(room.roomId, dateStr, numericValue);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (isColumnSelected) {
+                          // Clear local value on blur to show actual stored value
+                          setLocalValues((prev) => {
+                            const next = new Map(prev);
+                            next.delete(cellKey);
+                            return next;
+                          });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Enter key does NOT call API - only updates local state
+                        // API is called ONLY when Save Changes button is clicked
+                        if (canEdit && !isUpdating && isThisCellEdited && e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      className={`
+                        w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
+                        tabular-nums
+                        ${canEdit && !isUpdating
+                          ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600 text-rose-600' 
+                          : 'cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400'}
+                        ${isUpdating ? 'opacity-50' : ''}
+                        focus:outline-none
+                      `}
+                    />
+                    <div className="flex flex-col items-center mt-2.5 gap-0.5">
+                      <span className="text-[10px] font-medium uppercase tracking-wide text-rose-500">
+                        NOT SET
+                      </span>
+                      {isLocked && !isThisCellEdited && isColumnSelected && !isUpdating && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                          <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                          </svg>
+                          Locked
+                        </span>
+                      )}
+                    </div>
+                  </>
+                ) : isSoldOut ? (
+                  // Sold Out: total > 0 && available === 0
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-rose-500">
+                    SOLD OUT
+                  </span>
+                ) : (
+                  // Normal: show input with total and label with available LEFT
+                  <>
+                    <input
+                      type="number"
+                      value={displayValue}
+                      readOnly={!canEdit || isUpdating}
+                      disabled={isUpdating}
+                      onChange={(e) => {
+                        if (canEdit && !isUpdating) {
+                          const rawValue = e.target.value;
+                          // Store raw string value for display (allows empty string)
+                          setLocalValues((prev) => {
+                            const next = new Map(prev);
+                            next.set(cellKey, rawValue);
+                            return next;
+                          });
+                          // Convert to number only when updating parent state (empty string becomes 0)
+                          const numericValue = rawValue === '' ? 0 : Math.max(0, Number(rawValue) || 0);
+                          onUpdate(room.roomId, dateStr, numericValue);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (isColumnSelected) {
+                          // Clear local value on blur to show actual stored value
+                          setLocalValues((prev) => {
+                            const next = new Map(prev);
+                            next.delete(cellKey);
+                            return next;
+                          });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Enter key does NOT call API - only updates local state
+                        // API is called ONLY when Save Changes button is clicked
+                        if (canEdit && !isUpdating && isThisCellEdited && e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      className={`
+                        w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
+                        tabular-nums
+                        ${canEdit && !isUpdating
+                          ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600' 
+                          : 'cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400'}
+                        ${canEdit && !isUpdating ? 'text-emerald-700' : ''}
+                        focus:outline-none
+                      `}
+                    />
+                    <div className="flex flex-col items-center mt-2.5 gap-0.5">
+                      <span className="text-[10px] font-medium uppercase tracking-wide text-emerald-600">
+                        {availableValue} LEFT
+                      </span>
+                      {isLocked && !isThisCellEdited && isColumnSelected && !isUpdating && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                          <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                          </svg>
+                          Locked
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}

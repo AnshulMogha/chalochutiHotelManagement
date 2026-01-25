@@ -166,15 +166,14 @@ export default function BulkUpdateRatesPage() {
         );
 
         // Build mapping: roomName -> numeric roomId
+        // New API structure: rooms → ratePlans → days
         const mapping: Record<string, number> = {};
-        rateData.ratePlans.forEach((ratePlan) => {
-          ratePlan.rooms.forEach((room) => {
-            // Map by room name (case-insensitive)
-            const roomNameKey = room.roomName.toLowerCase().trim();
-            if (!mapping[roomNameKey]) {
-              mapping[roomNameKey] = room.roomId;
-            }
-          });
+        rateData.rooms.forEach((room) => {
+          // Map by room name (case-insensitive)
+          const roomNameKey = room.roomName.toLowerCase().trim();
+          if (!mapping[roomNameKey]) {
+            mapping[roomNameKey] = room.roomId;
+          }
         });
 
         // Now map UUID room IDs to numeric room IDs by matching room names
@@ -259,8 +258,9 @@ export default function BulkUpdateRatesPage() {
     const numericRoomId = roomIdMapping[roomUUID];
 
     if (!numericRoomId) {
-      console.warn(`No numeric room ID found for UUID: ${roomUUID}`);
-      return; // Don't update if we don't have the numeric room ID
+      console.warn(`No numeric room ID found for UUID: ${roomUUID}. Room mapping may not be ready yet.`);
+      // Still allow form updates - the mapping will be corrected when rate calendar data loads
+      // We'll validate and correct the numericRoomId on submit
     }
 
     setFormData((prev) => {
@@ -269,7 +269,7 @@ export default function BulkUpdateRatesPage() {
       const newData: RoomRateData = {
         ...existing, // Spread existing data first
         roomUUID, // Always override with correct roomUUID
-        numericRoomId, // Always override with correct numeric room ID
+        numericRoomId: numericRoomId || 0, // Use numeric room ID if available, 0 as fallback (will be corrected on submit)
         ratePlanId, // Always override with correct ratePlanId
         [field]: value === "" ? undefined : value,
       };
@@ -334,10 +334,10 @@ export default function BulkUpdateRatesPage() {
 
       // Build payloads for each room/rate plan combination
       const validFormEntries = Object.entries(formData).filter(([_, data]) => {
-        // Only include entries that have numericRoomId, ratePlanId, and at least one field value
-        if (!data.numericRoomId || !data.ratePlanId) {
+        // Only include entries that have valid numericRoomId (not 0), ratePlanId, and at least one field value
+        if (!data.numericRoomId || data.numericRoomId === 0 || !data.ratePlanId) {
           console.warn(
-            "Skipping entry without numericRoomId or ratePlanId:",
+            "Skipping entry without valid numericRoomId or ratePlanId:",
             data,
           );
           return false;

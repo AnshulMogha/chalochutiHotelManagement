@@ -46,8 +46,9 @@ export const rateService = {
       API_ENDPOINTS.RATES.GET_CALENDAR(hotelId, fromDate, toDate, customerType)
     );
 
-    // API response: ApiSuccessResponse wraps { data: { hotelId, customerType, from, to, ratePlans } }
-    // So response.data = { hotelId, customerType, from, to, ratePlans }
+    // API response: ApiSuccessResponse wraps { data: { hotelId, customerType, from, to, rooms } }
+    // So response.data = { hotelId, customerType, from, to, rooms }
+    // Structure: rooms[] → ratePlans[] → days[]
     return response.data;
   },
 

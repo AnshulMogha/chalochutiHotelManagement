@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { format, startOfToday, addDays, isBefore, isSameDay, differenceInDays } from 'date-fns';
-import { X, Calendar as CalendarIcon, Plus } from 'lucide-react';
+import { X, Calendar as CalendarIcon } from 'lucide-react';
 
 interface BulkRestrictionsModalProps {
   isOpen: boolean;
@@ -18,13 +18,8 @@ interface BulkRestrictionsModalProps {
 
 const CUTOFF_TIME_OPTIONS = [
   { value: '00:00:00', label: 'At Midnight' },
-  { value: '23:59:59', label: 'Before Midnight' },
-  { value: '00:01:00', label: 'After Midnight' },
-  // Add more common cutoff times
-  { value: '14:00:00', label: '2:00 PM' },
-  { value: '15:00:00', label: '3:00 PM' },
-  { value: '16:00:00', label: '4:00 PM' },
-  { value: '18:00:00', label: '6:00 PM' },
+  { value: '23:59:00', label: 'Before Midnight' },
+  { value: '02:00:00', label: 'After Midnight' },
 ];
 
 export const BulkRestrictionsModal = ({
@@ -187,13 +182,6 @@ export const BulkRestrictionsModal = ({
             <div className="text-sm text-slate-600 font-medium">
               {dateRangeText}
             </div>
-            <button
-              type="button"
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" />
-              Add Another Stay Date
-            </button>
           </div>
 
           {/* Main Heading */}
@@ -313,7 +301,7 @@ export const BulkRestrictionsModal = ({
             </select>
             {cutoffTime && (
               <p className="text-xs text-slate-500 mt-1">
-                which means your check-in Bookable till {cutoffTime === '00:00:00' ? 'Midnight' : cutoffTime === '23:59:59' ? 'Before Midnight' : cutoffTime === '00:01:00' ? 'After Midnight' : format(new Date(`2000-01-01T${cutoffTime}`), 'h:mm a')}.
+                which means your check-in Bookable till {cutoffTime === '00:00:00' ? 'Midnight' : cutoffTime === '23:59:00' ? 'Before Midnight' : cutoffTime === '02:00:00' ? 'After Midnight' : format(new Date(`2000-01-01T${cutoffTime}`), 'h:mm a')}.
               </p>
             )}
           </div>

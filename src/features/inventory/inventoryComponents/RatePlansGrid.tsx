@@ -1,22 +1,15 @@
 /**
  * Rate Plans Grid Component
  *
- * Displays rate plans with rooms and base rates.
- * New API structure: ratePlans → rooms → days
+ * Displays rooms with rate plans in accordion format.
+ * New API structure: rooms → ratePlans → days
  * 
- * UI/UX ENHANCEMENTS:
- * - Improved visual hierarchy with better spacing and typography
- * - Enhanced selected column visibility with subtle borders
- * - Better hover and focus states for all interactive elements
- * - Clearer separation between rate plans and rooms
- * - Premium input styling with improved accessibility
- * - Subtle shadows and transitions for modern polish
- * 
- * LAYOUT FIX:
- * - Fixed horizontal overflow issue on accordion expansion
- * - Consistent grid template across all rows
- * - Proper box-sizing and overflow control
- * - Removed layout-affecting scale transforms
+ * UI Flow:
+ * - Shows list of Rooms
+ * - User clicks a Room to expand
+ * - Expanded room shows Rate Plans
+ * - Under each Rate Plan show day-wise rates data
+ * - Only one room expanded at a time (accordion behavior)
  */
 
 import { useMemo, useState, useRef } from 'react';
@@ -32,7 +25,8 @@ import {
   eachDayOfInterval,
 } from 'date-fns';
 import { ChevronDown, ChevronRight, AlertTriangle, X, User, Users } from 'lucide-react';
-import type { RatePlan, RatePlanDay } from '../type';
+import type { RatesRoom, RoomRatePlan, RoomRateDay } from '../type';
+import { getDayData, formatTimeForInput, formatRate } from '../utils/rateHelpers';
 
 /* ----------------------------------
    Date Helpers
@@ -43,7 +37,6 @@ const getDateType = (date: Date) => {
   return 'NORMAL';
 };
 
-// Match RoomTypesGrid styling
 const getDateHeaderClasses = (date: Date, isSelected: boolean, isPastDate: boolean) => {
   if (isPastDate) return 'bg-slate-50 text-slate-300 cursor-not-allowed';
   const type = getDateType(date);
@@ -72,7 +65,7 @@ const getSelectedColumnBg = (date: Date) => {
 ----------------------------------- */
 
 interface RatePlansGridProps {
-  ratePlans: RatePlan[];
+  rooms: RatesRoom[];
   fromDate: string; // YYYY-MM-DD from API
   toDate: string; // YYYY-MM-DD from API
   activeDate: Date;
@@ -89,7 +82,6 @@ interface RatePlansGridProps {
     maxStay?: number | null | undefined,
     cutoffTime?: string | null | undefined
   ) => void;
-  // onSingleRateUpdate removed - API is now called only from Save button
   onActiveDateChange: (date: Date) => void;
   isLocked?: boolean;
   activeEdit?: { 
@@ -107,7 +99,7 @@ interface RatePlansGridProps {
 }
 
 export const RatePlansGrid = ({
-  ratePlans,
+  rooms,
   fromDate,
   toDate,
   activeDate,
@@ -118,7 +110,8 @@ export const RatePlansGrid = ({
   activeEdit = null,
 }: RatePlansGridProps) => {
   const navigate = useNavigate();
-  const [expandedRatePlans, setExpandedRatePlans] = useState<Set<number>>(new Set());
+  // Accordion state: only one room expanded at a time
+  const [expandedRoomId, setExpandedRoomId] = useState<number | null>(null);
   // Track local input values: key = `${ratePlanId}-${roomId}-${date}`
   const [localValues, setLocalValues] = useState<Map<string, string>>(new Map());
   // Track which room/rate plan has "Rate and Restrictions" expanded: key = `${ratePlanId}-${roomId}`
@@ -142,11 +135,15 @@ export const RatePlansGrid = ({
 
   const today = startOfToday();
 
-  const toggleRatePlan = (ratePlanId: number) => {
-    setExpandedRatePlans((prev) => {
-      const next = new Set(prev);
-      next.has(ratePlanId) ? next.delete(ratePlanId) : next.add(ratePlanId);
-      return next;
+  // Toggle room expansion (accordion behavior)
+  const toggleRoom = (roomId: number) => {
+    setExpandedRoomId((prev) => {
+      // If clicking the same room, close it
+      if (prev === roomId) {
+        return null;
+      }
+      // Otherwise, expand the new room (closes previous)
+      return roomId;
     });
   };
 
@@ -168,13 +165,12 @@ export const RatePlansGrid = ({
         });
       } else {
         next.add(key);
-        // Calculate position for fixed dropdown
         if (buttonElement) {
           const rect = buttonElement.getBoundingClientRect();
           setDropdownPositions((prevPos) => {
             const nextPos = new Map(prevPos);
             nextPos.set(key, {
-              top: rect.bottom + 4, // 4px gap (mt-1 = 4px)
+              top: rect.bottom + 4,
               left: rect.left,
             });
             return nextPos;
@@ -192,7 +188,6 @@ export const RatePlansGrid = ({
       next.set(key, option);
       return next;
     });
-    // Close dropdown after selection
     setExpandedRateRestrictions((prev) => {
       const next = new Set(prev);
       next.delete(key);
@@ -207,19 +202,6 @@ export const RatePlansGrid = ({
       next.delete(key);
       return next;
     });
-    // Do not automatically collapse the row here; keep expanded until user clicks X or toggle button
-  };
-
-  // Helper to get day data for a specific date
-  const getDayData = (days: RatePlanDay[], dateStr: string): RatePlanDay | null => {
-    return days.find((d) => d.date === dateStr) || null;
-  };
-
-  // Check if rate plan has any missing base rates (0 or null)
-  const hasMissingBaseRates = (ratePlan: RatePlan): boolean => {
-    return ratePlan.rooms.some((room: any) =>
-      room.days.some((day: any) => day.baseRate === 0 || day.baseRate === null || day.baseRate === undefined)
-    );
   };
 
   // Get base rate value for display (treat 0 as empty)
@@ -236,36 +218,19 @@ export const RatePlansGrid = ({
     roomId: number,
     dateStr: string,
     field: 'baseRate' | 'singleOccupancyRate' | 'extraAdultCharge' | 'paidChildCharge' | 'minStay' | 'maxStay' | 'cutoffTime',
-    dayData: RatePlanDay | null
+    dayData: RoomRateDay | null
   ): number | string | null => {
-    // Check if this cell is being edited
     if (activeEdit?.ratePlanId === ratePlanId && 
         activeEdit?.roomId === roomId && 
         activeEdit?.date === dateStr) {
-      // Use value from activeEdit if available
-      if (field === 'baseRate' && activeEdit.baseRate !== undefined) {
-        return activeEdit.baseRate;
-      }
-      if (field === 'singleOccupancyRate' && activeEdit.singleOccupancyRate !== undefined) {
-        return activeEdit.singleOccupancyRate;
-      }
-      if (field === 'extraAdultCharge' && activeEdit.extraAdultCharge !== undefined) {
-        return activeEdit.extraAdultCharge;
-      }
-      if (field === 'paidChildCharge' && activeEdit.paidChildCharge !== undefined) {
-        return activeEdit.paidChildCharge;
-      }
-      if (field === 'minStay' && activeEdit.minStay !== undefined) {
-        return activeEdit.minStay;
-      }
-      if (field === 'maxStay' && activeEdit.maxStay !== undefined) {
-        return activeEdit.maxStay;
-      }
-      if (field === 'cutoffTime' && activeEdit.cutoffTime !== undefined) {
-        return activeEdit.cutoffTime;
-      }
+      if (field === 'baseRate' && activeEdit.baseRate !== undefined) return activeEdit.baseRate;
+      if (field === 'singleOccupancyRate' && activeEdit.singleOccupancyRate !== undefined) return activeEdit.singleOccupancyRate;
+      if (field === 'extraAdultCharge' && activeEdit.extraAdultCharge !== undefined) return activeEdit.extraAdultCharge;
+      if (field === 'paidChildCharge' && activeEdit.paidChildCharge !== undefined) return activeEdit.paidChildCharge;
+      if (field === 'minStay' && activeEdit.minStay !== undefined) return activeEdit.minStay;
+      if (field === 'maxStay' && activeEdit.maxStay !== undefined) return activeEdit.maxStay;
+      if (field === 'cutoffTime' && activeEdit.cutoffTime !== undefined) return activeEdit.cutoffTime;
     }
-    // Otherwise use value from dayData
     if (field === 'baseRate') return dayData?.baseRate ?? 0;
     if (field === 'singleOccupancyRate') return dayData?.singleOccupancyRate ?? null;
     if (field === 'extraAdultCharge') return dayData?.extraAdultCharge ?? 0;
@@ -276,6 +241,13 @@ export const RatePlansGrid = ({
     return 0;
   };
 
+  // Check if rate plan has any missing base rates
+  const hasMissingBaseRates = (ratePlan: RoomRatePlan): boolean => {
+    return ratePlan.days.some((day) => 
+      day.baseRate === 0 || day.baseRate === null || day.baseRate === undefined
+    );
+  };
+
   const numColumns = dates.length;
 
   return (
@@ -284,13 +256,12 @@ export const RatePlansGrid = ({
       <div className={`grid bg-slate-100/80 border-b border-slate-200`}
            style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}>
         <div className="flex items-center px-6 py-4 font-bold text-xs text-slate-700 border-r border-slate-200 uppercase tracking-wider">
-          Rate Plans
+          Rooms
         </div>
 
         {dates.map((date, index) => {
           const isSelected = isSameDay(date, activeDate);
-          const isPastDate =
-            isBefore(date, today) && !isSameDay(date, today);
+          const isPastDate = isBefore(date, today) && !isSameDay(date, today);
 
           return (
             <button
@@ -317,36 +288,30 @@ export const RatePlansGrid = ({
         })}
       </div>
 
-      {/* Rate Plans */}
-      {ratePlans.map((ratePlan, ratePlanIndex) => {
-        const isExpanded = expandedRatePlans.has(ratePlan.ratePlanId);
-        const hasMissingRates = hasMissingBaseRates(ratePlan);
+      {/* Rooms List */}
+      {rooms.map((room, roomIndex) => {
+        const isExpanded = expandedRoomId === room.roomId;
 
         return (
           <div 
-            key={ratePlan.ratePlanId} 
-            className={`${ratePlanIndex > 0 ? 'border-t border-slate-200' : ''}`}
+            key={room.roomId} 
+            className={`${roomIndex > 0 ? 'border-t border-slate-200' : ''}`}
             style={{ position: 'relative', overflow: 'visible' }}
           >
-            {/* 
-              LAYOUT FIX: Rate plan header uses EXACT same grid template as header
-              This prevents width misalignment
-            */}
+            {/* Room Header Row - Clickable */}
             <button
-              onClick={() => toggleRatePlan(ratePlan.ratePlanId)}
-              className={`w-full bg-white hover:bg-slate-50/30 transition-all duration-150 group`}
+              onClick={() => toggleRoom(room.roomId)}
+              className={`w-full bg-gray-100 hover:bg-gray-200 transition-all duration-150 group`}
               style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`, display: 'grid' }}
             >
-              <div className={`flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60 ${
-                ratePlanIndex > 0 ? 'border-t border-slate-200' : ''
-              }`}>
+              <div className={`flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60`}>
                 {isExpanded ? (
                   <ChevronDown className="w-5 h-5 mr-3 text-slate-600 transition-transform group-hover:translate-y-0.5" />
                 ) : (
                   <ChevronRight className="w-5 h-5 mr-3 text-slate-600 transition-transform group-hover:translate-x-0.5" />
                 )}
                 <span className="group-hover:text-blue-600 transition-colors">
-                  {ratePlan.ratePlanName}
+                  {room.roomName}
                 </span>
               </div>
 
@@ -362,56 +327,54 @@ export const RatePlansGrid = ({
               ))}
             </button>
 
-            {/* Validation Message - Show if rate plan has missing base rates */}
-            {isExpanded && hasMissingRates && (
-              <div className="bg-amber-50/80 border-l-4 border-amber-400/60 p-3 mx-0">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                  <p className="text-sm text-amber-800">
-                    Please note, you have not added your Base Adult Rate for some dates. Your rate plan will not show for a search of 2 or more adults.
-                  </p>
-                </div>
-              </div>
-            )}
+            {/* Expanded Content - Rate Plans for this Room */}
+            {isExpanded && room.ratePlans.map((ratePlan, ratePlanIndex) => {
+              const hasMissingRates = hasMissingBaseRates(ratePlan);
 
-            {/* Rooms under this rate plan */}
-            {isExpanded &&
-              ratePlan.rooms.map((room: any, roomIndex: number) => {
-                // Check if room has singleOccupancyRate data (conditionally render row)
-                // Render row if any day has the field defined (even if null)
-                const hasSingleOccupancy = room.days.some(
-                  (day: any) => day.singleOccupancyRate !== undefined
-                );
+              return (
+                <div key={ratePlan.ratePlanId} className="border-t border-slate-200">
+                  {/* Rate Plan Header */}
+                  <div className="bg-blue-100/50 border-b border-slate-200 px-6 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-slate-800">
+                        {ratePlan.ratePlanName}
+                      </span>
+                      {hasMissingRates && (
+                        <AlertTriangle className="w-4 h-4 text-amber-600" />
+                      )}
+                    </div>
+                    {hasMissingRates && (
+                      <p className="text-xs text-amber-700 mt-1">
+                        Some dates have missing base rates
+                      </p>
+                    )}
+                  </div>
 
-                return (
-                  <div key={room.roomId} style={{ position: 'relative', overflow: 'visible' }}>
-                    {/* Base Rate Row */}
-                    <div 
-                      className={`grid ${roomIndex > 0 ? 'border-t border-slate-200' : ''} bg-white hover:bg-slate-50/30 transition-colors duration-150`}
-                      style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
-                    >
-                      {/* Room Name + Base Rate Label Column */}
-                      <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600">
-                          <Users className="w-4 h-4" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-semibold text-slate-900">
-                            {room.roomName}
-                          </span>
-                          <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">
-                            Base Rate · Double Occupancy
-                          </span>
-                        </div>
+                  {/* Base Rate Row */}
+                  <div 
+                    className="grid bg-white hover:bg-slate-50/30 transition-colors duration-150"
+                    style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
+                  >
+                    <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600">
+                        <Users className="w-4 h-4" />
                       </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-slate-900">
+                          Base Rate
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">
+                          Double Occupancy
+                        </span>
+                      </div>
+                    </div>
 
                     {dates.map((date, i) => {
                       const isSelected = isSameDay(date, activeDate);
                       const dateStr = format(date, 'yyyy-MM-dd');
-                      const dayData = getDayData(room.days, dateStr);
+                      const dayData = getDayData(ratePlan.days, dateStr);
                       const baseRate = dayData?.baseRate ?? 0;
                       
-                      // Use local value if exists, otherwise use display value from day data
                       const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}`;
                       const localValue = localValues.get(cellKey);
                       const displayValue = localValue !== undefined 
@@ -423,26 +386,9 @@ export const RatePlansGrid = ({
                                                activeEdit?.date === dateStr;
                       const canEdit = isSelected && (!isLocked || isThisCellEdited);
 
-                      const handleBlur = () => {
-                        if (!isSelected) return;
-                        
-                        // Clear local value - state is already updated via onChange
-                        setLocalValues((prev) => {
-                          const next = new Map(prev);
-                          next.delete(cellKey);
-                          return next;
-                        });
-                        // No need to call onUpdate here - it's already called in onChange
-                      };
-
-                      const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-                        if (!isSelected || e.key !== 'Enter') return;
-                        e.preventDefault();
-                        e.currentTarget.blur(); // Trigger blur which updates local state
-                      };
-
                       const hasRate = baseRate > 0;
                       const displayBaseRate = baseRate || 0;
+                      const isNotSet = baseRate === 0 || baseRate === null || baseRate === undefined;
 
                       return (
                         <div
@@ -460,17 +406,13 @@ export const RatePlansGrid = ({
                             onChange={(e) => {
                               if (canEdit) {
                                 const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
-                                // Preserve existing values when updating baseRate
-                                // Use getCurrentValue to get the latest values (from activeEdit if available)
                                 const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
                                 const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
                                 const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
                                 const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
                                 const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
                                 const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
-                                // Update local state immediately to show Save/Cancel buttons
                                 onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, inputValue, singleOccupancyRate, extraAdultCharge, paidChildCharge, minStay, maxStay, cutoffTime);
-                                // Also store in localValues for display
                                 setLocalValues((prev) => {
                                   const next = new Map(prev);
                                   next.set(cellKey, e.target.value);
@@ -478,8 +420,20 @@ export const RatePlansGrid = ({
                                 });
                               }
                             }}
-                            onBlur={handleBlur}
-                            onKeyDown={handleKeyDown}
+                            onBlur={() => {
+                              if (isSelected) {
+                                setLocalValues((prev) => {
+                                  const next = new Map(prev);
+                                  next.delete(cellKey);
+                                  return next;
+                                });
+                              }
+                            }}
+                            onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                              if (!isSelected || e.key !== 'Enter') return;
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }}
                             className={`
                               w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                               tabular-nums
@@ -490,7 +444,7 @@ export const RatePlansGrid = ({
                               ${!hasRate && canEdit ? 'text-rose-600' : ''}
                               focus:outline-none
                             `}
-                            placeholder={canEdit ? '0' : '—'}
+                            placeholder={isNotSet ? '-' : undefined}
                           />
                           
                           <div className="flex flex-col items-center mt-2.5 gap-0.5">
@@ -507,12 +461,11 @@ export const RatePlansGrid = ({
                   </div>
 
                   {/* Single Occupancy Rate Row - Conditionally rendered */}
-                  {hasSingleOccupancy && (
+                  {ratePlan.days.some((day) => day.singleOccupancyRate !== undefined) && (
                     <div 
                       className="grid border-t border-slate-100 bg-slate-50/40 hover:bg-slate-50/50 transition-colors duration-150"
                       style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
                     >
-                      {/* Single Occupancy Label Column */}
                       <div className="flex items-center gap-3 px-6 py-3 border-r border-slate-200 bg-slate-50/70">
                         <div className="flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-500">
                           <User className="w-4 h-4" />
@@ -530,10 +483,9 @@ export const RatePlansGrid = ({
                       {dates.map((date, i) => {
                         const isSelected = isSameDay(date, activeDate);
                         const dateStr = format(date, 'yyyy-MM-dd');
-                        const dayData = getDayData(room.days, dateStr);
+                        const dayData = getDayData(ratePlan.days, dateStr);
                         const singleRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
                         
-                        // Use local value if exists, otherwise use display value from day data
                         const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-singleOccupancy`;
                         const localValue = localValues.get(cellKey);
                         const displayValue = localValue !== undefined 
@@ -545,23 +497,9 @@ export const RatePlansGrid = ({
                                                  activeEdit?.date === dateStr;
                         const canEdit = isSelected && (!isLocked || isThisCellEdited);
 
-                        const handleBlur = () => {
-                          if (!isSelected) return;
-                          setLocalValues((prev) => {
-                            const next = new Map(prev);
-                            next.delete(cellKey);
-                            return next;
-                          });
-                        };
-
-                        const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-                          if (!isSelected || e.key !== 'Enter') return;
-                          e.preventDefault();
-                          e.currentTarget.blur();
-                        };
-
                         const hasRate = singleRate !== null && singleRate !== undefined && singleRate > 0;
                         const displaySingleRate = singleRate || 0;
+                        const isNotSet = singleRate === null || singleRate === undefined || singleRate === 0;
 
                         return (
                           <div
@@ -579,16 +517,13 @@ export const RatePlansGrid = ({
                               onChange={(e) => {
                                 if (canEdit) {
                                   const inputValue = e.target.value === '' ? null : Number(e.target.value);
-                                  // Preserve existing values when updating singleOccupancyRate
                                   const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
                                   const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
                                   const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
                                   const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
                                   const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
                                   const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
-                                  // Update local state immediately to show Save/Cancel buttons
                                   onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, inputValue ?? undefined, extraAdultCharge, paidChildCharge, minStay ?? undefined, maxStay ?? undefined, cutoffTime ?? undefined);
-                                  // Also store in localValues for display
                                   setLocalValues((prev) => {
                                     const next = new Map(prev);
                                     next.set(cellKey, e.target.value);
@@ -596,8 +531,20 @@ export const RatePlansGrid = ({
                                   });
                                 }
                               }}
-                              onBlur={handleBlur}
-                              onKeyDown={handleKeyDown}
+                              onBlur={() => {
+                                if (isSelected) {
+                                  setLocalValues((prev) => {
+                                    const next = new Map(prev);
+                                    next.delete(cellKey);
+                                    return next;
+                                  });
+                                }
+                              }}
+                              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                                if (!isSelected || e.key !== 'Enter') return;
+                                e.preventDefault();
+                                e.currentTarget.blur();
+                              }}
                               className={`
                                 w-20 h-10 border rounded-lg font-medium text-base text-center transition-all duration-150
                                 tabular-nums
@@ -608,15 +555,15 @@ export const RatePlansGrid = ({
                                 ${!hasRate && canEdit ? 'text-slate-500' : ''}
                                 focus:outline-none
                               `}
-                              placeholder={canEdit ? '0' : '—'}
+                              placeholder={isNotSet ? '-' : undefined}
                             />
                             
-                            <div className="flex flex-col items-center mt-2 gap-0.5">
+                            <div className="flex flex-col items-center mt-2.5 gap-0.5">
                               <span className={`
-                                text-[9px] font-medium uppercase tracking-wide
-                                ${hasRate ? 'text-emerald-500' : 'text-slate-400'}
+                                text-[10px] font-medium uppercase tracking-wide
+                                ${hasRate ? 'text-emerald-600' : 'text-rose-500'}
                               `}>
-                                {hasRate ? `${displaySingleRate} Set` : '—'}
+                                {hasRate ? `${displaySingleRate} Set` : 'Not Set'}
                               </span>
                             </div>
                           </div>
@@ -645,7 +592,6 @@ export const RatePlansGrid = ({
                           }`} />
                         </button>
                         
-                        {/* Dropdown Menu - Using fixed positioning to escape overflow-hidden */}
                         {expandedRateRestrictions.has(`${ratePlan.ratePlanId}-${room.roomId}`) && (() => {
                           const key = `${ratePlan.ratePlanId}-${room.roomId}`;
                           const position = dropdownPositions.get(key);
@@ -658,34 +604,33 @@ export const RatePlansGrid = ({
                                 left: position?.left ?? 0,
                               }}
                             >
-                            <button
-                              type="button"
-                              className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors first:rounded-t-md"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                selectOption(ratePlan.ratePlanId, room.roomId, 'extra-rates');
-                              }}
-                            >
-                              Extra Rates
-                            </button>
-                            <button
-                              type="button"
-                              className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors last:rounded-b-md border-t border-slate-200"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                selectOption(ratePlan.ratePlanId, room.roomId, 'restrictions');
-                              }}
-                            >
-                              Restrictions
-                            </button>
+                              <button
+                                type="button"
+                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors first:rounded-t-md"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  selectOption(ratePlan.ratePlanId, room.roomId, 'extra-rates');
+                                }}
+                              >
+                                Extra Rates
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors last:rounded-b-md border-t border-slate-200"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  selectOption(ratePlan.ratePlanId, room.roomId, 'restrictions');
+                                }}
+                              >
+                                Restrictions
+                              </button>
                             </div>
                           );
                         })()}
                       </div>
                       
-                      {/* Close Button - Show when section is open */}
                       {selectedOption.get(`${ratePlan.ratePlanId}-${room.roomId}`) && (
                         <button
                           type="button"
@@ -709,22 +654,22 @@ export const RatePlansGrid = ({
                     ))}
                   </div>
 
-                  {/* Extra Rates Rows - Show when "Extra Rates" is selected */}
+                  {/* Extra Rates Rows */}
                   {selectedOption.get(`${ratePlan.ratePlanId}-${room.roomId}`) === 'extra-rates' && (
                     <>
                       {/* Extra Adult Charge Row */}
                       <div 
-                        className={`grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150`}
+                        className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
                         style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
                       >
                         <div className="flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
                           Extra Adult Charge
-                    </div>
+                        </div>
 
-                    {dates.map((date, i) => {
-                      const isSelected = isSameDay(date, activeDate);
+                        {dates.map((date, i) => {
+                          const isSelected = isSameDay(date, activeDate);
                           const dateStr = format(date, 'yyyy-MM-dd');
-                          const dayData = getDayData(room.days, dateStr);
+                          const dayData = getDayData(ratePlan.days, dateStr);
                           const extraAdultCharge = dayData?.extraAdultCharge ?? 0;
                           
                           const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-extraAdult`;
@@ -738,38 +683,22 @@ export const RatePlansGrid = ({
                                                    activeEdit?.date === dateStr;
                           const canEdit = isSelected && (!isLocked || isThisCellEdited);
 
-                          const handleBlur = () => {
-                            if (!isSelected) return;
-                            setLocalValues((prev) => {
-                              const next = new Map(prev);
-                              next.delete(cellKey);
-                              return next;
-                            });
-                          };
-
-                          const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-                            if (!isSelected || e.key !== 'Enter') return;
-                            e.preventDefault();
-                            e.currentTarget.blur();
-                          };
-
-                      return (
-                        <div
-                          key={i}
+                          return (
+                            <div
+                              key={i}
                               className={`
                                 border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                                 transition-colors duration-150
                                 ${isSelected ? getSelectedColumnBg(date) : ''}
                               `}
                             >
-                          <input
-                            type="number"
+                              <input
+                                type="number"
                                 value={displayValue}
                                 readOnly={!canEdit}
                                 onChange={(e) => {
                                   if (canEdit) {
                                     const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
-                                    // Get current values (from activeEdit if available, otherwise from dayData)
                                     const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
                                     const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
                                     const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
@@ -784,9 +713,21 @@ export const RatePlansGrid = ({
                                     });
                                   }
                                 }}
-                                onBlur={handleBlur}
-                                onKeyDown={handleKeyDown}
-                            className={`
+                                onBlur={() => {
+                                  if (isSelected) {
+                                    setLocalValues((prev) => {
+                                      const next = new Map(prev);
+                                      next.delete(cellKey);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                                  if (!isSelected || e.key !== 'Enter') return;
+                                  e.preventDefault();
+                                  e.currentTarget.blur();
+                                }}
+                                className={`
                                   w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                                   tabular-nums
                                   ${canEdit
@@ -814,7 +755,7 @@ export const RatePlansGrid = ({
 
                       {/* Paid Child Charge Row */}
                       <div 
-                        className={`grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150`}
+                        className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
                         style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
                       >
                         <div className="flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
@@ -824,7 +765,7 @@ export const RatePlansGrid = ({
                         {dates.map((date, i) => {
                           const isSelected = isSameDay(date, activeDate);
                           const dateStr = format(date, 'yyyy-MM-dd');
-                          const dayData = getDayData(room.days, dateStr);
+                          const dayData = getDayData(ratePlan.days, dateStr);
                           const paidChildCharge = dayData?.paidChildCharge ?? 0;
                           
                           const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-paidChild`;
@@ -837,21 +778,6 @@ export const RatePlansGrid = ({
                                                    activeEdit?.roomId === room.roomId && 
                                                    activeEdit?.date === dateStr;
                           const canEdit = isSelected && (!isLocked || isThisCellEdited);
-
-                          const handleBlur = () => {
-                            if (!isSelected) return;
-                            setLocalValues((prev) => {
-                              const next = new Map(prev);
-                              next.delete(cellKey);
-                              return next;
-                            });
-                          };
-
-                          const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-                            if (!isSelected || e.key !== 'Enter') return;
-                            e.preventDefault();
-                            e.currentTarget.blur();
-                          };
 
                           return (
                             <div
@@ -869,7 +795,6 @@ export const RatePlansGrid = ({
                                 onChange={(e) => {
                                   if (canEdit) {
                                     const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
-                                    // Get current values (from activeEdit if available, otherwise from dayData)
                                     const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
                                     const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
                                     const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
@@ -884,8 +809,20 @@ export const RatePlansGrid = ({
                                     });
                                   }
                                 }}
-                                onBlur={handleBlur}
-                                onKeyDown={handleKeyDown}
+                                onBlur={() => {
+                                  if (isSelected) {
+                                    setLocalValues((prev) => {
+                                      const next = new Map(prev);
+                                      next.delete(cellKey);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                                  if (!isSelected || e.key !== 'Enter') return;
+                                  e.preventDefault();
+                                  e.currentTarget.blur();
+                                }}
                                 className={`
                                   w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                                   tabular-nums
@@ -907,56 +844,41 @@ export const RatePlansGrid = ({
                                   {paidChildCharge > 0 ? `${paidChildCharge} Set` : 'Not Set'}
                                 </span>
                               </div>
-                        </div>
-                      );
+                            </div>
+                          );
                         })}
                       </div>
                     </>
                   )}
 
-                  {/* Restrictions Rows - Show when "Restrictions" is selected */}
+                  {/* Restrictions Rows */}
                   {selectedOption.get(`${ratePlan.ratePlanId}-${room.roomId}`) === 'restrictions' && (
                     <>
-                      {/* Maximum Length of Stay Row */}
+                      {/* Minimum Length of Stay Row */}
                       <div 
-                        className={`grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150`}
+                        className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
                         style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
                       >
                         <div className="flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
-                          Maximum Length of Stay
+                          Minimum Length of Stay
                         </div>
 
                         {dates.map((date, i) => {
                           const isSelected = isSameDay(date, activeDate);
                           const dateStr = format(date, 'yyyy-MM-dd');
-                          const dayData = getDayData(room.days, dateStr);
-                          const maxStay = dayData?.maxStay ?? null;
+                          const dayData = getDayData(ratePlan.days, dateStr);
+                          const minStay = dayData?.minStay ?? null;
                           
-                          const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-maxStay`;
+                          const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-minStay`;
                           const localValue = localValues.get(cellKey);
                           const displayValue = localValue !== undefined 
                             ? localValue 
-                            : (maxStay !== null && maxStay !== undefined ? maxStay.toString() : '');
+                            : (minStay !== null && minStay !== undefined ? minStay.toString() : '');
                           
                           const isThisCellEdited = activeEdit?.ratePlanId === ratePlan.ratePlanId && 
                                                    activeEdit?.roomId === room.roomId && 
                                                    activeEdit?.date === dateStr;
                           const canEdit = isSelected && (!isLocked || isThisCellEdited);
-
-                          const handleBlur = () => {
-                            if (!isSelected) return;
-                            setLocalValues((prev) => {
-                              const next = new Map(prev);
-                              next.delete(cellKey);
-                              return next;
-                            });
-                          };
-
-                          const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-                            if (!isSelected || e.key !== 'Enter') return;
-                            e.preventDefault();
-                            e.currentTarget.blur();
-                          };
 
                           return (
                             <div
@@ -974,7 +896,103 @@ export const RatePlansGrid = ({
                                 onChange={(e) => {
                                   if (canEdit) {
                                     const inputValue = e.target.value === '' ? null : Number(e.target.value);
-                                    // Get current values (from activeEdit if available, otherwise from dayData)
+                                    const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
+                                    const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
+                                    const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
+                                    const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
+                                    const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
+                                    const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
+                                    onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, singleOccupancyRate ?? undefined, extraAdultCharge, paidChildCharge, inputValue ?? undefined, maxStay ?? undefined, cutoffTime ?? undefined);
+                                    setLocalValues((prev) => {
+                                      const next = new Map(prev);
+                                      next.set(cellKey, e.target.value);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                onBlur={() => {
+                                  if (isSelected) {
+                                    setLocalValues((prev) => {
+                                      const next = new Map(prev);
+                                      next.delete(cellKey);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                                  if (!isSelected || e.key !== 'Enter') return;
+                                  e.preventDefault();
+                                  e.currentTarget.blur();
+                                }}
+                                className={`
+                                  w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
+                                  tabular-nums
+                                  ${canEdit
+                                    ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600' 
+                                    : 'cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400'}
+                                  ${minStay !== null && minStay !== undefined && canEdit ? 'text-emerald-700' : ''}
+                                  ${(minStay === null || minStay === undefined) && canEdit ? 'text-rose-600' : ''}
+                                  focus:outline-none
+                                `}
+                                placeholder={canEdit ? '0' : '—'}
+                                min="0"
+                              />
+                              
+                              <div className="flex flex-col items-center mt-2.5 gap-0.5">
+                                <span className={`
+                                  text-[10px] font-medium uppercase tracking-wide
+                                  ${minStay !== null && minStay !== undefined ? 'text-emerald-600' : 'text-rose-500'}
+                                `}>
+                                  {minStay !== null && minStay !== undefined ? `${minStay} Set` : 'Not Set'}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Maximum Length of Stay Row */}
+                      <div 
+                        className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
+                        style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
+                      >
+                        <div className="flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
+                          Maximum Length of Stay
+                        </div>
+
+                        {dates.map((date, i) => {
+                          const isSelected = isSameDay(date, activeDate);
+                          const dateStr = format(date, 'yyyy-MM-dd');
+                          const dayData = getDayData(ratePlan.days, dateStr);
+                          const maxStay = dayData?.maxStay ?? null;
+                          
+                          const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-maxStay`;
+                          const localValue = localValues.get(cellKey);
+                          const displayValue = localValue !== undefined 
+                            ? localValue 
+                            : (maxStay !== null && maxStay !== undefined ? maxStay.toString() : '');
+                          
+                          const isThisCellEdited = activeEdit?.ratePlanId === ratePlan.ratePlanId && 
+                                                   activeEdit?.roomId === room.roomId && 
+                                                   activeEdit?.date === dateStr;
+                          const canEdit = isSelected && (!isLocked || isThisCellEdited);
+
+                          return (
+                            <div
+                              key={i}
+                              className={`
+                                border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
+                                transition-colors duration-150
+                                ${isSelected ? getSelectedColumnBg(date) : ''}
+                              `}
+                            >
+                              <input
+                                type="number"
+                                value={displayValue}
+                                readOnly={!canEdit}
+                                onChange={(e) => {
+                                  if (canEdit) {
+                                    const inputValue = e.target.value === '' ? null : Number(e.target.value);
                                     const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
                                     const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
                                     const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
@@ -989,8 +1007,20 @@ export const RatePlansGrid = ({
                                     });
                                   }
                                 }}
-                                onBlur={handleBlur}
-                                onKeyDown={handleKeyDown}
+                                onBlur={() => {
+                                  if (isSelected) {
+                                    setLocalValues((prev) => {
+                                      const next = new Map(prev);
+                                      next.delete(cellKey);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                                  if (!isSelected || e.key !== 'Enter') return;
+                                  e.preventDefault();
+                                  e.currentTarget.blur();
+                                }}
                                 className={`
                                   w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                                   tabular-nums
@@ -1020,7 +1050,7 @@ export const RatePlansGrid = ({
 
                       {/* Cutoff Time Row */}
                       <div 
-                        className={`grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150`}
+                        className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
                         style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
                       >
                         <div className="flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
@@ -1030,16 +1060,8 @@ export const RatePlansGrid = ({
                         {dates.map((date, i) => {
                           const isSelected = isSameDay(date, activeDate);
                           const dateStr = format(date, 'yyyy-MM-dd');
-                          const dayData = getDayData(room.days, dateStr);
+                          const dayData = getDayData(ratePlan.days, dateStr);
                           const cutoffTime = dayData?.cutoffTime ?? null;
-                          
-                          // Convert cutoffTime from "HH:mm:ss" to "HH:mm" format for input
-                          const formatTimeForInput = (time: string | null): string => {
-                            if (!time) return '';
-                            // Handle both "HH:mm:ss" and "HH:mm" formats
-                            const parts = time.split(':');
-                            return `${parts[0]}:${parts[1]}`;
-                          };
                           
                           const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-cutoffTime`;
                           const localValue = localValues.get(cellKey);
@@ -1051,21 +1073,6 @@ export const RatePlansGrid = ({
                                                    activeEdit?.roomId === room.roomId && 
                                                    activeEdit?.date === dateStr;
                           const canEdit = isSelected && (!isLocked || isThisCellEdited);
-
-                          const handleBlur = () => {
-                            if (!isSelected) return;
-                            setLocalValues((prev) => {
-                              const next = new Map(prev);
-                              next.delete(cellKey);
-                              return next;
-                            });
-                          };
-
-                          const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-                            if (!isSelected || e.key !== 'Enter') return;
-                            e.preventDefault();
-                            e.currentTarget.blur();
-                          };
 
                           return (
                             <div
@@ -1083,7 +1090,6 @@ export const RatePlansGrid = ({
                                 onChange={(e) => {
                                   if (canEdit) {
                                     const inputValue = e.target.value === '' ? null : e.target.value;
-                                    // Get current values (from activeEdit if available, otherwise from dayData)
                                     const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
                                     const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
                                     const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
@@ -1098,8 +1104,20 @@ export const RatePlansGrid = ({
                                     });
                                   }
                                 }}
-                                onBlur={handleBlur}
-                                onKeyDown={handleKeyDown}
+                                onBlur={() => {
+                                  if (isSelected) {
+                                    setLocalValues((prev) => {
+                                      const next = new Map(prev);
+                                      next.delete(cellKey);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                                  if (!isSelected || e.key !== 'Enter') return;
+                                  e.preventDefault();
+                                  e.currentTarget.blur();
+                                }}
                                 className={`
                                   w-24 h-11 border rounded-lg font-semibold text-sm text-center transition-all duration-150
                                   tabular-nums
@@ -1128,8 +1146,8 @@ export const RatePlansGrid = ({
                     </>
                   )}
                 </div>
-                );
-              })}
+              );
+            })}
           </div>
         );
       })}

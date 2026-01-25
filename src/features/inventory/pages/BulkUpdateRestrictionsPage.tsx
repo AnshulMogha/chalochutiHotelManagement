@@ -1,18 +1,14 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { format, addDays, startOfToday, isBefore, isSameDay, differenceInDays } from "date-fns";
-import { ArrowLeft, Calendar, Plus } from "lucide-react";
+import { ArrowLeft, Calendar } from "lucide-react";
 import { inventoryService } from "../services/inventoryService";
 import { Toast, useToast } from "@/components/ui/Toast";
 
 const CUTOFF_TIME_OPTIONS = [
   { value: "00:00:00", label: "At Midnight" },
-  { value: "23:59:59", label: "Before Midnight" },
-  { value: "00:01:00", label: "After Midnight" },
-  { value: "14:00:00", label: "2:00 PM" },
-  { value: "15:00:00", label: "3:00 PM" },
-  { value: "16:00:00", label: "4:00 PM" },
-  { value: "18:00:00", label: "6:00 PM" },
+  { value: "23:59:00", label: "Before Midnight" },
+  { value: "02:00:00", label: "After Midnight" },
 ];
 
 export default function BulkUpdateRestrictionsPage() {
@@ -198,13 +194,6 @@ export default function BulkUpdateRestrictionsPage() {
                 </div>
               </div>
               <div className="text-sm text-gray-600 font-medium">{dateRangeText}</div>
-              <button
-                type="button"
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1.5"
-              >
-                <Plus className="w-4 h-4" />
-                Add Another Stay Date
-              </button>
             </div>
 
             {/* Info text */}
