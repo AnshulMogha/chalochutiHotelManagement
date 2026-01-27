@@ -24,7 +24,7 @@ import {
   isWeekend,
   eachDayOfInterval,
 } from 'date-fns';
-import { ChevronDown, ChevronRight, AlertTriangle, X, User, Users } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle, X, User, Users, Calendar, Clock, UserPlus, Baby } from 'lucide-react';
 import type { RatesRoom, RoomRatePlan, RoomRateDay } from '../type';
 import { getDayData, formatTimeForInput, formatRate } from '../utils/rateHelpers';
 
@@ -118,8 +118,6 @@ export const RatePlansGrid = ({
   const [expandedRateRestrictions, setExpandedRateRestrictions] = useState<Set<string>>(new Set());
   // Track selected option (Extra Rates or Restrictions): key = `${ratePlanId}-${roomId}`
   const [selectedOption, setSelectedOption] = useState<Map<string, 'extra-rates' | 'restrictions'>>(new Map());
-  // Track dropdown positions for fixed positioning: key = `${ratePlanId}-${roomId}`
-  const [dropdownPositions, setDropdownPositions] = useState<Map<string, { top: number; left: number }>>(new Map());
 
   // Generate dates array from API's from/to dates
   const dates = useMemo(() => {
@@ -147,7 +145,7 @@ export const RatePlansGrid = ({
     });
   };
 
-  const toggleRateRestrictions = (ratePlanId: number, roomId: number, buttonElement?: HTMLElement) => {
+  const toggleRateRestrictions = (ratePlanId: number, roomId: number) => {
     const key = `${ratePlanId}-${roomId}`;
     setExpandedRateRestrictions((prev) => {
       const next = new Set(prev);
@@ -158,24 +156,8 @@ export const RatePlansGrid = ({
           nextOpt.delete(key);
           return nextOpt;
         });
-        setDropdownPositions((prevPos) => {
-          const nextPos = new Map(prevPos);
-          nextPos.delete(key);
-          return nextPos;
-        });
       } else {
         next.add(key);
-        if (buttonElement) {
-          const rect = buttonElement.getBoundingClientRect();
-          setDropdownPositions((prevPos) => {
-            const nextPos = new Map(prevPos);
-            nextPos.set(key, {
-              top: rect.bottom + 4,
-              left: rect.left,
-            });
-            return nextPos;
-          });
-        }
       }
       return next;
     });
@@ -251,7 +233,7 @@ export const RatePlansGrid = ({
   const numColumns = dates.length;
 
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-md bg-white">
+    <div className="border border-slate-200 rounded-xl overflow-visible shadow-md bg-white">
       {/* Header Row */}
       <div className={`grid bg-slate-100/80 border-b border-slate-200`}
            style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}>
@@ -583,7 +565,7 @@ export const RatePlansGrid = ({
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            toggleRateRestrictions(ratePlan.ratePlanId, room.roomId, e.currentTarget);
+                            toggleRateRestrictions(ratePlan.ratePlanId, room.roomId);
                           }}
                         >
                           Rate and Restrictions
@@ -592,43 +574,35 @@ export const RatePlansGrid = ({
                           }`} />
                         </button>
                         
-                        {expandedRateRestrictions.has(`${ratePlan.ratePlanId}-${room.roomId}`) && (() => {
-                          const key = `${ratePlan.ratePlanId}-${room.roomId}`;
-                          const position = dropdownPositions.get(key);
-                          return (
-                            <div 
-                              className="fixed bg-white border border-slate-300 rounded-md shadow-xl min-w-[180px]" 
-                              style={{ 
-                                zIndex: 9999,
-                                top: position?.top ?? 0,
-                                left: position?.left ?? 0,
+                        {expandedRateRestrictions.has(`${ratePlan.ratePlanId}-${room.roomId}`) && (
+                          <div 
+                            className="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded-md shadow-xl min-w-[180px]"
+                            style={{ zIndex: 9999 }}
+                          >
+                            <button
+                              type="button"
+                              className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors first:rounded-t-md"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                selectOption(ratePlan.ratePlanId, room.roomId, 'extra-rates');
                               }}
                             >
-                              <button
-                                type="button"
-                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors first:rounded-t-md"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  selectOption(ratePlan.ratePlanId, room.roomId, 'extra-rates');
-                                }}
-                              >
-                                Extra Rates
-                              </button>
-                              <button
-                                type="button"
-                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors last:rounded-b-md border-t border-slate-200"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  selectOption(ratePlan.ratePlanId, room.roomId, 'restrictions');
-                                }}
-                              >
-                                Restrictions
-                              </button>
-                            </div>
-                          );
-                        })()}
+                              Extra Rates
+                            </button>
+                            <button
+                              type="button"
+                              className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors last:rounded-b-md border-t border-slate-200"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                selectOption(ratePlan.ratePlanId, room.roomId, 'restrictions');
+                              }}
+                            >
+                              Restrictions
+                            </button>
+                          </div>
+                        )}
                       </div>
                       
                       {selectedOption.get(`${ratePlan.ratePlanId}-${room.roomId}`) && (
@@ -662,8 +636,15 @@ export const RatePlansGrid = ({
                         className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
                         style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
                       >
-                        <div className="flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
-                          Extra Adult Charge
+                        <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-600">
+                            <UserPlus className="w-4 h-4" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-900">
+                              Extra Adult Charge
+                            </span>
+                          </div>
                         </div>
 
                         {dates.map((date, i) => {
@@ -758,8 +739,15 @@ export const RatePlansGrid = ({
                         className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
                         style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
                       >
-                        <div className="flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
-                          Paid Child Charge (6-12 years)
+                        <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-pink-50 text-pink-600">
+                            <Baby className="w-4 h-4" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-900">
+                              Paid Child Charge (6-12 years)
+                            </span>
+                          </div>
                         </div>
 
                         {dates.map((date, i) => {
@@ -859,8 +847,15 @@ export const RatePlansGrid = ({
                         className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
                         style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
                       >
-                        <div className="flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
-                          Minimum Length of Stay
+                        <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-50 text-amber-600">
+                            <Calendar className="w-4 h-4" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-900">
+                              Minimum Length of Stay
+                            </span>
+                          </div>
                         </div>
 
                         {dates.map((date, i) => {
@@ -956,8 +951,15 @@ export const RatePlansGrid = ({
                         className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
                         style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
                       >
-                        <div className="flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
-                          Maximum Length of Stay
+                        <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-50 text-purple-600">
+                            <Calendar className="w-4 h-4" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-900">
+                              Maximum Length of Stay
+                            </span>
+                          </div>
                         </div>
 
                         {dates.map((date, i) => {
@@ -1053,8 +1055,15 @@ export const RatePlansGrid = ({
                         className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
                         style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
                       >
-                        <div className="flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
-                          Cutoff Time
+                        <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-cyan-50 text-cyan-600">
+                            <Clock className="w-4 h-4" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-900">
+                              Cutoff Time
+                            </span>
+                          </div>
                         </div>
 
                         {dates.map((date, i) => {

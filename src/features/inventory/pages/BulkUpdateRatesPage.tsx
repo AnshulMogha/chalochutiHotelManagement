@@ -635,7 +635,7 @@ export default function BulkUpdateRatesPage() {
                   </label>
 
                   {/* Show Net Rate Toggle */}
-                  <div className="flex items-center justify-between p-5 bg-white rounded-xl border border-slate-200 shadow-sm hover:border-blue-200 hover:shadow transition-colors">
+                  {/* <div className="flex items-center justify-between p-5 bg-white rounded-xl border border-slate-200 shadow-sm hover:border-blue-200 hover:shadow transition-colors">
                     <div>
                       <span className="text-sm font-semibold text-slate-900">
                         Show Net Rate
@@ -653,7 +653,7 @@ export default function BulkUpdateRatesPage() {
                       />
                       <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
                     </label>
-                  </div>
+                  </div> */}
 
                   {/* Update Extra Guest Charges Toggle */}
                   <div className="flex items-center justify-between p-5 bg-white rounded-xl border border-slate-200 shadow-sm hover:border-blue-200 hover:shadow transition-colors">
