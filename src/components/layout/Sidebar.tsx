@@ -19,6 +19,9 @@ import {
   UtensilsCrossed,
   FileText,
   CreditCard,
+  Sparkles,
+  Percent,
+  Receipt,
   type LucideIcon 
 } from "lucide-react";
 
@@ -35,13 +38,33 @@ export interface NavItem {
 }
 
 const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
-  const items: NavItem[] = [
-    {
-      label: "My Properties",
-      path: ROUTES.PROPERTIES.LIST,
-      icon: Hotel,
-    },
-  ];
+  const items: NavItem[] = [];
+
+  // Check if user is ONBOARDING_REVIEWER - they only see Hotel Review and Document Review
+  const isOnboardingReviewer = userRoles?.includes("ONBOARDING_REVIEWER");
+  
+  if (isOnboardingReviewer) {
+    items.push(
+      {
+        label: "Hotel Review",
+        path: ROUTES.ADMIN.HOTEL_REVIEW,
+        icon: ClipboardCheck,
+      },
+      {
+        label: "Document Review",
+        path: ROUTES.ADMIN.DOCUMENT_REVIEW,
+        icon: FileText,
+      }
+    );
+    return items;
+  }
+
+  // Regular items for other roles
+  items.push({
+    label: "My Properties",
+    path: ROUTES.PROPERTIES.LIST,
+    icon: Hotel,
+  });
 
   // Items visible to SUPER_ADMIN and HOTEL_OWNER/HOTEL_MANAGER
   const isAdminOrOwner = hasAnyRole(userRoles, [
@@ -87,6 +110,11 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
             path: ROUTES.PROPERTY_INFO.FINANCE,
             icon: CreditCard,
           },
+          {
+            label: "Document",
+            path: ROUTES.PROPERTY_INFO.DOCUMENT,
+            icon: FileText,
+          },
         ],
       },
       {
@@ -127,11 +155,18 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
   // Items visible only to HOTEL_OWNER
   const isHotelOwner = hasAnyRole(userRoles, [ROLES.HOTEL_OWNER]);
   if (isHotelOwner) {
-    items.push({
-      label: "My Team",
-      path: ROUTES.TEAM.LIST,
-      icon: Users,
-    });
+    items.push(
+      {
+        label: "Promotions",
+        path: ROUTES.PROMOTIONS.LIST,
+        icon: Sparkles,
+      },
+      {
+        label: "My Team",
+        path: ROUTES.TEAM.LIST,
+        icon: Users,
+      }
+    );
   }
 
   // Items visible only to SUPER_ADMIN
@@ -147,6 +182,16 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
         label: "Users",
         path: ROUTES.ADMIN.USERS,
         icon: Users,
+      },
+      {
+        label: "Commission and Tax",
+        path: ROUTES.ADMIN.COMMISSION_AND_TAX,
+        icon: Percent,
+      },
+      {
+        label: "Document Review",
+        path: ROUTES.ADMIN.DOCUMENT_REVIEW,
+        icon: FileText,
       }
     );
   }

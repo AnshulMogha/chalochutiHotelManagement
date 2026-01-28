@@ -54,7 +54,7 @@ export function ApproveRejectModal({
           }`}
         >
           <h2 className="text-xl font-bold text-gray-900">
-            {type === "approve" ? "Approve Hotel" : "Reject Hotel"}
+            {type === "approve" ? "Approve Document" : "Reject Document"}
           </h2>
           <button
             type="button"

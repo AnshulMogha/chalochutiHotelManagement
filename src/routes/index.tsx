@@ -72,8 +72,32 @@ const PolicyAndRulesPage = lazy(
 const FinancePage = lazy(
   () => import("../features/properties/pages/FinancePage")
 );
+const DocumentPage = lazy(
+  () => import("../features/properties/pages/DocumentPage")
+);
 const MyTeamPage = lazy(
   () => import("../features/team/pages/MyTeamPage")
+);
+const PromotionsPage = lazy(
+  () => import("../features/promotions/pages/PromotionsPage")
+);
+const CreatePromotionPage = lazy(
+  () => import("../features/promotions/pages/CreatePromotionPage")
+);
+const EditPromotionPage = lazy(
+  () => import("../features/promotions/pages/EditPromotionPage")
+);
+const SpecialAudiencePromotionsPage = lazy(
+  () => import("../features/promotions/pages/SpecialAudiencePromotionsPage")
+);
+const CommissionAndTaxPage = lazy(
+  () => import("../features/admin/pages/CommissionAndTaxPage")
+);
+const DocumentReviewPage = lazy(
+  () => import("../features/admin/pages/DocumentReviewPage")
+);
+const PricingQuotePage = lazy(
+  () => import("../features/pricing/pages/PricingQuotePage")
 );
 
 // Route configuration
@@ -142,6 +166,14 @@ export const routes: RouteObject[] = [
         element: <UsersPage />,
       },
       {
+        path: "admin/commission-tax",
+        element: <CommissionAndTaxPage />,
+      },
+      {
+        path: "admin/document-review",
+        element: <DocumentReviewPage />,
+      },
+      {
         path: "admin/hotels/review/:hotelId",
         element: <HotelReviewDetailPage />,
         children: [
@@ -200,6 +232,10 @@ export const routes: RouteObject[] = [
         element: <FinancePage />,
       },
       {
+        path: "property/information/document",
+        element: <DocumentPage />,
+      },
+      {
         path: "inventory/room-types",
         element: <Layout/>,
       },
@@ -218,6 +254,26 @@ export const routes: RouteObject[] = [
       {
         path: "team",
         element: <MyTeamPage />,
+      },
+      {
+        path: "promotions",
+        element: <PromotionsPage />,
+      },
+      {
+        path: "promotions/edit/:promotionId",
+        element: <EditPromotionPage />,
+      },
+      {
+        path: "promotions/create/:type",
+        element: <CreatePromotionPage />,
+      },
+      {
+        path: "promotions/special-audience",
+        element: <SpecialAudiencePromotionsPage />,
+      },
+      {
+        path: "promotions/special-audience/create/:type",
+        element: <CreatePromotionPage />,
       },
     ],
   },
@@ -250,6 +306,10 @@ export const routes: RouteObject[] = [
         ),
       },
     ],
+  },
+  {
+    path: "/pricing/quote",
+    element: <PricingQuotePage />,
   },
   {
     path: "*",

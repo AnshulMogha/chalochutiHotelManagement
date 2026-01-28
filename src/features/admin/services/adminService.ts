@@ -64,7 +64,7 @@ export interface UsersResponse {
 
 export interface CreateUserRequest {
   email: string;
-  role: "HOTEL_OWNER" | "HOTEL_MANAGER" | "SUPER_ADMIN";
+  role: "HOTEL_OWNER" | "HOTEL_MANAGER" | "SUPER_ADMIN" | "PLATFORM_ADMIN" | "ONBOARDING_REVIEWER";
   firstName: string;
   lastName: string;
   phoneNumber: string;
@@ -72,7 +72,7 @@ export interface CreateUserRequest {
 
 export interface UpdateUserRequest {
   email: string;
-  role: "HOTEL_OWNER" | "HOTEL_MANAGER" | "SUPER_ADMIN";
+  role: "HOTEL_OWNER" | "HOTEL_MANAGER" | "SUPER_ADMIN" | "PLATFORM_ADMIN" | "ONBOARDING_REVIEWER";
   firstName: string;
   lastName: string;
   phoneNumber: string;
@@ -187,6 +187,237 @@ export interface UpdateHotelAddressRequest {
   landmark: string;
 }
 
+export interface CancellationPolicyPayload {
+  policyName: string;
+  freeCancellationTillHours: number;
+  noShowPenalty: string;
+}
+
+export interface CancellationPolicySlab {
+  id: number;
+  fromHours: number;
+  toHours: number;
+  refundPercent: number;
+  penaltyAmount: number | null;
+  penaltyType: string | null;
+  active: boolean;
+}
+
+export interface CancellationPolicy {
+  id: number;
+  hotelId: string;
+  policyName: string;
+  version: number;
+  isLatest: boolean;
+  status: string;
+  slabs: CancellationPolicySlab[];
+  createdBy: number;
+  createdByEmail: string;
+  createdAt: string;
+}
+
+export interface CancellationPolicyListResponse {
+  total: number;
+  policies: CancellationPolicy[];
+}
+
+export interface ChildAgePolicyPayload {
+  childrenAllowed: boolean;
+  freeStayMaxAge: number;
+  paidStayMaxAge: number;
+}
+
+export interface ChildAgePolicyResponse extends ChildAgePolicyPayload {
+  hotelId: string;
+  createdBy?: number;
+  createdByEmail?: string;
+  updatedBy?: number;
+  updatedByEmail?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface PaymentRulePayload {
+  paymentType: "FULL_PREPAID" | "PARTIAL_PREPAID" | "PAY_AT_HOTEL";
+  status: "ACTIVE" | "INACTIVE";
+  advancePercent: number;
+  refundable: boolean;
+  refundBeforeHours: number | null;
+  allowedModes: string[];
+  effectiveFrom: string;
+  effectiveTo: string;
+}
+
+export interface PaymentRule extends PaymentRulePayload {
+  id: number;
+  hotelId: string;
+  createdBy?: number;
+  createdByEmail?: string;
+  updatedBy?: number;
+  updatedByEmail?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface PaymentRuleListResponse {
+  total: number;
+  paymentRules: PaymentRule[];
+}
+
+export interface CreatePromotionPayload {
+  promotionType: "BASIC" | "LAST_MINUTE" | "EARLY_BIRD" | "LONG_STAY";
+  offerType: "PERCENTAGE" | "FIXED";
+  discountAllUsers: number;
+  discountLoggedUsers: number;
+  extraLoggedDiscount?: number;
+  applicableDateType: "BOOKING_AND_STAY" | "BOOKING_ONLY" | "STAY_ONLY" | "STAY";
+  stayStartDate?: string;
+  stayEndDate?: string;
+  bookingStartDate?: string;
+  bookingEndDate?: string;
+  noEndDateStay?: boolean;
+  noEndDateBooking?: boolean;
+  blackoutEnabled?: boolean;
+  blackoutDates?: string[];
+  nonRefundable?: boolean;
+  payAtHotel?: boolean;
+  applyAllRooms?: boolean;
+  applyAllRateplans?: boolean;
+  applyChannel?: string;
+  contractsJson?: string[];
+  promotionName: string;
+  // Last Minute specific
+  bookablePeriod?: "SAME_DAY" | "ONE_DAY" | "TWO_DAYS";
+  // Early Bird specific
+  advanceDays?: number;
+  // Long Stay specific
+  offerFreeNights?: boolean;
+  freeNightsCount?: number;
+  minimumStayDays?: number;
+  roomIds?: string[];
+  rateplanIds?: string[];
+  audienceType?: string;
+}
+
+export interface PromotionListItem {
+  id: string;
+  promotionName: string;
+  promotionType: string;
+  status: string;
+  offerType: string;
+  discountAllUsers: number;
+  extraLoggedDiscount: number;
+  bookingStartDate: string | null;
+  bookingEndDate: string | null;
+  stayStartDate: string | null;
+  stayEndDate: string | null;
+  noEndDate: boolean | null;
+  expiringLabel: string | null;
+  roomNights: number | null;
+  revenue: number | null;
+  lastModified: string;
+}
+
+export interface PromotionListResponse {
+  data: PromotionListItem[];
+}
+
+export interface DropdownOption {
+  code: string;
+  label: string;
+}
+
+export interface PromotionDetail {
+  id: string;
+  hotelId: string;
+  promotionType: string;
+  offerType: string;
+  discountAllUsers: number;
+  discountLoggedUsers: number;
+  extraLoggedDiscount: number;
+  applicableDateType: string;
+  stayStartDate: string | null;
+  stayEndDate: string | null;
+  bookingStartDate: string | null;
+  bookingEndDate: string | null;
+  noEndDateStay: boolean;
+  noEndDateBooking: boolean;
+  blackoutEnabled: boolean;
+  nonRefundable: boolean;
+  payAtHotel: boolean;
+  applyAllRooms: boolean;
+  applyAllRateplans: boolean;
+  applyChannel: string;
+  contractsJson: string[];
+  promotionName: string;
+  status: string;
+  maxDaysBeforeCheckin: number | null;
+  minDaysBeforeCheckin: number | null;
+  offerMode: string | null;
+  freeNights: number | null;
+  minStayNights: number | null;
+  audienceType: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PromotionEditResponse {
+  data: {
+    promotion: PromotionDetail;
+    roomIds: string[];
+    rateplanIds: string[];
+    blackoutDates: string[];
+    promotionTypes: DropdownOption[];
+    offerTypes: DropdownOption[];
+    applicableDateTypes: DropdownOption[];
+    channelTypes: DropdownOption[];
+    offerModes: DropdownOption[];
+    audienceTypes: DropdownOption[];
+    promotionStatuses: DropdownOption[];
+  };
+}
+
+export interface UpdatePromotionStatusPayload {
+  status: "DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED";
+}
+
+export interface UpdatePromotionPayload extends CreatePromotionPayload {
+  status: "DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED";
+}
+
+export interface HotelPolicyRule {
+  category: string;
+  ruleCode: string;
+  value: string | number | boolean | string[];
+  active: boolean;
+}
+
+export interface HotelPolicyRecord {
+  policyId: number;
+  hotelId: string;
+  version: number;
+  isLatest: boolean;
+  draft: boolean;
+  status: string;
+  policies: Record<string, HotelPolicyRule[]>;
+  createdBy: string;
+  createdByEmail: string;
+  updatedBy: string;
+  updatedByEmail: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HotelPoliciesResponse {
+  total: number;
+  policies: HotelPolicyRecord[];
+}
+
+export interface UpdateHotelPoliciesRequest {
+  draft: boolean;
+  rules: HotelPolicyRule[];
+}
+
 // Hotel Admin specific interfaces
 export interface UpdateHotelAdminProfileRequest {
   description: string;
@@ -204,6 +435,7 @@ export interface UpdateHotelAdminContactRequest {
 
 export interface HotelRoom {
   roomId: string;
+  roomKey?: string;
   roomName: string;
   description: string;
   active: boolean;
@@ -348,12 +580,37 @@ export interface AssignMediaTagRequest {
 }
 
 export interface AssignMediaToRoomRequest {
-  roomId: string;
+  roomKey: string;
 }
 
 export interface ReorderMediaRequest {
   imageId: number;
   sortOrder: number;
+}
+
+export type DocumentType = 
+  | "GST_CERTIFICATE"
+  | "PAN_CARD"
+  | "CANCELLED_CHEQUE"
+  | "BANK_STATEMENT"
+  | "AGREEMENT"
+  | "OTHER";
+
+export interface Document {
+  id: number;
+  hotelId?: string;
+  docType: DocumentType;
+  fileUrl?: string;
+  documentUrl?: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  remarks: string | null;
+  uploadedAt: string;
+  verifiedAt: string | null;
+  uploadedBy?: number;
+  verifiedBy?: number | null;
 }
 
 export interface FinanceData {
@@ -599,6 +856,197 @@ export const adminService = {
     >(API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_ADDRESS(hotelId));
     return response.data;
   },
+  getHotelPolicies: async (
+    hotelId: string
+  ): Promise<HotelPoliciesResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<HotelPoliciesResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.HOTEL_POLICIES(hotelId));
+    return response.data;
+  },
+  createHotelPolicies: async (
+    hotelId: string,
+    data: UpdateHotelPoliciesRequest
+  ): Promise<null> => {
+    const response = await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.HOTEL_POLICIES(hotelId),
+      data
+    );
+    return response.data;
+  },
+  updateHotelPolicies: async (
+    hotelId: string,
+    data: UpdateHotelPoliciesRequest
+  ): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.HOTEL_POLICIES(hotelId),
+      data
+    );
+    return response.data;
+  },
+  getCancellationPolicies: async (
+    hotelId: string
+  ): Promise<CancellationPolicyListResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<CancellationPolicyListResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.CANCELLATION_POLICIES(hotelId));
+    return response.data;
+  },
+  getCancellationPolicy: async (
+    hotelId: string,
+    policyId: number
+  ): Promise<CancellationPolicy> => {
+    const response = await apiClient.get<ApiSuccessResponse<CancellationPolicy>>(
+      API_ENDPOINTS.HOTEL_ADMIN.CANCELLATION_POLICY_DETAIL(hotelId, policyId)
+    );
+    return response.data;
+  },
+  createCancellationPolicy: async (
+    hotelId: string,
+    data: CancellationPolicyPayload
+  ): Promise<null> => {
+    const response = await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.CANCELLATION_POLICIES(hotelId),
+      data
+    );
+    return response.data;
+  },
+  updateCancellationPolicy: async (
+    hotelId: string,
+    policyId: number,
+    data: CancellationPolicyPayload
+  ): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.CANCELLATION_POLICY_DETAIL(hotelId, policyId),
+      data
+    );
+    return response.data;
+  },
+  getChildAgePolicy: async (hotelId: string): Promise<ChildAgePolicyResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<ChildAgePolicyResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.CHILD_AGE_POLICY(hotelId));
+    return response.data;
+  },
+  getChildAgePolicy: async (
+    hotelId: string
+  ): Promise<ChildAgePolicyResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<ChildAgePolicyResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.CHILD_AGE_POLICY(hotelId));
+    return response.data;
+  },
+  createChildAgePolicy: async (
+    hotelId: string,
+    data: ChildAgePolicyPayload
+  ): Promise<null> => {
+    const response = await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.CHILD_AGE_POLICY(hotelId),
+      data
+    );
+    return response.data;
+  },
+  updateChildAgePolicy: async (
+    hotelId: string,
+    data: ChildAgePolicyPayload
+  ): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.CHILD_AGE_POLICY(hotelId),
+      data
+    );
+    return response.data;
+  },
+  // Payment Rules Management
+  getPaymentRules: async (
+    hotelId: string
+  ): Promise<PaymentRuleListResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<PaymentRuleListResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.PAYMENT_RULES(hotelId));
+    return response.data;
+  },
+  createPaymentRule: async (
+    hotelId: string,
+    data: PaymentRulePayload
+  ): Promise<null> => {
+    const response = await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.PAYMENT_RULES(hotelId),
+      data
+    );
+    return response.data;
+  },
+  updatePaymentRule: async (
+    hotelId: string,
+    data: PaymentRulePayload
+  ): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.PAYMENT_RULES(hotelId),
+      data
+    );
+    return response.data;
+  },
+  // Promotions Management
+  createPromotion: async (
+    hotelId: string,
+    data: CreatePromotionPayload
+  ): Promise<null> => {
+    const response = await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.CREATE_PROMOTION(hotelId),
+      data
+    );
+    return response.data;
+  },
+  getPromotions: async (
+    hotelId: string
+  ): Promise<PromotionListResponse> => {
+    const response = await apiClient.get<ApiSuccessResponse<PromotionListItem[]>>(
+      API_ENDPOINTS.HOTEL_ADMIN.GET_PROMOTIONS(hotelId)
+    );
+    // response.data is the data from ApiSuccessResponse
+    // If it's an array, use it directly
+    if (Array.isArray(response.data)) {
+      return { data: response.data };
+    }
+    // If it's an object with a data property, extract it
+    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      return { data: (response.data as any).data || [] };
+    }
+    return { data: [] };
+  },
+  getPromotionEdit: async (
+    hotelId: string,
+    promotionId: string
+  ): Promise<PromotionEditResponse> => {
+    // The API returns { data: { promotion: {...}, ... } } wrapped in ApiSuccessResponse
+    const response = await apiClient.get<ApiSuccessResponse<PromotionEditResponse["data"]>>(
+      API_ENDPOINTS.HOTEL_ADMIN.GET_PROMOTION_EDIT(hotelId, promotionId)
+    );
+    // response.data is the PromotionEditResponse["data"] (the inner data object)
+    // We need to wrap it in PromotionEditResponse format
+    return { data: response.data };
+  },
+  updatePromotionStatus: async (
+    hotelId: string,
+    promotionId: string,
+    data: UpdatePromotionStatusPayload
+  ): Promise<null> => {
+    const response = await apiClient.patch<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_PROMOTION_STATUS(hotelId, promotionId),
+      data
+    );
+    return response.data;
+  },
+  updatePromotion: async (
+    hotelId: string,
+    promotionId: string,
+    data: UpdatePromotionPayload
+  ): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_PROMOTION_STATUS(hotelId, promotionId),
+      data
+    );
+    return response.data;
+  },
   // Hotel Rooms Management
   getHotelAdminRooms: async (
     hotelId: string
@@ -797,6 +1245,54 @@ export const adminService = {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_ROOM_AMENITIES(hotelId, roomId),
       data
+    );
+    return response.data;
+  },
+  // Document APIs
+  getDocuments: async (hotelId: string): Promise<Document[]> => {
+    const response = await apiClient.get<ApiSuccessResponse<Document[]>>(
+      API_ENDPOINTS.HOTEL_ADMIN.GET_DOCUMENTS(hotelId)
+    );
+    return response.data;
+  },
+  uploadDocument: async (hotelId: string, file: File, docType: DocumentType): Promise<Document> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("docType", docType);
+    const response = await apiClient.post<ApiSuccessResponse<Document>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPLOAD_DOCUMENT(hotelId),
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    return response.data;
+  },
+  // Document Review APIs (Super Admin)
+  getPendingDocuments: async (): Promise<Document[]> => {
+    const response = await apiClient.get<ApiSuccessResponse<Document[]>>(
+      API_ENDPOINTS.ADMIN.GET_PENDING_DOCUMENTS
+    );
+    return response.data;
+  },
+  getHotelDocuments: async (hotelId: string): Promise<Document[]> => {
+    const response = await apiClient.get<ApiSuccessResponse<Document[]>>(
+      API_ENDPOINTS.ADMIN.GET_HOTEL_DOCUMENTS(hotelId)
+    );
+    return response.data;
+  },
+  approveDocument: async (docId: string | number, remarks: string): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.ADMIN.APPROVE_DOCUMENT(docId),
+      { remarks }
+    );
+    return response.data;
+  },
+  rejectDocument: async (docId: string | number, remarks: string): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      `${API_ENDPOINTS.ADMIN.REJECT_DOCUMENT(docId)}?remarks=${encodeURIComponent(remarks)}`
     );
     return response.data;
   },

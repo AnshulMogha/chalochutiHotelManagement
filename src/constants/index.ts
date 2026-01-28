@@ -20,6 +20,8 @@ export const ROUTES = {
     HOTEL_REVIEW_DETAIL: (hotelId: string) => `/admin/hotels/review/${hotelId}`,
     USERS: "/admin/users",
     USER_DETAIL: (userId: string | number) => `/admin/users/${userId}`,
+    COMMISSION_AND_TAX: "/admin/commission-tax",
+    DOCUMENT_REVIEW: "/admin/document-review",
   },
   PROPERTY_INFO: {
     LIST: "/property/information",
@@ -29,6 +31,7 @@ export const ROUTES = {
     AMENITIES_RESTAURANTS: "/property/information/amenities-restaurants",
     POLICY_RULES: "/property/information/policy-rules",
     FINANCE: "/property/information/finance",
+    DOCUMENT: "/property/information/document",
   },
   ROOM_INVENTORY: {
     LIST: "/inventory/room-types",
@@ -51,6 +54,11 @@ export const ROUTES = {
   },
   TEAM: {
     LIST: "/team",
+  },
+  PROMOTIONS: {
+    LIST: "/promotions",
+    CREATE: "/promotions/create",
+    MY_PROMOTIONS: "/promotions/my-promotions",
   },
 } as const;
 
@@ -91,6 +99,24 @@ export const API_ENDPOINTS = {
     GET_USER_BY_ID: (userId: string | number) => `/admin/users/${userId}`,
     CREATE_USER: "/admin/users",
     UPDATE_USER: (userId: string | number) => `/admin/users/${userId}`,
+    // Commission APIs
+    CREATE_COMMISSION: "/admin/commission",
+    GET_COMMISSIONS: "/admin/commission/list",
+    GET_ACTIVE_COMMISSIONS: "/admin/commission/active",
+    GET_COMMISSION_BY_ID: (id: string | number) => `/admin/commission/${id}`,
+    // Tax APIs
+    CREATE_TAX: "/admin/tax",
+    GET_TAXES: "/admin/tax/list",
+    GET_ACTIVE_TAXES: "/admin/tax/active",
+    GET_TAX_BY_ID: (id: string | number) => `/admin/tax/${id}`,
+    // Document Review APIs
+    GET_PENDING_DOCUMENTS: "/admin/hotel/finance/documents/pending",
+    GET_HOTEL_DOCUMENTS: (hotelId: string) => `/admin/hotel/finance/${hotelId}/documents`,
+    APPROVE_DOCUMENT: (docId: string | number) => `/admin/hotel/finance/documents/${docId}/approve`,
+    REJECT_DOCUMENT: (docId: string | number) => `/admin/hotel/finance/documents/${docId}/reject`,
+  },
+  PRICING: {
+    GET_QUOTE: "/pricing/quote",
   },
   HOTELS: {
     MEDIA_ONBOARDING: (hotelId: string) =>
@@ -166,6 +192,23 @@ export const API_ENDPOINTS = {
     UPDATE_HOTEL_AMENITIES: (hotelId: string) => `/hotel/${hotelId}/amenities`,
     GET_ROOM_AMENITIES: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/amenities`,
     UPDATE_ROOM_AMENITIES: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/amenities`,
+    HOTEL_POLICIES: (hotelId: string) => `/hotel/${hotelId}/policies`,
+    CANCELLATION_POLICIES: (hotelId: string) => `/hotel/${hotelId}/cancellation-policies`,
+    CANCELLATION_POLICY_DETAIL: (hotelId: string, policyId: number | string) =>
+      `/hotel/${hotelId}/cancellation-policies/${policyId}`,
+    CHILD_AGE_POLICY: (hotelId: string) => `/hotel/${hotelId}/child-age-policy`,
+    PAYMENT_RULES: (hotelId: string) => `/hotel/${hotelId}/payment-rules`,
+    CREATE_PROMOTION: (hotelId: string) => `/hotel/${hotelId}/promotions`,
+    GET_PROMOTIONS: (hotelId: string) => `/hotel/${hotelId}/promotions`,
+    GET_PROMOTION_EDIT: (hotelId: string, promotionId: string) => `/hotel/${hotelId}/promotions/${promotionId}/edit`,
+    UPDATE_PROMOTION_STATUS: (hotelId: string, promotionId: string) => `/hotel/${hotelId}/promotions/${promotionId}/status`,
+    GET_DOCUMENTS: (hotelId: string) => `/hotel/${hotelId}/documents`,
+    UPLOAD_DOCUMENT: (hotelId: string) => `/hotel/${hotelId}/document/upload`,
+    GET_TEAM_MEMBERS: (hotelId: string) => `/hotel/${hotelId}/users`,
+    CREATE_TEAM_MEMBER: (hotelId: string) => `/hotel/${hotelId}/users`,
+    ASSIGN_HOTEL_TO_USER: (hotelId: string, userId: string | number) => `/hotel/${hotelId}/users/${userId}`,
+    ASSIGN_PERMISSIONS: (accessId: string | number) => `/hotel-access/${accessId}/permissions`,
+    REVOKE_ACCESS: (accessId: string | number) => `/hotel-access/${accessId}`,
   },
   INVENTORY: {
     GET_CALENDAR: (hotelId: string, fromDate: string, toDate: string) =>

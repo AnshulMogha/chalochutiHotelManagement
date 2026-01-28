@@ -39,8 +39,23 @@ export function HotelSelector({
   const isAmenitiesRestaurantsPage = location.pathname === ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS;
   const isPolicyRulesPage = location.pathname === ROUTES.PROPERTY_INFO.POLICY_RULES;
   const isFinancePage = location.pathname === ROUTES.PROPERTY_INFO.FINANCE;
+  const isDocumentPage = location.pathname === ROUTES.PROPERTY_INFO.DOCUMENT;
+  const isDocumentReviewPage = location.pathname === ROUTES.ADMIN.DOCUMENT_REVIEW;
   const isPropertyInfoPage = isBasicInfoPage || isRoomsRatePlansPage || isPhotosVideosPage || 
-                             isAmenitiesRestaurantsPage || isPolicyRulesPage || isFinancePage;
+                             isAmenitiesRestaurantsPage || isPolicyRulesPage || isFinancePage || isDocumentPage;
+  
+  // Check promotions pages
+  const isPromotionsListPage = location.pathname === ROUTES.PROMOTIONS.LIST;
+  const isPromotionsCreatePage = location.pathname.startsWith(ROUTES.PROMOTIONS.CREATE);
+  const isPromotionsMyPromotionsPage = location.pathname === ROUTES.PROMOTIONS.MY_PROMOTIONS;
+  const isPromotionsPage = isPromotionsListPage || isPromotionsCreatePage || isPromotionsMyPromotionsPage;
+  
+  // Check team page
+  const isTeamPage = location.pathname === ROUTES.TEAM.LIST;
+  
+  // Combined check for pages that need hotel filtering (property info + promotions + document review + team)
+  const isHotelFilterPage = isPropertyInfoPage || isPromotionsPage || isDocumentReviewPage || isTeamPage;
+  
   const hasAutoSelectedRef = useRef(false);
 
   useEffect(() => {
@@ -49,9 +64,9 @@ export function HotelSelector({
         setIsLoading(true);
         let data: (HotelListResponse | ApprovedHotelItem)[] = [];
         
-        // For hotel owner on property info pages, use getAllHotels() which returns ALL hotels (LIVE, INPROCESS, etc.)
-        // For super admin on property info page, use approved hotels API
-        if (isPropertyInfoPage && !isHotelOwnerUser) {
+        // For hotel owner on property info/promotions pages, use getAllHotels() which returns ALL hotels (LIVE, INPROCESS, etc.)
+        // For super admin on property info/promotions pages, use approved hotels API
+        if (isHotelFilterPage && !isHotelOwnerUser) {
           const approvedHotels = await adminService.getApprovedHotels();
           // Convert ApprovedHotelItem to HotelListResponse format
           data = approvedHotels.map((hotel) => ({
@@ -61,20 +76,30 @@ export function HotelSelector({
           }));
         } else {
           // For hotel owners, getAllHotels() returns all hotels regardless of status
-          // But on property info pages, we only want to show LIVE hotels
+          // But on property info/promotions pages, we only want to show LIVE hotels
           const allHotels = await propertyService.getAllHotels();
-          if (isPropertyInfoPage && isHotelOwnerUser) {
-            // Filter to show only LIVE hotels for hotel owners on property info pages
+          if (isHotelFilterPage && isHotelOwnerUser) {
+            // Filter to show only LIVE hotels for hotel owners on property info/promotions pages
             data = allHotels.filter((hotel) => hotel.status === "LIVE");
           } else {
             data = allHotels;
           }
         }
         
+        // Filter the final list to show only LIVE hotels
+        data = data.filter((hotel) => {
+          // Check if hotel has status field and it's LIVE
+          if ('status' in hotel && hotel.status) {
+            return hotel.status === "LIVE";
+          }
+          // For approved hotels (which don't have status field but are LIVE by definition), include them
+          return true;
+        });
+        
         setHotels(data);
-        // Auto-select first hotel if none selected (only once per mount and only if no hotelId in URL)
-        // Don't auto-select if we already have a selectedHotelId - preserve user's selection
-        if (!selectedHotelId && !hasAutoSelectedRef.current && data.length > 0 && data[0].hotelId) {
+        // Auto-select first hotel if none selected (but not on document review page)
+        // Always auto-select if no hotelId is in URL params (selectedHotelId is null)
+        if (!selectedHotelId && data.length > 0 && data[0].hotelId && !isDocumentReviewPage) {
           hasAutoSelectedRef.current = true;
           onHotelChange(data[0].hotelId);
         }
@@ -87,12 +112,12 @@ export function HotelSelector({
 
     fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPropertyInfoPage, isHotelOwnerUser]);
+  }, [isHotelFilterPage, isHotelOwnerUser, selectedHotelId]);
   
-  // Reset auto-select ref when selectedHotelId changes (user manually selects a hotel)
+  // Reset auto-select ref when selectedHotelId is cleared (allows re-auto-selection)
   useEffect(() => {
-    if (selectedHotelId) {
-      hasAutoSelectedRef.current = true;
+    if (!selectedHotelId) {
+      hasAutoSelectedRef.current = false;
     }
   }, [selectedHotelId]);
 

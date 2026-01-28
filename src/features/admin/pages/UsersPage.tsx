@@ -19,9 +19,8 @@ import { Box } from "@mui/material";
 import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
 
 const ROLE_OPTIONS = [
-  { value: "HOTEL_OWNER", label: "Hotel Owner" },
-  { value: "HOTEL_MANAGER", label: "Hotel Manager" },
-  { value: "SUPER_ADMIN", label: "Super Admin" },
+  { value: "PLATFORM_ADMIN", label: "Platform Admin" },
+  { value: "ONBOARDING_REVIEWER", label: "Onboarding Reviewer" },
 ];
 
 const STATUS_OPTIONS = [
@@ -41,7 +40,7 @@ interface UserFormModalProps {
 function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalProps) {
   const [formData, setFormData] = useState<CreateUserRequest | UpdateUserRequest>({
     email: "",
-    role: "HOTEL_OWNER",
+    role: "PLATFORM_ADMIN",
     firstName: "",
     lastName: "",
     phoneNumber: "",
@@ -53,10 +52,10 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
 
   useEffect(() => {
     if (mode === "edit" && user) {
-      // Get the first role from roles array, or default to HOTEL_OWNER
+      // Get the first role from roles array, or default to PLATFORM_ADMIN
       const primaryRole = user.roles && user.roles.length > 0 
-        ? (user.roles[0] as "HOTEL_OWNER" | "HOTEL_MANAGER" | "SUPER_ADMIN")
-        : "HOTEL_OWNER";
+        ? (user.roles[0] as "PLATFORM_ADMIN" | "ONBOARDING_REVIEWER")
+        : "PLATFORM_ADMIN";
       setFormData({
         email: user.email,
         role: primaryRole,
@@ -68,7 +67,7 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
     } else {
       setFormData({
         email: "",
-        role: "HOTEL_OWNER",
+        role: "PLATFORM_ADMIN",
         firstName: "",
         lastName: "",
         phoneNumber: "",
@@ -292,7 +291,7 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
             onChange={(e) =>
               setFormData({
                 ...formData,
-                role: e.target.value as "HOTEL_OWNER" | "HOTEL_MANAGER" | "SUPER_ADMIN",
+                role: e.target.value as "PLATFORM_ADMIN" | "ONBOARDING_REVIEWER",
               })
             }
             error={errors.role}
@@ -336,6 +335,8 @@ function RoleBadge({ roles }: { roles: string[] }) {
     HOTEL_OWNER: { label: "Hotel Owner", className: "bg-blue-100 text-blue-700" },
     HOTEL_MANAGER: { label: "Hotel Manager", className: "bg-purple-100 text-purple-700" },
     SUPER_ADMIN: { label: "Super Admin", className: "bg-red-100 text-red-700" },
+    PLATFORM_ADMIN: { label: "Platform Admin", className: "bg-indigo-100 text-indigo-700" },
+    ONBOARDING_REVIEWER: { label: "Onboarding Reviewer", className: "bg-amber-100 text-amber-700" },
   };
 
   if (!roles || roles.length === 0) {

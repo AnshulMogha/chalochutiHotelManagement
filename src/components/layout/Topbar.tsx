@@ -18,6 +18,7 @@ import { RiMenuFold3Line } from "react-icons/ri";
 import { HotelSelector } from "@/components/ui/HotelSelector";
 import { ROUTES, ROLES } from "@/constants";
 import { hasRole } from "@/constants/roles";
+import { RoleBadge } from "@/components/ui/badges";
 
 interface TopbarProps {
   onSidebarToggle?: () => void;
@@ -37,19 +38,35 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   const isAmenitiesRestaurantsPage = location.pathname === ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS;
   const isPolicyRulesPage = location.pathname === ROUTES.PROPERTY_INFO.POLICY_RULES;
   const isFinancePage = location.pathname === ROUTES.PROPERTY_INFO.FINANCE;
+  const isDocumentPage = location.pathname === ROUTES.PROPERTY_INFO.DOCUMENT;
+  const isDocumentReviewPage = location.pathname === ROUTES.ADMIN.DOCUMENT_REVIEW;
   const isPropertyInfoPage = isBasicInfoPage || isRoomsRatePlansPage || isPhotosVideosPage || 
-                             isAmenitiesRestaurantsPage || isPolicyRulesPage || isFinancePage;
+                             isAmenitiesRestaurantsPage || isPolicyRulesPage || isFinancePage || isDocumentPage;
   const isRoomInventoryPage = location.pathname === ROUTES.ROOM_INVENTORY.LIST;
   const isRatePlanPage = location.pathname === ROUTES.RATE_INVENTORY.LIST;
   const isInventoryPage = isRoomInventoryPage || isRatePlanPage;
   
+  // Check promotions pages
+  const isPromotionsListPage = location.pathname === ROUTES.PROMOTIONS.LIST;
+  const isPromotionsCreatePage = location.pathname.startsWith(ROUTES.PROMOTIONS.CREATE);
+  const isPromotionsMyPromotionsPage = location.pathname === ROUTES.PROMOTIONS.MY_PROMOTIONS;
+  const isSpecialAudiencePage = location.pathname.startsWith("/promotions/special-audience");
+  const isPromotionsPage = isPromotionsListPage || isPromotionsCreatePage || isPromotionsMyPromotionsPage || isSpecialAudiencePage;
+  
+  // Check team page
+  const isTeamPage = location.pathname === ROUTES.TEAM.LIST;
+  
   // Check if user is HOTEL_OWNER
   const isHotelOwner = hasRole(user?.roles, ROLES.HOTEL_OWNER);
   
-  // Show hotel selector for HOTEL_OWNER on: basic info, room inventory, and rate plan pages
+  // Show hotel selector for HOTEL_OWNER on: basic info, room inventory, rate plan pages, promotions pages, and team page
+  // Show for super admin on document review page
   const shouldShowHotelSelector = 
     isPropertyInfoPage || 
-    (isHotelOwner && isInventoryPage);
+    (isHotelOwner && isInventoryPage) ||
+    isPromotionsPage ||
+    isTeamPage ||
+    isDocumentReviewPage;
   const selectedHotelId = searchParams.get("hotelId");
 
   useEffect(() => {
@@ -101,10 +118,10 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
               </div>
               <div className="flex flex-col">
                 <h1 className="text-lg font-bold text-gray-900 tracking-tight group-hover:text-[#2f3d95] transition-colors">
-                  Hotel Onboard
+                  Chalochutti
                 </h1>
                 <p className="text-xs text-gray-500 font-medium">
-                  Management System
+                  Hotel Management
                 </p>
               </div>
             </Link>
@@ -176,6 +193,11 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
                       <p className="text-gray-500 text-xs truncate mt-0.5">
                         {user?.email || "user@example.com"}
                       </p>
+                      {user?.roles && user.roles.length > 0 && (
+                        <div className="mt-2">
+                          <RoleBadge roles={user.roles} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </DropdownMenuLabel>
