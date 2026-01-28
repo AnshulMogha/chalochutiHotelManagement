@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui";
 import type { HotelRoom } from "@/features/admin/services/adminService";
+import { adminService, type ChildAgePolicyResponse } from "@/features/admin/services/adminService";
 
 // Track the single active edit
 interface ActiveEdit {
@@ -94,6 +95,15 @@ export default function Layout() {
   const currentCustomerType = useMemo(() => getCustomerTypeFromTab(activeTab), [activeTab]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Child Age Policy State
+  const [childPolicy, setChildPolicy] = useState<ChildAgePolicyResponse | null>(null);
+  const [childPolicyNotFound, setChildPolicyNotFound] = useState(false);
+
+  // Debug: Log child policy state changes
+  useEffect(() => {
+    console.log("Layout - childPolicyNotFound:", childPolicyNotFound);
+  }, [childPolicyNotFound]);
+
   // Track only the current active edit
   const [activeEdit, setActiveEdit] = useState<ActiveEdit | null>(null);
   
@@ -117,6 +127,77 @@ export default function Layout() {
 
   const hasChanges = activeEdit !== null || activeRateEdit !== null;
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
+
+  // Reset all changes when switching between room-types and rate-plans tabs
+  useEffect(() => {
+    // Set canceling flag to prevent any pending API calls
+    isCancelingRef.current = true;
+    
+    // Revert room inventory to original state if there were changes
+    if (activeEdit && originalRoomsRef.current.length > 0) {
+      const originalData = JSON.parse(JSON.stringify(originalRoomsRef.current));
+      setRooms(originalData);
+    }
+    setActiveEdit(null);
+    
+    // Revert rate rooms to original state if there were changes
+    if (activeRateEdit && originalRateRoomsRef.current.length > 0) {
+      const originalData = JSON.parse(JSON.stringify(originalRateRoomsRef.current));
+      setRateRooms(originalData);
+    }
+    setActiveRateEdit(null);
+    
+    // Clear any updating cells state
+    setUpdatingCells(new Set());
+    // Clear previous values ref
+    previousValuesRef.current.clear();
+    
+    // Reset canceling flag after a short delay to allow any pending operations to complete
+    setTimeout(() => {
+      isCancelingRef.current = false;
+    }, 100);
+  }, [activeSidebarSection]);
+
+  // Fetch child age policy on mount
+  useEffect(() => {
+    if (!hotelId) return;
+
+    const fetchChildAgePolicy = async () => {
+      try {
+        const data = await adminService.getChildAgePolicy(hotelId);
+        setChildPolicy(data);
+        setChildPolicyNotFound(false);
+      } catch (error: any) {
+        // Check if error is "child policy not found"
+        // API client interceptor transforms error structure:
+        // - Before: error.response.data.data.childAgePolicy
+        // - After: error.data.childAgePolicy (interceptor extracts data into error.data)
+        const errorData = error?.data || error?.response?.data?.data || error?.data?.data;
+        const childAgePolicyError = errorData?.childAgePolicy;
+        console.log("Child policy error check:", {
+          error,
+          errorData,
+          childAgePolicyError,
+          matches: childAgePolicyError === "error.hotel.child.age.policy.not.found"
+        });
+        
+        if (childAgePolicyError === "error.hotel.child.age.policy.not.found") {
+          // Policy not found - hide all child-related fields
+          console.log("Setting childPolicyNotFound to true");
+          setChildPolicy(null);
+          setChildPolicyNotFound(true);
+        } else {
+          // Other errors - treat as no policy but don't hide fields
+          console.error("Error fetching child age policy (not 'not found' error):", error);
+          setChildPolicy(null);
+          setChildPolicyNotFound(false);
+        }
+      }
+    };
+
+    fetchChildAgePolicy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hotelId]);
 
   // Calculate date range: fromDate = baseDate, toDate = baseDate + 6 days
   const fromDate = useMemo(() => format(baseDate, "yyyy-MM-dd"), [baseDate]);
@@ -710,7 +791,7 @@ export default function Layout() {
                 </span>
               </div>
             ) : activeSidebarSection === "room-types" ? (
-              <div className="mt-4">
+              <div className="mt-4" key={`room-types-${activeSidebarSection}`}>
                 <RoomTypesGrid
                   rooms={rooms}
                   baseDate={baseDate}
@@ -724,7 +805,7 @@ export default function Layout() {
               </div>
             ) : (
               ratePlansFromDate && ratePlansToDate ? (
-                <div className="mt-4">
+                <div className="mt-4" key={`rate-plans-${activeSidebarSection}`}>
                   <RatePlansGrid
                     rooms={rateRooms}
                     fromDate={ratePlansFromDate}
@@ -735,6 +816,8 @@ export default function Layout() {
                     onActiveDateChange={setActiveDate}
                     isLocked={hasChanges}
                     activeEdit={activeRateEdit}
+                    hidePaidChildCharge={childPolicyNotFound}
+                    childPolicy={childPolicy}
                   />
                 </div>
               ) : (

@@ -22,6 +22,7 @@ import {
   adminService,
   type HotelRoom,
   type RatePlan as AdminRatePlan,
+  type ChildAgePolicyResponse,
 } from "@/features/admin/services/adminService";
 import { Toast, useToast } from "@/components/ui/Toast";
 
@@ -124,6 +125,120 @@ export default function BulkUpdateRatesPage() {
 
   // Form data: roomUUID-ratePlanId -> form values (using UUID as key, but storing numeric ID)
   const [formData, setFormData] = useState<Record<string, RoomRateData>>({});
+
+  // Child Age Policy State
+  const [childPolicy, setChildPolicy] = useState<ChildAgePolicyResponse | null>(null);
+  const [loadingChildPolicy, setLoadingChildPolicy] = useState(false);
+  const [childPolicyNotFound, setChildPolicyNotFound] = useState(false);
+
+  // Helper functions for dynamic child age labels
+  const shouldShowFreeChildRate = (): boolean => {
+    // Hide if policy is not found
+    if (childPolicyNotFound) return false;
+    // Show only if childrenAllowed is explicitly true AND age values are valid
+    if (!childPolicy?.childrenAllowed) return false;
+    const freeMaxAge = childPolicy.freeStayMaxAge;
+    const paidMaxAge = childPolicy.paidStayMaxAge;
+    // Validate age values exist and are numbers
+    if (typeof freeMaxAge !== 'number' || typeof paidMaxAge !== 'number') return false;
+    if (isNaN(freeMaxAge) || isNaN(paidMaxAge)) return false;
+    return true;
+  };
+
+  const shouldShowPaidChildRate = (): boolean => {
+    // Hide if policy is not found
+    if (childPolicyNotFound) return false;
+    // Show if policy exists (even if childrenAllowed is false, we show with default label)
+    return childPolicy !== null;
+  };
+
+  const getFreeChildRateLabel = (): string => {
+    // This should only be called when shouldShowFreeChildRate() is true
+    // But add safety checks to prevent undefined in label
+    if (!childPolicy?.childrenAllowed) {
+      return "Free Child Rate (0 - 5 years)"; // Fallback (should not be shown)
+    }
+    const maxAge = childPolicy.freeStayMaxAge;
+    if (typeof maxAge !== 'number' || isNaN(maxAge)) {
+      return "Free Child Rate (0 - 5 years)"; // Fallback
+    }
+    return `Free Child Rate (0 – ${maxAge} years)`;
+  };
+
+  const getPaidChildRateLabel = (): string => {
+    // If no valid policy, use default static label
+    if (!childPolicy?.childrenAllowed) {
+      return "Paid Child Rate (6 - 13 years)"; // Default static label
+    }
+    const freeMaxAge = childPolicy.freeStayMaxAge;
+    const paidMaxAge = childPolicy.paidStayMaxAge;
+    
+    // Validate age values before using them
+    if (typeof freeMaxAge !== 'number' || typeof paidMaxAge !== 'number') {
+      return "Paid Child Rate (6 - 13 years)"; // Fallback to default
+    }
+    if (isNaN(freeMaxAge) || isNaN(paidMaxAge)) {
+      return "Paid Child Rate (6 - 13 years)"; // Fallback to default
+    }
+    
+    const minAge = freeMaxAge + 1;
+    return `Paid Child Rate (${minAge} – ${paidMaxAge} years)`;
+  };
+
+  const getExtraAdultChargeLabel = (): string => {
+    // If child policy is available and valid, use dynamic age
+    if (childPolicy?.childrenAllowed && typeof childPolicy.paidStayMaxAge === 'number' && !isNaN(childPolicy.paidStayMaxAge)) {
+      const minAge = childPolicy.paidStayMaxAge + 1;
+      return `Extra Adult Charge (${minAge}+ years)`;
+    }
+    // Default static label when no policy or invalid policy
+    return "Extra Adult Charge";
+  };
+
+  // Fetch child age policy on page load
+  useEffect(() => {
+    if (!hotelId) return;
+
+    const fetchChildAgePolicy = async () => {
+      setLoadingChildPolicy(true);
+      setChildPolicyNotFound(false);
+      try {
+        const data = await adminService.getChildAgePolicy(hotelId);
+        setChildPolicy(data);
+        setChildPolicyNotFound(false);
+      } catch (error: any) {
+        // Check if error is "child policy not found"
+        // API client interceptor transforms error structure:
+        // - Before: error.response.data.data.childAgePolicy
+        // - After: error.data.childAgePolicy (interceptor extracts data into error.data)
+        const errorData = error?.data || error?.response?.data?.data || error?.data?.data;
+        const childAgePolicyError = errorData?.childAgePolicy;
+        console.log("Child policy error check:", {
+          error,
+          errorData,
+          childAgePolicyError,
+          matches: childAgePolicyError === "error.hotel.child.age.policy.not.found"
+        });
+        
+        if (childAgePolicyError === "error.hotel.child.age.policy.not.found") {
+          // Policy not found - hide all child-related fields
+          console.log("Setting childPolicyNotFound to true");
+          setChildPolicy(null);
+          setChildPolicyNotFound(true);
+        } else {
+          // Other errors - treat as no policy but don't hide fields
+          console.error("Error fetching child age policy (not 'not found' error):", error);
+          setChildPolicy(null);
+          setChildPolicyNotFound(false);
+        }
+      } finally {
+        setLoadingChildPolicy(false);
+      }
+    };
+
+    fetchChildAgePolicy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hotelId]);
 
   // Fetch rooms on mount
   useEffect(() => {
@@ -682,7 +797,7 @@ export default function BulkUpdateRatesPage() {
                   <div className="flex items-center justify-between p-5 bg-white rounded-xl border border-slate-200 shadow-sm hover:border-blue-200 hover:shadow transition-colors">
                     <div>
                       <span className="text-sm font-semibold text-slate-900">
-                        Rate Restrictions
+                        Restrictions
                       </span>
                       <p className="text-xs text-slate-500 mt-1">
                         Show and edit restrictions for this rate plan
@@ -939,31 +1054,34 @@ export default function BulkUpdateRatesPage() {
                                       <Users className="w-4 h-4 text-blue-600" />
                                       Guest Charges
                                     </h5>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                      {/* Free Child Rate */}
-                                      <div className="space-y-2.5">
-                                        <label className="block text-sm font-semibold text-slate-800">
-                                          Free Child Rate (0 - 5 years)
-                                        </label>
-                                        <input
-                                          type="text"
-                                          value="Free"
-                                          readOnly
-                                          disabled
-                                          className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-slate-50 text-sm font-medium text-slate-500 cursor-not-allowed"
-                                        />
-                                        {showNettRate && (
-                                          <p className="text-xs text-blue-600 font-semibold">
-                                            Nett Rate: ₹0.00
-                                          </p>
-                                        )}
-                                      </div>
+                                    <div className={`grid grid-cols-1 gap-6 ${shouldShowFreeChildRate() ? 'md:grid-cols-3' : shouldShowPaidChildRate() ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
+                                      {/* Free Child Rate - Conditionally rendered */}
+                                      {shouldShowFreeChildRate() && (
+                                        <div className="space-y-2.5">
+                                          <label className="block text-sm font-semibold text-slate-800">
+                                            {getFreeChildRateLabel()}
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value="Free"
+                                            readOnly
+                                            disabled
+                                            className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-slate-50 text-sm font-medium text-slate-500 cursor-not-allowed"
+                                          />
+                                          {showNettRate && (
+                                            <p className="text-xs text-blue-600 font-semibold">
+                                              Nett Rate: ₹0.00
+                                            </p>
+                                          )}
+                                        </div>
+                                      )}
 
-                                      {/* Paid Child Rate */}
-                                      <div className="space-y-2.5">
-                                        <label className="block text-sm font-semibold text-slate-800">
-                                          Paid Child Rate (6 - 13 years)
-                                        </label>
+                                      {/* Paid Child Rate - Conditionally rendered */}
+                                      {shouldShowPaidChildRate() && (
+                                        <div className="space-y-2.5">
+                                          <label className="block text-sm font-semibold text-slate-800">
+                                            {getPaidChildRateLabel()}
+                                          </label>
                                         <input
                                           type="number"
                                           value={getFormValue(
@@ -1008,12 +1126,13 @@ export default function BulkUpdateRatesPage() {
                                               ).toFixed(2)}
                                             </p>
                                           )}
-                                      </div>
+                                        </div>
+                                      )}
 
                                       {/* Extra Adult Charge */}
                                       <div className="space-y-2.5">
                                         <label className="block text-sm font-semibold text-slate-800">
-                                          Extra Adult Charge (14+ years)
+                                          {getExtraAdultChargeLabel()}
                                         </label>
                                         <input
                                           type="number"

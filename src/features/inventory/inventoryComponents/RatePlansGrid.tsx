@@ -27,6 +27,7 @@ import {
 import { ChevronDown, ChevronRight, AlertTriangle, X, User, Users, Calendar, Clock, UserPlus, Baby } from 'lucide-react';
 import type { RatesRoom, RoomRatePlan, RoomRateDay } from '../type';
 import { getDayData, formatTimeForInput, formatRate } from '../utils/rateHelpers';
+import type { ChildAgePolicyResponse } from '@/features/admin/services/adminService';
 
 /* ----------------------------------
    Date Helpers
@@ -96,6 +97,8 @@ interface RatePlansGridProps {
     maxStay?: number | null;
     cutoffTime?: string | null;
   } | null;
+  hidePaidChildCharge?: boolean;
+  childPolicy?: ChildAgePolicyResponse | null;
 }
 
 export const RatePlansGrid = ({
@@ -108,8 +111,33 @@ export const RatePlansGrid = ({
   onActiveDateChange,
   isLocked = false,
   activeEdit = null,
+  hidePaidChildCharge = false,
+  childPolicy = null,
 }: RatePlansGridProps) => {
+  // Debug: Log hidePaidChildCharge prop
+  console.log("RatePlansGrid - hidePaidChildCharge:", hidePaidChildCharge);
   const navigate = useNavigate();
+
+  // Helper function to generate dynamic paid child charge label
+  const getPaidChildChargeLabel = (): string => {
+    // If no valid policy, use default static label
+    if (!childPolicy?.childrenAllowed) {
+      return "Paid Child Charge (6 - 12 years)"; // Default static label
+    }
+    const freeMaxAge = childPolicy.freeStayMaxAge;
+    const paidMaxAge = childPolicy.paidStayMaxAge;
+    
+    // Validate age values before using them
+    if (typeof freeMaxAge !== 'number' || typeof paidMaxAge !== 'number') {
+      return "Paid Child Charge (6 - 12 years)"; // Fallback to default
+    }
+    if (isNaN(freeMaxAge) || isNaN(paidMaxAge)) {
+      return "Paid Child Charge (6 - 12 years)"; // Fallback to default
+    }
+    
+    const minAge = freeMaxAge + 1;
+    return `Paid Child Charge (${minAge} – ${paidMaxAge} years)`;
+  };
   // Accordion state: only one room expanded at a time
   const [expandedRoomId, setExpandedRoomId] = useState<number | null>(null);
   // Track local input values: key = `${ratePlanId}-${roomId}-${date}`
@@ -436,6 +464,14 @@ export const RatePlansGrid = ({
                             `}>
                               {hasRate ? `${displayBaseRate} Set` : 'Not Set'}
                             </span>
+                            {isLocked && !isThisCellEdited && isSelected && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                </svg>
+                                Locked
+                              </span>
+                            )}
                           </div>
                         </div>
                       );
@@ -453,11 +489,11 @@ export const RatePlansGrid = ({
                           <User className="w-4 h-4" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-xs font-semibold text-slate-700">
-                            Single Occupancy
+                          <span className="text-xs font-semibold text-slate-900">
+                            Single Adult Rate
                           </span>
                           <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">
-                            Single Adult Rate
+                            Single Occupancy
                           </span>
                         </div>
                       </div>
@@ -547,6 +583,14 @@ export const RatePlansGrid = ({
                               `}>
                                 {hasRate ? `${displaySingleRate} Set` : 'Not Set'}
                               </span>
+                              {isLocked && !isThisCellEdited && isSelected && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                  <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                  </svg>
+                                  Locked
+                                </span>
+                              )}
                             </div>
                           </div>
                         );
@@ -728,24 +772,33 @@ export const RatePlansGrid = ({
                                 `}>
                                   {extraAdultCharge > 0 ? `${extraAdultCharge} Set` : 'Not Set'}
                                 </span>
+                                {isLocked && !isThisCellEdited && isSelected && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                    </svg>
+                                    Locked
+                                  </span>
+                                )}
                               </div>
                             </div>
                           );
                         })}
                       </div>
 
-                      {/* Paid Child Charge Row */}
-                      <div 
-                        className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
-                        style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
-                      >
+                      {/* Paid Child Charge Row - Conditionally rendered */}
+                      {!hidePaidChildCharge && (
+                        <div 
+                          className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
+                          style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
+                        >
                         <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
                           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-pink-50 text-pink-600">
                             <Baby className="w-4 h-4" />
                           </div>
                           <div className="flex flex-col">
                             <span className="text-sm font-semibold text-slate-900">
-                              Paid Child Charge (6-12 years)
+                              {getPaidChildChargeLabel()}
                             </span>
                           </div>
                         </div>
@@ -831,11 +884,20 @@ export const RatePlansGrid = ({
                                 `}>
                                   {paidChildCharge > 0 ? `${paidChildCharge} Set` : 'Not Set'}
                                 </span>
+                                {isLocked && !isThisCellEdited && isSelected && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                    </svg>
+                                    Locked
+                                  </span>
+                                )}
                               </div>
                             </div>
                           );
                         })}
-                      </div>
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -940,6 +1002,14 @@ export const RatePlansGrid = ({
                                 `}>
                                   {minStay !== null && minStay !== undefined ? `${minStay} Set` : 'Not Set'}
                                 </span>
+                                {isLocked && !isThisCellEdited && isSelected && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                    </svg>
+                                    Locked
+                                  </span>
+                                )}
                               </div>
                             </div>
                           );
@@ -1044,6 +1114,14 @@ export const RatePlansGrid = ({
                                 `}>
                                   {maxStay !== null && maxStay !== undefined ? `${maxStay} Set` : 'Not Set'}
                                 </span>
+                                {isLocked && !isThisCellEdited && isSelected && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                    </svg>
+                                    Locked
+                                  </span>
+                                )}
                               </div>
                             </div>
                           );
@@ -1147,6 +1225,14 @@ export const RatePlansGrid = ({
                                 `}>
                                   {cutoffTime !== null && cutoffTime !== undefined ? formatTimeForInput(cutoffTime) + ' Set' : 'Not Set'}
                                 </span>
+                                {isLocked && !isThisCellEdited && isSelected && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                    </svg>
+                                    Locked
+                                  </span>
+                                )}
                               </div>
                             </div>
                           );
