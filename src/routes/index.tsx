@@ -318,4 +318,6 @@ export const routes: RouteObject[] = [
 ];
 
 // Create router instance
-export const router = createBrowserRouter(routes);
+export const router = createBrowserRouter(routes, {
+  basename: import.meta.env.BASE_URL,
+});

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import type { ApiError } from "../services/api/client";
+import type { ApiFailureResponse as ApiError } from "../services/api/types/api";
 
 interface UseApiOptions<T> {
   immediate?: boolean;

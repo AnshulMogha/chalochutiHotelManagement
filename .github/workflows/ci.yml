@@ -1,0 +1,47 @@
+name: Build & Deploy chalochuttiAdmin
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build React App
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: https://thedemonstrate.com/hms-core/api/v1
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+
+      - name: Remove old dist folder (if exists)
+        run: |
+          if [ -d /var/www/html/chalochutti/dist ]; then
+            echo "Old dist folder found. Removing..."
+            rm -rf /var/www/html/chalochutti/dist
+          else
+            echo "No old dist folder found. Skipping removal."
+          fi
+
+      - name: Deploy new dist folder
+        run: |
+          if [ -d dist ]; then
+            echo "New build found. Copying dist folder..."
+            cp -r dist /var/www/html/chalochutti/
+          else
+            echo "Build folder 'dist' not found. Skipping deployment."
+            exit 1
+          fi

@@ -8,7 +8,7 @@ import { RoomTypesGrid } from "./inventoryComponents/RoomTypesGrid";
 import { SaveCancelButtons } from "./inventoryComponents/SaveCancelButtons";
 import { BulkUpdateModal } from "./inventoryComponents/BulkUpdateModal";
 import { TAB_OPTIONS } from "@/data/dummyData";
-import { type InventoryRoom, type RatesRoom } from "./type";
+import type { InventoryRoom, RatesRoom } from "./type";
 import { inventoryService } from "./services/inventoryService";
 import { rateService } from "./services/rateService";
 import { Toast, useToast } from "@/components/ui/Toast";
