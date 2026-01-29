@@ -318,6 +318,13 @@ export const routes: RouteObject[] = [
 ];
 
 // Create router instance
+const rawBasename = import.meta.env.BASE_URL;
+// Vite's BASE_URL often includes a trailing slash (e.g. "/chalochutti/").
+// React Router's basename works best without it to avoid "//" when navigating
+// to absolute paths like "/auth/login".
+const basename =
+  rawBasename === "/" ? "/" : rawBasename.replace(/\/+$/, "");
+
 export const router = createBrowserRouter(routes, {
-  basename: import.meta.env.BASE_URL,
+  basename,
 });

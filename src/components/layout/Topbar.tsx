@@ -1,4 +1,4 @@
-import { Link, useLocation, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "@/hooks";
 import {
   DropdownMenu,
@@ -30,6 +30,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   const [user, setUser] = useState<User | null>(null);
   const { logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
   const isBasicInfoPage = location.pathname === ROUTES.PROPERTY_INFO.BASIC_INFO;
@@ -221,8 +222,11 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
                 {/* Logout */}
                 <DropdownMenuItem
                   onClick={async () => {
+                    const redirectTo = hasRole(user?.roles, ROLES.SUPER_ADMIN)
+                      ? "/auth/super-admin/login"
+                      : "/auth/login";
                     await logout();
-                    window.location.href = "/auth/login";
+                    navigate(redirectTo, { replace: true });
                   }}
                   variant="destructive"
                   className="text-red-600 px-4 py-2 focus:text-red-600 focus:bg-red-50"

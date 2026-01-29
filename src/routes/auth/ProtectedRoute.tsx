@@ -2,13 +2,14 @@ import { type ReactNode } from "react";
 import { Navigate } from "react-router";
 import { useAuth } from "@/hooks";
 import { LoadingSpinner } from "@/components/ui";
+import { isSuperAdmin } from "@/constants/roles";
 
 interface ProtectedRouteProps {
   children: ReactNode;
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -19,7 +20,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth/login" replace />;
+    return (
+      <Navigate
+        to={isSuperAdmin(user?.roles) ? "/auth/super-admin/login" : "/auth/login"}
+        replace
+      />
+    );
   }
 
   return <>{children}</>;
