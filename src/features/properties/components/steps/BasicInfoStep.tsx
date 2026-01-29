@@ -73,7 +73,7 @@ const errors = errorsFromContext.basicInfo ;
             ownerEmail: response.ownerEmail || "",
             ownerFirstName: response.ownerFirstName || "",
             ownerLastName: response.ownerLastName || "",
-            ownerPhoneNumber: response.ownerPhoneNumber || "",
+            ownerPhoneNumber: response.ownerPhoneNumber || response.ownerPhone || "",
           })
         );
       } catch (error) {

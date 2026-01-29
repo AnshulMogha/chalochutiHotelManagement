@@ -14,7 +14,7 @@ export interface SubmitBasicInfoRequest {
   ownerEmail: string;
   ownerFirstName: string;
   ownerLastName: string;
-  ownerPhoneNumber: string;
+  ownerPhone: string;
   draft: boolean;
 }
 
@@ -118,7 +118,9 @@ export interface GetAllBasicInfoResponse {
   ownerEmail?: string;
   ownerFirstName?: string;
   ownerLastName?: string;
+  // Some backends may still return `ownerPhoneNumber`; others may return `ownerPhone`.
   ownerPhoneNumber?: string;
+  ownerPhone?: string;
   draft: boolean;
 }
 

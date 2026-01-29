@@ -24,7 +24,7 @@ async function submitBasicInfo(basicInfo: BasicInfo, metaInfo: metaInfo) {
       ownerEmail: basicInfo.ownerEmail,
       ownerFirstName: basicInfo.ownerFirstName,
       ownerLastName: basicInfo.ownerLastName,
-      ownerPhoneNumber: basicInfo.ownerPhoneNumber,
+      ownerPhone: basicInfo.ownerPhoneNumber,
       draft: false,
     },
     metaInfo.hotelId
