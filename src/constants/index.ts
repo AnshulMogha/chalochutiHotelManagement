@@ -155,6 +155,10 @@ export const API_ENDPOINTS = {
       `/onboarding/hotels/${hotelId}/finance`,
     GET_FINANCE_AND_LEGAL: (hotelId: string) =>
       `/onboarding/hotels/${hotelId}/finance`,
+    GET_ONBOARDING_DOCUMENTS: (hotelId: string) =>
+      `/onboarding/hotels/${hotelId}/documents`,
+    UPLOAD_ONBOARDING_DOCUMENT: (hotelId: string) =>
+      `/onboarding/hotels/${hotelId}/documents/upload`,
     GET_ALL_ROOMS: (hotelId: string) => `onboarding/hotels/${hotelId}/rooms`,
   },
 

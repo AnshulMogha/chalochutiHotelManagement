@@ -272,4 +272,34 @@ export interface MediaResponse  {
     hotelName: string;
   };
 }
+
+export type OnboardingDocumentType =
+  | "GST_CERTIFICATE"
+  | "PAN_CARD"
+  | "CANCELLED_CHEQUE"
+  | "BANK_STATEMENT"
+  | "AGREEMENT"
+  | "OTHER";
+
+export interface OnboardingDocument {
+  id?: number;
+  hotelId?: string;
+  docType: OnboardingDocumentType;
+  fileUrl?: string;
+  documentUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  contentType?: string;
+  status?: "PENDING" | "APPROVED" | "REJECTED" | string;
+  remarks?: string | null;
+  uploadedAt?: string;
+  verifiedAt?: string | null;
+  draft?: boolean;
+}
+
+export interface UploadOnboardingDocumentRequest {
+  file: File;
+  docType: OnboardingDocumentType;
+  draft: boolean;
+}
   

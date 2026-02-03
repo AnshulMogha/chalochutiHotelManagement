@@ -24,6 +24,8 @@ import type {
   AssignMediaRequest,
   MediaResponse,
   GetFinanceAndLegalResponse,
+  OnboardingDocument,
+  UploadOnboardingDocumentRequest,
 } from "./api.types";
 import type { ApiSuccessResponse } from "@/services/api/types";
 import type { Amenity } from "../types";
@@ -224,6 +226,32 @@ export const propertyService = {
     const response = await apiClient.get<
       ApiSuccessResponse<GetFinanceAndLegalResponse>
     >(API_ENDPOINTS.HOTELS.GET_FINANCE_AND_LEGAL(hotelId));
+    return response.data;
+  },
+  getOnboardingDocuments: async (hotelId: string): Promise<OnboardingDocument[]> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<OnboardingDocument[]>
+    >(API_ENDPOINTS.HOTELS.GET_ONBOARDING_DOCUMENTS(hotelId));
+    return response.data;
+  },
+  uploadOnboardingDocument: async (
+    hotelId: string,
+    data: UploadOnboardingDocumentRequest
+  ): Promise<OnboardingDocument> => {
+    const formData = new FormData();
+    formData.append("file", data.file);
+    formData.append("docType", data.docType);
+    formData.append("draft", String(data.draft));
+
+    const response = await apiClient.post<ApiSuccessResponse<OnboardingDocument>>(
+      API_ENDPOINTS.HOTELS.UPLOAD_ONBOARDING_DOCUMENT(hotelId),
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
     return response.data;
   },
 };

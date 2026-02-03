@@ -51,6 +51,7 @@ const stepRoutes = [
   { id: "rooms", title: "Rooms" },
   { id: "media", title: "Media" },
   { id: "policies", title: "Policies" },
+  { id: "documents", title: "Documents" },
   { id: "finance", title: "Finance and Legal" },
 ];
 
@@ -165,6 +166,11 @@ function Container() {
       await submitPoliciesStep(formDataState.policiesInfo, {
         hotelId: draftId!,
       });
+      return true;
+    },
+
+    async () => {
+      // Documents step: allow moving next (draft: false is applied when user uploads on "Next" or backend marks step complete)
       return true;
     },
   ];
@@ -282,7 +288,7 @@ function Container() {
         readOnly={isReadOnly || (isSuperAdmin && !!draftId)}
         allowStepNavigation={isSuperAdmin && !!draftId}
       >
-        <Outlet context={{ errors, resetFieldError }} />
+        <Outlet context={{ errors, resetFieldError, readOnly: isReadOnly || (isSuperAdmin && !!draftId) }} />
       </MultiStepForm>
 
       {showApproveModal && (

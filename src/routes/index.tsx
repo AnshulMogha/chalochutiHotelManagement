@@ -5,6 +5,7 @@ import { PublicRoute } from "./auth/PublicRoute";
 import { BasicInfoStep } from "@/features/properties/components/steps/BasicInfoStep";
 import {
   AmenitiesStep,
+  DocumentsStep,
   FinanceAndLegalStep,
   LocationStep,
   PhotosAndVideosStep,
@@ -152,6 +153,10 @@ export const routes: RouteObject[] = [
             element: <PoliciesStep />,
           },
           {
+            path: "documents",
+            element: <DocumentsStep />,
+          },
+          {
             path: "finance",
             element: <FinanceAndLegalStep />,
           },
@@ -200,6 +205,10 @@ export const routes: RouteObject[] = [
           {
             path: "policies",
             element: <PoliciesStep />,
+          },
+          {
+            path: "documents",
+            element: <DocumentsStep />,
           },
           {
             path: "finance",

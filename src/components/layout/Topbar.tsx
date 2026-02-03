@@ -17,7 +17,7 @@ import { RiMenuUnfold3Line } from "react-icons/ri";
 import { RiMenuFold3Line } from "react-icons/ri";
 import { HotelSelector } from "@/components/ui/HotelSelector";
 import { ROUTES, ROLES } from "@/constants";
-import { hasRole } from "@/constants/roles";
+import { hasRole, isSuperAdmin } from "@/constants/roles";
 import { RoleBadge } from "@/components/ui/badges";
 
 interface TopbarProps {
@@ -57,14 +57,16 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   // Check team page
   const isTeamPage = location.pathname === ROUTES.TEAM.LIST;
   
-  // Check if user is HOTEL_OWNER
+  // Check if user is HOTEL_OWNER or SUPER_ADMIN
   const isHotelOwner = hasRole(user?.roles, ROLES.HOTEL_OWNER);
-  
+  const isSuperAdminUser = isSuperAdmin(user?.roles);
+
   // Show hotel selector for HOTEL_OWNER on: basic info, room inventory, rate plan pages, promotions pages, and team page
-  // Show for super admin on document review page
-  const shouldShowHotelSelector = 
-    isPropertyInfoPage || 
+  // Show for super admin on document review page and on inventory/rate plan pages
+  const shouldShowHotelSelector =
+    isPropertyInfoPage ||
     (isHotelOwner && isInventoryPage) ||
+    (isSuperAdminUser && isInventoryPage) ||
     isPromotionsPage ||
     isTeamPage ||
     isDocumentReviewPage;

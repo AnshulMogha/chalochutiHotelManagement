@@ -4,4 +4,5 @@ export { AmenitiesStep } from "./AmenitiesStep";
 export { RoomsPage } from "./RoomsSteps/RoomPage";
 export { PhotosAndVideosStep } from "./PhotosAndVideosStep";
 export { PoliciesStep } from "./PoliciesStep";
+export { DocumentsStep } from "./DocumentsStep";
 export { FinanceAndLegalStep } from "./FinanceAndLegalStep";
