@@ -22,6 +22,7 @@ export const ROUTES = {
     USER_DETAIL: (userId: string | number) => `/admin/users/${userId}`,
     COMMISSION_AND_TAX: "/admin/commission-tax",
     DOCUMENT_REVIEW: "/admin/document-review",
+    TRAVEL_PARTNERS: "/admin/travel-partners",
   },
   PROPERTY_INFO: {
     LIST: "/property/information",

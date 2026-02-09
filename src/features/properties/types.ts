@@ -26,6 +26,8 @@ export interface LocationInfo {
 export interface AmenitiesInfo {
   availableAmenities: Amenity[];
   selectedAmenities: Record<string, string[]>;
+  /** Flat list from API when room details only return amenityCode; mapped to selectedAmenities when availableAmenities load */
+  selectedAmenityCodes?: string[];
 }
 export interface RoomDetails {
   roomName: string;

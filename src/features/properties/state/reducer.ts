@@ -239,7 +239,20 @@ const RoomDetailsReducer = (
   action: RoomInfoActionType
 ): RoomStateType => {
   switch (action.type) {
-    case "SET_ROOM_DETAILS":
+    case "SET_ROOM_DETAILS": {
+      const incoming = action.payload.roomDetails.roomAmenities;
+      // When editing, transformRoomResponseToState sets availableAmenities to [];
+      // preserve existing availableAmenities so Room Amenities step does not stay in loading
+      const mergedRoomAmenities =
+        incoming && (incoming.availableAmenities?.length ?? 0) > 0
+          ? incoming
+          : {
+              ...(incoming || state.roomAmenities),
+              availableAmenities:
+                (incoming?.availableAmenities?.length ?? 0) > 0
+                  ? incoming.availableAmenities
+                  : state.roomAmenities.availableAmenities,
+            };
       return {
         ...state,
         roomDetails:
@@ -251,9 +264,9 @@ const RoomDetailsReducer = (
           action.payload.roomDetails.bathroomDetails || state.bathroomDetails,
         mealPlanDetails:
           action.payload.roomDetails.mealPlanDetails || state.mealPlanDetails,
-        roomAmenities:
-          action.payload.roomDetails.roomAmenities || state.roomAmenities,
+        roomAmenities: mergedRoomAmenities,
       };
+    }
     case "SET_ROOM_TYPE":
       return {
         ...state,
@@ -541,15 +554,39 @@ const RoomDetailsReducer = (
           endDate: action.payload.endDate,
         },
       };
-    case "SET_AVAILABLE_ROOM_AMENITIES":
+    case "SET_AVAILABLE_ROOM_AMENITIES": {
+      const availableAmenities = action.payload.availableAmenities;
+      const codes = state.roomAmenities.selectedAmenityCodes;
+      const codeSet =
+        codes && codes.length > 0
+          ? new Set(codes.map((c) => c.toLowerCase()))
+          : null;
+      // When room details API returns flat amenities (only amenityCode), map them to categories
+      const selectedAmenities =
+        codeSet && codeSet.size > 0
+          ? availableAmenities.reduce<Record<string, string[]>>(
+              (acc, category) => {
+                const selected = (category.items || []).filter((item) =>
+                  codeSet.has(item.id.toLowerCase())
+                );
+                if (selected.length > 0) {
+                  acc[category.categoryCode] = selected.map((item) => item.id);
+                }
+                return acc;
+              },
+              {}
+            )
+          : state.roomAmenities.selectedAmenities;
       return {
         ...state,
         roomAmenities: {
           ...state.roomAmenities,
-          availableAmenities: action.payload.availableAmenities,
-        
+          availableAmenities,
+          selectedAmenities,
+          ...(codes?.length ? { selectedAmenityCodes: undefined } : {}),
         },
       };
+    }
     case "SET_TOGGLED_ROOM_AMENITY": {
       {
         const { categoryCode, amenityId } = action.payload;

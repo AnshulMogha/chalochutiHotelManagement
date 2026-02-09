@@ -21,7 +21,7 @@ import {
   CreditCard,
   Sparkles,
   Percent,
-  Receipt,
+  Handshake,
   type LucideIcon 
 } from "lucide-react";
 
@@ -192,6 +192,11 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
         label: "Document Review",
         path: ROUTES.ADMIN.DOCUMENT_REVIEW,
         icon: FileText,
+      },
+      {
+        label: "Travel Partners",
+        path: ROUTES.ADMIN.TRAVEL_PARTNERS,
+        icon: Handshake,
       }
     );
   }

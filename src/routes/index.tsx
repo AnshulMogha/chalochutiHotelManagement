@@ -97,6 +97,9 @@ const CommissionAndTaxPage = lazy(
 const DocumentReviewPage = lazy(
   () => import("../features/admin/pages/DocumentReviewPage")
 );
+const TravelPartnersPage = lazy(
+  () => import("../features/admin/pages/TravelPartnersPage")
+);
 const PricingQuotePage = lazy(
   () => import("../features/pricing/pages/PricingQuotePage")
 );
@@ -177,6 +180,10 @@ export const routes: RouteObject[] = [
       {
         path: "admin/document-review",
         element: <DocumentReviewPage />,
+      },
+      {
+        path: "admin/travel-partners",
+        element: <TravelPartnersPage />,
       },
       {
         path: "admin/hotels/review/:hotelId",

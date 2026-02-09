@@ -1,4 +1,4 @@
-import { useEffect, useState, useReducer } from "react";
+import { useCallback, useEffect, useState, useReducer } from "react";
 import { cn } from "@/lib/utils";
 import { RoomDetailsStep } from "../steps/RoomsSteps/steps/RoomDetailsStep";
 import { SleepingArrangementStep } from "../steps/RoomsSteps/steps/SleepingArrangementStep";
@@ -47,19 +47,27 @@ function transformRoomResponseToState(
       ? (rawResponse as HotelRoomDetailsResponse)
       : (rawResponse as { data: HotelRoomDetailsResponse }).data;
 
-  const selectedAmenities = (response.amenities || []).reduce<
-    Record<string, string[]>
-  >(
-    (acc, item) => {
-      const categoryCode = item.categoryCode || "MANDATORY"; // Default category if not provided
-      if (!acc[categoryCode]) {
-        acc[categoryCode] = [];
-      }
-      acc[categoryCode].push(item.amenityCode);
-      return acc;
-    },
-    {} as Record<string, string[]>
+  // API may return flat list [{ amenityCode: "ac" }, ...] or with categoryCode
+  const amenitiesList = response.amenities || [];
+  const hasCategoryInfo = amenitiesList.some(
+    (item: { amenityCode: string; categoryCode?: string }) =>
+      item.categoryCode != null && item.categoryCode !== ""
   );
+  const selectedAmenities: Record<string, string[]> = hasCategoryInfo
+    ? amenitiesList.reduce<Record<string, string[]>>(
+        (acc, item: { amenityCode: string; categoryCode?: string }) => {
+          const categoryCode = item.categoryCode || "MANDATORY";
+          if (!acc[categoryCode]) acc[categoryCode] = [];
+          acc[categoryCode].push(item.amenityCode);
+          return acc;
+        },
+        {}
+      )
+    : {};
+  const selectedAmenityCodes =
+    !hasCategoryInfo && amenitiesList.length > 0
+      ? amenitiesList.map((item: { amenityCode: string }) => item.amenityCode)
+      : undefined;
 
   return {
     roomDetails: {
@@ -109,7 +117,8 @@ function transformRoomResponseToState(
     },
     roomAmenities: {
       availableAmenities: [],
-      selectedAmenities: selectedAmenities,
+      selectedAmenities,
+      ...(selectedAmenityCodes && { selectedAmenityCodes }),
     },
   };
 }
@@ -133,17 +142,38 @@ export function PropertyInfoRoomsForm({
   );
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch room details when editing
+  // Fetch available room amenities (master list). Called on mount and again after room details when editing.
+  const fetchAvailableRoomAmenities = useCallback(async () => {
+    try {
+      const response = await propertyService.getAvailableRoomAmenities();
+      dispatchRoomDetails(
+        setAvailableRoomAmenities({
+          availableAmenities: response,
+        })
+      );
+    } catch (error) {
+      console.error("Error fetching room amenities:", error);
+    }
+  }, []);
+
+  // Fetch available room amenities once when the room form is opened
+  useEffect(() => {
+    fetchAvailableRoomAmenities();
+  }, [fetchAvailableRoomAmenities]);
+
+  // Fetch room details when editing; then ensure amenities are loaded (avoids overwrite race)
   useEffect(() => {
     async function fetchRoomDetails() {
       if (!editingRoomId || !hotelId) return;
-      
+
       try {
         setIsLoading(true);
         const response = await adminService.getRoomDetails(hotelId, editingRoomId);
         const state = transformRoomResponseToState(response);
         dispatchRoomDetails(setRoomDetails(state));
         setRoomKey(response.roomKey);
+        // Re-fetch amenities after room details so they are set after state merge (reducer preserves them if already loaded)
+        await fetchAvailableRoomAmenities();
       } catch (error) {
         console.error("Error fetching room details:", error);
       } finally {
@@ -154,25 +184,7 @@ export function PropertyInfoRoomsForm({
     if (editingRoomId && hotelId) {
       fetchRoomDetails();
     }
-  }, [editingRoomId, hotelId]);
-
-  // Fetch available room amenities once when the room form is opened
-  useEffect(() => {
-    async function fetchAvailableRoomAmenities() {
-      try {
-        const response = await propertyService.getAvailableRoomAmenities();
-        dispatchRoomDetails(
-          setAvailableRoomAmenities({
-            availableAmenities: response,
-          })
-        );
-      } catch (error) {
-        console.error("Error fetching room amenities:", error);
-      }
-    }
-
-    fetchAvailableRoomAmenities();
-  }, []);
+  }, [editingRoomId, hotelId, fetchAvailableRoomAmenities]);
 
   const resetFieldError = <S extends keyof roomStepErrors, F extends string>(
     step: S,
