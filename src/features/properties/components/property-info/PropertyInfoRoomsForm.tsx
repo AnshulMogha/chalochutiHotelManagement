@@ -10,8 +10,6 @@ import {
   sleepingArrangementValidator,
 } from "@/features/properties/submitter/stepValidators";
 import {
-  submitPropertyInfoRoomDetailsStep,
-  submitPropertyInfoSleepingArrangementStep,
   submitPropertyInfoRoomAmenitiesStep,
 } from "@/features/properties/submitter/propertyInfoRoomSubmitters";
 import { adminService, type HotelRoomDetailsResponse } from "@/features/admin/services/adminService";
@@ -216,14 +214,6 @@ export function PropertyInfoRoomsForm({
         }));
         return false;
       }
-
-      const { roomKey: newRoomKey } = await submitPropertyInfoRoomDetailsStep(
-        roomDetailsState.roomDetails,
-        hotelId,
-        roomKey
-      );
-
-      setRoomKey(newRoomKey);
       return true;
     },
 
@@ -240,12 +230,6 @@ export function PropertyInfoRoomsForm({
         }));
         return false;
       }
-      const { roomKey: newRoomKey } = await submitPropertyInfoSleepingArrangementStep(
-        roomDetailsState,
-        hotelId,
-        roomKey
-      );
-      setRoomKey(newRoomKey);
       return true;
     },
     // STEP 2 — Room Amenities
@@ -258,11 +242,12 @@ export function PropertyInfoRoomsForm({
         }));
         return false;
       }
-      await submitPropertyInfoRoomAmenitiesStep(
+      const { roomKey: newRoomKey } = await submitPropertyInfoRoomAmenitiesStep(
         roomDetailsState,
         hotelId,
         roomKey
       );
+      setRoomKey(newRoomKey);
       return true;
     },
   ];

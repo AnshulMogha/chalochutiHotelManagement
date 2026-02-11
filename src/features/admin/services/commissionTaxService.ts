@@ -63,6 +63,40 @@ export interface TaxListResponse {
   total: number;
 }
 
+// Service Fee Types
+export type ServiceFeeScope = "GLOBAL" | "CUSTOMER_TYPE";
+export type ServiceFeeCalculationType = "FLAT" | "PERCENTAGE";
+
+export interface CreateServiceFeeRequest {
+  scope: ServiceFeeScope;
+  scopeValue?: string | null;
+  calculationType: ServiceFeeCalculationType;
+  feeValue: number;
+  gstApplicable: boolean;
+  gstRate: number;
+  effectiveFrom: string;
+}
+
+export interface ServiceFee {
+  id: string;
+  scope: ServiceFeeScope;
+  scopeValue?: string | null;
+  calculationType: ServiceFeeCalculationType;
+  feeValue: number;
+  gstApplicable: boolean;
+  gstRate: number;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+  version?: number;
+  active?: boolean;
+  createdAt?: string;
+}
+
+export interface ServiceFeeListResponse {
+  serviceFees: ServiceFee[];
+  total: number;
+}
+
 export const commissionTaxService = {
   // Commission APIs
   createCommission: async (data: CreateCommissionRequest): Promise<Commission> => {
@@ -134,6 +168,37 @@ export const commissionTaxService = {
   getTaxById: async (id: string | number): Promise<Tax> => {
     const response = await apiClient.get<ApiSuccessResponse<Tax>>(
       API_ENDPOINTS.ADMIN.GET_TAX_BY_ID(id)
+    );
+    return response.data;
+  },
+  // Service Fee APIs
+  createServiceFee: async (data: CreateServiceFeeRequest): Promise<ServiceFee> => {
+    const response = await apiClient.post<ApiSuccessResponse<ServiceFee>>(
+      API_ENDPOINTS.ADMIN.CREATE_SERVICE_FEE,
+      data
+    );
+    return response.data;
+  },
+  getServiceFees: async (): Promise<ServiceFeeListResponse> => {
+    const response = await apiClient.get<ApiSuccessResponse<ServiceFee[] | ServiceFeeListResponse>>(
+      API_ENDPOINTS.ADMIN.GET_SERVICE_FEES
+    );
+    if (Array.isArray(response.data)) {
+      return { serviceFees: response.data, total: response.data.length };
+    }
+    if (response.data && typeof response.data === "object" && "serviceFees" in response.data) {
+      return response.data as ServiceFeeListResponse;
+    }
+    // Fallback: backend may return { content: [...] }
+    if (response.data && typeof response.data === "object" && "content" in response.data) {
+      const content = (response.data as { content: ServiceFee[] }).content || [];
+      return { serviceFees: content, total: content.length };
+    }
+    return { serviceFees: [], total: 0 };
+  },
+  getServiceFeeById: async (id: string | number): Promise<ServiceFee> => {
+    const response = await apiClient.get<ApiSuccessResponse<ServiceFee>>(
+      API_ENDPOINTS.ADMIN.GET_SERVICE_FEE_BY_ID(id)
     );
     return response.data;
   },

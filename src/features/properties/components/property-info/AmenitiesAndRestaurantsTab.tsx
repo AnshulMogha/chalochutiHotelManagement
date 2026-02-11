@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Check, Building2, BedDouble, X, Plus } from "lucide-react";
+import { Check, Building2, BedDouble, X, Plus, Utensils } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { propertyService } from "@/features/properties/services/propertyService";
-import { adminService, type HotelRoom } from "@/features/admin/services/adminService";
+import { adminService, type HotelRoom, type FoodServicesResponse } from "@/features/admin/services/adminService";
 import { Button } from "@/components/ui/Button";
 import { Toast, useToast } from "@/components/ui/Toast";
 import type { Amenity } from "@/features/properties/types";
@@ -12,7 +12,8 @@ interface AmenitiesAndRestaurantsTabProps {
   hotelId: string;
 }
 
-type ActiveTab = "hotel" | "rooms";
+type ActiveTab = "hotel" | "food" | "rooms";
+const SHOW_FOOD_SERVICES = false;
 
 export function AmenitiesAndRestaurantsTab({ hotelId }: AmenitiesAndRestaurantsTabProps) {
   const { toast, showToast, hideToast } = useToast();
@@ -34,6 +35,8 @@ export function AmenitiesAndRestaurantsTab({ hotelId }: AmenitiesAndRestaurantsT
   const [tempRoomAmenitiesMap, setTempRoomAmenitiesMap] = useState<Record<string, Record<string, string[]>>>({});
   const [activeRoomCategoryMap, setActiveRoomCategoryMap] = useState<Record<string, string>>({});
   const [savingRoomId, setSavingRoomId] = useState<string | null>(null);
+  const [foodServices, setFoodServices] = useState<FoodServicesResponse | null>(null);
+  const [savingFoodServices, setSavingFoodServices] = useState(false);
 
   // Fetch available hotel amenities (master list)
   useEffect(() => {
@@ -134,6 +137,24 @@ export function AmenitiesAndRestaurantsTab({ hotelId }: AmenitiesAndRestaurantsT
       fetchHotelAmenities();
     }
   }, [hotelId, activeTab, availableHotelAmenities]);
+
+  // Fetch hotel food services
+  useEffect(() => {
+    const fetchFoodServices = async () => {
+      if (!hotelId || activeTab !== "food") return;
+      try {
+        const response = await adminService.getHotelFoodServices(hotelId);
+        setFoodServices(response);
+      } catch (error) {
+        console.error("Error fetching food services:", error);
+        showToast("Failed to load food services", "error");
+      }
+    };
+
+    if (hotelId && activeTab === "food") {
+      fetchFoodServices();
+    }
+  }, [hotelId, activeTab]);
 
   // Fetch room amenities when room is expanded
   const fetchRoomAmenities = async (roomId: string) => {
@@ -273,6 +294,26 @@ export function AmenitiesAndRestaurantsTab({ hotelId }: AmenitiesAndRestaurantsT
     }
   };
 
+  const handleToggleFoodService = (key: keyof FoodServicesResponse) => {
+    setFoodServices((prev) =>
+      prev ? { ...prev, [key]: !prev[key] } : prev
+    );
+  };
+
+  const handleSaveFoodServices = async () => {
+    if (!hotelId || !foodServices) return;
+    setSavingFoodServices(true);
+    try {
+      await adminService.updateHotelFoodServices(hotelId, foodServices);
+      showToast("Food services saved successfully", "success");
+    } catch (error) {
+      console.error("Error saving food services:", error);
+      showToast("Failed to save food services", "error");
+    } finally {
+      setSavingFoodServices(false);
+    }
+  };
+
   const getHotelCategoryCount = (categoryCode: string) => {
     const category = availableHotelAmenities.find(c => c.categoryCode === categoryCode);
     const selected = tempSelectedHotelAmenities[categoryCode]?.length || 0;
@@ -349,6 +390,26 @@ export function AmenitiesAndRestaurantsTab({ hotelId }: AmenitiesAndRestaurantsT
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
               )}
             </button>
+            {SHOW_FOOD_SERVICES && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("food")}
+                className={cn(
+                  "flex-1 px-6 py-4 text-center font-semibold transition-colors relative",
+                  activeTab === "food"
+                    ? "text-blue-600 bg-blue-50"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                )}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <Utensils className="w-5 h-5" />
+                  <span>Food Services</span>
+                </div>
+                {activeTab === "food" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -450,6 +511,99 @@ export function AmenitiesAndRestaurantsTab({ hotelId }: AmenitiesAndRestaurantsT
                   })}
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Food Services Tab */}
+        {SHOW_FOOD_SERVICES && activeTab === "food" && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-50 to-lime-50 px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center">
+                    <Utensils className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Food Services</h2>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      Configure food and dining preferences for this hotel
+                    </p>
+                  </div>
+                </div>
+                {foodServices && (
+                  <Button
+                    onClick={handleSaveFoodServices}
+                    disabled={savingFoodServices}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                  >
+                    {savingFoodServices ? "Saving..." : "Save Changes"}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-6">
+              {foodServices ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+                  <label className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 bg-gray-50">
+                    <span className="text-sm text-gray-800">Restaurant available</span>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={foodServices.restaurantAvailable}
+                      onChange={() => handleToggleFoodService("restaurantAvailable")}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 bg-gray-50">
+                    <span className="text-sm text-gray-800">In-room dining</span>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={foodServices.inRoomDining}
+                      onChange={() => handleToggleFoodService("inRoomDining")}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 bg-gray-50">
+                    <span className="text-sm text-gray-800">Non-veg allowed</span>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={foodServices.nonVegAllowed}
+                      onChange={() => handleToggleFoodService("nonVegAllowed")}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 bg-gray-50">
+                    <span className="text-sm text-gray-800">Outside food allowed</span>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={foodServices.outsideFoodAllowed}
+                      onChange={() => handleToggleFoodService("outsideFoodAllowed")}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 bg-gray-50">
+                    <span className="text-sm text-gray-800">Food delivery available</span>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={foodServices.foodDeliveryAvailable}
+                      onChange={() => handleToggleFoodService("foodDeliveryAvailable")}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between px-4 py-3 rounded-lg border border-gray-200 bg-gray-50">
+                    <span className="text-sm text-gray-800">Alcohol allowed</span>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={foodServices.alcoholAllowed}
+                      onChange={() => handleToggleFoodService("alcoholAllowed")}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No food services data available.</p>
+              )}
             </div>
           </div>
         )}

@@ -110,11 +110,23 @@ export const API_ENDPOINTS = {
     GET_TAXES: "/admin/tax/list",
     GET_ACTIVE_TAXES: "/admin/tax/active",
     GET_TAX_BY_ID: (id: string | number) => `/admin/tax/${id}`,
+    // Service Fee APIs
+    CREATE_SERVICE_FEE: "/admin/service-fee",
+    GET_SERVICE_FEES: "/admin/service-fee/list",
+    GET_SERVICE_FEE_BY_ID: (id: string | number) => `/admin/service-fee/${id}`,
     // Document Review APIs
     GET_PENDING_DOCUMENTS: "/admin/hotel/finance/documents/pending",
     GET_HOTEL_DOCUMENTS: (hotelId: string) => `/admin/hotel/finance/${hotelId}/documents`,
     APPROVE_DOCUMENT: (docId: string | number) => `/admin/hotel/finance/documents/${docId}/approve`,
     REJECT_DOCUMENT: (docId: string | number) => `/admin/hotel/finance/documents/${docId}/reject`,
+    // Travel agent onboarding
+    TRAVEL_AGENT_ONBOARDING_LIST: "travel-agent/onboarding",
+    TRAVEL_AGENT_ONBOARDING_BY_ID: (id: string | number) => `travel-agent/onboarding/${id}`,
+    // Admin-only actions include /admin after /api/v1
+    TRAVEL_AGENT_ONBOARDING_APPROVE: (id: string | number) =>
+      `admin/travel-agent/onboarding/${id}/approve`,
+    TRAVEL_AGENT_ONBOARDING_REJECT: (id: string | number) =>
+      `admin/travel-agent/onboarding/${id}/reject`,
   },
   PRICING: {
     GET_QUOTE: "/pricing/quote",
@@ -193,6 +205,8 @@ export const API_ENDPOINTS = {
     SET_MEDIA_COVER: (hotelId: string, mediaId: number) => `/hotel/${hotelId}/media/${mediaId}/cover`,
     GET_HOTEL_FINANCE: (hotelId: string) => `/hotel/${hotelId}/finance`,
     UPDATE_HOTEL_FINANCE: (hotelId: string) => `/hotel/${hotelId}/finance`,
+    GET_HOTEL_FOOD_SERVICES: (hotelId: string) => `/hotel/${hotelId}/food-services`,
+    UPDATE_HOTEL_FOOD_SERVICES: (hotelId: string) => `/hotel/${hotelId}/food-services`,
     GET_HOTEL_AMENITIES: (hotelId: string) => `/hotel/${hotelId}/amenities`,
     UPDATE_HOTEL_AMENITIES: (hotelId: string) => `/hotel/${hotelId}/amenities`,
     GET_ROOM_AMENITIES: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/amenities`,

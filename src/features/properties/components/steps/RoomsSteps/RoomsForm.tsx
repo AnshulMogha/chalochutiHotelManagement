@@ -25,7 +25,10 @@ import { MealPlanStep } from "./steps/MealPlanStep";
 import { RoomAmenitiesStep } from "./steps/RoomAmenitiesStep";
 import { useSearchParams } from "react-router";
 import { propertyService } from "@/features/properties/services/propertyService";
-import { setRoomDetails } from "@/features/properties/state/actionCreators";
+import {
+  setAvailableRoomAmenities,
+  setRoomDetails,
+} from "@/features/properties/state/actionCreators";
 
 interface RoomsFormProps {
   mode: "CREATE" | "EDIT";
@@ -58,6 +61,25 @@ export function RoomsForm({
   const [roomKey, setRoomKey] = useState<string | undefined>(
     mode === "CREATE" ? undefined : editingRoomKey
   );
+
+  // Load room amenities master list for the Room Amenities step.
+  useEffect(() => {
+    const fetchAvailableRoomAmenities = async () => {
+      try {
+        const response = await propertyService.getAvailableRoomAmenities();
+        setRoomDetailsState(
+          setAvailableRoomAmenities({
+            availableAmenities: response,
+          })
+        );
+      } catch (error) {
+        console.error("Error fetching available room amenities:", error);
+      }
+    };
+
+    fetchAvailableRoomAmenities();
+  }, [setRoomDetailsState]);
+
   useEffect(() => {
     async function fetchRoomDetails() {
       const response = await propertyService.getRoomDetails(
@@ -83,6 +105,7 @@ export function RoomsForm({
             roomSize: response.data.roomDetails?.roomSize || 0,
             roomSizeUnit: response.data.roomDetails?.roomSizeUnit || "SQFT",
             totalRooms: response.data.roomDetails?.totalRooms || 0,
+            numberOfBathrooms: response.data.bathroom?.numberOfBathrooms || 1,
             description: response.data.roomDetails?.description || "",
           },
           sleepingArrangement: {
@@ -299,7 +322,7 @@ export function RoomsForm({
         <RoomDetailsStep
           errors={errors}
           resetFieldError={resetFieldError}
-          
+          showBathroomField={false}
         />
       )}
 

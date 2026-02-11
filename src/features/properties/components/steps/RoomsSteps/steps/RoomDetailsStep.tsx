@@ -20,11 +20,11 @@ import type { roomStepErrors, roomStepKeys } from "@/features/properties/types";
 export function RoomDetailsStep({
   errors,
   resetFieldError,
- 
+  showBathroomField = true,
 }: {
   errors: roomStepErrors;
   resetFieldError: (step: roomStepKeys, field: string) => void;
-  
+  showBathroomField?: boolean;
 }) {
   const { roomDetailsState, setRoomDetailsState } = useFormContext();
   const roomDetails = roomDetailsState.roomDetails;
@@ -226,40 +226,41 @@ export function RoomDetailsStep({
           </div>
         </div>
 
-        {/* Number of Bathrooms */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Number of Bathrooms <span className="text-red-500">*</span>
-          </label>
+        {showBathroomField && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Number of Bathrooms <span className="text-red-500">*</span>
+            </label>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => handleDecrementNumberOfBathrooms()}
-              disabled={roomDetails.numberOfBathrooms <= 1}
-            >
-              <Minus className="w-4 h-4 text-gray-600" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => handleDecrementNumberOfBathrooms()}
+                disabled={roomDetails.numberOfBathrooms <= 1}
+              >
+                <Minus className="w-4 h-4 text-gray-600" />
+              </button>
 
-            <Input
-              type="number"
-              className="w-24 text-center font-medium"
-              error={errors.roomDetails?.numberOfBathrooms}
-              min={1}
-              value={roomDetails.numberOfBathrooms}
-              onChange={(e) => handleNumberOfBathroomsChange(Number(e.target.value))}
-            />
+              <Input
+                type="number"
+                className="w-24 text-center font-medium"
+                error={errors.roomDetails?.numberOfBathrooms}
+                min={1}
+                value={roomDetails.numberOfBathrooms}
+                onChange={(e) => handleNumberOfBathroomsChange(Number(e.target.value))}
+              />
 
-            <button
-              type="button"
-              className="w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors"
-              onClick={() => handleIncrementNumberOfBathrooms()}
-            >
-              <Plus className="w-4 h-4 text-gray-600" />
-            </button>
+              <button
+                type="button"
+                className="w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors"
+                onClick={() => handleIncrementNumberOfBathrooms()}
+              >
+                <Plus className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Description */}
         <div className="md:col-span-2">

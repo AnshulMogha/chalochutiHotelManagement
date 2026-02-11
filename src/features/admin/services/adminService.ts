@@ -34,6 +34,72 @@ export interface RejectHotelRequest {
   remarks: string;
 }
 
+/** Travel agent onboarding (travel partner) – list item from GET /travel-agent/onboarding */
+export type TravelAgentOnboardingStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface TravelAgentOnboardingListItem {
+  id: number;
+  fullName: string;
+  email: string;
+  agencyName: string;
+  status: TravelAgentOnboardingStatus;
+  createdAt: string;
+}
+
+export interface TravelAgentOnboardingListResponse {
+  content: TravelAgentOnboardingListItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
+export interface TravelAgentOnboardingListParams {
+  page?: number;
+  size?: number;
+  status?: TravelAgentOnboardingStatus;
+}
+
+/** Full item from GET /travel-agent/onboarding/:id – pure API response, no wrapper */
+export interface TravelAgentOnboardingItem {
+  id: number;
+  title: string;
+  fullName: string;
+  email: string;
+  agencyName: string;
+  panNumber: string;
+  panCardDocumentUrl: string;
+  gstNumber: string;
+  businessAddress: string;
+  city: string;
+  state: string;
+  pinCode: string;
+  accountHolderName: string;
+  accountNumber: string;
+  ifscCode: string;
+  bankName: string;
+  termsAccepted: boolean;
+  status: TravelAgentOnboardingStatus;
+  rejectionRemarks: string | null;
+  reviewedBy: number | null;
+  reviewedAt: string | null;
+  userId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApproveTravelAgentOnboardingRequest {
+  remarks: string;
+}
+
+export interface RejectTravelAgentOnboardingRequest {
+  remarks: string;
+}
+
 export interface User {
   userId: number;
   email: string;
@@ -648,6 +714,15 @@ export interface UpdateAmenitiesRequest {
   amenityCodes: string[];
 }
 
+export interface FoodServicesResponse {
+  restaurantAvailable: boolean;
+  inRoomDining: boolean;
+  nonVegAllowed: boolean;
+  outsideFoodAllowed: boolean;
+  foodDeliveryAvailable: boolean;
+  alcoholAllowed: boolean;
+}
+
 export const adminService = {
   getHotelsForReview: async (): Promise<HotelReviewItem[]> => {
     const response = await apiClient.get<
@@ -1126,10 +1201,15 @@ export const adminService = {
     hotelId: string,
     data: HotelRoomDetailsRequest
   ): Promise<{ roomKey: string }> => {
-    const response = await apiClient.post<ApiSuccessResponse<{ roomKey: string }>>(
-      API_ENDPOINTS.HOTEL_ADMIN.CREATE_OR_UPDATE_ROOM(hotelId),
-      data
-    );
+    const response = data.roomKey
+      ? await apiClient.put<ApiSuccessResponse<{ roomKey: string }>>(
+          API_ENDPOINTS.HOTEL_ADMIN.CREATE_OR_UPDATE_ROOM(hotelId),
+          data
+        )
+      : await apiClient.post<ApiSuccessResponse<{ roomKey: string }>>(
+          API_ENDPOINTS.HOTEL_ADMIN.CREATE_OR_UPDATE_ROOM(hotelId),
+          data
+        );
     return response.data;
   },
   getRoomDetails: async (
@@ -1221,6 +1301,22 @@ export const adminService = {
     );
     return response.data;
   },
+  getHotelFoodServices: async (hotelId: string): Promise<FoodServicesResponse> => {
+    const response = await apiClient.get<ApiSuccessResponse<FoodServicesResponse>>(
+      API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_FOOD_SERVICES(hotelId)
+    );
+    return response.data;
+  },
+  updateHotelFoodServices: async (
+    hotelId: string,
+    data: FoodServicesResponse
+  ): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_HOTEL_FOOD_SERVICES(hotelId),
+      data
+    );
+    return response.data;
+  },
   // Amenities APIs
   getHotelAmenities: async (hotelId: string): Promise<AmenitiesResponse> => {
     const response = await apiClient.get<ApiSuccessResponse<AmenitiesResponse>>(
@@ -1235,14 +1331,14 @@ export const adminService = {
     return response.data;
   },
   updateHotelAmenities: async (hotelId: string, data: UpdateAmenitiesRequest): Promise<null> => {
-    const response = await apiClient.post<ApiSuccessResponse<null>>(
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_HOTEL_AMENITIES(hotelId),
       data
     );
     return response.data;
   },
   updateRoomAmenities: async (hotelId: string, roomId: string, data: UpdateAmenitiesRequest): Promise<null> => {
-    const response = await apiClient.post<ApiSuccessResponse<null>>(
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_ROOM_AMENITIES(hotelId, roomId),
       data
     );
@@ -1295,6 +1391,42 @@ export const adminService = {
       `${API_ENDPOINTS.ADMIN.REJECT_DOCUMENT(docId)}?remarks=${encodeURIComponent(remarks)}`
     );
     return response.data;
+  },
+
+  // Travel agent onboarding (travel partners) – API now wraps responses in ApiSuccessResponse
+  getTravelAgentOnboardingList: async (
+    params?: TravelAgentOnboardingListParams
+  ): Promise<TravelAgentOnboardingListResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<TravelAgentOnboardingListResponse>
+    >(API_ENDPOINTS.ADMIN.TRAVEL_AGENT_ONBOARDING_LIST, { params });
+    return response.data;
+  },
+  getTravelAgentOnboardingById: async (
+    id: string | number
+  ): Promise<TravelAgentOnboardingItem> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<TravelAgentOnboardingItem>
+    >(API_ENDPOINTS.ADMIN.TRAVEL_AGENT_ONBOARDING_BY_ID(id));
+    return response.data;
+  },
+  approveTravelAgentOnboarding: async (
+    id: string | number,
+    data: ApproveTravelAgentOnboardingRequest
+  ): Promise<void> => {
+    await apiClient.post(
+      API_ENDPOINTS.ADMIN.TRAVEL_AGENT_ONBOARDING_APPROVE(id),
+      data
+    );
+  },
+  rejectTravelAgentOnboarding: async (
+    id: string | number,
+    data: RejectTravelAgentOnboardingRequest
+  ): Promise<void> => {
+    await apiClient.post(
+      API_ENDPOINTS.ADMIN.TRAVEL_AGENT_ONBOARDING_REJECT(id),
+      data
+    );
   },
 };
 

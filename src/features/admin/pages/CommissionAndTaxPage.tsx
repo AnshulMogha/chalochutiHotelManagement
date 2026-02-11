@@ -1,5 +1,13 @@
 import { useState, useEffect } from "react";
-import { commissionTaxService, type Commission, type Tax, type CreateCommissionRequest, type CreateTaxRequest } from "../services/commissionTaxService";
+import {
+  commissionTaxService,
+  type Commission,
+  type Tax,
+  type CreateCommissionRequest,
+  type CreateTaxRequest,
+  type ServiceFee,
+  type CreateServiceFeeRequest,
+} from "../services/commissionTaxService";
 import { adminService, type ApprovedHotelItem } from "../services/adminService";
 import { Button, Input, Select, LoadingSpinner, Card, CardHeader, CardTitle, CardContent, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -40,6 +48,21 @@ const TAX_TYPE_OPTIONS = [
   { value: "CGST", label: "CGST" },
   { value: "SGST", label: "SGST" },
   { value: "IGST", label: "IGST" },
+];
+
+const SERVICE_FEE_SCOPE_OPTIONS = [
+  { value: "GLOBAL", label: "Global" },
+  { value: "CUSTOMER_TYPE", label: "Customer Type" },
+];
+
+const SERVICE_FEE_CALCULATION_OPTIONS = [
+  { value: "FLAT", label: "Flat" },
+  { value: "PERCENTAGE", label: "Percentage" },
+];
+
+const CUSTOMER_TYPE_OPTIONS = [
+  { value: "B2C", label: "B2C" },
+  { value: "B2B", label: "B2B" },
 ];
 
 // Indian States - using full state name as value
@@ -676,6 +699,258 @@ function TaxFormModal({ isOpen, onClose, onSubmit, tax, mode }: TaxFormModalProp
   );
 }
 
+interface ServiceFeeFormModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: CreateServiceFeeRequest) => Promise<void>;
+}
+
+function ServiceFeeFormModal({ isOpen, onClose, onSubmit }: ServiceFeeFormModalProps) {
+  const [formData, setFormData] = useState<CreateServiceFeeRequest>({
+    scope: "GLOBAL",
+    scopeValue: null,
+    calculationType: "FLAT",
+    feeValue: 0,
+    gstApplicable: true,
+    gstRate: 18,
+    effectiveFrom: "",
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setFormData({
+      scope: "GLOBAL",
+      scopeValue: null,
+      calculationType: "FLAT",
+      feeValue: 0,
+      gstApplicable: true,
+      gstRate: 18,
+      effectiveFrom: "",
+    });
+    setErrors({});
+    setApiError(null);
+    setIsSubmitting(false);
+  }, [isOpen]);
+
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.scope) newErrors.scope = "Scope is required";
+    if (formData.scope === "CUSTOMER_TYPE" && !formData.scopeValue) {
+      newErrors.scopeValue = "Customer type is required";
+    }
+    if (!formData.calculationType) newErrors.calculationType = "Calculation type is required";
+    if (formData.feeValue <= 0) newErrors.feeValue = "Fee value must be greater than 0";
+    if (formData.gstApplicable && formData.gstRate <= 0) {
+      newErrors.gstRate = "GST rate must be greater than 0";
+    }
+    if (!formData.effectiveFrom) newErrors.effectiveFrom = "Effective from date is required";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+    setIsSubmitting(true);
+    setApiError(null);
+    try {
+      const payload: CreateServiceFeeRequest = {
+        ...formData,
+        scopeValue: formData.scope === "CUSTOMER_TYPE" ? formData.scopeValue : null,
+      };
+      await onSubmit(payload);
+      onClose();
+    } catch (error: any) {
+      const errorMessage =
+        error?.message ||
+        error?.response?.data?.message ||
+        error?.data?.message ||
+        "Failed to save service fee. Please try again.";
+      setApiError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl m-4 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-fuchsia-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-600 flex items-center justify-center">
+              <IndianRupee className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Create Service Fee</h2>
+              <p className="text-sm text-gray-600">Add a service fee configuration</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6">
+          {apiError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 mb-6">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-800">Error</p>
+                <p className="text-sm text-red-700 mt-1">{apiError}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="mb-6">
+            <Select
+              label="Scope"
+              value={formData.scope}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  scope: e.target.value as CreateServiceFeeRequest["scope"],
+                  scopeValue:
+                    e.target.value === "CUSTOMER_TYPE" ? prev.scopeValue : null,
+                }))
+              }
+              error={errors.scope}
+              options={SERVICE_FEE_SCOPE_OPTIONS}
+              required
+            />
+          </div>
+
+          {formData.scope === "CUSTOMER_TYPE" && (
+            <div className="mb-6">
+              <Select
+                label="Customer Type"
+                value={formData.scopeValue || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    scopeValue: e.target.value || null,
+                  }))
+                }
+                error={errors.scopeValue}
+                options={CUSTOMER_TYPE_OPTIONS}
+                required
+              />
+            </div>
+          )}
+
+          <div className="mb-6">
+            <Select
+              label="Calculation Type"
+              value={formData.calculationType}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  calculationType:
+                    e.target.value as CreateServiceFeeRequest["calculationType"],
+                }))
+              }
+              error={errors.calculationType}
+              options={SERVICE_FEE_CALCULATION_OPTIONS}
+              required
+            />
+          </div>
+
+          <div className="mb-6">
+            <Input
+              label={formData.calculationType === "PERCENTAGE" ? "Fee Value (%)" : "Fee Value (₹)"}
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.feeValue}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  feeValue: parseFloat(e.target.value) || 0,
+                }))
+              }
+              error={errors.feeValue}
+              required
+            />
+          </div>
+
+          <div className="mb-6">
+            <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                checked={formData.gstApplicable}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    gstApplicable: e.target.checked,
+                  }))
+                }
+              />
+              GST Applicable
+            </label>
+          </div>
+
+          {formData.gstApplicable && (
+            <div className="mb-6">
+              <Input
+                label="GST Rate (%)"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.gstRate}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    gstRate: parseFloat(e.target.value) || 0,
+                  }))
+                }
+                error={errors.gstRate}
+                required
+              />
+            </div>
+          )}
+
+          <div className="mb-6">
+            <Input
+              label="Effective From"
+              type="date"
+              value={formData.effectiveFrom}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, effectiveFrom: e.target.value }))
+              }
+              error={errors.effectiveFrom}
+              required
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Create Service Fee"}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // Status Badge Component
 function StatusBadge({ status, active }: { status?: "ACTIVE" | "INACTIVE" | string | null; active?: boolean | null }) {
   // Handle boolean active field (new API format) - check this first
@@ -751,21 +1026,25 @@ function StatusBadge({ status, active }: { status?: "ACTIVE" | "INACTIVE" | stri
 }
 
 export default function CommissionAndTaxPage() {
-  const [activeTab, setActiveTab] = useState<"commission" | "tax">("commission");
+  const [activeTab, setActiveTab] = useState<"commission" | "tax" | "serviceFee">("commission");
   const [commissions, setCommissions] = useState<Commission[]>([]);
   const [taxes, setTaxes] = useState<Tax[]>([]);
+  const [serviceFees, setServiceFees] = useState<ServiceFee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCommissionModal, setShowCommissionModal] = useState(false);
   const [editingCommission, setEditingCommission] = useState<Commission | null>(null);
   const [showTaxModal, setShowTaxModal] = useState(false);
   const [editingTax, setEditingTax] = useState<Tax | null>(null);
+  const [showServiceFeeModal, setShowServiceFeeModal] = useState(false);
 
   useEffect(() => {
     if (activeTab === "commission") {
       fetchCommissions();
-    } else {
+    } else if (activeTab === "tax") {
       fetchTaxes();
+    } else {
+      fetchServiceFees();
     }
   }, [activeTab]);
 
@@ -799,6 +1078,21 @@ export default function CommissionAndTaxPage() {
     }
   };
 
+  const fetchServiceFees = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await commissionTaxService.getServiceFees();
+      setServiceFees(response.serviceFees || []);
+    } catch (err) {
+      setError("Failed to load service fees");
+      console.error("Error fetching service fees:", err);
+      setServiceFees([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCreateCommission = async (data: CreateCommissionRequest) => {
     try {
       await commissionTaxService.createCommission(data);
@@ -817,6 +1111,15 @@ export default function CommissionAndTaxPage() {
       };
       await commissionTaxService.createTax(taxData);
       await fetchTaxes();
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleCreateServiceFee = async (data: CreateServiceFeeRequest) => {
+    try {
+      await commissionTaxService.createServiceFee(data);
+      await fetchServiceFees();
     } catch (error) {
       throw error;
     }
@@ -842,7 +1145,7 @@ export default function CommissionAndTaxPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "commission" | "tax")}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "commission" | "tax" | "serviceFee")}>
         <TabsList className="mb-6">
           <TabsTrigger value="commission" className="gap-2">
             <Percent className="w-4 h-4" />
@@ -851,6 +1154,10 @@ export default function CommissionAndTaxPage() {
           <TabsTrigger value="tax" className="gap-2">
             <Receipt className="w-4 h-4" />
             Taxes
+          </TabsTrigger>
+          <TabsTrigger value="serviceFee" className="gap-2">
+            <IndianRupee className="w-4 h-4" />
+            Service Fee
           </TabsTrigger>
         </TabsList>
 
@@ -1189,6 +1496,89 @@ export default function CommissionAndTaxPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="serviceFee">
+          <Card variant="elevated" className="mb-6 bg-white shadow-lg border border-gray-200">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-fuchsia-50 border-b border-gray-200 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-gray-900">
+                  <IndianRupee className="w-5 h-5 text-purple-600" />
+                  Service Fee Rules
+                </CardTitle>
+                <Button
+                  variant="primary"
+                  onClick={() => setShowServiceFeeModal(true)}
+                  className="gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Service Fee
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {error && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              )}
+              {serviceFees.length === 0 ? (
+                <div className="text-center py-12">
+                  <IndianRupee className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600 text-lg font-medium mb-2">No service fees yet</p>
+                  <p className="text-gray-500 text-sm mb-4">Create your first service fee rule</p>
+                  <Button
+                    variant="primary"
+                    onClick={() => setShowServiceFeeModal(true)}
+                    className="gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Service Fee
+                  </Button>
+                </div>
+              ) : (
+                <div className="bg-white border border-gray-200 shadow-md rounded-lg overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-[#2f3d95] border-b-2 border-[#1e2a7a]">
+                        <tr>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Scope</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Scope Value</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Type</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Fee</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">GST</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Effective From</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {serviceFees.map((fee) => (
+                          <tr key={fee.id} className="hover:bg-blue-50 transition-colors even:bg-gray-50">
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{fee.scope}</td>
+                            <td className="px-6 py-4 text-sm text-gray-700">{fee.scopeValue || "N/A"}</td>
+                            <td className="px-6 py-4 text-sm text-gray-700">{fee.calculationType}</td>
+                            <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                              {fee.calculationType === "PERCENTAGE" ? `${fee.feeValue}%` : `₹${Number(fee.feeValue).toFixed(2)}`}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-700">
+                              {fee.gstApplicable ? `${fee.gstRate}%` : "Not Applicable"}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-700">
+                              {fee.effectiveFrom ? new Date(fee.effectiveFrom).toLocaleDateString() : "N/A"}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <StatusBadge active={fee.active ?? true} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Commission Modal */}
@@ -1205,6 +1595,12 @@ export default function CommissionAndTaxPage() {
         onClose={() => setShowTaxModal(false)}
         onSubmit={handleCreateTax}
         mode="create"
+      />
+
+      <ServiceFeeFormModal
+        isOpen={showServiceFeeModal}
+        onClose={() => setShowServiceFeeModal(false)}
+        onSubmit={handleCreateServiceFee}
       />
     </div>
   );

@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui";
 import { ApproveRejectModal } from "../components/ApproveRejectModal";
+import { adminService } from "../services/adminService";
+import type {
+  TravelAgentOnboardingListItem,
+  TravelAgentOnboardingItem,
+} from "../services/adminService";
 import {
   Handshake,
   Eye,
@@ -29,117 +34,64 @@ export interface TravelPartner {
   id: string;
   status: TravelPartnerStatus;
   appliedAt: string;
-  // Step 1 - Personal
+  // From list API: fullName -> name, agencyName -> agencyNumber, createdAt -> appliedAt
   title: string;
   name: string;
   email: string;
   phone?: string;
-  // PAN
   agencyNumber: string;
-  panNumber: string;
+  panNumber?: string;
   panCardFileUrl?: string;
-  // Step 2 - Business
-  gstNumber: string;
-  businessAddress: string;
-  city: string;
-  state: string;
-  pincode: string;
-  // Bank
-  accountHolderName: string;
-  accountNumber: string;
-  ifsc: string;
-  bankName: string;
-  // Review
+  gstNumber?: string;
+  businessAddress?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  accountHolderName?: string;
+  accountNumber?: string;
+  ifsc?: string;
+  bankName?: string;
   reviewedAt?: string;
   remarks?: string;
 }
 
-const DUMMY_PARTNERS: TravelPartner[] = [
-  {
-    id: "tp1",
-    status: "PENDING",
-    appliedAt: "2025-01-28T10:00:00Z",
-    title: "Mr",
-    name: "Rahul Sharma",
-    email: "rahul.sharma@example.com",
-    phone: "+91 98765 43210",
-    agencyNumber: "AGN001234",
-    panNumber: "ABCDE1234F",
-    panCardFileUrl: "https://picsum.photos/400/250",
-    gstNumber: "27AABCU9603R1ZM",
-    businessAddress: "123, MG Road, Andheri East",
-    city: "Mumbai",
-    state: "Maharashtra",
-    pincode: "400069",
-    accountHolderName: "Rahul Sharma",
-    accountNumber: "XXXX1234",
-    ifsc: "HDFC0001234",
-    bankName: "HDFC Bank",
-  },
-  {
-    id: "tp2",
-    status: "PENDING",
-    appliedAt: "2025-01-27T14:30:00Z",
-    title: "Mrs",
-    name: "Priya Patel",
-    email: "priya.patel@travel.com",
-    phone: "+91 91234 56789",
-    agencyNumber: "AGN005678",
-    panNumber: "FGHIJ5678K",
-    panCardFileUrl: "https://picsum.photos/400/251",
-    gstNumber: "09PPTPT1234K1Z5",
-    businessAddress: "45, Brigade Road",
-    city: "Bengaluru",
-    state: "Karnataka",
-    pincode: "560001",
-    accountHolderName: "Priya Patel",
-    accountNumber: "XXXX5678",
-    ifsc: "ICIC0000789",
-    bankName: "ICICI Bank",
-  },
-  {
-    id: "tp3",
-    status: "APPROVED",
-    appliedAt: "2025-01-25T09:00:00Z",
-    reviewedAt: "2025-01-26T11:00:00Z",
-    remarks: "Documents verified. Approved.",
-    title: "Mr",
-    name: "Amit Kumar",
-    email: "amit.k@agency.in",
-    agencyNumber: "AGN009999",
-    panNumber: "KLMNO9012P",
-    gstNumber: "07AACKK1234M1ZR",
-    businessAddress: "Block A, Connaught Place",
-    city: "New Delhi",
-    state: "Delhi",
-    pincode: "110001",
-    accountHolderName: "Amit Kumar",
-    accountNumber: "XXXX9012",
-    ifsc: "SBIN0001234",
-    bankName: "State Bank of India",
-  },
-  {
-    id: "tp4",
-    status: "REJECTED",
-    appliedAt: "2025-01-24T16:00:00Z",
-    reviewedAt: "2025-01-25T10:00:00Z",
-    remarks: "PAN document unclear. Please resubmit.",
-    title: "Ms",
-    name: "Sneha Reddy",
-    email: "sneha.r@partners.com",
-    agencyNumber: "AGN000111",
-    panNumber: "PQRST3456U",
-    gstNumber: "36AASNR1234L1ZG",
-    businessAddress: "Road No 1, Jubilee Hills",
-    city: "Hyderabad",
-    state: "Telangana",
-    pincode: "500033",
-    accountHolderName: "Sneha Reddy",
-    accountNumber: "XXXX3456",
-    ifsc: "AXIS0000456",
-    bankName: "Axis Bank",
-  },
-];
+function mapListItemToPartner(item: TravelAgentOnboardingListItem): TravelPartner {
+  return {
+    id: String(item.id),
+    status: item.status,
+    appliedAt: item.createdAt,
+    title: "",
+    name: item.fullName,
+    email: item.email,
+    agencyNumber: item.agencyName,
+  };
+}
+
+/** Maps get-by-id API response (TravelAgentOnboardingItem) to UI TravelPartner */
+function mapOnboardingToPartner(item: TravelAgentOnboardingItem): TravelPartner {
+  return {
+    id: String(item.id),
+    status: item.status,
+    appliedAt: item.createdAt,
+    title: item.title ?? "",
+    name: item.fullName,
+    email: item.email,
+    agencyNumber: item.agencyName,
+    panNumber: item.panNumber,
+    panCardFileUrl: item.panCardDocumentUrl,
+    gstNumber: item.gstNumber,
+    businessAddress: item.businessAddress,
+    city: item.city,
+    state: item.state,
+    pincode: item.pinCode,
+    accountHolderName: item.accountHolderName,
+    accountNumber: item.accountNumber,
+    ifsc: item.ifscCode,
+    bankName: item.bankName,
+    reviewedAt: item.reviewedAt ?? undefined,
+    remarks: item.rejectionRemarks ?? undefined,
+  };
+}
 
 const TAB_CONFIG: Record<
   TravelPartnerStatus,
@@ -176,37 +128,82 @@ function formatDate(iso: string) {
 }
 
 export default function TravelPartnersPage() {
-  const [partners, setPartners] = useState<TravelPartner[]>(() => [...DUMMY_PARTNERS]);
+  const [partners, setPartners] = useState<TravelPartner[]>([]);
   const [activeTab, setActiveTab] = useState<TravelPartnerStatus>("PENDING");
   const [selectedPartner, setSelectedPartner] = useState<TravelPartner | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [detailStep, setDetailStep] = useState<1 | 2>(1);
+  const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
+  const [statusTotals, setStatusTotals] = useState<Record<TravelPartnerStatus, number>>({
+    PENDING: 0,
+    APPROVED: 0,
+    REJECTED: 0,
+  });
 
-  const filtered = partners.filter((p) => p.status === activeTab);
-  const selectedFromList = selectedPartner
-    ? partners.find((p) => p.id === selectedPartner.id) ?? selectedPartner
-    : null;
+  const fetchPartners = useCallback(async () => {
+    setLoading(true);
+    setListError(null);
+    try {
+      const response = await adminService.getTravelAgentOnboardingList({
+        page: currentPage,
+        size: pageSize,
+        status: activeTab,
+      });
+      setPartners(response.content.map(mapListItemToPartner));
+      setTotalPages(response.totalPages);
+      setTotalElements(response.totalElements);
+      setHasNext(response.hasNext);
+      setHasPrevious(response.hasPrevious);
+      setStatusTotals((prev) => ({ ...prev, [activeTab]: response.totalElements }));
+    } catch (err) {
+      const message = err && typeof err === "object" && "message" in err ? String((err as { message: string }).message) : "Failed to load travel partners";
+      setListError(message);
+      setPartners([]);
+      setTotalPages(0);
+      setTotalElements(0);
+      setHasNext(false);
+      setHasPrevious(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, currentPage, pageSize]);
+
+  useEffect(() => {
+    fetchPartners();
+  }, [fetchPartners]);
+
+  const filtered = partners;
+
+  const openPartnerDetail = useCallback(async (partner: TravelPartner) => {
+    setSelectedPartner(partner);
+    setDetailStep(1);
+    setDetailLoading(true);
+    try {
+      const item = await adminService.getTravelAgentOnboardingById(partner.id);
+      setSelectedPartner(mapOnboardingToPartner(item));
+    } catch {
+      // Keep showing list item if fetch by id fails
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
 
   const handleApprove = async (remarks: string) => {
     if (!selectedPartner) return;
     setIsProcessing(true);
     try {
-      // TODO: Replace with API call
-      await new Promise((r) => setTimeout(r, 600));
-      setPartners((prev) =>
-        prev.map((p) =>
-          p.id === selectedPartner.id
-            ? {
-                ...p,
-                status: "APPROVED" as const,
-                reviewedAt: new Date().toISOString(),
-                remarks,
-              }
-            : p
-        )
-      );
+      await adminService.approveTravelAgentOnboarding(selectedPartner.id, { remarks });
+      await fetchPartners();
       setShowApproveModal(false);
       setSelectedPartner(null);
     } finally {
@@ -218,20 +215,8 @@ export default function TravelPartnersPage() {
     if (!selectedPartner) return;
     setIsProcessing(true);
     try {
-      // TODO: Replace with API call
-      await new Promise((r) => setTimeout(r, 600));
-      setPartners((prev) =>
-        prev.map((p) =>
-          p.id === selectedPartner.id
-            ? {
-                ...p,
-                status: "REJECTED" as const,
-                reviewedAt: new Date().toISOString(),
-                remarks,
-              }
-            : p
-        )
-      );
+      await adminService.rejectTravelAgentOnboarding(selectedPartner.id, { remarks });
+      await fetchPartners();
       setShowRejectModal(false);
       setSelectedPartner(null);
     } finally {
@@ -257,6 +242,18 @@ export default function TravelPartnersPage() {
           </div>
         </div>
 
+        {listError && (
+          <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4">
+            <p className="text-sm text-rose-800">{listError}</p>
+          </div>
+        )}
+
+        {loading && (
+          <div className="mb-6 py-12 text-center text-gray-500 text-sm">
+            Loading travel partners…
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="mb-6 bg-white rounded-t-xl border border-b-0 border-gray-200 shadow-sm">
           <nav className="flex gap-0" aria-label="Tabs">
@@ -267,7 +264,10 @@ export default function TravelPartnersPage() {
               return (
                 <button
                   key={tabId}
-                  onClick={() => setActiveTab(tabId)}
+                  onClick={() => {
+                    setActiveTab(tabId);
+                    setCurrentPage(0);
+                  }}
                   className={cn(
                     "flex items-center gap-2 px-5 py-3.5 text-sm font-medium rounded-t-lg border-b-2 transition-all",
                     isActive
@@ -283,7 +283,7 @@ export default function TravelPartnersPage() {
                       isActive ? config.badgeClass : "bg-gray-200 text-gray-600"
                     )}
                   >
-                    {partners.filter((p) => p.status === tabId).length}
+                    {statusTotals[tabId]}
                   </span>
                 </button>
               );
@@ -370,7 +370,7 @@ export default function TravelPartnersPage() {
                     >
                       <td className="px-6 py-4">
                         <span className="font-medium text-gray-900">
-                          {partner.title} {partner.name}
+                          {partner.title ? `${partner.title} ` : ""}{partner.name}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">{partner.email}</td>
@@ -388,10 +388,7 @@ export default function TravelPartnersPage() {
                           variant="outline"
                           size="sm"
                           className="gap-1.5 border-gray-300 hover:border-[#2f3d95] hover:bg-[#2f3d95]/5 hover:text-[#2f3d95]"
-                          onClick={() => {
-                            setSelectedPartner(partner);
-                            setDetailStep(1);
-                          }}
+                          onClick={() => openPartnerDetail(partner)}
                         >
                           <Eye className="h-4 w-4" />
                           View
@@ -404,10 +401,51 @@ export default function TravelPartnersPage() {
             </div>
           )}
         </div>
+
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="text-sm text-gray-600">
+            Showing page {totalPages === 0 ? 0 : currentPage + 1} of {totalPages} ({totalElements} total)
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600" htmlFor="travel-partner-page-size">
+              Rows:
+            </label>
+            <select
+              id="travel-partner-page-size"
+              className="h-9 rounded-md border border-gray-300 px-2 text-sm"
+              value={pageSize}
+              onChange={(e) => {
+                const nextSize = Number(e.target.value);
+                setPageSize(nextSize);
+                setCurrentPage(0);
+              }}
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!hasPrevious || loading}
+              onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!hasNext || loading}
+              onClick={() => setCurrentPage((prev) => prev + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Detail Modal */}
-      {selectedFromList && (
+      {selectedPartner && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           onClick={() => setSelectedPartner(null)}
@@ -419,11 +457,11 @@ export default function TravelPartnersPage() {
             <div
               className={cn(
                 "flex items-center justify-between px-6 py-4 border-b shrink-0 border-l-4",
-                selectedFromList.status === "PENDING" &&
+                selectedPartner.status === "PENDING" &&
                   "bg-amber-100 border-l-amber-600 border-gray-200",
-                selectedFromList.status === "APPROVED" &&
+                selectedPartner.status === "APPROVED" &&
                   "bg-emerald-100 border-l-emerald-700 border-gray-200",
-                selectedFromList.status === "REJECTED" &&
+                selectedPartner.status === "REJECTED" &&
                   "bg-rose-100 border-l-rose-700 border-gray-200"
               )}
             >
@@ -431,29 +469,29 @@ export default function TravelPartnersPage() {
                 <div
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-xl",
-                    selectedFromList.status === "PENDING" && "bg-amber-200 text-amber-800",
-                    selectedFromList.status === "APPROVED" && "bg-emerald-200 text-emerald-800",
-                    selectedFromList.status === "REJECTED" && "bg-rose-200 text-rose-800"
+                    selectedPartner.status === "PENDING" && "bg-amber-200 text-amber-800",
+                    selectedPartner.status === "APPROVED" && "bg-emerald-200 text-emerald-800",
+                    selectedPartner.status === "REJECTED" && "bg-rose-200 text-rose-800"
                   )}
                 >
                   <User className="h-5 w-5" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">
-                    {selectedFromList.title} {selectedFromList.name}
+                    {selectedPartner.title ? `${selectedPartner.title} ` : ""}{selectedPartner.name}
                   </h2>
                   <span
                     className={cn(
                       "inline-flex items-center gap-1 mt-0.5 text-xs font-medium rounded-full px-2 py-0.5",
-                      TAB_CONFIG[selectedFromList.status].badgeClass
+                      TAB_CONFIG[selectedPartner.status].badgeClass
                     )}
                   >
                     {(() => {
-                      const Icon = TAB_CONFIG[selectedFromList.status].icon;
+                      const Icon = TAB_CONFIG[selectedPartner.status].icon;
                       return (
                         <>
                           <Icon className="h-3 w-3" />
-                          {TAB_CONFIG[selectedFromList.status].label}
+                          {TAB_CONFIG[selectedPartner.status].label}
                         </>
                       );
                     })()}
@@ -501,6 +539,10 @@ export default function TravelPartnersPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
+              {detailLoading ? (
+                <div className="py-12 text-center text-gray-500 text-sm">Loading details…</div>
+              ) : (
+                <>
               {detailStep === 1 && (
                 <div className="space-y-6">
                   <section className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
@@ -509,36 +551,36 @@ export default function TravelPartnersPage() {
                       Personal details
                     </h3>
                     <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                      <div className="flex items-start gap-2">
-                        <Hash className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-                        <div>
-                          <dt className="text-gray-500">Title</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.title}</dd>
+                      {selectedPartner.title ? (
+                        <div className="flex items-start gap-2">
+                          <Hash className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                          <div>
+                            <dt className="text-gray-500">Title</dt>
+                            <dd className="font-medium text-gray-900">{selectedPartner.title}</dd>
+                          </div>
                         </div>
-                      </div>
+                      ) : null}
                       <div className="flex items-start gap-2">
                         <User className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
                         <div>
                           <dt className="text-gray-500">Name</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.name}</dd>
+                          <dd className="font-medium text-gray-900">{selectedPartner.name ?? "—"}</dd>
                         </div>
                       </div>
                       <div className="sm:col-span-2 flex items-start gap-2">
                         <Mail className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
                         <div className="min-w-0">
                           <dt className="text-gray-500">Email</dt>
-                          <dd className="font-medium text-gray-900 break-all">{selectedFromList.email}</dd>
+                          <dd className="font-medium text-gray-900 break-all">{selectedPartner.email ?? "—"}</dd>
                         </div>
                       </div>
-                      {selectedFromList.phone && (
-                        <div className="flex items-start gap-2">
-                          <Phone className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-                          <div>
-                            <dt className="text-gray-500">Phone</dt>
-                            <dd className="font-medium text-gray-900">{selectedFromList.phone}</dd>
-                          </div>
+                      <div className="flex items-start gap-2">
+                        <Phone className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                        <div>
+                          <dt className="text-gray-500">Phone</dt>
+                          <dd className="font-medium text-gray-900">{selectedPartner.phone ?? "—"}</dd>
                         </div>
-                      )}
+                      </div>
                     </dl>
                   </section>
                   <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
@@ -551,31 +593,31 @@ export default function TravelPartnersPage() {
                         <IdCard className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
                         <div>
                           <dt className="text-gray-500">Agency number</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.agencyNumber}</dd>
+                          <dd className="font-medium text-gray-900">{selectedPartner.agencyNumber ?? "—"}</dd>
                         </div>
                       </div>
                       <div className="flex items-start gap-2">
                         <Hash className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
                         <div>
                           <dt className="text-gray-500">PAN number</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.panNumber}</dd>
+                          <dd className="font-medium text-gray-900">{selectedPartner.panNumber ?? "—"}</dd>
                         </div>
                       </div>
                     </dl>
-                    {selectedFromList.panCardFileUrl && (
+                    {selectedPartner.panCardFileUrl ? (
                       <div>
                         <dt className="text-gray-500 text-sm mb-2 flex items-center gap-1.5">
                           <FileText className="h-3.5 w-3.5" /> PAN card
                         </dt>
                         <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
                           <img
-                            src={selectedFromList.panCardFileUrl}
+                            src={selectedPartner.panCardFileUrl}
                             alt="PAN card"
                             className="w-full max-h-64 object-contain"
                           />
                         </div>
                       </div>
-                    )}
+                    ) : null}
                   </section>
                 </div>
               )}
@@ -591,35 +633,35 @@ export default function TravelPartnersPage() {
                         <Hash className="h-4 w-4 text-teal-500 mt-0.5 shrink-0" />
                         <div>
                           <dt className="text-gray-500">GST number</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.gstNumber}</dd>
+                          <dd className="font-medium text-gray-900">{selectedPartner.gstNumber ?? "—"}</dd>
                         </div>
                       </div>
                       <div className="sm:col-span-2 flex items-start gap-2">
                         <MapPin className="h-4 w-4 text-teal-500 mt-0.5 shrink-0" />
                         <div>
                           <dt className="text-gray-500">Business address</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.businessAddress}</dd>
+                          <dd className="font-medium text-gray-900">{selectedPartner.businessAddress ?? "—"}</dd>
                         </div>
                       </div>
                       <div className="flex items-start gap-2">
                         <MapPin className="h-4 w-4 text-teal-500 mt-0.5 shrink-0" />
                         <div>
                           <dt className="text-gray-500">City</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.city}</dd>
+                          <dd className="font-medium text-gray-900">{selectedPartner.city ?? "—"}</dd>
                         </div>
                       </div>
                       <div className="flex items-start gap-2">
                         <MapPin className="h-4 w-4 text-teal-500 mt-0.5 shrink-0" />
                         <div>
                           <dt className="text-gray-500">State</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.state}</dd>
+                          <dd className="font-medium text-gray-900">{selectedPartner.state ?? "—"}</dd>
                         </div>
                       </div>
                       <div className="flex items-start gap-2">
                         <Hash className="h-4 w-4 text-teal-500 mt-0.5 shrink-0" />
                         <div>
                           <dt className="text-gray-500">Pincode</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.pincode}</dd>
+                          <dd className="font-medium text-gray-900">{selectedPartner.pincode ?? "—"}</dd>
                         </div>
                       </div>
                     </dl>
@@ -634,37 +676,39 @@ export default function TravelPartnersPage() {
                         <User className="h-4 w-4 text-indigo-500 mt-0.5 shrink-0" />
                         <div>
                           <dt className="text-gray-500">Account holder name</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.accountHolderName}</dd>
+                          <dd className="font-medium text-gray-900">{selectedPartner.accountHolderName ?? "—"}</dd>
                         </div>
                       </div>
                       <div className="flex items-start gap-2">
                         <Hash className="h-4 w-4 text-indigo-500 mt-0.5 shrink-0" />
                         <div>
                           <dt className="text-gray-500">Account number</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.accountNumber}</dd>
+                          <dd className="font-medium text-gray-900">{selectedPartner.accountNumber ?? "—"}</dd>
                         </div>
                       </div>
                       <div className="flex items-start gap-2">
                         <Hash className="h-4 w-4 text-indigo-500 mt-0.5 shrink-0" />
                         <div>
                           <dt className="text-gray-500">IFSC</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.ifsc}</dd>
+                          <dd className="font-medium text-gray-900">{selectedPartner.ifsc ?? "—"}</dd>
                         </div>
                       </div>
                       <div className="sm:col-span-2 flex items-start gap-2">
                         <Landmark className="h-4 w-4 text-indigo-500 mt-0.5 shrink-0" />
                         <div>
                           <dt className="text-gray-500">Bank name</dt>
-                          <dd className="font-medium text-gray-900">{selectedFromList.bankName}</dd>
+                          <dd className="font-medium text-gray-900">{selectedPartner.bankName ?? "—"}</dd>
                         </div>
                       </div>
                     </dl>
                   </section>
                 </div>
               )}
+                </>
+              )}
             </div>
 
-            {selectedFromList.status === "PENDING" && (
+            {selectedPartner.status === "PENDING" && (
               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50 shrink-0">
                 <Button variant="outline" onClick={() => setSelectedPartner(null)}>
                   Close
@@ -687,7 +731,7 @@ export default function TravelPartnersPage() {
                 </Button>
               </div>
             )}
-            {selectedFromList.status !== "PENDING" && (
+            {selectedPartner.status !== "PENDING" && (
               <div className="flex items-center justify-end px-6 py-4 border-t border-gray-200 bg-gray-50 shrink-0">
                 <Button variant="outline" onClick={() => setSelectedPartner(null)}>
                   Close

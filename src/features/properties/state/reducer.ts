@@ -504,6 +504,10 @@ const RoomDetailsReducer = (
           ...state.roomDetails,
           numberOfBathrooms: action.payload.numberOfBathrooms,
         },
+        bathroomDetails: {
+          ...state.bathroomDetails,
+          numberOfBathrooms: action.payload.numberOfBathrooms,
+        },
       };
     case "SET_MEAL_PLAN":
       return {
