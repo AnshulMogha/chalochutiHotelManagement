@@ -71,6 +71,27 @@ interface RatePlansGridProps {
   toDate: string; // YYYY-MM-DD from API
   activeDate: Date;
   customerType: string;
+  /**
+   * Layout-only variant. Use "embedded" when rendering inside the unified
+   * Room Inventory grid to avoid extra wrapper styles that can cause
+   * 1-2px column misalignment.
+   */
+  variant?: "default" | "embedded";
+  /**
+   * When true, do not render the internal date header row.
+   * Used when Rate Plans are embedded under Room Inventory with a shared header.
+   */
+  hideDateHeader?: boolean;
+  /**
+   * When true, do not render the internal room header/accordion row(s).
+   * Used when Rate Plans are embedded under an already-rendered room row.
+   */
+  hideRoomHeader?: boolean;
+  /**
+   * Force which room is expanded (bypasses internal accordion state).
+   * Useful in embedded/merged layouts.
+   */
+  forcedExpandedRoomId?: number | null;
   onUpdate: (
     ratePlanId: number,
     roomId: number,
@@ -107,6 +128,10 @@ export const RatePlansGrid = ({
   toDate,
   activeDate,
   customerType,
+  variant = "default",
+  hideDateHeader = false,
+  hideRoomHeader = false,
+  forcedExpandedRoomId = null,
   onUpdate,
   onActiveDateChange,
   isLocked = false,
@@ -259,48 +284,58 @@ export const RatePlansGrid = ({
   };
 
   const numColumns = dates.length;
+  const effectiveExpandedRoomId = forcedExpandedRoomId ?? expandedRoomId;
+
+  const containerClassName =
+    variant === "embedded"
+      ? "relative z-50 overflow-visible bg-transparent"
+      : "border border-slate-200 rounded-xl overflow-visible shadow-md bg-white";
 
   return (
-    <div className="border border-slate-200 rounded-xl overflow-visible shadow-md bg-white">
+    <div className={containerClassName}>
       {/* Header Row */}
-      <div className={`grid bg-slate-100/80 border-b border-slate-200`}
-           style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}>
-        <div className="flex items-center px-6 py-4 font-bold text-xs text-slate-700 border-r border-slate-200 uppercase tracking-wider">
-          Rooms
+      {!hideDateHeader && (
+        <div
+          className={`grid bg-slate-100/80 border-b border-slate-200`}
+          style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
+        >
+          <div className="flex items-center px-6 py-4 font-bold text-xs text-slate-700 border-r border-slate-200 uppercase tracking-wider">
+            Rooms
+          </div>
+
+          {dates.map((date, index) => {
+            const isSelected = isSameDay(date, activeDate);
+            const isPastDate = isBefore(date, today) && !isSameDay(date, today);
+
+            return (
+              <button
+                key={index}
+                disabled={isPastDate}
+                onClick={() => !isPastDate && onActiveDateChange(date)}
+                className={`
+                  flex flex-col items-center justify-center py-3.5 last:border-r-0
+                  transition-all duration-150 outline-none
+                  ${getDateHeaderClasses(date, isSelected, isPastDate)}
+                `}
+              >
+                <span className="text-[9px] font-semibold uppercase mb-1 tracking-wider opacity-75">
+                  {format(date, 'EEE')}
+                </span>
+                <span className="text-2xl font-bold tabular-nums">
+                  {format(date, 'd')}
+                </span>
+                <span className="text-[9px] font-semibold uppercase mt-0.5 opacity-75">
+                  {format(date, 'MMM')}
+                </span>
+              </button>
+            );
+          })}
         </div>
-
-        {dates.map((date, index) => {
-          const isSelected = isSameDay(date, activeDate);
-          const isPastDate = isBefore(date, today) && !isSameDay(date, today);
-
-          return (
-            <button
-              key={index}
-              disabled={isPastDate}
-              onClick={() => !isPastDate && onActiveDateChange(date)}
-              className={`
-                flex flex-col items-center justify-center py-3.5 last:border-r-0
-                transition-all duration-150 outline-none
-                ${getDateHeaderClasses(date, isSelected, isPastDate)}
-              `}
-            >
-              <span className="text-[9px] font-semibold uppercase mb-1 tracking-wider opacity-75">
-                {format(date, 'EEE')}
-              </span>
-              <span className="text-2xl font-bold tabular-nums">
-                {format(date, 'd')}
-              </span>
-              <span className="text-[9px] font-semibold uppercase mt-0.5 opacity-75">
-                {format(date, 'MMM')}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      )}
 
       {/* Rooms List */}
       {rooms.map((room, roomIndex) => {
-        const isExpanded = expandedRoomId === room.roomId;
+        const isExpanded = effectiveExpandedRoomId === room.roomId;
 
         return (
           <div 
@@ -309,33 +344,38 @@ export const RatePlansGrid = ({
             style={{ position: 'relative', overflow: 'visible' }}
           >
             {/* Room Header Row - Clickable */}
-            <button
-              onClick={() => toggleRoom(room.roomId)}
-              className={`w-full bg-gray-100 hover:bg-gray-200 transition-all duration-150 group`}
-              style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`, display: 'grid' }}
-            >
-              <div className={`flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60`}>
-                {isExpanded ? (
-                  <ChevronDown className="w-5 h-5 mr-3 text-slate-600 transition-transform group-hover:translate-y-0.5" />
-                ) : (
-                  <ChevronRight className="w-5 h-5 mr-3 text-slate-600 transition-transform group-hover:translate-x-0.5" />
-                )}
-                <span className="group-hover:text-blue-600 transition-colors">
-                  {room.roomName}
-                </span>
-              </div>
+            {!hideRoomHeader && (
+              <button
+                onClick={() => {
+                  if (forcedExpandedRoomId !== null) return;
+                  toggleRoom(room.roomId);
+                }}
+                className={`w-full bg-gray-100 hover:bg-gray-200 transition-all duration-150 group`}
+                style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`, display: 'grid' }}
+              >
+                <div className={`flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60`}>
+                  {isExpanded ? (
+                    <ChevronDown className="w-5 h-5 mr-3 text-slate-600 transition-transform group-hover:translate-y-0.5" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5 mr-3 text-slate-600 transition-transform group-hover:translate-x-0.5" />
+                  )}
+                  <span className="group-hover:text-blue-600 transition-colors">
+                    {room.roomName}
+                  </span>
+                </div>
 
-              {dates.map((date, i) => (
-                <div
-                  key={i}
-                  className={`border-r border-slate-200 last:border-r-0 transition-colors duration-150 ${
-                    isSameDay(date, activeDate)
-                      ? getSelectedColumnBg(date)
-                      : ''
-                  }`}
-                />
-              ))}
-            </button>
+                {dates.map((date, i) => (
+                  <div
+                    key={i}
+                    className={`border-r border-slate-200 last:border-r-0 transition-colors duration-150 ${
+                      isSameDay(date, activeDate)
+                        ? getSelectedColumnBg(date)
+                        : ''
+                    }`}
+                  />
+                ))}
+              </button>
+            )}
 
             {/* Expanded Content - Rate Plans for this Room */}
             {isExpanded && room.ratePlans.map((ratePlan, ratePlanIndex) => {

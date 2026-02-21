@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import {
   addDays,
   format,
@@ -8,6 +8,10 @@ import {
   isWeekend,
 } from 'date-fns';
 import type { InventoryRoom } from '../type';
+import type { RatesRoom } from '../type';
+import type { ChildAgePolicyResponse } from '@/features/admin/services/adminService';
+import { RatePlansGrid } from './RatePlansGrid';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 /* ----------------------------------
    Helpers & Styling Logic
@@ -54,6 +58,40 @@ interface RoomTypesGridProps {
   isLocked: boolean;
   activeEdit: { roomId: number; date: string } | null;
   updatingCells: Set<string>;
+  // Expand/collapse integration for the existing Rate Plans component
+  expandedRoomIds: Set<number>;
+  onToggleExpand: (roomId: number) => void;
+  rateRoomsByRoomId: Record<number, RatesRoom>;
+  loadingRatePlansByRoomId: Record<number, boolean>;
+  fromDate: string; // YYYY-MM-DD
+  toDate: string; // YYYY-MM-DD
+  customerType: string;
+  onRatePlanUpdate: (
+    ratePlanId: number,
+    roomId: number,
+    date: string,
+    baseRate: number,
+    singleOccupancyRate?: number | null | undefined,
+    extraAdultCharge?: number | undefined,
+    paidChildCharge?: number | undefined,
+    minStay?: number | null | undefined,
+    maxStay?: number | null | undefined,
+    cutoffTime?: string | null | undefined
+  ) => void;
+  activeRateEdit: {
+    ratePlanId: number;
+    roomId: number;
+    date: string;
+    baseRate: number;
+    singleOccupancyRate?: number | null;
+    extraAdultCharge?: number;
+    paidChildCharge?: number;
+    minStay?: number | null;
+    maxStay?: number | null;
+    cutoffTime?: string | null;
+  } | null;
+  hidePaidChildCharge?: boolean;
+  childPolicy?: ChildAgePolicyResponse | null;
 }
 
 export const RoomTypesGrid = ({
@@ -65,6 +103,17 @@ export const RoomTypesGrid = ({
   isLocked,
   activeEdit,
   updatingCells,
+  expandedRoomIds,
+  onToggleExpand,
+  rateRoomsByRoomId,
+  loadingRatePlansByRoomId,
+  fromDate,
+  toDate,
+  customerType,
+  onRatePlanUpdate,
+  activeRateEdit,
+  hidePaidChildCharge = false,
+  childPolicy = null,
 }: RoomTypesGridProps) => {
   // Track local input values as strings: key = `${roomId}-${dateStr}`
   const [localValues, setLocalValues] = useState<Map<string, string>>(new Map());
@@ -76,7 +125,7 @@ export const RoomTypesGrid = ({
   const today = startOfToday();
 
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-md bg-white">
+    <div className="border border-slate-200 rounded-xl overflow-visible shadow-md bg-white">
       {/* Header Row */}
       <div className="grid grid-cols-[280px_repeat(7,1fr)] bg-slate-100/80 border-b border-slate-200">
         <div className="flex items-center px-6 py-4 font-bold text-xs text-slate-700 border-r border-slate-200 uppercase tracking-wider">
@@ -114,15 +163,27 @@ export const RoomTypesGrid = ({
 
       {/* Room Rows */}
       {rooms.map((room, roomIndex) => (
+        <Fragment key={room.roomId}>
         <div
-          key={room.roomId}
           className={`grid grid-cols-[280px_repeat(7,1fr)] ${
             roomIndex > 0 ? 'border-t border-slate-200' : ''
           } bg-white hover:bg-slate-50/50 transition-colors duration-150`}
         >
           {/* Room Name Column */}
-          <div className="flex items-center px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
-            {room.roomName}
+          <div className="flex items-center gap-2 px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
+            <button
+              type="button"
+              onClick={() => onToggleExpand(room.roomId)}
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+              aria-label={expandedRoomIds.has(room.roomId) ? "Collapse rate plans" : "Expand rate plans"}
+            >
+              {expandedRoomIds.has(room.roomId) ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </button>
+            <span className="truncate">{room.roomName}</span>
           </div>
 
           {/* Data Columns */}
@@ -315,6 +376,40 @@ export const RoomTypesGrid = ({
             );
           })}
         </div>
+
+        {/* Expanded Content: render existing Rate Plans component (unchanged) */}
+        {expandedRoomIds.has(room.roomId) && (
+          <div className="border-t border-slate-200 bg-slate-50/30 relative z-50">
+            {loadingRatePlansByRoomId[room.roomId] ? (
+              <div className="px-6 py-4 text-sm font-medium text-slate-500">
+                Loading rate plans...
+              </div>
+            ) : rateRoomsByRoomId[room.roomId] ? (
+              <RatePlansGrid
+                variant="embedded"
+                rooms={[rateRoomsByRoomId[room.roomId]]}
+                fromDate={fromDate}
+                toDate={toDate}
+                activeDate={activeDate}
+                customerType={customerType}
+                hideDateHeader
+                hideRoomHeader
+                forcedExpandedRoomId={room.roomId}
+                onUpdate={onRatePlanUpdate}
+                onActiveDateChange={onActiveDateChange}
+                isLocked={isLocked}
+                activeEdit={activeRateEdit}
+                hidePaidChildCharge={hidePaidChildCharge}
+                childPolicy={childPolicy}
+              />
+            ) : (
+              <div className="px-6 py-4 text-sm font-medium text-slate-500">
+                No rate plans available
+              </div>
+            )}
+          </div>
+        )}
+        </Fragment>
       ))}
     </div>
   );

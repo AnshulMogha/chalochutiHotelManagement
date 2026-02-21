@@ -515,7 +515,7 @@ export default function BulkUpdateRatesPage() {
       showToast("Rates updated successfully", "success");
 
       setTimeout(() => {
-        navigate(`/inventory/rate-plans?hotelId=${hotelId}`);
+        navigate(`/inventory/room-types?hotelId=${hotelId}`);
       }, 1000);
     } catch (error: any) {
       console.error("Error updating rates:", error);
@@ -527,7 +527,7 @@ export default function BulkUpdateRatesPage() {
 
   const handleCancel = () => {
     if (hotelId) {
-      navigate(`/inventory/rate-plans?hotelId=${hotelId}`);
+      navigate(`/inventory/room-types?hotelId=${hotelId}`);
     } else {
       navigate(-1);
     }

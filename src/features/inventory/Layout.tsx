@@ -76,6 +76,14 @@ export default function Layout() {
   const [ratePlansFromDate, setRatePlansFromDate] = useState<string>("");
   const [ratePlansToDate, setRatePlansToDate] = useState<string>("");
   const [customerType, setCustomerType] = useState<string>("RETAIL");
+  // Expandable rate plans inside Room Types view (per-room)
+  const [expandedRoomIds, setExpandedRoomIds] = useState<Set<number>>(new Set());
+  const [loadingRatePlansByRoomId, setLoadingRatePlansByRoomId] = useState<
+    Record<number, boolean>
+  >({});
+  const [rateRoomsByRoomId, setRateRoomsByRoomId] = useState<
+    Record<number, RatesRoom>
+  >({});
   const [roomTypes, setRoomTypes] = useState<HotelRoom[]>([]);
   const [isLoadingRoomTypes, setIsLoadingRoomTypes] = useState(false);
   const [roomTypesError, setRoomTypesError] = useState<string | null>(null);
@@ -203,6 +211,21 @@ export default function Layout() {
   const fromDate = useMemo(() => format(baseDate, "yyyy-MM-dd"), [baseDate]);
   const toDate = useMemo(() => format(addDays(baseDate, 6), "yyyy-MM-dd"), [baseDate]);
 
+  // Keep a per-room cache for quick lookups in the expandable view.
+  // Derived from `rateRooms` so it stays aligned with existing update logic.
+  useEffect(() => {
+    const next: Record<number, RatesRoom> = {};
+    for (const rr of rateRooms) next[rr.roomId] = rr;
+    setRateRoomsByRoomId(next);
+  }, [rateRooms]);
+
+  // Reset expandable state when hotel/date range/customer type changes.
+  useEffect(() => {
+    setExpandedRoomIds(new Set());
+    setLoadingRatePlansByRoomId({});
+    setRateRoomsByRoomId({});
+  }, [hotelId, fromDate, toDate, currentCustomerType]);
+
   // Reset date range to today → today + 6 when hotel changes
   useEffect(() => {
     if (hotelId) {
@@ -269,6 +292,46 @@ export default function Layout() {
 
     fetchRatePlans();
   }, [hotelId, fromDate, toDate, activeSidebarSection, currentCustomerType]);
+
+  const ensureRatePlansLoadedForRoom = async (roomId: number) => {
+    if (!hotelId) return;
+    if (rateRoomsByRoomId[roomId]) return;
+    if (loadingRatePlansByRoomId[roomId]) return;
+
+    setLoadingRatePlansByRoomId((prev) => ({ ...prev, [roomId]: true }));
+    try {
+      const data = await rateService.getCalendar(
+        hotelId,
+        fromDate,
+        toDate,
+        currentCustomerType
+      );
+      setRateRooms(data.rooms);
+      setRatePlansFromDate(data.from);
+      setRatePlansToDate(data.to);
+      setCustomerType(data.customerType);
+      // Store original state for cancel functionality
+      originalRateRoomsRef.current = JSON.parse(JSON.stringify(data.rooms));
+    } catch (error: any) {
+      console.error("Error fetching rate plans (expand):", error);
+      showToast(error?.message || "Failed to load rate plans", "error");
+    } finally {
+      setLoadingRatePlansByRoomId((prev) => ({ ...prev, [roomId]: false }));
+    }
+  };
+
+  const toggleRoomExpand = (roomId: number) => {
+    const shouldExpand = !expandedRoomIds.has(roomId);
+    setExpandedRoomIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomId)) next.delete(roomId);
+      else next.add(roomId);
+      return next;
+    });
+    if (shouldExpand) {
+      void ensureRatePlansLoadedForRoom(roomId);
+    }
+  };
 
   useEffect(() => {
     if (!hotelId || !isBulkUpdateModalOpen) return;
@@ -801,6 +864,17 @@ export default function Layout() {
                   isLocked={hasChanges}
                   activeEdit={activeEdit}
                   updatingCells={updatingCells}
+                  expandedRoomIds={expandedRoomIds}
+                  onToggleExpand={toggleRoomExpand}
+                  rateRoomsByRoomId={rateRoomsByRoomId}
+                  loadingRatePlansByRoomId={loadingRatePlansByRoomId}
+                  fromDate={fromDate}
+                  toDate={toDate}
+                  customerType={currentCustomerType}
+                  onRatePlanUpdate={handleRatePlanUpdate}
+                  activeRateEdit={activeRateEdit}
+                  hidePaidChildCharge={childPolicyNotFound}
+                  childPolicy={childPolicy}
                 />
               </div>
             ) : (
