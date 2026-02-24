@@ -7,12 +7,14 @@ interface InventoryTabProps {
   inventory: MediaFile[];
   onUploadClick: () => void;
   onRemove?: (id: string) => void;
+  onAssignTags?: (mediaId: number) => void;
 }
 
 export function InventoryTab({
   inventory,
   onUploadClick,
   onRemove,
+  onAssignTags,
 }: InventoryTabProps) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
@@ -63,6 +65,7 @@ export function InventoryTab({
           <MediaGrid
             media={inventory}
             onRemove={onRemove}
+            onAssignTags={onAssignTags}
             showDelete={false}
             tagColor="blue"
           />

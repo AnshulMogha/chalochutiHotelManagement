@@ -29,14 +29,6 @@ const formReducer = (
           builtYear: action.payload.builtYear,
         },
       };
-    case "ACCEPTING_BOOKINGS_SINCE_CHANGE":
-      return {
-        ...state,
-        basicInfo: {
-          ...state.basicInfo,
-          acceptingBookingsSince: action.payload.acceptingBookingsSince,
-        },
-      };
     case "EMAIL_CHANGE":
       return {
         ...state,
@@ -143,6 +135,14 @@ const formReducer = (
         locationInfo: {
           ...state.locationInfo,
           locality: action.payload.locality,
+        },
+      };
+    case "SET_LANDMARK":
+      return {
+        ...state,
+        locationInfo: {
+          ...state.locationInfo,
+          landmark: action.payload.landmark,
         },
       };
     case "SET_LATITUDE":

@@ -154,7 +154,6 @@ export interface HotelBasicInfoResponse {
   starRating: number;
   propertyType: string;
   yearOfConstruction: string;
-  acceptingSince: string;
   currency: string;
   status: string;
   statusReason: string | null;
@@ -173,7 +172,6 @@ export interface UpdateHotelProfileRequest {
   propertyType: string;
   starRating: number;
   yearOfConstruction: number;
-  acceptingSince: number;
   currency: string;
 }
 
@@ -690,9 +688,30 @@ export interface FinanceData {
   bankBranch: string;
 }
 
+export interface FinanceItem {
+  financeId: number;
+  hotelId: string;
+  version: number;
+  isLatest: boolean;
+  gstin: string | null;
+  pan: string | null;
+  businessName: string | null;
+  businessAddress: string | null;
+  bankAccountNumber: string | null;
+  bankName: string | null;
+  bankIfsc: string | null;
+  bankBranch: string | null;
+  createdBy: number;
+  createdByEmail: string;
+  updatedBy: number;
+  updatedByEmail: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface FinanceResponse {
   total: number;
-  finances: FinanceData[];
+  finances: FinanceItem[];
 }
 
 export interface HotelAmenityItem {
@@ -1202,7 +1221,7 @@ export const adminService = {
     data: HotelRoomDetailsRequest
   ): Promise<{ roomKey: string }> => {
     const response = data.roomKey
-      ? await apiClient.put<ApiSuccessResponse<{ roomKey: string }>>(
+      ? await apiClient.post<ApiSuccessResponse<{ roomKey: string }>>(
           API_ENDPOINTS.HOTEL_ADMIN.CREATE_OR_UPDATE_ROOM(hotelId),
           data
         )
@@ -1234,10 +1253,13 @@ export const adminService = {
     );
     return response.data;
   },
-  uploadHotelMedia: async (hotelId: string, file: File): Promise<{ imageId: number; imageUrl: string }> => {
+  uploadHotelMedia: async (hotelId: string, files: File[]): Promise<{ imageId: number; imageUrl: string }[]> => {
     const formData = new FormData();
-    formData.append("file", file);
-    const response = await apiClient.post<ApiSuccessResponse<{ imageId: number; imageUrl: string }>>(
+    // Append all files with the parameter name "files"
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+    const response = await apiClient.post<ApiSuccessResponse<{ imageId: number; imageUrl: string }[]>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPLOAD_HOTEL_MEDIA(hotelId),
       formData,
       {

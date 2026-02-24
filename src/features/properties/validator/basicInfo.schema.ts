@@ -20,12 +20,6 @@ const basicInfoSchema = z
         message: "Built year is required",
       }),
 
-    acceptingBookingsSince: z
-      .string({ required_error: "Accepting bookings since is required", invalid_type_error: "Accepting bookings since is required" })
-      .min(1, {
-        message: "Accepting bookings since is required",
-      }),
-
     email: z
       .string({ required_error: "Email is required", invalid_type_error: "Email is required" })
       .min(1, { message: "Email is required" })
@@ -60,19 +54,6 @@ const basicInfoSchema = z
       .string({ required_error: "Owner phone number is required", invalid_type_error: "Owner phone number is required" })
       .min(1, { message: "Owner phone number is required" })
       .length(10, { message: "Owner phone number must be exactly 10 digits" }),
-  })
-  .superRefine((data, ctx) => {
-    console.log(data.builtYear, data.acceptingBookingsSince);
-    if (data.builtYear && data.acceptingBookingsSince) {
-        
-      if (data.builtYear > data.acceptingBookingsSince) {
-        ctx.addIssue({
-          path: ["builtYear"], // 👈 attach error to field
-          message: "Built year must be before accepting bookings since",
-          code: "custom",
-        });
-      }
-    }
   });
 
 export default basicInfoSchema;

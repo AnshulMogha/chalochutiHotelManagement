@@ -42,7 +42,18 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
         const response = await adminService.getHotelFinance(hotelId);
         // If there's existing finance data, use the first one
         if (response.finances && response.finances.length > 0) {
-          setFormData(response.finances[0]);
+          const financeData = response.finances[0];
+          // Map the response data, converting null values to empty strings
+          setFormData({
+            gstin: financeData.gstin || "",
+            pan: financeData.pan || "",
+            businessName: financeData.businessName || "",
+            businessAddress: financeData.businessAddress || "",
+            bankAccountNumber: financeData.bankAccountNumber || "",
+            bankName: financeData.bankName || "",
+            bankIfsc: financeData.bankIfsc || "",
+            bankBranch: financeData.bankBranch || "",
+          });
         }
       } catch (error) {
         console.error("Error fetching finance data:", error);

@@ -236,51 +236,34 @@ export const sleepingArrangementValidator = (
       "Base adults cannot be more than maximum adults.";
   }
 
+  // Max adults must equal combined max adults from all beds (including extra beds)
+  if (sleepingArrangement.maxAdults !== totalCapacity.maxAdults) {
+    errors.maxAdults =
+      `Maximum adults must equal ${totalCapacity.maxAdults} (combined max adults from all beds including extra beds).`;
+  }
+
+  // Max occupancy must equal sum of bed occupancies (including extra beds)
+  if (sleepingArrangement.maxOccupancy !== totalCapacity.maxOccupancy) {
+    errors.maxOccupancy =
+      `Maximum occupancy must equal ${totalCapacity.maxOccupancy} (sum of all bed occupancies including extra beds).`;
+  }
+
+  // Ensure max children < max occupancy (at least 1 adult required)
+  if (
+    sleepingArrangement.maxChildren >=
+    sleepingArrangement.maxOccupancy
+  ) {
+    errors.maxChildren =
+      "Maximum children must be less than maximum occupancy (at least 1 adult is required).";
+  }
+
+  // Ensure base children <= max children
   if (
     sleepingArrangement.baseChildren >
     sleepingArrangement.maxChildren
   ) {
     errors.baseChildren =
       "Base children cannot be more than maximum children.";
-  }
-
-  // Capacity limits
-  if (sleepingArrangement.maxAdults > totalCapacity.maxAdults) {
-    errors.maxAdults =
-      "Maximum adults exceed bed capacity.";
-  }
-
-  if (sleepingArrangement.maxChildren > totalCapacity.maxChildren) {
-    errors.maxChildren =
-      "Maximum children exceed bed capacity.";
-  }
-
-  // Children < Occupancy
-  if (
-    sleepingArrangement.maxChildren >=
-    sleepingArrangement.maxOccupancy
-  ) {
-    errors.maxChildren =
-      "Maximum children must be less than maximum occupancy.";
-  }
-
-  // Occupancy math
-  if (
-    sleepingArrangement.maxOccupancy !==
-    sleepingArrangement.maxAdults +
-      sleepingArrangement.maxChildren
-  ) {
-    errors.maxOccupancy =
-      "Maximum occupancy must equal max adults + max children.";
-  }
-
-  // Occupancy capacity
-  if (
-    sleepingArrangement.maxOccupancy >
-    totalCapacity.maxOccupancy
-  ) {
-    errors.maxOccupancy =
-      "Maximum occupancy exceeds bed capacity.";
   }
 
   /* =====================================================

@@ -8,6 +8,7 @@ import { HotelMediaTab } from "./HotelMediaTab";
 import { RoomMediaTab } from "./RoomMediaTab";
 import { UploadModal } from "./UploadModal";
 import { MediaAssignmentModal } from "./MediaAssignmentModal";
+import { SingleMediaTagModal } from "./SingleMediaTagModal";
 import type { MediaFile, MediaTag, ActiveTab, RoomMediaFile } from "./types";
 
 export function PhotosAndVideosStep() {
@@ -28,7 +29,12 @@ export function PhotosAndVideosStep() {
     roomId?: string;
   } | null>(null);
 
-  const [selectedTags, setSelectedTags] = useState<MediaTag[]>([]);
+  const [mediaForTagAssignment, setMediaForTagAssignment] = useState<{
+    mediaId: number;
+    fileUrl: string;
+    fileType: "IMAGE" | "VIDEO";
+    currentTags: MediaTag[];
+  } | null>(null);
   const fileCounterRef = useRef(0);
 
   const hotelName = formDataState.basicInfo?.name || "Hotel";
@@ -53,7 +59,7 @@ export function PhotosAndVideosStep() {
             mediaId: item.mediaId,
             fileUrl: item.fileUrl,
             type: item.fileType,
-            tag: item.tags[0] || "OTHER",
+            tag: item.tags && item.tags.length > 0 ? item.tags[0] : "",
           }));
         setHotelMedia(hotelMediaItems);
         setHotelMediaIds(
@@ -67,7 +73,7 @@ export function PhotosAndVideosStep() {
             mediaId: item.mediaId,
             fileUrl: item.fileUrl,
             type: item.fileType,
-            tag: item.tags[0] || "OTHER",
+            tag: item.tags && item.tags.length > 0 ? item.tags[0] : "",
             roomId: item.rooms?.[0]?.roomId || "",
             roomName: item.rooms?.[0]?.roomName || "",
           }));
@@ -85,7 +91,7 @@ export function PhotosAndVideosStep() {
             mediaId: item.mediaId,
             fileUrl: item.fileUrl,
             type: item.fileType,
-            tag: item.tags[0] || "OTHER",
+            tag: item.tags && item.tags.length > 0 ? item.tags[0] : "",
           }));
         setInventory(inventoryItems);
       } catch (error) {
@@ -124,72 +130,110 @@ export function PhotosAndVideosStep() {
   }, [hotelId]);
 
   // ---------------- Upload ----------------
-  const handleFileUpload = async (file: File | null, tags: MediaTag[]) => {
-    if (!file || !tags || tags.length === 0) return;
+  const handleFilesSelect = async (files: File[]) => {
+    if (!files || files.length === 0 || !hotelId) return;
 
     const maxImageSize = 10 * 1024 * 1024;
     const maxVideoSize = 100 * 1024 * 1024;
 
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
-
-    if (!isImage && !isVideo) return;
-    if (isImage && file.size > maxImageSize) return;
-    if (isVideo && file.size > maxVideoSize) return;
-
-    fileCounterRef.current += 1;
-
-    const response = await propertyService.uploadMedia({
-      media: file,
+    // Validate files
+    const validFiles = files.filter((file) => {
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+      if (!isImage && !isVideo) return false;
+      if (isImage && file.size > maxImageSize) return false;
+      if (isVideo && file.size > maxVideoSize) return false;
+      return true;
     });
 
-    await propertyService.assignMediaTag(response.mediaId, tags);
-
-    // Add newly uploaded media directly to inventory
-    // Newly uploaded media won't have hotel or room attachments, so it should appear in inventory
-    const newMediaItem = {
-      mediaId: response.mediaId,
-      fileUrl: response.fileUrl,
-      type: response.fileType,
-      tag: tags[0] || "OTHER",
-    };
-
-    // Add to inventory immediately
-    setInventory([...inventory, newMediaItem]);
-
-    // Also refresh media data to ensure consistency
-    if (hotelId) {
-      try {
-        const mediaResponse = await propertyService.getMedia(hotelId);
-        const inventoryItems = mediaResponse
-          .filter(
-            (item) =>
-              (!item.hotel || !item.hotel.hotelId) &&
-              (!item.rooms || item.rooms.length === 0)
-          )
-          .map((item) => ({
-            mediaId: item.mediaId,
-            fileUrl: item.fileUrl,
-            type: item.fileType,
-            tag: item.tags[0] || "OTHER",
-          }));
-        // Merge with newly uploaded media (in case it's not in the response yet)
-        const allInventoryItems = [...inventoryItems];
-        const existsInResponse = inventoryItems.some(
-          (item) => item.mediaId === response.mediaId
-        );
-        if (!existsInResponse) {
-          allInventoryItems.push(newMediaItem);
-        }
-        setInventory(allInventoryItems);
-      } catch (error) {
-        console.error("Error refreshing media after upload:", error);
-        // Keep the manually added item if refresh fails
-      }
+    if (validFiles.length === 0) {
+      alert("No valid files selected. Please select image or video files within size limits.");
+      return;
     }
 
-    setShowUploadModal(false);
-    setSelectedTags([]);
+    try {
+      // Upload files using hotel-specific endpoint
+      const uploadResponses = await propertyService.uploadHotelMedia(hotelId, validFiles);
+      
+      // Add uploaded media directly to inventory (without tags initially)
+      const newMediaItems: MediaFile[] = uploadResponses.map((media) => ({
+        mediaId: media.mediaId,
+        fileUrl: media.fileUrl,
+        type: media.fileType,
+        tag: "", // No tag initially
+      }));
+
+      setInventory([...inventory, ...newMediaItems]);
+      setShowUploadModal(false);
+
+      // Refresh media data to ensure consistency
+      if (hotelId) {
+        try {
+          const mediaResponse = await propertyService.getMedia(hotelId);
+          const inventoryItems = mediaResponse
+            .filter(
+              (item) =>
+                (!item.hotel || !item.hotel.hotelId) &&
+                (!item.rooms || item.rooms.length === 0)
+            )
+            .map((item) => ({
+              mediaId: item.mediaId,
+              fileUrl: item.fileUrl,
+              type: item.fileType,
+              tag: item.tags && item.tags.length > 0 ? item.tags[0] : "",
+            }));
+          setInventory(inventoryItems);
+        } catch (error) {
+          console.error("Error refreshing media after upload:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      alert("Failed to upload files. Please try again.");
+    }
+  };
+
+  // ---------------- Assign Tags to Single Media ----------------
+  const handleAssignTagsToMedia = async (mediaId: number, tags: MediaTag[]) => {
+    try {
+      // If tags array is empty, send empty array to API to remove all tags
+      // Assign tags using mediaId only (no hotelId needed)
+      await propertyService.assignMediaTagToHotel(mediaId, tags);
+
+      // Update the media item in inventory with the new tag (or empty if no tags)
+      setInventory((prev) =>
+        prev.map((item) =>
+          item.mediaId === mediaId
+            ? { ...item, tag: tags.length > 0 ? tags[0] : "" }
+            : item
+        )
+      );
+
+      // Refresh media data
+      if (hotelId) {
+        try {
+          const mediaResponse = await propertyService.getMedia(hotelId);
+          const inventoryItems = mediaResponse
+            .filter(
+              (item) =>
+                (!item.hotel || !item.hotel.hotelId) &&
+                (!item.rooms || item.rooms.length === 0)
+            )
+            .map((item) => ({
+              mediaId: item.mediaId,
+              fileUrl: item.fileUrl,
+              type: item.fileType,
+              tag: item.tags && item.tags.length > 0 ? item.tags[0] : "",
+            }));
+          setInventory(inventoryItems);
+        } catch (error) {
+          console.error("Error refreshing media after tag assignment:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error assigning tags:", error);
+      alert("Failed to assign tags. Please try again.");
+    }
   };
 
   // ---------------- Assign Media ----------------
@@ -349,17 +393,14 @@ export function PhotosAndVideosStep() {
       });
       return Array.from(mediaMap.values());
     } else if (assignmentContext.roomId) {
-      // Include inventory + room media for this room, but exclude media assigned to hotel
-      const hotelMediaIdsSet = new Set(hotelMediaIds);
+      // Include inventory + hotel media + room media for this room
+      // Hotel media can also be assigned to rooms
       const roomMediaForThisRoom = getRoomMedia(assignmentContext.roomId);
-      const allAvailableMedia = [...inventory, ...roomMediaForThisRoom];
-      // Deduplicate by mediaId and filter out hotel-assigned media
+      const allAvailableMedia = [...inventory, ...hotelMedia, ...roomMediaForThisRoom];
+      // Deduplicate by mediaId
       const mediaMap = new Map<number, MediaFile>();
       allAvailableMedia.forEach((item) => {
-        const itemId = item.mediaId.toString();
-        if (!hotelMediaIdsSet.has(itemId)) {
-          mediaMap.set(item.mediaId, item);
-        }
+        mediaMap.set(item.mediaId, item);
       });
       return Array.from(mediaMap.values());
     }
@@ -377,6 +418,19 @@ export function PhotosAndVideosStep() {
           inventory={inventory}
           onUploadClick={() => setShowUploadModal(true)}
           onRemove={undefined}
+          onAssignTags={(mediaId) => {
+            const mediaItem = inventory.find((item) => item.mediaId === mediaId);
+            if (mediaItem) {
+              setMediaForTagAssignment({
+                mediaId: mediaItem.mediaId,
+                fileUrl: mediaItem.fileUrl,
+                fileType: mediaItem.type,
+                currentTags: mediaItem.tag && mediaItem.tag !== "" 
+                  ? [mediaItem.tag as MediaTag].filter(Boolean)
+                  : [],
+              });
+            }
+          }}
         />
       )}
 
@@ -404,7 +458,7 @@ export function PhotosAndVideosStep() {
                   mediaId: item.mediaId,
                   fileUrl: item.fileUrl,
                   type: item.fileType,
-                  tag: item.tags[0] || "OTHER",
+                  tag: item.tags && item.tags.length > 0 ? item.tags[0] : "",
                 }));
               setHotelMedia(hotelMediaItems);
               setHotelMediaIds(
@@ -422,7 +476,7 @@ export function PhotosAndVideosStep() {
                   mediaId: item.mediaId,
                   fileUrl: item.fileUrl,
                   type: item.fileType,
-                  tag: item.tags[0] || "OTHER",
+                  tag: item.tags && item.tags.length > 0 ? item.tags[0] : "",
                 }));
 
               // Add detached media to inventory if it exists and not already there
@@ -486,7 +540,7 @@ export function PhotosAndVideosStep() {
                   mediaId: item.mediaId,
                   fileUrl: item.fileUrl,
                   type: item.fileType,
-                  tag: item.tags[0] || "OTHER",
+                  tag: item.tags && item.tags.length > 0 ? item.tags[0] : "",
                   roomId: item.rooms?.[0]?.roomId || "",
                   roomName: item.rooms?.[0]?.roomName || "",
                 }));
@@ -503,7 +557,7 @@ export function PhotosAndVideosStep() {
                   mediaId: item.mediaId,
                   fileUrl: item.fileUrl,
                   type: item.fileType,
-                  tag: item.tags[0] || "OTHER",
+                  tag: item.tags && item.tags.length > 0 ? item.tags[0] : "",
                 }));
 
               // Add detached media to inventory if it exists and not already there
@@ -557,12 +611,21 @@ export function PhotosAndVideosStep() {
         isOpen={showUploadModal}
         onClose={() => {
           setShowUploadModal(false);
-          setSelectedTags([]);
         }}
-        selectedTags={selectedTags}
-        onTagsChange={setSelectedTags}
-        onFileSelect={handleFileUpload}
+        onFilesSelect={handleFilesSelect}
       />
+
+      {mediaForTagAssignment && (
+        <SingleMediaTagModal
+          isOpen={!!mediaForTagAssignment}
+          onClose={() => setMediaForTagAssignment(null)}
+          mediaId={mediaForTagAssignment.mediaId}
+          mediaUrl={mediaForTagAssignment.fileUrl}
+          mediaType={mediaForTagAssignment.fileType}
+          currentTags={mediaForTagAssignment.currentTags}
+          onTagsAssigned={handleAssignTagsToMedia}
+        />
+      )}
 
       {showAssignmentModal && assignmentContext && (
         <MediaAssignmentModal

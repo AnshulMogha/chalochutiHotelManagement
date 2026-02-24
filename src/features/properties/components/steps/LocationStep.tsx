@@ -9,6 +9,7 @@ import {
   setCity,
   setCountry,
   setLocality,
+  setLandmark,
   setPincode,
   setState,
   setLatitude,
@@ -53,6 +54,7 @@ export function LocationStep() {
 
           address: response.houseBuildingApartmentNo,
           locality: response.localityAreaStreetSector,
+          landmark: response.locality || "",
           pincode: response.pincode,
           city: response.city,
           state: response.state,
@@ -69,17 +71,21 @@ export function LocationStep() {
   const extractAddressComponents = useCallback(
     (components: readonly google.maps.GeocoderAddressComponent[]) => {
       components.forEach((comp) => {
+        console.log(comp);
         if (comp.types.includes("country"))
           setFormDataState(setCountry(comp.long_name ?? ""));
 
         if (comp.types.includes("administrative_area_level_1"))
           setFormDataState(setState(comp.long_name ?? ""));
 
+        if(comp.types.includes("sublocality"))
+          setFormDataState(setLocality(comp.long_name ?? ""));
         if (comp.types.includes("locality"))
           setFormDataState(setCity(comp.long_name ?? ""));
 
         if (comp.types.includes("postal_code"))
           setFormDataState(setPincode(comp.long_name ?? ""));
+       
       });
     },
     [setFormDataState]
@@ -100,6 +106,13 @@ export function LocationStep() {
     setFormDataState(setLocality(value));
     if (errors?.locality) {
       resetFieldError("locationInfo", "locality");
+    }
+  };
+
+  const handleLandmarkChange = (value: string) => {
+    setFormDataState(setLandmark(value));
+    if (errors?.landmark) {
+      resetFieldError("locationInfo", "landmark");
     }
   };
 
@@ -208,13 +221,14 @@ export function LocationStep() {
 
           setFormDataState(setLatitude(lat));
           setFormDataState(setLongitude(lng));
-          setFormDataState(setLocality(place.name ?? ""));
+          // setFormDataState(setLocality(place.name ?? ""));
 
           // Clear errors
           resetFieldError("locationInfo", "city");
           resetFieldError("locationInfo", "state");
           resetFieldError("locationInfo", "country");
           resetFieldError("locationInfo", "locality");
+          resetFieldError("locationInfo", "landmark");
           resetFieldError("locationInfo", "pincode");
           resetFieldError("locationInfo", "address");
 
@@ -293,6 +307,7 @@ export function LocationStep() {
     const lng = e.latLng.lng();
     setFormDataState(setAddress(""));
     setFormDataState(setLocality(""));
+    setFormDataState(setLandmark(""));
     setFormDataState(setPincode(""));
     setFormDataState(setLatitude(lat));
     setFormDataState(setLongitude(lng));
@@ -307,6 +322,7 @@ export function LocationStep() {
 
     setFormDataState(setAddress(""));
     setFormDataState(setLocality(""));
+    setFormDataState(setLandmark(""));
     setFormDataState(setPincode(""));
     resetFieldError("locationInfo", "city");
     resetFieldError("locationInfo", "state");
@@ -423,7 +439,7 @@ export function LocationStep() {
       {/* ADDRESS FIELDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Input
-          label="House / Building / Apartment No."
+          label="Address"
           value={formDataState.locationInfo.address || ""}
           onChange={(e) => handleAddressChange(e.target.value)}
           required
@@ -436,6 +452,13 @@ export function LocationStep() {
           onChange={(e) => handleLocalityChange(e.target.value)}
           required
           error={errors?.locality}
+        />
+
+        <Input
+          label="Landmark"
+          value={formDataState.locationInfo.landmark || ""}
+          onChange={(e) => handleLandmarkChange(e.target.value)}
+          error={errors?.landmark}
         />
 
         <Input

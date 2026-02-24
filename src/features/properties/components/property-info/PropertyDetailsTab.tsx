@@ -29,7 +29,6 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
     propertyType: "",
     starRating: "",
     yearOfConstruction: "",
-    acceptingSince: "",
     currency: "",
     description: "",
   });
@@ -72,7 +71,6 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
             propertyType: data.propertyType || "",
             starRating: data.starRating?.toString() || "",
             yearOfConstruction: data.yearOfConstruction || "",
-            acceptingSince: data.acceptingSince || "",
             currency: data.currency || "",
             description: data.description || "",
           });
@@ -103,43 +101,10 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
         return newErrors;
       });
     }
-    // Re-validate if year of construction or accepting since changes
-    if (field === "yearOfConstruction" || field === "acceptingSince") {
-      // Validate after a short delay to avoid validation during typing
-      setTimeout(() => {
-        const yearBuilt = field === "yearOfConstruction" ? parseInt(value) : parseInt(formData.yearOfConstruction);
-        const acceptingYear = field === "acceptingSince" ? parseInt(value) : parseInt(formData.acceptingSince);
-        
-        if (!isNaN(yearBuilt) && !isNaN(acceptingYear) && yearBuilt >= acceptingYear) {
-          setErrors((prev) => ({
-            ...prev,
-            acceptingSince: "Accepting bookings year must be after construction year",
-          }));
-        } else if (errors.acceptingSince) {
-          setErrors((prev) => {
-            const newErrors = { ...prev };
-            delete newErrors.acceptingSince;
-            return newErrors;
-          });
-        }
-      }, 300);
-    }
   };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-
-    // Validate year of construction is before accepting bookings since
-    if (formData.yearOfConstruction && formData.acceptingSince) {
-      const yearBuilt = parseInt(formData.yearOfConstruction);
-      const acceptingYear = parseInt(formData.acceptingSince);
-      
-      if (!isNaN(yearBuilt) && !isNaN(acceptingYear)) {
-        if (yearBuilt >= acceptingYear) {
-          newErrors.acceptingSince = "Accepting bookings year must be after construction year";
-        }
-      }
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -185,7 +150,6 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
         propertyType: formData.propertyType,
         starRating: parseInt(formData.starRating),
         yearOfConstruction: parseInt(formData.yearOfConstruction),
-        acceptingSince: parseInt(formData.acceptingSince),
         currency: formData.currency,
       });
       // Refresh data after update
@@ -333,21 +297,6 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
                 onChange={(e) => handleChange("yearOfConstruction", e.target.value)}
                 options={yearOptions}
                 error={errors.yearOfConstruction}
-                disabled={isHotelOwnerUser}
-                required={!isHotelOwnerUser}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="acceptingSince">
-                Accepting Bookings Since <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                id="acceptingSince"
-                value={formData.acceptingSince}
-                onChange={(e) => handleChange("acceptingSince", e.target.value)}
-                options={yearOptions}
-                error={errors.acceptingSince}
                 disabled={isHotelOwnerUser}
                 required={!isHotelOwnerUser}
               />

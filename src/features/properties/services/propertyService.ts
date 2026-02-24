@@ -118,7 +118,39 @@ export const propertyService = {
 
     return response.data;
   },
+  uploadHotelMedia: async (
+    hotelId: string,
+    files: File[]
+  ): Promise<UploadMediaResponse[]> => {
+    // Upload all files in a single API call
+    const formData = new FormData();
+    
+    // Append all files with the parameter name "files"
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    const response = await apiClient.post<
+      ApiSuccessResponse<UploadMediaResponse[]>
+    >(API_ENDPOINTS.HOTELS.UPLOAD_HOTEL_MEDIA_ONBOARDING(hotelId), formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return response.data;
+  },
   assignMediaTag: async (mediaId: number, tags: MediaTag[]): Promise<null> => {
+    const response = await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTELS.ASSIGN_MEDIA_TAG(mediaId.toString()),
+      { tags }
+    );
+    return response.data;
+  },
+  assignMediaTagToHotel: async (
+    mediaId: number,
+    tags: MediaTag[]
+  ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTELS.ASSIGN_MEDIA_TAG(mediaId.toString()),
       { tags }

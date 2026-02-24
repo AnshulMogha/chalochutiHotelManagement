@@ -28,10 +28,6 @@ export type FormActionType =
       payload: { builtYear: string };
     }
   | {
-      type: "ACCEPTING_BOOKINGS_SINCE_CHANGE";
-      payload: { acceptingBookingsSince: string };
-    }
-  | {
       type: "EMAIL_CHANGE";
       payload: { email: string };
     }
@@ -90,6 +86,10 @@ export type FormActionType =
   | {
       type: "SET_LOCALITY";
       payload: { locality: string };
+    }
+  | {
+      type: "SET_LANDMARK";
+      payload: { landmark: string };
     }
   | {
       type: "SET_LATITUDE";

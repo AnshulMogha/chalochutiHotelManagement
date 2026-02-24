@@ -4,7 +4,6 @@ export interface BasicInfo {
   name: string;
   starRating: starRatingOptions;
   builtYear: string;
-  acceptingBookingsSince: string;
   email: string;
   mobileNumber: string;
   landlineNumber: string;
@@ -18,6 +17,7 @@ export interface LocationInfo {
   longitude: number;
   address: string;
   locality: string;
+  landmark: string;
   pincode: string;
   city: string;
   state: string;

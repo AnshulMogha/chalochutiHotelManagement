@@ -5,6 +5,7 @@ import type { MediaFile } from "./types";
 interface MediaGridProps {
   media: MediaFile[];
   onRemove?: (id: string) => void;
+  onAssignTags?: (mediaId: number) => void;
   tagColor?: "blue" | "emerald";
   showDelete?: boolean;
   emptyMessage?: string;
@@ -14,6 +15,7 @@ interface MediaGridProps {
 export function MediaGrid({
   media,
   onRemove,
+  onAssignTags,
   tagColor = "blue",
   showDelete = false,
   emptyMessage = "No media available",
@@ -36,6 +38,7 @@ export function MediaGrid({
           key={item.mediaId}
           item={item}
           onRemove={onRemove}
+          onAssignTags={onAssignTags}
           tagColor={tagColor}
           showDelete={showDelete}
         />

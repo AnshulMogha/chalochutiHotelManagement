@@ -1,6 +1,6 @@
 import { Input, Select } from "@/components/ui";
-
-import { bedTypeOptions } from "../constants";
+import { useEffect } from "react";
+import { bedTypeOptions, roomCapacityOptions } from "../constants";
 import { Minus, Plus, X } from "lucide-react";
 import { useFormContext } from "@/features/properties/context/useFormContext";
 import type {
@@ -291,6 +291,75 @@ export function SleepingArrangementStep({
     }
     setRoomDetailsState(setMaxOccupancy(sleepingArrangement.maxOccupancy + 1));
   };
+
+  // Auto-calculate occupancy when beds change
+  useEffect(() => {
+    // Calculate capacity from standard beds
+    let totalMaxOccupancy = 0;
+    let totalMaxAdults = 0;
+
+    sleepingArrangement.standardBeds.forEach((bed) => {
+      if (bed.bedType && bed.numberOfBeds > 0) {
+        const capacity = roomCapacityOptions[bed.bedType as keyof typeof roomCapacityOptions];
+        if (capacity) {
+          totalMaxOccupancy += capacity.maxOccupancy * bed.numberOfBeds;
+          totalMaxAdults += capacity.maxAdults * bed.numberOfBeds;
+        }
+      }
+    });
+
+    // Add extra bed capacity if enabled
+    if (sleepingArrangement.canAccommodateExtraBed && sleepingArrangement.numberOfExtraBeds > 0) {
+      // Each extra bed is a single bed (1 person capacity)
+      totalMaxOccupancy += sleepingArrangement.numberOfExtraBeds;
+      totalMaxAdults += sleepingArrangement.numberOfExtraBeds;
+    }
+
+    // Calculate max children: max occupancy - 1 (at least 1 adult required)
+    const calculatedMaxChildren = totalMaxOccupancy > 0 ? Math.max(0, totalMaxOccupancy - 1) : 0;
+
+    // Update occupancy values only if they differ to avoid infinite loops
+    if (totalMaxOccupancy > 0) {
+      if (sleepingArrangement.maxOccupancy !== totalMaxOccupancy) {
+        setRoomDetailsState(setMaxOccupancy(totalMaxOccupancy));
+      }
+      if (sleepingArrangement.maxAdults !== totalMaxAdults) {
+        setRoomDetailsState(setMaxAdults(totalMaxAdults));
+      }
+      if (sleepingArrangement.maxChildren !== calculatedMaxChildren) {
+        setRoomDetailsState(setMaxChildren(calculatedMaxChildren));
+      }
+      // Always set base adults to 1 and base children to 0
+      if (sleepingArrangement.baseAdults !== 1) {
+        setRoomDetailsState(setBaseAdults(1));
+      }
+      if (sleepingArrangement.baseChildren !== 0) {
+        setRoomDetailsState(setBaseChildren(0));
+      }
+    } else {
+      // Reset to 0 if no beds
+      if (sleepingArrangement.maxOccupancy !== 0) {
+        setRoomDetailsState(setMaxOccupancy(0));
+      }
+      if (sleepingArrangement.maxAdults !== 0) {
+        setRoomDetailsState(setMaxAdults(0));
+      }
+      if (sleepingArrangement.maxChildren !== 0) {
+        setRoomDetailsState(setMaxChildren(0));
+      }
+      if (sleepingArrangement.baseAdults !== 0) {
+        setRoomDetailsState(setBaseAdults(0));
+      }
+      if (sleepingArrangement.baseChildren !== 0) {
+        setRoomDetailsState(setBaseChildren(0));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    JSON.stringify(sleepingArrangement.standardBeds),
+    sleepingArrangement.canAccommodateExtraBed,
+    sleepingArrangement.numberOfExtraBeds,
+  ]);
 
   const getStandardBedOptions = (currentIndex: number) => {
     const selectedTypes = sleepingArrangement.standardBeds

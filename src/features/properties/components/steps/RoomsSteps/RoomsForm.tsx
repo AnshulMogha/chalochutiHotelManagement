@@ -33,6 +33,7 @@ import {
 interface RoomsFormProps {
   mode: "CREATE" | "EDIT";
   editingRoomKey?: string;
+  readOnly?: boolean;
   onCancel: () => void;
   onSuccess: () => void;
 }
@@ -48,6 +49,7 @@ const steps = [
 export function RoomsForm({
   mode,
   editingRoomKey,
+  readOnly = false,
   onCancel,
   onSuccess,
 }: RoomsFormProps) {
@@ -266,6 +268,19 @@ export function RoomsForm({
   ];
 
   const handleNextStep = async () => {
+    // In read-only mode (view mode), skip API calls, just navigate
+    if (readOnly) {
+      if (currentStep === steps.length - 1) {
+        onSuccess();
+        return;
+      } else {
+        setCurrentStep((prev) => prev + 1);
+        setOngoingStep((prev) => prev + 1);
+      }
+      return;
+    }
+
+    // In onboarding mode, validate and call API
     const submitFn = stepSubmit[currentStep];
     if (submitFn) {
       const isValid = await submitFn();
@@ -359,15 +374,18 @@ export function RoomsForm({
           Step {currentStep + 1} of {steps.length}
         </div>
 
-        <button
-          type="button"
-          onClick={handleNextStep}
-          className={cn(
-            "px-4 py-2 rounded-md text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
-          )}
-        >
-          {currentStep === steps.length - 1 ? "Submit" : "Next"}
-        </button>
+        {/* Hide Submit button in read-only mode, show Next for navigation */}
+        {!(readOnly && currentStep === steps.length - 1) && (
+          <button
+            type="button"
+            onClick={handleNextStep}
+            className={cn(
+              "px-4 py-2 rounded-md text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700"
+            )}
+          >
+            {currentStep === steps.length - 1 ? "Submit" : "Next"}
+          </button>
+        )}
       </div>
     </div>
   );

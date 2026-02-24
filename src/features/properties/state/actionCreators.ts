@@ -36,12 +36,6 @@ const changeBuiltYear = (value: string): FormActionType => {
     payload: { builtYear: value },
   };
 };
-const changeAcceptingBookingsSince = (value: string): FormActionType => {
-  return {
-    type: "ACCEPTING_BOOKINGS_SINCE_CHANGE" as const,
-    payload: { acceptingBookingsSince: value },
-  };
-};
 const changeEmail = (value: string): FormActionType => {
   return {
     type: "EMAIL_CHANGE" as const,
@@ -127,6 +121,12 @@ const setLocality = (value: string): FormActionType => {
     payload: { locality: value },
   };
 };
+const setLandmark = (value: string): FormActionType => {
+  return {
+    type: "SET_LANDMARK" as const,
+    payload: { landmark: value },
+  };
+};
 const setLatitude = (value: number): FormActionType => {
   return {
     type: "SET_LATITUDE" as const,
@@ -209,7 +209,6 @@ export {
   changeHotelName,
   changeStarRating,
   changeBuiltYear,
-  changeAcceptingBookingsSince,
   changeEmail,
   changeMobileNumber,
   changeLandlineNumber,
@@ -225,6 +224,7 @@ export {
   setPincode,
   setAddress,
   setLocality,
+  setLandmark,
   setLatitude,
   setLongitude,
   setSelectedHotelAmenity,

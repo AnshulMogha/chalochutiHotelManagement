@@ -40,3 +40,8 @@ export interface MediaData {
   rooms: Record<string, { mediaIds: string[] }>;
 }
 
+export interface UploadMediaResponse {
+  mediaId: number;
+  fileUrl: string;
+  fileType: "IMAGE" | "VIDEO";
+}

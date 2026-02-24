@@ -1,15 +1,21 @@
 import { useState } from "react";
 import { RoomsList } from "./RoomList";
 import { RoomsForm } from "./RoomsForm";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useOutletContext, useParams } from "react-router";
 
 type Mode = "LIST" | "CREATE" | "EDIT";
+
+type OutletContext = { readOnly?: boolean };
 
 export function RoomsPage() {
   const [mode, setMode] = useState<Mode>("LIST");
   const [editingRoomKey, setEditingRoomKey] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
-  const hotelId = searchParams.get("draftId");
+  const params = useParams<{ hotelId?: string }>();
+  const outletContext = useOutletContext<OutletContext>();
+  const readOnly = outletContext?.readOnly ?? false;
+  // Get hotelId from search params (onboarding) or route params (admin review)
+  const hotelId = searchParams.get("draftId") || params.hotelId;
   const handleOnAddNew = () => {
     setMode("CREATE");
   };
@@ -31,6 +37,7 @@ export function RoomsPage() {
         <RoomsForm
           mode={mode}
           editingRoomKey={editingRoomKey ?? undefined}
+          readOnly={readOnly}
           onCancel={() => {
             setEditingRoomKey(null);
             setMode("LIST");

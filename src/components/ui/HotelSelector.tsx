@@ -44,6 +44,11 @@ export function HotelSelector({
   const isPropertyInfoPage = isBasicInfoPage || isRoomsRatePlansPage || isPhotosVideosPage || 
                              isAmenitiesRestaurantsPage || isPolicyRulesPage || isFinancePage || isDocumentPage;
   
+  // Check inventory/rate-plans pages
+  const isInventoryRoomTypesPage = location.pathname === ROUTES.ROOM_INVENTORY.LIST;
+  const isInventoryRatePlansPage = location.pathname === ROUTES.RATE_INVENTORY.LIST;
+  const isInventoryPage = isInventoryRoomTypesPage || isInventoryRatePlansPage;
+  
   // Check promotions pages
   const isPromotionsListPage = location.pathname === ROUTES.PROMOTIONS.LIST;
   const isPromotionsCreatePage = location.pathname.startsWith(ROUTES.PROMOTIONS.CREATE);
@@ -53,8 +58,8 @@ export function HotelSelector({
   // Check team page
   const isTeamPage = location.pathname === ROUTES.TEAM.LIST;
   
-  // Combined check for pages that need hotel filtering (property info + promotions + document review + team)
-  const isHotelFilterPage = isPropertyInfoPage || isPromotionsPage || isDocumentReviewPage || isTeamPage;
+  // Combined check for pages that need hotel filtering (property info + inventory + promotions + document review + team)
+  const isHotelFilterPage = isPropertyInfoPage || isInventoryPage || isPromotionsPage || isDocumentReviewPage || isTeamPage;
   
   const hasAutoSelectedRef = useRef(false);
 

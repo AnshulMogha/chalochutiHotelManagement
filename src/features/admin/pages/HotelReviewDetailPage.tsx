@@ -149,8 +149,9 @@ function Container() {
         onPrev={() => handleStepChange(currentStep - 1)}
         onSubmit={() => {}}
         draftId={hotelId!}
+        readOnly={true}
       >
-        <Outlet />
+        <Outlet context={{ readOnly: true }} />
       </MultiStepForm>
 
       {showApproveModal && (

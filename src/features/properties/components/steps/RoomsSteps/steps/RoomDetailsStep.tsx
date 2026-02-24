@@ -139,6 +139,16 @@ export function RoomDetailsStep({
           onChange={(e) => handleRoomTypeChange(e.target.value)}
         />
 
+        {/* Room Name */}
+        <Input
+          label="Room Name Shown to User"
+          placeholder="e.g., Deluxe Ocean View Room"
+          value={roomDetails.roomName}
+          required
+          error={errors.roomDetails?.roomName}
+          onChange={(e) => handleRoomNameChange(e.target.value)}
+        />
+
         {/* Room View */}
         <Select
           label="Room View"
@@ -180,16 +190,6 @@ export function RoomDetailsStep({
             />
           </div>
         </div>
-
-        {/* Room Name */}
-        <Input
-          label="Room Name Shown to User"
-          placeholder="e.g., Deluxe Ocean View Room"
-          value={roomDetails.roomName}
-          required
-          error={errors.roomDetails?.roomName}
-          onChange={(e) => handleRoomNameChange(e.target.value)}
-        />
 
         {/* Number of Rooms */}
         <div>

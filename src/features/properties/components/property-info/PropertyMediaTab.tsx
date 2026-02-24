@@ -24,7 +24,7 @@ interface MediaFile {
   imageId: number;
   imageUrl: string;
   thumbnailUrl: string;
-  category: string;
+  category: string | null;
   sortOrder: number;
   roomId: string | null;
   roomKey: string | null;
@@ -42,7 +42,6 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showTagModal, setShowTagModal] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<MediaFile | null>(null);
-  const [selectedTags, setSelectedTags] = useState<MediaTag[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -119,45 +118,34 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
     }
   };
 
-  const handleFileUpload = async (file: File | null) => {
-    if (!file) return;
+  const handleFilesUpload = async (files: File[]) => {
+    if (!files || files.length === 0) return;
 
     const maxImageSize = 10 * 1024 * 1024;
     const maxVideoSize = 100 * 1024 * 1024;
 
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
+    // Validate files
+    const validFiles = files.filter((file) => {
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+      if (!isImage && !isVideo) return false;
+      if (isImage && file.size > maxImageSize) return false;
+      if (isVideo && file.size > maxVideoSize) return false;
+      return true;
+    });
 
-    if (!isImage && !isVideo) {
-      showToast("Please select an image or video file", "error");
-      return;
-    }
-
-    if (isImage && file.size > maxImageSize) {
-      showToast("Image size must be less than 10MB", "error");
-      return;
-    }
-
-    if (isVideo && file.size > maxVideoSize) {
-      showToast("Video size must be less than 100MB", "error");
+    if (validFiles.length === 0) {
+      showToast("No valid files selected. Please select image or video files within size limits.", "error");
       return;
     }
 
     try {
       setIsUploading(true);
-      // POST /hotel/{hotelId}/media/upload with multipart/form-data, param name: file
-      const response = await adminService.uploadHotelMedia(hotelId, file);
+      // POST /hotel/{hotelId}/media/upload with multipart/form-data, param name: files
+      const responses = await adminService.uploadHotelMedia(hotelId, validFiles);
 
-      // Assign tag if selected
-      if (selectedTags.length > 0) {
-        await adminService.assignMediaTag(hotelId, response.imageId, {
-          category: selectedTags[0],
-        });
-      }
-
-      showToast("Media uploaded successfully", "success");
+      showToast(`${responses.length} media file(s) uploaded successfully`, "success");
       setShowUploadModal(false);
-      setSelectedTags([]);
       
       // Refresh media
       await fetchHotelMedia();
@@ -169,12 +157,12 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
     }
   };
 
-  const handleAssignTag = async (imageId: number, tag: MediaTag) => {
+  const handleAssignTag = async (imageId: number, tag: MediaTag | "") => {
     try {
       setIsProcessing(true);
       // PUT /hotel/{hotelId}/media/{imageId}/tag
       await adminService.assignMediaTag(hotelId, imageId, {
-        category: tag,
+        category: tag || "",
       });
       showToast("Tag assigned successfully", "success");
       setShowTagModal(false);
@@ -560,11 +548,8 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
           isOpen={showUploadModal}
           onClose={() => {
             setShowUploadModal(false);
-            setSelectedTags([]);
           }}
-          selectedTags={selectedTags}
-          onTagsChange={setSelectedTags}
-          onFileSelect={handleFileUpload}
+          onFilesSelect={handleFilesUpload}
           isUploading={isUploading}
           fileInputRef={fileInputRef}
         />
@@ -595,7 +580,7 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
             setShowTagModal(false);
             setSelectedMedia(null);
           }}
-          currentTag={selectedMedia.category as MediaTag}
+          currentTag={(selectedMedia.category as MediaTag) || ""}
           onSave={(tag) => {
             handleAssignTag(selectedMedia.imageId, tag);
           }}
@@ -643,7 +628,7 @@ function MediaItem({
         <div className="aspect-square relative">
           <img
             src={item.thumbnailUrl || item.imageUrl}
-            alt={item.category}
+            alt={item.category || "Media"}
             className="w-full h-full object-cover"
             loading="lazy"
           />
@@ -723,10 +708,18 @@ function MediaItem({
         </>
       )}
       
-      <div className="absolute top-2 left-2 text-white text-xs px-2 py-1 rounded capitalize font-medium flex items-center gap-1 bg-blue-600">
-        <Tag className="w-3 h-3" />
-        {item.category.replace("_", " ")}
-      </div>
+      {item.category && (
+        <div className="absolute top-2 left-2 text-white text-xs px-2 py-1 rounded capitalize font-medium flex items-center gap-1 bg-blue-600">
+          <Tag className="w-3 h-3" />
+          {item.category.replace("_", " ")}
+        </div>
+      )}
+      {!item.category && (
+        <div className="absolute top-2 left-2 text-white text-xs px-2 py-1 rounded capitalize font-medium flex items-center gap-1 bg-gray-500">
+          <Tag className="w-3 h-3" />
+          No Tag
+        </div>
+      )}
       
       {item.cover && (
         <div className="absolute bottom-2 left-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded font-medium flex items-center gap-1">
@@ -747,9 +740,7 @@ function MediaItem({
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedTags: MediaTag[];
-  onTagsChange: (tags: MediaTag[]) => void;
-  onFileSelect: (file: File | null) => void;
+  onFilesSelect: (files: File[]) => void;
   isUploading: boolean;
   fileInputRef: React.RefObject<HTMLInputElement>;
 }
@@ -757,20 +748,33 @@ interface UploadModalProps {
 function UploadModal({ 
   isOpen, 
   onClose, 
-  selectedTags, 
-  onTagsChange, 
-  onFileSelect, 
+  onFilesSelect, 
   isUploading,
   fileInputRef 
 }: UploadModalProps) {
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
   if (!isOpen) return null;
 
-  const toggleTag = (tag: MediaTag) => {
-    if (selectedTags.includes(tag)) {
-      onTagsChange(selectedTags.filter(t => t !== tag));
-    } else {
-      onTagsChange([...selectedTags, tag]);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      setSelectedFiles(files);
     }
+  };
+
+  const handleUpload = () => {
+    if (selectedFiles.length > 0) {
+      onFilesSelect(selectedFiles);
+      setSelectedFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -798,52 +802,58 @@ function UploadModal({
 
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Media Category (Optional)
-            </label>
-            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
-              {MEDIA_TAGS.map((tag) => {
-                const isSelected = selectedTags.includes(tag.value as MediaTag);
-                return (
-                  <button
-                    key={tag.value}
-                    type="button"
-                    onClick={() => toggleTag(tag.value as MediaTag)}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left",
-                      isSelected
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    )}
-                  >
-                    {isSelected && <Check className="w-4 h-4" />}
-                    <span>{tag.label}</span>
-                  </button>
-                );
-              })}
-            </div>
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*,video/*"
+              multiple
               className="hidden"
-              onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                  onFileSelect(e.target.files[0]);
-                }
-              }}
+              onChange={handleFileChange}
             />
+            
+            {selectedFiles.length > 0 && (
+              <div className="mb-4 space-y-2 max-h-48 overflow-y-auto">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+                  >
+                    <span className="text-sm text-gray-700 truncate flex-1">
+                      {file.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(index)}
+                      className="ml-2 p-1 hover:bg-gray-200 rounded"
+                    >
+                      <X className="w-4 h-4 text-gray-600" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <Button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              variant="primary"
+              variant="outline"
               className="flex-1 gap-2"
             >
               <Upload className="w-4 h-4" />
-              {isUploading ? "Uploading..." : "Select File"}
+              {selectedFiles.length > 0 ? "Change Files" : "Select Files"}
             </Button>
+            {selectedFiles.length > 0 && (
+              <Button
+                onClick={handleUpload}
+                disabled={isUploading}
+                variant="primary"
+                className="flex-1 gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                {isUploading ? "Uploading..." : "Upload"}
+              </Button>
+            )}
             <Button
               onClick={onClose}
               variant="outline"
@@ -852,7 +862,7 @@ function UploadModal({
             </Button>
           </div>
           <p className="text-xs text-gray-500">
-            Max file size: 10MB per image, 100MB per video
+            Max file size: 10MB per image, 100MB per video. You can select multiple files.
           </p>
         </div>
       </div>
@@ -917,7 +927,7 @@ function AssignModal({ isOpen, onClose, hotelMedia, onAssign }: AssignModalProps
                       {!isVideo && imageUrl ? (
                         <img
                           src={imageUrl}
-                          alt={item.category}
+                          alt={item.category || "Media"}
                           className="w-full h-full object-cover"
                           loading="lazy"
                           style={{ display: 'block' }}
@@ -953,10 +963,18 @@ function AssignModal({ isOpen, onClose, hotelMedia, onAssign }: AssignModalProps
                         </Button>
                       </div>
                     </div>
-                    <div className="absolute top-2 left-2 z-10 text-white text-xs px-2 py-1 rounded capitalize font-medium flex items-center gap-1 bg-blue-600">
-                      <Tag className="w-3 h-3" />
-                      {item.category.replace("_", " ")}
-                    </div>
+                    {item.category && (
+                      <div className="absolute top-2 left-2 z-10 text-white text-xs px-2 py-1 rounded capitalize font-medium flex items-center gap-1 bg-blue-600">
+                        <Tag className="w-3 h-3" />
+                        {item.category.replace("_", " ")}
+                      </div>
+                    )}
+                    {!item.category && (
+                      <div className="absolute top-2 left-2 z-10 text-white text-xs px-2 py-1 rounded capitalize font-medium flex items-center gap-1 bg-gray-500">
+                        <Tag className="w-3 h-3" />
+                        No Tag
+                      </div>
+                    )}
                     {isVideo && (
                       <div className="absolute top-2 right-2 z-10 bg-black/70 text-white text-xs px-2 py-1 rounded">
                         Video
@@ -976,17 +994,17 @@ function AssignModal({ isOpen, onClose, hotelMedia, onAssign }: AssignModalProps
 interface TagModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentTag: MediaTag;
-  onSave: (tag: MediaTag) => void;
+  currentTag: MediaTag | null | "";
+  onSave: (tag: MediaTag | "") => void;
   isProcessing: boolean;
 }
 
 function TagModal({ isOpen, onClose, currentTag, onSave, isProcessing }: TagModalProps) {
-  const [selectedTag, setSelectedTag] = useState<MediaTag>(currentTag);
+  const [selectedTag, setSelectedTag] = useState<MediaTag | "">(currentTag || "");
 
   useEffect(() => {
     if (isOpen) {
-      setSelectedTag(currentTag);
+      setSelectedTag(currentTag || "");
     }
   }, [isOpen, currentTag]);
 
@@ -1054,7 +1072,7 @@ function TagModal({ isOpen, onClose, currentTag, onSave, isProcessing }: TagModa
               variant="primary"
               disabled={isProcessing}
             >
-              {isProcessing ? "Saving..." : "Save Tag"}
+              {isProcessing ? "Saving..." : selectedTag ? "Save Tag" : "Remove Tag"}
             </Button>
           </div>
         </div>

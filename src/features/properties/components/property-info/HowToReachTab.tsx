@@ -340,7 +340,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
 
     // Address validation
     if (!addressData.houseBuildingApartmentNo.trim()) {
-      newErrors.houseBuildingApartmentNo = "House / Building / Apartment No. is required";
+      newErrors.houseBuildingApartmentNo = "Address is required";
     }
     if (!addressData.localityAreaStreetSector.trim()) {
       newErrors.localityAreaStreetSector = "Locality / Area / Street / Sector is required";
@@ -569,7 +569,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Address Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
-                label="House / Building / Apartment No."
+                label="Address"
                 value={addressData.houseBuildingApartmentNo}
                 onChange={(e) =>
                   handleChange("houseBuildingApartmentNo", e.target.value)
@@ -582,7 +582,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
               />
 
               <Input
-                label="Locality / Area / Street / Sector"
+                label="Locality / Area / Street"
                 value={addressData.localityAreaStreetSector}
                 onChange={(e) =>
                   handleChange("localityAreaStreetSector", e.target.value)

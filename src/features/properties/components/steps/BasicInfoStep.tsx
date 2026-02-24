@@ -16,7 +16,6 @@ import type {
   starRatingOptions as starRatingOptionsType,
 } from "../../types";
 import {
-  changeAcceptingBookingsSince,
   changeBuiltYear,
   changeEmail,
   changeHotelName,
@@ -48,7 +47,6 @@ const errors = errorsFromContext.basicInfo ;
     name,
     starRating,
     builtYear,
-    acceptingBookingsSince,
     email,
     mobileNumber,
     landlineNumber,
@@ -66,7 +64,6 @@ const errors = errorsFromContext.basicInfo ;
             name: response.propertyName,
             starRating: response.starRating as starRatingOptionsType,
             builtYear: response.yearBuilt.toString(),
-            acceptingBookingsSince: response.acceptingBookingsSince,
             email: response.contactEmail,
             mobileNumber: response.mobileNumber,
             landlineNumber: response.landlineNumber,
@@ -98,12 +95,6 @@ const errors = errorsFromContext.basicInfo ;
     setFormDataState(changeBuiltYear(value));
     if (errors?.builtYear) {
       resetFieldError("basicInfo", "builtYear");
-    }
-  };
-  const handleAcceptingBookingsSinceChange = (value: string) => {
-    setFormDataState(changeAcceptingBookingsSince(value));
-    if (errors?.acceptingBookingsSince) {
-      resetFieldError("basicInfo", "acceptingBookingsSince");
     }
   };
   const handleEmailChange = (value: string) => {
@@ -217,22 +208,6 @@ const errors = errorsFromContext.basicInfo ;
               icon={<Calendar className="w-4 h-4 text-gray-400" />}
               className="pl-10"
             />
-
-            {/* Accepting Bookings Since */}
-            <div className=" md:col-span-2">
-              <Select
-                label="Accepting bookings since"
-                value={acceptingBookingsSince}
-                onChange={(e) =>
-                  handleAcceptingBookingsSinceChange(e.target.value)
-                }
-                options={yearOptions}
-                error={errors?.acceptingBookingsSince}
-                required
-                icon={<Calendar className="w-4 h-4 text-gray-400" />}
-                className="pl-10"
-              />
-            </div>
           </div>
         </div>
       </div>

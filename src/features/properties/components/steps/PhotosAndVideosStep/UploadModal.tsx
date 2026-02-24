@@ -1,33 +1,45 @@
-import { useRef } from "react";
-import { Upload, X, Check } from "lucide-react";
+import { useRef, useState } from "react";
+import { Upload, X } from "lucide-react";
 import { Button } from "@/components/ui";
-import { MEDIA_TAGS } from "./constants";
-import type { MediaTag } from "./types";
-import { cn } from "@/lib/utils";
 
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedTags: MediaTag[];
-  onTagsChange: (tags: MediaTag[]) => void;
-  onFileSelect: (file: File | null, tags: MediaTag[]) => void;
+  onFilesSelect: (files: File[]) => void;
 }
 
 export function UploadModal({
   isOpen,
   onClose,
-  selectedTags,
-  onTagsChange,
-  onFileSelect,
+  onFilesSelect,
 }: UploadModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-  const toggleTag = (tag: MediaTag) => {
-    if (selectedTags.includes(tag)) {
-      onTagsChange(selectedTags.filter((t) => t !== tag));
-    } else {
-      onTagsChange([...selectedTags, tag]);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files);
+      setSelectedFiles(filesArray);
     }
+  };
+
+  const handleUpload = () => {
+    if (selectedFiles.length > 0) {
+      onFilesSelect(selectedFiles);
+      setSelectedFiles([]);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleClose = () => {
+    setSelectedFiles([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -35,7 +47,7 @@ export function UploadModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
     >
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4"
@@ -48,7 +60,7 @@ export function UploadModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             aria-label="Close modal"
           >
@@ -59,62 +71,59 @@ export function UploadModal({
         <div className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Media Tags (Multiple)
+              Select Files (Multiple)
             </label>
-            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
-              {MEDIA_TAGS.map((tag) => {
-                const isSelected = selectedTags.includes(tag.value as MediaTag);
-                return (
-                  <button
-                    key={tag.value}
-                    type="button"
-                    onClick={() => toggleTag(tag.value as MediaTag)}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left",
-                      isSelected
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    )}
-                  >
-                    {isSelected && <Check className="w-4 h-4" />}
-                    <span>{tag.label}</span>
-                  </button>
-                );
-              })}
-            </div>
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*,video/*"
+              multiple
               className="hidden"
-              onChange={(e) => {
-                if (
-                  e.target.files &&
-                  e.target.files.length > 0 &&
-                  selectedTags.length > 0
-                ) {
-                  onFileSelect(e.target.files[0], selectedTags);
-                }
-              }}
+              onChange={handleFileChange}
             />
+            <div className="flex items-center gap-3 mb-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="gap-2 flex-1"
+              >
+                <Upload className="w-4 h-4" />
+                Select Files
+              </Button>
+            </div>
+            {selectedFiles.length > 0 && (
+              <div className="border border-gray-200 rounded-lg p-3 max-h-32 overflow-y-auto">
+                <p className="text-xs text-gray-600 mb-2">
+                  {selectedFiles.length} file(s) selected:
+                </p>
+                <ul className="text-xs text-gray-500 space-y-1">
+                  {selectedFiles.map((file, index) => (
+                    <li key={index} className="truncate">
+                      {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <Button
               type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={selectedTags.length === 0}
+              variant="primary"
+              onClick={handleUpload}
+              disabled={selectedFiles.length === 0}
               className="gap-2 flex-1"
             >
               <Upload className="w-4 h-4" />
-              Select File
+              Upload {selectedFiles.length > 0 ? `${selectedFiles.length} ` : ""}File{selectedFiles.length !== 1 ? "s" : ""}
             </Button>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
           </div>
           <p className="text-xs text-gray-500">
-            Max file size: 10MB per image, 100MB per video
+            Max file size: 10MB per image, 100MB per video. You can select multiple files at once.
           </p>
         </div>
       </div>

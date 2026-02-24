@@ -53,8 +53,18 @@ function formatFileSize(bytes?: number) {
 function isImage(contentType?: string) {
   return !!contentType?.startsWith("image/");
 }
-function isPDF(contentType?: string) {
-  return contentType === "application/pdf";
+function isPDF(contentType?: string, fileName?: string) {
+  // Check contentType first
+  if (contentType === "application/pdf") return true;
+  
+  // Check file extension as fallback
+  if (fileName) {
+    const ext = fileName.toLowerCase().split('.').pop();
+    if (ext === 'pdf') return true;
+  }
+  
+  // Check URL extension as additional fallback
+  return false;
 }
 
 function StatusBadge({ status }: { status?: string }) {
@@ -231,7 +241,7 @@ export function DocumentsStep() {
                     onChange={handleFileSelect}
                     className="hidden"
                     id="doc-file-upload"
-                    accept=".jpg,.jpeg"
+                    accept="image/*,.pdf"
                   />
                   <label
                     htmlFor="doc-file-upload"
@@ -358,6 +368,9 @@ export function DocumentsStep() {
       {/* Document viewer popup */}
       {showViewerModal && selectedDocument && (() => {
         const url = documentUrl(selectedDocument);
+        // Enhanced PDF detection: check contentType, fileName, and URL
+        const urlIsPDF = url.toLowerCase().endsWith('.pdf') || url.toLowerCase().includes('.pdf?') || url.toLowerCase().includes('.pdf#');
+        const isPDFDoc = isPDF(selectedDocument.contentType, selectedDocument.fileName) || urlIsPDF;
         return (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
@@ -414,20 +427,35 @@ export function DocumentsStep() {
                     <FileText className="h-14 w-14 text-gray-400 mx-auto mb-3" />
                     <p className="text-sm font-medium text-gray-700">Document URL not available</p>
                   </div>
+                ) : isPDFDoc ? (
+                  <div className="flex flex-col items-center justify-center h-full min-h-[500px] p-8 text-center bg-gray-50 rounded-xl">
+                    <FileText className="h-16 w-16 text-gray-400 mb-4" />
+                    <p className="text-sm font-medium text-gray-700 mb-2">
+                      PDF Document Ready
+                    </p>
+                    <p className="text-xs text-gray-500 mb-6 max-w-md">
+                      Due to security restrictions, PDFs cannot be embedded in this viewer. Click the button below to open and view the PDF in a new tab.
+                    </p>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button variant="primary" className="gap-2">
+                        <ExternalLink className="h-4 w-4" />
+                        Open PDF in New Tab
+                      </Button>
+                    </a>
+                    <p className="text-xs text-gray-400 mt-4">
+                      File: {selectedDocument.fileName ?? "Document"}
+                    </p>
+                  </div>
                 ) : isImage(selectedDocument.contentType) ? (
                   <div className="max-w-full max-h-[calc(90vh-140px)] flex items-center justify-center">
                     <img
                       src={url}
                       alt={selectedDocument.fileName ?? "Document"}
                       className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
-                    />
-                  </div>
-                ) : isPDF(selectedDocument.contentType) ? (
-                  <div className="w-full h-full min-h-[400px] rounded-xl overflow-hidden border border-gray-200 bg-white">
-                    <iframe
-                      src={url}
-                      className="w-full h-full min-h-[400px]"
-                      title={selectedDocument.fileName ?? "Document"}
                     />
                   </div>
                 ) : (

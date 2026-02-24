@@ -139,6 +139,7 @@ export const API_ENDPOINTS = {
     ASSIGN_MEDIA: (mediaId: number) => `/media/${mediaId}/attach`,
     GET_MEDIA: (entityId: string) => `/media/${entityId}`,
     UPLOAD_MEDIA: "/media/upload",
+    UPLOAD_HOTEL_MEDIA_ONBOARDING: (hotelId: string) => `/media/hotel/${hotelId}/upload`,
     ASSIGN_MEDIA_TAG: (mediaId: string) => `/media/${mediaId}/tags`,
     GET_ALL_HOTELS: "/onboarding/hotels",
     GET_LOCATION_DETAILS: (hotelId: string) =>

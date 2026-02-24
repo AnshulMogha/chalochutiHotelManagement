@@ -196,11 +196,11 @@ export function PoliciesStep() {
     propertyRestrictions: true,
     petPolicy: true,
     checkinCheckout: true,
-    infantPolicy: true,
+    // infantPolicy: true,
     extraBedInclusion: true,
     extraBedPolicies: true,
     customPolicy: true,
-    mealPrices: true,
+    // mealPrices: true,
   });
 
   const toggleSection = (section: string) => {
@@ -258,10 +258,10 @@ export function PoliciesStep() {
     "has24HourCheckin",
   ] as (keyof typeof policiesData)[]);
 
-  const infantPolicyCount = countRules([
-    "includeInfantWithoutOccupancy",
-    "provideInfantFood",
-  ] as (keyof typeof policiesData)[]);
+  // const infantPolicyCount = countRules([
+  //   "includeInfantWithoutOccupancy",
+  //   "provideInfantFood",
+  // ] as (keyof typeof policiesData)[]);
 
   const extraBedInclusionCount = countRules([
     "extraBedIncludedInRates",
@@ -276,11 +276,11 @@ export function PoliciesStep() {
     "customPolicy",
   ] as (keyof typeof policiesData)[]);
 
-  const mealPricesCount = countRules([
-    "breakfastPrice",
-    "lunchPrice",
-    "dinnerPrice",
-  ] as (keyof typeof policiesData)[]);
+  // const mealPricesCount = countRules([
+  //   "breakfastPrice",
+  //   "lunchPrice",
+  //   "dinnerPrice",
+  // ] as (keyof typeof policiesData)[]);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -560,7 +560,7 @@ export function PoliciesStep() {
           </CollapsibleSection>
 
           {/* Infant Policy */}
-          <CollapsibleSection
+          {/* <CollapsibleSection
             title="Infant Policy"
             icon={<Baby className="w-5 h-5" />}
             rulesCount={infantPolicyCount}
@@ -587,7 +587,7 @@ export function PoliciesStep() {
                 }
               />
             </div>
-          </CollapsibleSection>
+          </CollapsibleSection> */}
 
           {/* Extra Bed Inclusion Policy */}
           <CollapsibleSection
@@ -688,7 +688,7 @@ export function PoliciesStep() {
           </CollapsibleSection>
 
           {/* Meal rack prices */}
-          <CollapsibleSection
+          {/* <CollapsibleSection
             title="Meal rack prices"
             icon={<UtensilsCrossed className="w-5 h-5" />}
             rulesCount={mealPricesCount}
@@ -755,7 +755,7 @@ export function PoliciesStep() {
                 </div>
               </div>
             </div>
-          </CollapsibleSection>
+          </CollapsibleSection> */}
         </div>
       </div>
     </div>

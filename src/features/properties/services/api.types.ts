@@ -7,7 +7,6 @@ export interface SubmitBasicInfoRequest {
   propertyName: string;
   starRating: number;
   yearBuilt: number;
-  acceptingBookingsSince: number;
   contactEmail: string;
   mobileNumber: string;
   landlineNumber: string;
@@ -23,6 +22,7 @@ export interface SubmitLocationInfoRequest {
   longitude: number;
   houseBuildingApartmentNo: string;
   localityAreaStreetSector: string;
+  locality: string;
   pincode: string;
   city: string;
   state: string;
@@ -111,7 +111,6 @@ export interface GetAllBasicInfoResponse {
   propertyName: string;
   starRating: number;
   yearBuilt: number;
-  acceptingBookingsSince: string;
   contactEmail: string;
   mobileNumber: string;
   landlineNumber: string;
@@ -172,6 +171,7 @@ export interface LocationInfoResponse {
   draft: boolean;
   houseBuildingApartmentNo: string;
   localityAreaStreetSector: string;
+  locality: string;
   pincode: string;
   state: string;
 }
