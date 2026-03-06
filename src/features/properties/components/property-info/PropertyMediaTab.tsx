@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { adminService, type HotelMediaItem, type HotelRoom } from "@/features/admin/services/adminService";
-import { Building2, Image as ImageIcon, Plus, Upload, X, Check, Tag, Play, Trash2, Star, ChevronDown, ChevronRight, MoreVertical, Edit2, Move, ArrowUp, ArrowDown } from "lucide-react";
+import { Building2, Image as ImageIcon, Plus, Upload, X, Check, Tag, Play, Trash2, Star, ChevronDown, ChevronRight, MoreVertical, ArrowUp, ArrowDown, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,7 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
   const [roomMediaMap, setRoomMediaMap] = useState<Record<string, MediaFile[]>>({});
   const [expandedRooms, setExpandedRooms] = useState<Set<string>>(new Set());
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadRoomKey, setUploadRoomKey] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showTagModal, setShowTagModal] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<MediaFile | null>(null);
@@ -46,6 +47,10 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [draggedImageId, setDraggedImageId] = useState<number | null>(null);
+  const [dragOverImageId, setDragOverImageId] = useState<number | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedImageIds, setSelectedImageIds] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch hotel media
@@ -141,14 +146,27 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
 
     try {
       setIsUploading(true);
-      // POST /hotel/{hotelId}/media/upload with multipart/form-data, param name: files
-      const responses = await adminService.uploadHotelMedia(hotelId, validFiles);
+      // Upload either to hotel or to a specific room based on context
+      let responses;
+      if (uploadRoomKey) {
+        responses = await adminService.uploadRoomMedia(hotelId, uploadRoomKey, validFiles);
+      } else {
+        responses = await adminService.uploadHotelMedia(hotelId, validFiles);
+      }
 
       showToast(`${responses.length} media file(s) uploaded successfully`, "success");
       setShowUploadModal(false);
       
       // Refresh media
       await fetchHotelMedia();
+      if (uploadRoomKey) {
+        const room = rooms.find(
+          (r) => r.roomKey === uploadRoomKey || r.roomId === uploadRoomKey
+        );
+        if (room) {
+          await fetchRoomMedia(room.roomId);
+        }
+      }
     } catch (error) {
       console.error("Error uploading media:", error);
       showToast("Failed to upload media", "error");
@@ -160,7 +178,6 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
   const handleAssignTag = async (imageId: number, tag: MediaTag | "") => {
     try {
       setIsProcessing(true);
-      // PUT /hotel/{hotelId}/media/{imageId}/tag
       await adminService.assignMediaTag(hotelId, imageId, {
         category: tag || "",
       });
@@ -168,7 +185,6 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
       setShowTagModal(false);
       setSelectedMedia(null);
       await fetchHotelMedia();
-      // Refresh room media if applicable
       if (selectedMedia?.roomId) {
         await fetchRoomMedia(selectedMedia.roomId);
       }
@@ -178,6 +194,35 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleAssignTagBulk = async (imageIds: number[], tag: MediaTag | "") => {
+    if (imageIds.length === 0) return;
+    try {
+      setIsProcessing(true);
+      await adminService.assignMediaTagBulk(hotelId, {
+        imageIds,
+        category: tag || "",
+      });
+      showToast(`Tag assigned to ${imageIds.length} item(s)`, "success");
+      setShowTagModal(false);
+      setSelectedImageIds(new Set());
+      await fetchHotelMedia();
+    } catch (error) {
+      console.error("Error assigning tag in bulk:", error);
+      showToast("Failed to assign tag", "error");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const toggleSelectImage = (imageId: number) => {
+    setSelectedImageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(imageId)) next.delete(imageId);
+      else next.add(imageId);
+      return next;
+    });
   };
 
   const handleAssignToHotel = async (imageId: number) => {
@@ -248,33 +293,22 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
     }
   };
 
-  const handleReorder = async (imageId: number, direction: "up" | "down") => {
+  const handleReorder = async (imageId: number, direction: "up" | "down", orderedList: MediaFile[]) => {
     try {
       setIsProcessing(true);
-      const currentMedia = [...hotelMedia].sort((a, b) => a.sortOrder - b.sortOrder);
-      const currentIndex = currentMedia.findIndex(m => m.imageId === imageId);
-      
+      const currentIndex = orderedList.findIndex(m => m.imageId === imageId);
       if (currentIndex === -1) return;
-      
-      let newIndex: number;
-      if (direction === "up" && currentIndex > 0) {
-        newIndex = currentIndex - 1;
-      } else if (direction === "down" && currentIndex < currentMedia.length - 1) {
-        newIndex = currentIndex + 1;
-      } else {
-        return;
-      }
-      
-      const targetMedia = currentMedia[newIndex];
-      const newSortOrder = targetMedia.sortOrder;
-      
-      // PUT /hotel/{hotelId}/media/reorder
-      // Payload: { imageId: string, sortOrder: number }
-      await adminService.reorderMedia(hotelId, { 
-        imageId: imageId, 
-        sortOrder: newSortOrder 
-      });
-      
+
+      const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+      if (newIndex < 0 || newIndex >= orderedList.length) return;
+
+      const reordered = [...orderedList];
+      const [removed] = reordered.splice(currentIndex, 1);
+      reordered.splice(newIndex, 0, removed);
+
+      const items = reordered.map((m, i) => ({ imageId: m.imageId, sortOrder: i + 1 }));
+      await adminService.reorderMedia(hotelId, { items });
+
       await fetchHotelMedia();
     } catch (error) {
       console.error("Error reordering media:", error);
@@ -284,12 +318,74 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
     }
   };
 
-  const toggleTag = (tag: MediaTag) => {
-    if (selectedTags.includes(tag)) {
-      setSelectedTags(selectedTags.filter(t => t !== tag));
-    } else {
-      setSelectedTags([...selectedTags, tag]);
+  const handleDragStart = (e: React.DragEvent, imageId: number) => {
+    setDraggedImageId(imageId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("application/json", JSON.stringify({ imageId }));
+    e.dataTransfer.setData("text/plain", String(imageId));
+  };
+
+  const handleDragOver = (e: React.DragEvent, imageId: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (draggedImageId !== null && draggedImageId !== imageId) {
+      setDragOverImageId(imageId);
     }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    const related = e.relatedTarget as Node | null;
+    if (!related || !e.currentTarget.contains(related)) {
+      setDragOverImageId(null);
+    }
+  };
+
+  const handleDrop = async (
+    e: React.DragEvent,
+    targetItem: MediaFile,
+    orderedList: MediaFile[],
+    roomId?: string
+  ) => {
+    e.preventDefault();
+    setDragOverImageId(null);
+    setDraggedImageId(null);
+    let payload: { imageId: number } | null = null;
+    try {
+      const raw = e.dataTransfer.getData("application/json");
+      if (raw) payload = JSON.parse(raw) as { imageId: number };
+      else payload = { imageId: Number(e.dataTransfer.getData("text/plain")) };
+    } catch {
+      return;
+    }
+    const draggedImageIdVal = payload.imageId;
+    if (draggedImageIdVal === targetItem.imageId || isProcessing) return;
+
+    const draggedIndex = orderedList.findIndex((m) => m.imageId === draggedImageIdVal);
+    const targetIndex = orderedList.findIndex((m) => m.imageId === targetItem.imageId);
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    try {
+      setIsProcessing(true);
+      const reordered = [...orderedList];
+      const [removed] = reordered.splice(draggedIndex, 1);
+      reordered.splice(targetIndex, 0, removed);
+      const items = reordered.map((m, i) => ({ imageId: m.imageId, sortOrder: i + 1 }));
+      await adminService.reorderMedia(hotelId, { items });
+      showToast("Order updated", "success");
+      await fetchHotelMedia();
+      if (roomId) await fetchRoomMedia(roomId);
+    } catch (error) {
+      console.error("Error reordering media:", error);
+      showToast("Failed to reorder media", "error");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedImageId(null);
+    setDragOverImageId(null);
   };
 
   // Get unassigned media (not assigned to hotel or room)
@@ -353,7 +449,7 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
         {activeTab === "hotel" && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
                     <Building2 className="w-5 h-5 text-white" />
@@ -361,18 +457,47 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">Hotel Media</h2>
                     <p className="text-xs text-gray-600 mt-0.5">
-                      {hotelMedia.length} media items
+                      {hotelMedia.length} media items · Drag to reorder
                     </p>
                   </div>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => {
+                      setSelectionMode((m) => !m);
+                      if (selectionMode) setSelectedImageIds(new Set());
+                    }}
+                    variant={selectionMode ? "primary" : "outline"}
+                    className="gap-2"
+                  >
+                    {selectionMode ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                    {selectionMode ? "Cancel select" : "Select"}
+                  </Button>
+                  {selectionMode && selectedImageIds.size > 0 && (
+                    <Button
+                      onClick={() => {
+                        setSelectedMedia(null);
+                        setShowTagModal(true);
+                      }}
+                      variant="primary"
+                      className="gap-2"
+                    >
+                      <Tag className="w-4 h-4" />
+                      Assign tag ({selectedImageIds.size})
+                    </Button>
+                  )}
                 <Button
-                  onClick={() => setShowUploadModal(true)}
+                  onClick={() => {
+                    setUploadRoomKey(null);
+                    setShowUploadModal(true);
+                  }}
                   variant="primary"
                   className="gap-2"
                 >
-                  <Upload className="w-4 h-4" />
-                  Upload Media
-                </Button>
+                    <Upload className="w-4 h-4" />
+                    Upload Media
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -396,28 +521,64 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {hotelMedia
-                    .sort((a, b) => a.sortOrder - b.sortOrder)
-                    .map((item, index) => (
-                      <MediaItem
-                        key={item.imageId}
-                        item={item}
-                        onDetach={() => handleDetach(item.imageId)}
-                        onSetCover={() => handleSetCover(item.imageId)}
-                        onAssignTag={() => {
-                          setSelectedMedia(item);
-                          setShowTagModal(true);
-                        }}
-                        onMoveUp={() => handleReorder(item.imageId, "up")}
-                        onMoveDown={() => handleReorder(item.imageId, "down")}
-                        canMoveUp={index > 0}
-                        canMoveDown={index < hotelMedia.length - 1}
-                        showActions={true}
-                        isProcessing={isProcessing}
-                      />
-                    ))}
-                </div>
+                (() => {
+                  const sortedHotel = [...hotelMedia].sort((a, b) => a.sortOrder - b.sortOrder);
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                      {sortedHotel.map((item, index) => {
+                        const isSelected = selectedImageIds.has(item.imageId);
+                        return (
+                          <div
+                            key={item.imageId}
+                            draggable={!selectionMode}
+                            onDragStart={selectionMode ? undefined : (e) => handleDragStart(e, item.imageId)}
+                            onDragOver={selectionMode ? undefined : (e) => handleDragOver(e, item.imageId)}
+                            onDragLeave={selectionMode ? undefined : handleDragLeave}
+                            onDrop={selectionMode ? undefined : (e) => handleDrop(e, item, sortedHotel)}
+                            onDragEnd={selectionMode ? undefined : handleDragEnd}
+                            onClick={selectionMode ? () => toggleSelectImage(item.imageId) : undefined}
+                            role={selectionMode ? "button" : undefined}
+                            className={cn(
+                              "relative rounded-lg transition-all duration-150",
+                              !selectionMode && "cursor-grab active:cursor-grabbing",
+                              selectionMode && "cursor-pointer",
+                              draggedImageId === item.imageId && "opacity-50 scale-95",
+                              dragOverImageId === item.imageId && "ring-2 ring-blue-500 ring-offset-2",
+                              selectionMode && isSelected && "ring-2 ring-blue-500 ring-offset-2"
+                            )}
+                          >
+                            {selectionMode && (
+                              <div className="absolute top-2 left-2 z-20">
+                                <div className={cn(
+                                  "w-6 h-6 rounded border-2 flex items-center justify-center bg-white/90",
+                                  isSelected ? "border-blue-600 bg-blue-600" : "border-gray-400"
+                                )}>
+                                  {isSelected && <Check className="w-4 h-4 text-white" />}
+                                </div>
+                              </div>
+                            )}
+                            <MediaItem
+                              item={item}
+                              onDetach={() => handleDetach(item.imageId)}
+                              onSetCover={() => handleSetCover(item.imageId)}
+                              onAssignTag={() => {
+                                setSelectedImageIds(new Set());
+                                setSelectedMedia(item);
+                                setShowTagModal(true);
+                              }}
+                              onMoveUp={() => handleReorder(item.imageId, "up", sortedHotel)}
+                              onMoveDown={() => handleReorder(item.imageId, "down", sortedHotel)}
+                              canMoveUp={index > 0}
+                              canMoveDown={index < sortedHotel.length - 1}
+                              showActions={!selectionMode}
+                              isProcessing={isProcessing}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
               )}
             </div>
           </div>
@@ -484,22 +645,55 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
                             <p className="text-sm text-gray-600">
                               {roomMedia.length} media assigned
                             </p>
-                            <Button
-                              onClick={() => {
-                                setSelectedRoomId(room.roomKey || room.roomId);
-                                setShowAssignModal(true);
-                              }}
-                              variant="primary"
-                              className="gap-2"
-                            >
-                              <Plus className="w-4 h-4" />
-                              Assign Media
-                            </Button>
-                          </div>
-                          {roomMedia.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-8 text-gray-400">
-                              <ImageIcon className="w-12 h-12 mb-3" />
-                              <p className="text-sm mb-3">No media assigned</p>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                onClick={() => {
+                                  setUploadRoomKey(room.roomKey || room.roomId);
+                                  setShowUploadModal(true);
+                                }}
+                                variant="outline"
+                                className="gap-2"
+                              >
+                                <Upload className="w-4 h-4" />
+                                Upload
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  setSelectionMode((m) => !m);
+                                  if (selectionMode) {
+                                    setSelectedImageIds(new Set());
+                                  }
+                                }}
+                                variant={selectionMode ? "primary" : "outline"}
+                                className="gap-2"
+                              >
+                                {selectionMode ? (
+                                  <CheckSquare className="w-4 h-4" />
+                                ) : (
+                                  <Square className="w-4 h-4" />
+                                )}
+                                {selectionMode ? "Cancel select" : "Select"}
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  const sortedRoom = [...roomMedia].sort(
+                                    (a, b) => a.sortOrder - b.sortOrder
+                                  );
+                                  const onlyThisRoom = sortedRoom
+                                    .filter((item) => selectedImageIds.has(item.imageId))
+                                    .map((item) => item.imageId);
+                                  if (onlyThisRoom.length === 0) return;
+                                  setSelectedMedia(null);
+                                  setSelectedImageIds(new Set(onlyThisRoom));
+                                  setShowTagModal(true);
+                                }}
+                                variant="primary"
+                                className="gap-2"
+                                disabled={!selectionMode}
+                              >
+                                <Tag className="w-4 h-4" />
+                                Assign tag
+                              </Button>
                               <Button
                                 onClick={() => {
                                   setSelectedRoomId(room.roomKey || room.roomId);
@@ -512,24 +706,129 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
                                 Assign Media
                               </Button>
                             </div>
-                          ) : (
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                              {roomMedia
-                                .sort((a, b) => a.sortOrder - b.sortOrder)
-                                .map((item) => (
-                                  <MediaItem
-                                    key={item.imageId}
-                                    item={item}
-                                    onDetach={() => handleDetach(item.imageId, room.roomId)}
-                                    onAssignTag={() => {
-                                      setSelectedMedia(item);
-                                      setShowTagModal(true);
-                                    }}
-                                    showActions={true}
-                                    isProcessing={isProcessing}
-                                  />
-                                ))}
+                          </div>
+                          {roomMedia.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                              <ImageIcon className="w-12 h-12 mb-3" />
+                              <p className="text-sm mb-3">No media assigned</p>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  onClick={() => {
+                                    setUploadRoomKey(room.roomKey || room.roomId);
+                                    setShowUploadModal(true);
+                                  }}
+                                  variant="outline"
+                                  className="gap-2"
+                                >
+                                  <Upload className="w-4 h-4" />
+                                  Upload
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    setSelectedRoomId(room.roomKey || room.roomId);
+                                    setShowAssignModal(true);
+                                  }}
+                                  variant="primary"
+                                  className="gap-2"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                  Assign Media
+                                </Button>
+                              </div>
                             </div>
+                          ) : (
+                            (() => {
+                              const sortedRoom = [...roomMedia].sort(
+                                (a, b) => a.sortOrder - b.sortOrder
+                              );
+                              return (
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                  {sortedRoom.map((item) => {
+                                    const isSelected = selectedImageIds.has(item.imageId);
+                                    return (
+                                      <div
+                                        key={item.imageId}
+                                        draggable={!selectionMode}
+                                        onDragStart={
+                                          selectionMode
+                                            ? undefined
+                                            : (e) => handleDragStart(e, item.imageId)
+                                        }
+                                        onDragOver={
+                                          selectionMode
+                                            ? undefined
+                                            : (e) => handleDragOver(e, item.imageId)
+                                        }
+                                        onDragLeave={
+                                          selectionMode ? undefined : handleDragLeave
+                                        }
+                                        onDrop={
+                                          selectionMode
+                                            ? undefined
+                                            : (e) =>
+                                                handleDrop(
+                                                  e,
+                                                  item,
+                                                  sortedRoom,
+                                                  room.roomId
+                                                )
+                                        }
+                                        onDragEnd={selectionMode ? undefined : handleDragEnd}
+                                        onClick={
+                                          selectionMode
+                                            ? () => toggleSelectImage(item.imageId)
+                                            : undefined
+                                        }
+                                        role={selectionMode ? "button" : undefined}
+                                        className={cn(
+                                          "relative rounded-lg transition-all duration-150",
+                                          !selectionMode &&
+                                            "cursor-grab active:cursor-grabbing",
+                                          selectionMode && "cursor-pointer",
+                                          draggedImageId === item.imageId &&
+                                            "opacity-50 scale-95",
+                                          dragOverImageId === item.imageId &&
+                                            "ring-2 ring-blue-500 ring-offset-2",
+                                          selectionMode &&
+                                            isSelected &&
+                                            "ring-2 ring-blue-500 ring-offset-2"
+                                        )}
+                                      >
+                                        {selectionMode && (
+                                          <div className="absolute top-2 left-2 z-20">
+                                            <div
+                                              className={cn(
+                                                "w-6 h-6 rounded border-2 flex items-center justify-center bg-white/90",
+                                                isSelected
+                                                  ? "border-blue-600 bg-blue-600"
+                                                  : "border-gray-400"
+                                              )}
+                                            >
+                                              {isSelected && (
+                                                <Check className="w-4 h-4 text-white" />
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+                                        <MediaItem
+                                          item={item}
+                                          onDetach={() =>
+                                            handleDetach(item.imageId, room.roomId)
+                                          }
+                                          onAssignTag={() => {
+                                            setSelectedImageIds(new Set());
+                                            setSelectedMedia(item);
+                                            setShowTagModal(true);
+                                          }}
+                                          showActions={!selectionMode}
+                                          isProcessing={isProcessing}
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()
                           )}
                         </div>
                       )}
@@ -572,17 +871,27 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
         />
       )}
 
-      {/* Tag Assignment Modal */}
-      {showTagModal && selectedMedia && (
+      {/* Tag Assignment Modal (single or bulk) */}
+      {showTagModal && (selectedMedia || selectedImageIds.size > 0) && (
         <TagModal
           isOpen={showTagModal}
           onClose={() => {
             setShowTagModal(false);
             setSelectedMedia(null);
+            setSelectedImageIds(new Set());
           }}
-          currentTag={(selectedMedia.category as MediaTag) || ""}
+          currentTag={
+            selectedMedia
+              ? ((selectedMedia.category as MediaTag) || "")
+              : ""
+          }
+          title={selectedImageIds.size > 0 ? `Assign tag to ${selectedImageIds.size} item(s)` : undefined}
           onSave={(tag) => {
-            handleAssignTag(selectedMedia.imageId, tag);
+            if (selectedImageIds.size > 0) {
+              handleAssignTagBulk(Array.from(selectedImageIds), tag);
+            } else if (selectedMedia) {
+              handleAssignTag(selectedMedia.imageId, tag);
+            }
           }}
           isProcessing={isProcessing}
         />
@@ -997,9 +1306,10 @@ interface TagModalProps {
   currentTag: MediaTag | null | "";
   onSave: (tag: MediaTag | "") => void;
   isProcessing: boolean;
+  title?: string;
 }
 
-function TagModal({ isOpen, onClose, currentTag, onSave, isProcessing }: TagModalProps) {
+function TagModal({ isOpen, onClose, currentTag, onSave, isProcessing, title }: TagModalProps) {
   const [selectedTag, setSelectedTag] = useState<MediaTag | "">(currentTag || "");
 
   useEffect(() => {
@@ -1022,7 +1332,7 @@ function TagModal({ isOpen, onClose, currentTag, onSave, isProcessing }: TagModa
         <div className="flex items-center justify-between rounded-t-2xl px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center gap-3">
             <Tag className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-bold text-gray-900">Assign Tag</h2>
+            <h2 className="text-xl font-bold text-gray-900">{title ?? "Assign Tag"}</h2>
           </div>
           <button
             type="button"

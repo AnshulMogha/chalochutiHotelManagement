@@ -385,6 +385,13 @@ export default function MyPropertiesPage() {
           initialState={{
             pagination: { paginationModel: { pageSize: 10 } },
           }}
+          onRowClick={
+            isActiveTab
+              ? (params) => {
+                  navigate(`${ROUTES.PROPERTY_INFO.BASIC_INFO}?hotelId=${params.row.hotelId}`);
+                }
+              : undefined
+          }
           slots={{
             toolbar: GridToolbar,
           }}
@@ -461,6 +468,7 @@ export default function MyPropertiesPage() {
               },
             },
             "& .MuiDataGrid-row": {
+              ...(isActiveTab ? { cursor: "pointer" } : {}),
               "&:hover": {
                 backgroundColor: "#eff6ff",
               },

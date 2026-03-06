@@ -27,7 +27,8 @@ import {
   AlertCircle,
   DollarSign,
   IndianRupee,
-  Hash
+  Hash,
+  Search
 } from "lucide-react";
 
 // Commission Constants
@@ -1037,6 +1038,69 @@ export default function CommissionAndTaxPage() {
   const [showTaxModal, setShowTaxModal] = useState(false);
   const [editingTax, setEditingTax] = useState<Tax | null>(null);
   const [showServiceFeeModal, setShowServiceFeeModal] = useState(false);
+  const [commissionSearch, setCommissionSearch] = useState("");
+  const [taxSearch, setTaxSearch] = useState("");
+  const [taxStateFilter, setTaxStateFilter] = useState<string>("");
+  const [serviceFeeSearch, setServiceFeeSearch] = useState("");
+
+  // Client-side filtered lists
+  const filteredCommissions = commissions.filter((c) => {
+    if (!commissionSearch.trim()) return true;
+    const q = commissionSearch.toLowerCase().trim();
+    const id = String(c.id ?? "").toLowerCase();
+    const scope = (c.scope ?? "").toLowerCase();
+    const scopeValue = (c.scopeValue ?? "").toLowerCase();
+    const type = (c.commissionType ?? "").toLowerCase();
+    const value = String(c.commissionValue ?? "").toLowerCase();
+    const from = (c.effectiveFrom ?? "").toLowerCase();
+    return (
+      id.includes(q) ||
+      scope.includes(q) ||
+      scopeValue.includes(q) ||
+      type.includes(q) ||
+      value.includes(q) ||
+      from.includes(q)
+    );
+  });
+
+  const taxStates = Array.from(
+    new Set(taxes.map((t) => t.stateCode).filter(Boolean))
+  ).sort() as string[];
+  const filteredTaxes = taxes.filter((t) => {
+    const matchState = !taxStateFilter || t.stateCode === taxStateFilter;
+    if (!matchState) return false;
+    if (!taxSearch.trim()) return true;
+    const q = taxSearch.toLowerCase().trim();
+    const id = String(t.id ?? "").toLowerCase();
+    const type = (t.taxType ?? "").toLowerCase();
+    const pct = String(t.percentage ?? "").toLowerCase();
+    const state = (t.stateCode ?? "").toLowerCase();
+    const from = (t.effectiveFrom ?? "").toLowerCase();
+    return (
+      id.includes(q) ||
+      type.includes(q) ||
+      pct.includes(q) ||
+      state.includes(q) ||
+      from.includes(q)
+    );
+  });
+
+  const filteredServiceFees = serviceFees.filter((fee) => {
+    if (!serviceFeeSearch.trim()) return true;
+    const q = serviceFeeSearch.toLowerCase().trim();
+    const scope = (fee.scope ?? "").toLowerCase();
+    const scopeValue = (fee.scopeValue ?? "").toLowerCase();
+    const type = (fee.calculationType ?? "").toLowerCase();
+    const value = String(fee.feeValue ?? "").toLowerCase();
+    const from = (fee.effectiveFrom ?? "").toLowerCase();
+    return (
+      scope.includes(q) ||
+      scopeValue.includes(q) ||
+      type.includes(q) ||
+      value.includes(q) ||
+      from.includes(q)
+    );
+  });
 
   useEffect(() => {
     if (activeTab === "commission") {
@@ -1186,6 +1250,20 @@ export default function CommissionAndTaxPage() {
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
               )}
+              {commissions.length > 0 && (
+                <div className="mb-4 flex flex-nowrap items-center gap-3">
+                  <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <Input
+                      type="text"
+                      placeholder="Search commissions..."
+                      value={commissionSearch}
+                      onChange={(e) => setCommissionSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+              )}
               {commissions.length === 0 ? (
                 <div className="text-center py-12">
                   <Percent className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -1234,7 +1312,7 @@ export default function CommissionAndTaxPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {commissions.map((commission) => {
+                        {filteredCommissions.map((commission) => {
                           let effectiveDate = "N/A";
                           try {
                             if (commission.effectiveFrom) {
@@ -1355,6 +1433,33 @@ export default function CommissionAndTaxPage() {
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
               )}
+              {taxes.length > 0 && (
+                <div className="mb-4 flex flex-nowrap items-center gap-3">
+                  <div className="relative w-full max-w-sm shrink-0">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <Input
+                      type="text"
+                      placeholder="Search taxes..."
+                      value={taxSearch}
+                      onChange={(e) => setTaxSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">City</span>
+                    <select
+                      value={taxStateFilter}
+                      onChange={(e) => setTaxStateFilter(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white min-w-[160px]"
+                    >
+                      <option value="">All cities</option>
+                      {taxStates.map((state) => (
+                        <option key={state} value={state}>{state}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
               {taxes.length === 0 ? (
                 <div className="text-center py-12">
                   <Receipt className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -1406,7 +1511,7 @@ export default function CommissionAndTaxPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {taxes.map((tax) => {
+                        {filteredTaxes.map((tax) => {
                           let effectiveDate = "N/A";
                           try {
                             if (tax.effectiveFrom) {
@@ -1522,6 +1627,20 @@ export default function CommissionAndTaxPage() {
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
               )}
+              {serviceFees.length > 0 && (
+                <div className="mb-4 flex flex-nowrap items-center gap-3">
+                  <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <Input
+                      type="text"
+                      placeholder="Search service fees..."
+                      value={serviceFeeSearch}
+                      onChange={(e) => setServiceFeeSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+              )}
               {serviceFees.length === 0 ? (
                 <div className="text-center py-12">
                   <IndianRupee className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -1552,7 +1671,7 @@ export default function CommissionAndTaxPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {serviceFees.map((fee) => (
+                        {filteredServiceFees.map((fee) => (
                           <tr key={fee.id} className="hover:bg-blue-50 transition-colors even:bg-gray-50">
                             <td className="px-6 py-4 text-sm font-medium text-gray-900">{fee.scope}</td>
                             <td className="px-6 py-4 text-sm text-gray-700">{fee.scopeValue || "N/A"}</td>

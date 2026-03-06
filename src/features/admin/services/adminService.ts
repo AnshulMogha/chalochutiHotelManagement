@@ -643,13 +643,22 @@ export interface AssignMediaTagRequest {
   category: string;
 }
 
+export interface AssignMediaTagBulkRequest {
+  imageIds: number[];
+  category: string;
+}
+
 export interface AssignMediaToRoomRequest {
   roomKey: string;
 }
 
-export interface ReorderMediaRequest {
+export interface ReorderMediaItem {
   imageId: number;
   sortOrder: number;
+}
+
+export interface ReorderMediaRequest {
+  items: ReorderMediaItem[];
 }
 
 export type DocumentType = 
@@ -1270,9 +1279,38 @@ export const adminService = {
     );
     return response.data;
   },
+  uploadRoomMedia: async (
+    hotelId: string,
+    roomKey: string,
+    files: File[]
+  ): Promise<{ imageId: number; imageUrl: string }[]> => {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+    const response = await apiClient.post<
+      ApiSuccessResponse<{ imageId: number; imageUrl: string }[]>
+    >(
+      API_ENDPOINTS.HOTEL_ADMIN.UPLOAD_ROOM_MEDIA(hotelId, roomKey),
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    return response.data;
+  },
   assignMediaTag: async (hotelId: string, imageId: number, data: AssignMediaTagRequest): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.ASSIGN_MEDIA_TAG(hotelId, imageId),
+      data
+    );
+    return response.data;
+  },
+  assignMediaTagBulk: async (hotelId: string, data: AssignMediaTagBulkRequest): Promise<null> => {
+    const response = await apiClient.put<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.ASSIGN_MEDIA_TAG_BULK(hotelId),
       data
     );
     return response.data;
