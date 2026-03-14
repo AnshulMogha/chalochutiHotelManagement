@@ -167,9 +167,14 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
           await fetchRoomMedia(room.roomId);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading media:", error);
-      showToast("Failed to upload media", "error");
+      const message =
+        error?.response?.data?.message ||
+        error?.data?.message ||
+        error?.message ||
+        "Failed to upload media";
+      showToast(message, "error");
     } finally {
       setIsUploading(false);
     }

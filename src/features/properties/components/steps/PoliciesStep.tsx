@@ -197,7 +197,6 @@ export function PoliciesStep() {
     petPolicy: true,
     checkinCheckout: true,
     // infantPolicy: true,
-    extraBedInclusion: true,
     extraBedPolicies: true,
     customPolicy: true,
     // mealPrices: true,
@@ -262,10 +261,6 @@ export function PoliciesStep() {
   //   "includeInfantWithoutOccupancy",
   //   "provideInfantFood",
   // ] as (keyof typeof policiesData)[]);
-
-  const extraBedInclusionCount = countRules([
-    "extraBedIncludedInRates",
-  ] as (keyof typeof policiesData)[]);
 
   const extraBedPoliciesCount = countRules([
     "bedToExtraAdults",
@@ -588,30 +583,6 @@ export function PoliciesStep() {
               />
             </div>
           </CollapsibleSection> */}
-
-          {/* Extra Bed Inclusion Policy */}
-          <CollapsibleSection
-            title="Extra Bed Inclusion Policy"
-            icon={<Bed className="w-5 h-5" />}
-            rulesCount={extraBedInclusionCount}
-            maxRules={1}
-            isExpanded={expandedSections.extraBedInclusion}
-            onToggle={() => toggleSection("extraBedInclusion")}
-          >
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                This confirms whether extra bed/mattress is included in the
-                extra adult/paid child rates defined for each rate plan
-              </p>
-              <RadioQuestion
-                question="Is extra bed/mattress included in extra adult/paid child rates?"
-                value={policiesData.extraBedIncludedInRates}
-                onChange={(value) =>
-                  handleUpdatePolicy("extraBedIncludedInRates", value === "yes")
-                }
-              />
-            </div>
-          </CollapsibleSection>
 
           {/* Extra Bed Policies */}
           <CollapsibleSection

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { AlertCircle, Phone, Smartphone, Mail, Globe, PhoneCall } from "lucide-react";
+import { Phone, Smartphone, Mail, Globe, PhoneCall } from "lucide-react";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { adminService } from "@/features/admin/services/adminService";
 import { useAuth } from "@/hooks";
@@ -356,15 +356,6 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
 
         {/* Customer Care Information */}
         <div className="mt-8 space-y-4">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
-              <p className="text-sm text-red-800">
-                In compliance of the Consumer Protection (E-commerce) Rules, 2020, all hotel partners are required to provide their customer care number(s) to be displayed on Go-MMT platforms. Therefore, you are requested to provide your customer care number.
-              </p>
-            </div>
-          </div>
-
           <div>
             <Label htmlFor="customerCareNumber">
               Customer Care Number <span className="text-red-500">*</span>

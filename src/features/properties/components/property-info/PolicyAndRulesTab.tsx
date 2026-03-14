@@ -13,7 +13,7 @@ import {
   type PaymentRule,
   type PaymentRulePayload,
 } from "@/features/admin/services/adminService";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2, Plus, FileText } from "lucide-react";
 
 interface PolicyAndRulesTabProps {
   hotelId: string;
@@ -77,6 +77,52 @@ const ID_PROOF_OPTIONS = [
   { value: "AADHAR", label: "Aadhaar Card" },
   { value: "PASSPORT", label: "Passport" },
   { value: "DRIVING_LICENSE", label: "Driving License" },
+];
+
+const PREDEFINED_CANCELLATION_POLICIES: Array<{
+  label: string;
+  policyName: string;
+  freeCancellationTillHours: number;
+  noShowPenalty: "NONE" | "FIRST_NIGHT_COST" | "FULL_STAY_COST";
+  recommended?: boolean;
+}> = [
+  {
+    label: "Free Cancellation till check-in",
+    policyName: "Free Cancellation till check-in",
+    freeCancellationTillHours: 0,
+    noShowPenalty: "NONE",
+    recommended: true,
+  },
+  {
+    label: "Free Cancellation till 24 hours before check-in",
+    policyName: "Free Cancellation till 24 hours before check-in",
+    freeCancellationTillHours: 24,
+    noShowPenalty: "NONE",
+  },
+  {
+    label: "Free Cancellation till 48 hours before check-in",
+    policyName: "Free Cancellation till 48 hours before check-in",
+    freeCancellationTillHours: 48,
+    noShowPenalty: "NONE",
+  },
+  {
+    label: "Free Cancellation till 72 hours before check-in",
+    policyName: "Free Cancellation till 72 hours before check-in",
+    freeCancellationTillHours: 72,
+    noShowPenalty: "NONE",
+  },
+  {
+    label: "Free Cancellation till 7 days before check-in",
+    policyName: "Free Cancellation till 7 days before check-in",
+    freeCancellationTillHours: 168,
+    noShowPenalty: "NONE",
+  },
+  {
+    label: "Non-Refundable",
+    policyName: "Non-Refundable",
+    freeCancellationTillHours: 0,
+    noShowPenalty: "FULL_STAY_COST",
+  },
 ];
 
 const toBoolean = (value: unknown, fallback = false) => {
@@ -229,6 +275,8 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
   const cancellationNameInputRef = useRef<HTMLInputElement | null>(null);
   const [isCancellationModalOpen, setIsCancellationModalOpen] =
     useState(false);
+  const [addingPredefinedLabel, setAddingPredefinedLabel] = useState<string | null>(null);
+  const [showCustomCancellationForm, setShowCustomCancellationForm] = useState(false);
   const [childPolicy, setChildPolicy] = useState<{
     childrenAllowed: boolean;
     freeStayMaxAge: number;
@@ -556,10 +604,22 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
       noShowPenalty: "NONE",
     });
     setSelectedCancellationId(null);
+    setShowCustomCancellationForm(false);
     setIsCancellationModalOpen(true);
     if (cancellationNameInputRef.current) {
       cancellationNameInputRef.current.focus();
     }
+  };
+
+  const openCustomCancellationForm = () => {
+    setShowCustomCancellationForm(true);
+    setTimeout(() => cancellationNameInputRef.current?.focus(), 100);
+  };
+
+  const closeCancellationModal = () => {
+    setIsCancellationModalOpen(false);
+    setShowCustomCancellationForm(false);
+    setSelectedCancellationId(null);
   };
 
   const saveCancellation = async () => {
@@ -580,13 +640,35 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
         await adminService.createCancellationPolicy(hotelId, cancellationForm);
       }
       showToast("Cancellation policy saved", "success");
-      resetCancellationForm();
+      closeCancellationModal();
       await loadCancellationPolicies();
     } catch (error) {
       console.error("Error saving cancellation policy:", error);
       showToast("Failed to save cancellation policy", "error");
     } finally {
       setCancellationSaving(false);
+    }
+  };
+
+  const addPredefinedCancellation = async (
+    item: (typeof PREDEFINED_CANCELLATION_POLICIES)[number]
+  ) => {
+    if (!hotelId) return;
+    setAddingPredefinedLabel(item.label);
+    try {
+      await adminService.createCancellationPolicy(hotelId, {
+        policyName: item.policyName,
+        freeCancellationTillHours: item.freeCancellationTillHours,
+        noShowPenalty: item.noShowPenalty,
+      });
+      showToast(`"${item.policyName}" added`, "success");
+      closeCancellationModal();
+      await loadCancellationPolicies();
+    } catch (error) {
+      console.error("Error adding predefined cancellation policy:", error);
+      showToast("Failed to add cancellation policy", "error");
+    } finally {
+      setAddingPredefinedLabel(null);
     }
   };
 
@@ -1108,21 +1190,29 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
             </div>
 
             {isCancellationModalOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-                <div className="w-full max-w-lg rounded-xl bg-white shadow-lg p-6 space-y-4">
-                  <div className="flex items-center justify-between">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+                <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col">
+                  <div className="flex items-center justify-between shrink-0 px-6 py-4 border-b border-gray-200 bg-gray-50/80">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {selectedCancellationId ? "Edit Cancellation Policy" : "New Cancellation Policy"}
+                      {selectedCancellationId
+                        ? "Edit Cancellation Policy"
+                        : showCustomCancellationForm
+                        ? "Create Custom Policy"
+                        : "New Cancellation Policy"}
                     </h3>
                     <button
                       type="button"
-                      className="text-gray-400 hover:text-gray-600"
-                      onClick={() => setIsCancellationModalOpen(false)}
+                      className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-200 transition-colors"
+                      onClick={closeCancellationModal}
+                      aria-label="Close"
                     >
                       ✕
                     </button>
                   </div>
-                  <div className="space-y-3">
+
+                  <div className="flex-1 overflow-y-auto p-6">
+                    {selectedCancellationId || showCustomCancellationForm ? (
+                      <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Policy name
@@ -1136,14 +1226,14 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                             policyName: e.target.value,
                           }))
                         }
-                        placeholder="Standard 24 Hours Cancellation"
-            />
-          </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Free cancellation till (hours)
-                        </label>
+                        placeholder="e.g. Standard 24 Hours Cancellation"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Free cancellation till (hours before check-in)
+                            </label>
                         <Input
                           type="number"
                           min={0}
@@ -1155,13 +1245,13 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                             }))
                           }
                           placeholder="e.g. 24"
-                        />
-        </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          No-show penalty
-                        </label>
-                        <select
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              No-show penalty
+                            </label>
+                            <select
                           className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                           value={cancellationForm.noShowPenalty}
                           onChange={(e) =>
@@ -1170,25 +1260,74 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                               noShowPenalty: e.target.value,
                             }))
                           }
-                        >
-                          <option value="NONE">None</option>
-                          <option value="FIRST_NIGHT_COST">First night cost</option>
-                          <option value="FULL_STAY_COST">Full stay cost</option>
-                        </select>
+                            >
+                              <option value="NONE">None</option>
+                              <option value="FIRST_NIGHT_COST">First night cost</option>
+                              <option value="FULL_STAY_COST">Full stay cost</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
+                    ) : (
+                      <div className="space-y-5">
+                        <p className="text-sm text-gray-600">
+                          Choose a predefined policy to add, or create your own custom policy.
+                        </p>
+                        <div className="space-y-2">
+                          {PREDEFINED_CANCELLATION_POLICIES.map((item) => (
+                            <button
+                              key={item.policyName}
+                              type="button"
+                              onClick={() => addPredefinedCancellation(item)}
+                              disabled={addingPredefinedLabel !== null}
+                              className="w-full flex items-center justify-between gap-4 rounded-xl border-2 border-gray-200 bg-white px-5 py-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50/50 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 shrink-0 rounded-lg bg-blue-100 flex items-center justify-center">
+                                  <FileText className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <span className="font-medium text-gray-900">
+                                  {item.label}
+                                </span>
+                                {item.recommended && (
+                                  <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                                    RECOMMENDED
+                                  </span>
+                                )}
+                              </div>
+                              {addingPredefinedLabel === item.label ? (
+                                <Loader2 className="w-5 h-5 shrink-0 animate-spin text-blue-600" />
+                              ) : (
+                                <span className="shrink-0 text-sm font-medium text-blue-600">Add</span>
+                              )}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={openCustomCancellationForm}
+                            className="w-full flex items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 px-5 py-4 text-left transition-all hover:border-blue-400 hover:bg-blue-50/30 hover:shadow-sm"
+                          >
+                            <div className="w-10 h-10 shrink-0 rounded-lg bg-gray-200 flex items-center justify-center">
+                              <Plus className="w-5 h-5 text-gray-600" />
+                            </div>
+                            <span className="font-medium text-gray-700">Create custom policy</span>
+                            <span className="shrink-0 text-sm text-gray-500">Set your own rules</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {(selectedCancellationId || showCustomCancellationForm) && (
+                    <div className="shrink-0 flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-200 bg-gray-50/50">
+                      <Button variant="outline" onClick={closeCancellationModal}>
+                        Cancel
+                      </Button>
+                      <Button onClick={saveCancellation} disabled={cancellationSaving}>
+                        {cancellationSaving ? "Saving..." : "Save Policy"}
+                      </Button>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsCancellationModalOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button onClick={saveCancellation} disabled={cancellationSaving}>
-                      {cancellationSaving ? "Saving..." : "Save Policy"}
-                    </Button>
-                  </div>
+                  )}
                 </div>
               </div>
             )}

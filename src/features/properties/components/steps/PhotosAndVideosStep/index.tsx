@@ -187,9 +187,14 @@ export function PhotosAndVideosStep() {
           console.error("Error refreshing media after upload:", error);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading files:", error);
-      alert("Failed to upload files. Please try again.");
+      const message =
+        error?.response?.data?.message ||
+        error?.data?.message ||
+        error?.message ||
+        "Failed to upload files. Please try again.";
+      alert(message);
     }
   };
 
@@ -230,9 +235,14 @@ export function PhotosAndVideosStep() {
           console.error("Error refreshing media after tag assignment:", error);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error assigning tags:", error);
-      alert("Failed to assign tags. Please try again.");
+      const message =
+        error?.response?.data?.message ||
+        error?.data?.message ||
+        error?.message ||
+        "Failed to assign tags. Please try again.";
+      alert(message);
     }
   };
 
