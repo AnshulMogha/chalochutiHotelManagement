@@ -71,3 +71,9 @@ export default defineConfig([
   },
 ])
 ```
+
+## Production deployment
+
+- **Base path:** The app is built with base path `/chalochutti/` (see `vite.config.ts`). Deploy the `dist/` folder so the app is served at **`https://your-domain.com/chalochutti/`**. The login page will be at `https://your-domain.com/chalochutti/auth/login`. If you serve the app at root (`/`) instead, assets will 404 and the app will not load; in that case set `base: "/"` in `vite.config.ts` and rebuild.
+- **API URL:** Set `VITE_API_BASE_URL` when building (e.g. in CI or `.env.production`) so production uses your real API, e.g. `VITE_API_BASE_URL=https://api.your-domain.com/api`.
+- **SPA fallback:** Ensure your server returns `index.html` for all routes under the base path (e.g. `/chalochutti/*`) so client-side routing works.

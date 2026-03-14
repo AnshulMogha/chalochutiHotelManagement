@@ -8,7 +8,8 @@ import { propertyService } from "../services/propertyService";
 import { useEffect, useState } from "react";
 import { LoadingSpinner } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { DataGrid, GridColDef, GridToolbar, GridToolbarExport, GridToolbarQuickFilter } from "@mui/x-data-grid";
+import { DataGrid, GridToolbar, GridToolbarExport, GridToolbarQuickFilter } from "@mui/x-data-grid";
+import type { GridColDef } from "@mui/x-data-grid";
 import { Box } from "@mui/material";
 import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
 

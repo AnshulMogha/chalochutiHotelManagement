@@ -1025,12 +1025,6 @@ export const adminService = {
     );
     return response.data;
   },
-  getChildAgePolicy: async (hotelId: string): Promise<ChildAgePolicyResponse> => {
-    const response = await apiClient.get<
-      ApiSuccessResponse<ChildAgePolicyResponse>
-    >(API_ENDPOINTS.HOTEL_ADMIN.CHILD_AGE_POLICY(hotelId));
-    return response.data;
-  },
   getChildAgePolicy: async (
     hotelId: string
   ): Promise<ChildAgePolicyResponse> => {

@@ -5,7 +5,8 @@ import { Button, ExportButton, Tabs, TabsContent, TabsList, TabsTrigger } from "
 import { Eye, Calendar, User, Building2 } from "lucide-react";
 import { ROUTES } from "@/constants";
 import { LoadingSpinner } from "@/components/ui";
-import { DataGrid, GridColDef, GridToolbar } from "@mui/x-data-grid";
+import { DataGrid, GridToolbar } from "@mui/x-data-grid";
+import type { GridColDef } from "@mui/x-data-grid";
 import { Box } from "@mui/material";
 import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
 
