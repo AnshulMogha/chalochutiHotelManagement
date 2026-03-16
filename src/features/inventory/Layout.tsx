@@ -103,6 +103,18 @@ export default function Layout() {
   const currentCustomerType = useMemo(() => getCustomerTypeFromTab(activeTab), [activeTab]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // When switching customer segment while on Room Types, clear expanded rate-plan cache
+  // so subsequent expansions fetch with the updated API customerType.
+  useEffect(() => {
+    if (activeSidebarSection !== "room-types") return;
+    setExpandedRoomIds(new Set());
+    setLoadingRatePlansByRoomId({});
+    setRateRoomsByRoomId({});
+    setRateRooms([]);
+    originalRateRoomsRef.current = [];
+    setActiveRateEdit(null);
+  }, [currentCustomerType, activeSidebarSection]);
+
   // Child Age Policy State
   const [childPolicy, setChildPolicy] = useState<ChildAgePolicyResponse | null>(null);
   const [childPolicyNotFound, setChildPolicyNotFound] = useState(false);
@@ -778,13 +790,11 @@ export default function Layout() {
       <div className="max-w-450 mx-auto">
         <div className="flex pt-3 px-6">
           <div className="flex-1">
-            {location.pathname.includes("/rate-plan") && (
-              <NavigationTabs
-                tabs={TAB_OPTIONS}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-              />
-            )}
+            <NavigationTabs
+              tabs={TAB_OPTIONS}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            />
 
             <div className="pt-6 mb-4">
               <DateSelector
@@ -885,7 +895,7 @@ export default function Layout() {
                     fromDate={ratePlansFromDate}
                     toDate={ratePlansToDate}
                     activeDate={activeDate}
-                    customerType={customerType}
+                    customerType={currentCustomerType}
                     onUpdate={handleRatePlanUpdate}
                     onActiveDateChange={setActiveDate}
                     isLocked={hasChanges}

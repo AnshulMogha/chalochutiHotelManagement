@@ -80,7 +80,7 @@ export default function BulkUpdateRatesPage() {
   const [selectedWeekDays, setSelectedWeekDays] =
     useState<string[]>(ALL_WEEK_DAYS);
 
-  // Customer type - UI value (B2C, B2B, MYBIZ)
+  // Customer type - UI value (B2C, B2B, MYBIZZ)
   const [customerTypeUI, setCustomerTypeUI] = useState("B2C");
 
   // Map UI customer type to API customer type
@@ -88,6 +88,8 @@ export default function BulkUpdateRatesPage() {
     const uiToApi: Record<string, string> = {
       B2C: "RETAIL",
       B2B: "AGENT",
+      MYBIZZ: "CORPORATE",
+      // Backward-compat (in case older saved values exist)
       MYBIZ: "CORPORATE",
     };
     return uiToApi[uiValue] || "RETAIL";
@@ -571,10 +573,7 @@ export default function BulkUpdateRatesPage() {
     setSelectedWeekDays(ALL_WEEK_DAYS);
   };
 
-  // Calculate nett rate (assuming 20% commission for now)
-  const calculateNettRate = (grossRate: number) => {
-    return grossRate * 0.8;
-  };
+  const calculateNettRate = (grossRate: number) => grossRate;
 
   if (loadingRooms) {
     return (
@@ -637,7 +636,7 @@ export default function BulkUpdateRatesPage() {
                   >
                     <option value="B2C">B2C</option>
                     <option value="B2B">B2B</option>
-                    <option value="MYBIZ">MYBIZ</option>
+                    <option value="MYBIZZ">MYBIZZ</option>
                   </select>
                 </div>
 
@@ -930,7 +929,7 @@ export default function BulkUpdateRatesPage() {
                                   {ratePlan.ratePlanName}
                                 </h4>
                                 <p className="text-sm text-slate-500 font-medium">
-                                  {ratePlan.mealPlan} (Commission @ 20%)
+                                  {ratePlan.mealPlan}
                                 </p>
                               </div>
                               {isRatePlanExpanded ? (
