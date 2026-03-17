@@ -1224,7 +1224,7 @@ export const adminService = {
     data: HotelRoomDetailsRequest
   ): Promise<{ roomKey: string }> => {
     const response = data.roomKey
-      ? await apiClient.post<ApiSuccessResponse<{ roomKey: string }>>(
+      ? await apiClient.put<ApiSuccessResponse<{ roomKey: string }>>(
           API_ENDPOINTS.HOTEL_ADMIN.CREATE_OR_UPDATE_ROOM(hotelId),
           data
         )

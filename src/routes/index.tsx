@@ -21,87 +21,91 @@ const AuthLayout = lazy(() => import("../components/layout/AuthLayout"));
 // Lazy load pages
 const HomePage = lazy(() => import("../features/home/pages/HomePage"));
 const MyPropertiesPage = lazy(
-  () => import("../features/properties/pages/MyPropertiesPage")
+  () => import("../features/properties/pages/MyPropertiesPage"),
 );
 const CreatePropertyPage = lazy(
-  () => import("../features/properties/pages/CreatePropertyPage")
+  () => import("../features/properties/pages/CreatePropertyPage"),
 );
 const NotFoundPage = lazy(
-  () => import("../features/common/pages/NotFoundPage")
+  () => import("../features/common/pages/NotFoundPage"),
 );
 
 // Lazy load auth pages
 const EmailEntryPage = lazy(
-  () => import("../features/auth/pages/EmailEntryPage")
+  () => import("../features/auth/pages/EmailEntryPage"),
 );
 const OtpVerificationPage = lazy(
-  () => import("../features/auth/pages/OtpVerificationPage")
+  () => import("../features/auth/pages/OtpVerificationPage"),
 );
 const SuperAdminLoginPage = lazy(
-  () => import("../features/auth/pages/SuperAdminLoginPage")
+  () => import("../features/auth/pages/SuperAdminLoginPage"),
 );
 
 // Lazy load admin pages
 const HotelReviewListPage = lazy(
-  () => import("../features/admin/pages/HotelReviewListPage")
+  () => import("../features/admin/pages/HotelReviewListPage"),
 );
 const HotelReviewDetailPage = lazy(
-  () => import("../features/admin/pages/HotelReviewDetailPage")
+  () => import("../features/admin/pages/HotelReviewDetailPage"),
 );
 const UsersPage = lazy(() => import("../features/admin/pages/UsersPage"));
 const BasicInformationPage = lazy(
-  () => import("../features/properties/pages/BasicInformationPage")
+  () => import("../features/properties/pages/BasicInformationPage"),
 );
 const RoomsAndRatePlansPage = lazy(
-  () => import("../features/properties/pages/RoomsAndRatePlansPage")
+  () => import("../features/properties/pages/RoomsAndRatePlansPage"),
 );
 const BulkUpdateRatesPage = lazy(
-  () => import("../features/inventory/pages/BulkUpdateRatesPage")
+  () => import("../features/inventory/pages/BulkUpdateRatesPage"),
 );
 const BulkUpdateRestrictionsPage = lazy(
-  () => import("../features/inventory/pages/BulkUpdateRestrictionsPage")
+  () => import("../features/inventory/pages/BulkUpdateRestrictionsPage"),
 );
 const PhotosAndVideosPage = lazy(
-  () => import("../features/properties/pages/PhotosAndVideosPage")
+  () => import("../features/properties/pages/PhotosAndVideosPage"),
 );
 const AmenitiesAndRestaurantsPage = lazy(
-  () => import("../features/properties/pages/AmenitiesAndRestaurantsPage")
+  () => import("../features/properties/pages/AmenitiesAndRestaurantsPage"),
 );
 const PolicyAndRulesPage = lazy(
-  () => import("../features/properties/pages/PolicyAndRulesPage")
+  () => import("../features/properties/pages/PolicyAndRulesPage"),
 );
 const FinancePage = lazy(
-  () => import("../features/properties/pages/FinancePage")
+  () => import("../features/properties/pages/FinancePage"),
 );
 const DocumentPage = lazy(
-  () => import("../features/properties/pages/DocumentPage")
+  () => import("../features/properties/pages/DocumentPage"),
 );
-const MyTeamPage = lazy(
-  () => import("../features/team/pages/MyTeamPage")
-);
+const MyTeamPage = lazy(() => import("../features/team/pages/MyTeamPage"));
 const PromotionsPage = lazy(
-  () => import("../features/promotions/pages/PromotionsPage")
+  () => import("../features/promotions/pages/PromotionsPage"),
 );
 const CreatePromotionPage = lazy(
-  () => import("../features/promotions/pages/CreatePromotionPage")
+  () => import("../features/promotions/pages/CreatePromotionPage"),
 );
 const EditPromotionPage = lazy(
-  () => import("../features/promotions/pages/EditPromotionPage")
+  () => import("../features/promotions/pages/EditPromotionPage"),
 );
 const SpecialAudiencePromotionsPage = lazy(
-  () => import("../features/promotions/pages/SpecialAudiencePromotionsPage")
+  () => import("../features/promotions/pages/SpecialAudiencePromotionsPage"),
 );
 const CommissionAndTaxPage = lazy(
-  () => import("../features/admin/pages/CommissionAndTaxPage")
+  () => import("../features/admin/pages/CommissionAndTaxPage"),
 );
 const DocumentReviewPage = lazy(
-  () => import("../features/admin/pages/DocumentReviewPage")
+  () => import("../features/admin/pages/DocumentReviewPage"),
 );
 const TravelPartnersPage = lazy(
-  () => import("../features/admin/pages/TravelPartnersPage")
+  () => import("../features/admin/pages/TravelPartnersPage"),
 );
 const PricingQuotePage = lazy(
-  () => import("../features/pricing/pages/PricingQuotePage")
+  () => import("../features/pricing/pages/PricingQuotePage"),
+);
+const BookingListPage = lazy(
+  () => import("../features/bookings/pages/BookingListPage"),
+);
+const BookingDetailPage = lazy(
+  () => import("../features/bookings/pages/BookingDetailPage"),
 );
 
 // Route configuration
@@ -253,15 +257,15 @@ export const routes: RouteObject[] = [
       },
       {
         path: "inventory/room-types",
-        element: <Layout/>,
+        element: <Layout />,
       },
       {
         path: "inventory/rate-plans",
-        element: <Layout/>,
+        element: <Layout />,
       },
       {
         path: "rates/bulk-update",
-        element: <BulkUpdateRatesPage/>,
+        element: <BulkUpdateRatesPage />,
       },
       {
         path: "restrictions/bulk-update",
@@ -290,6 +294,14 @@ export const routes: RouteObject[] = [
       {
         path: "promotions/special-audience/create/:type",
         element: <CreatePromotionPage />,
+      },
+      {
+        path: "bookings",
+        element: <BookingListPage />,
+      },
+      {
+        path: "bookings/:id",
+        element: <BookingDetailPage />,
       },
     ],
   },
@@ -338,8 +350,7 @@ const rawBasename = import.meta.env.BASE_URL;
 // Vite's BASE_URL often includes a trailing slash (e.g. "/chalochutti/").
 // React Router's basename works best without it to avoid "//" when navigating
 // to absolute paths like "/auth/login".
-const basename =
-  rawBasename === "/" ? "/" : rawBasename.replace(/\/+$/, "");
+const basename = rawBasename === "/" ? "/" : rawBasename.replace(/\/+$/, "");
 
 export const router = createBrowserRouter(routes, {
   basename,

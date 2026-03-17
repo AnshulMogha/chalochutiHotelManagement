@@ -1,21 +1,38 @@
 import { useNavigate } from "react-router";
 import { Button, ExportButton } from "@/components/ui";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
-import { Plus, Edit, Building2, Calendar, CheckCircle, Clock, User, AlertCircle } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Building2,
+  Calendar,
+  CheckCircle,
+  Clock,
+  User,
+  AlertCircle,
+} from "lucide-react";
 import { ROUTES } from "@/constants";
 import type { HotelList, HotelStatus } from "../types";
 import { propertyService } from "../services/propertyService";
 import { useEffect, useState } from "react";
 import { LoadingSpinner } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { DataGrid, GridToolbar, GridToolbarExport, GridToolbarQuickFilter } from "@mui/x-data-grid";
+import {
+  DataGrid,
+  GridToolbar,
+  GridToolbarExport,
+  GridToolbarQuickFilter,
+} from "@mui/x-data-grid";
 import type { GridColDef } from "@mui/x-data-grid";
 import { Box } from "@mui/material";
 import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
 
 // Mock data - replace with actual API calls
 
-const statusConfig: Record<HotelStatus, { label: string; className: string; icon: React.ReactNode }> = {
+const statusConfig: Record<
+  HotelStatus,
+  { label: string; className: string; icon: React.ReactNode }
+> = {
   LIVE: {
     label: "Active",
     className: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -81,17 +98,17 @@ export default function MyPropertiesPage() {
       try {
         setIsLoading(true);
         const response = await propertyService.getAllHotels();
-       
+
         const activeHotelsRaw = response.filter(
-          (hotel) => hotel.status === "LIVE"
+          (hotel) => hotel.status === "LIVE",
         );
         // In Process: everything that is not LIVE and not REJECTED
         const inProcessHotelsRaw = response.filter(
-          (hotel) => hotel.status !== "LIVE" && hotel.status !== "REJECTED"
+          (hotel) => hotel.status !== "LIVE" && hotel.status !== "REJECTED",
         );
         // Rejected: only REJECTED status
         const rejectedHotelsRaw = response.filter(
-          (hotel) => hotel.status === "REJECTED"
+          (hotel) => hotel.status === "REJECTED",
         );
 
         const activeHotelsList = activeHotelsRaw.map((hotel) => ({
@@ -140,14 +157,20 @@ export default function MyPropertiesPage() {
   }, []);
   const handleExportCSV = (
     hotels: HotelList[],
-    tab: "active" | "inprocess" | "rejected"
+    tab: "active" | "inprocess" | "rejected",
   ) => {
     const exportColumns: ExportColumn[] = [
       { field: "hotelName", headerName: "Hotel Name" },
       { field: "hotelCode", headerName: "Hotel Code" },
       { field: "status", headerName: "Status" },
       ...(tab !== "active"
-        ? [{ field: "currentStep", headerName: "Current Step", valueGetter: (row) => formatStep(row.currentStep) }]
+        ? [
+            {
+              field: "currentStep",
+              headerName: "Current Step",
+              valueGetter: (row) => formatStep(row.currentStep),
+            },
+          ]
         : []),
       {
         field: "submittedAt",
@@ -164,21 +187,27 @@ export default function MyPropertiesPage() {
       tab === "active"
         ? `active-hotels-${today}`
         : tab === "inprocess"
-        ? `in-process-hotels-${today}`
-        : `rejected-hotels-${today}`;
+          ? `in-process-hotels-${today}`
+          : `rejected-hotels-${today}`;
     exportToCSV(hotels, exportColumns, filename);
   };
 
   const handleExportExcel = (
     hotels: HotelList[],
-    tab: "active" | "inprocess" | "rejected"
+    tab: "active" | "inprocess" | "rejected",
   ) => {
     const exportColumns: ExportColumn[] = [
       { field: "hotelName", headerName: "Hotel Name" },
       { field: "hotelCode", headerName: "Hotel Code" },
       { field: "status", headerName: "Status" },
       ...(tab !== "active"
-        ? [{ field: "currentStep", headerName: "Current Step", valueGetter: (row) => formatStep(row.currentStep) }]
+        ? [
+            {
+              field: "currentStep",
+              headerName: "Current Step",
+              valueGetter: (row) => formatStep(row.currentStep),
+            },
+          ]
         : []),
       {
         field: "submittedAt",
@@ -195,8 +224,8 @@ export default function MyPropertiesPage() {
       tab === "active"
         ? `active-hotels-${today}`
         : tab === "inprocess"
-        ? `in-process-hotels-${today}`
-        : `rejected-hotels-${today}`;
+          ? `in-process-hotels-${today}`
+          : `rejected-hotels-${today}`;
     exportToExcel(hotels, exportColumns, filename);
   };
 
@@ -267,7 +296,7 @@ export default function MyPropertiesPage() {
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap",
-                statusInfo.className
+                statusInfo.className,
               )}
             >
               {statusInfo.icon}
@@ -369,12 +398,12 @@ export default function MyPropertiesPage() {
     ];
 
     return (
-      <Box 
-        sx={{ 
+      <Box
+        sx={{
           width: "100%",
           borderRadius: "12px",
           overflow: "hidden",
-        }} 
+        }}
         className="bg-white border border-gray-200 shadow-md"
       >
         <DataGrid
@@ -389,7 +418,9 @@ export default function MyPropertiesPage() {
           onRowClick={
             isActiveTab
               ? (params) => {
-                  navigate(`${ROUTES.PROPERTY_INFO.BASIC_INFO}?hotelId=${params.row.hotelId}`);
+                  navigate(
+                    `${ROUTES.PROPERTY_INFO.BASIC_INFO}?hotelId=${params.row.hotelId}`,
+                  );
                 }
               : undefined
           }
@@ -401,8 +432,8 @@ export default function MyPropertiesPage() {
               showQuickFilter: true,
               quickFilterProps: { debounceMs: 500 },
               csvOptions: {
-                fileName: `hotels-${new Date().toISOString().split('T')[0]}`,
-                delimiter: ',',
+                fileName: `hotels-${new Date().toISOString().split("T")[0]}`,
+                delimiter: ",",
                 utf8WithBom: true,
               },
               printOptions: {
@@ -452,15 +483,16 @@ export default function MyPropertiesPage() {
                 opacity: 0,
                 transition: "opacity 0.2s",
               },
-              "&.MuiDataGrid-columnHeader--sorted .MuiDataGrid-iconButtonContainer": {
-                opacity: 1,
-                "& .MuiDataGrid-sortIcon": {
-                  color: "#10b981 !important",
-                  fontSize: "0.875rem",
-                  width: "16px",
-                  height: "16px",
+              "&.MuiDataGrid-columnHeader--sorted .MuiDataGrid-iconButtonContainer":
+                {
+                  opacity: 1,
+                  "& .MuiDataGrid-sortIcon": {
+                    color: "#10b981 !important",
+                    fontSize: "0.875rem",
+                    width: "16px",
+                    height: "16px",
+                  },
                 },
-              },
               "& .MuiDataGrid-sortIcon": {
                 color: "#10b981 !important",
                 fontSize: "0.875rem",
@@ -555,7 +587,12 @@ export default function MyPropertiesPage() {
       </div>
 
       {/* Enhanced Tabs */}
-      <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs
+        defaultValue="active"
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-6"
+      >
         <div className="flex items-center justify-between gap-4 mb-6">
           <TabsList className="bg-white border border-gray-200 shadow-sm h-12 px-1 space-x-1 rounded-xl">
             <TabsTrigger
@@ -598,14 +635,18 @@ export default function MyPropertiesPage() {
           {activeTab === "inprocess" && inProcessHotels.length > 0 && (
             <ExportButton
               onExportCSV={() => handleExportCSV(inProcessHotels, "inprocess")}
-              onExportExcel={() => handleExportExcel(inProcessHotels, "inprocess")}
+              onExportExcel={() =>
+                handleExportExcel(inProcessHotels, "inprocess")
+              }
             />
           )}
 
           {activeTab === "rejected" && rejectedHotels.length > 0 && (
             <ExportButton
               onExportCSV={() => handleExportCSV(rejectedHotels, "rejected")}
-              onExportExcel={() => handleExportExcel(rejectedHotels, "rejected")}
+              onExportExcel={() =>
+                handleExportExcel(rejectedHotels, "rejected")
+              }
             />
           )}
         </div>

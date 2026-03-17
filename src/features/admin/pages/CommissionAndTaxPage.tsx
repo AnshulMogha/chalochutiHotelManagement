@@ -1446,13 +1446,13 @@ export default function CommissionAndTaxPage() {
                     />
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">City</span>
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">State</span>
                     <select
                       value={taxStateFilter}
                       onChange={(e) => setTaxStateFilter(e.target.value)}
                       className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white min-w-[160px]"
                     >
-                      <option value="">All cities</option>
+                      <option value="">All states</option>
                       {taxStates.map((state) => (
                         <option key={state} value={state}>{state}</option>
                       ))}

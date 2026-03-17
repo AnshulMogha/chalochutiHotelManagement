@@ -32,36 +32,59 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   const isBasicInfoPage = location.pathname === ROUTES.PROPERTY_INFO.BASIC_INFO;
-  const isRoomsRatePlansPage = location.pathname === ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS;
-  const isPhotosVideosPage = location.pathname === ROUTES.PROPERTY_INFO.PHOTOS_VIDEOS;
-  const isAmenitiesRestaurantsPage = location.pathname === ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS;
-  const isPolicyRulesPage = location.pathname === ROUTES.PROPERTY_INFO.POLICY_RULES;
+  const isRoomsRatePlansPage =
+    location.pathname === ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS;
+  const isPhotosVideosPage =
+    location.pathname === ROUTES.PROPERTY_INFO.PHOTOS_VIDEOS;
+  const isAmenitiesRestaurantsPage =
+    location.pathname === ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS;
+  const isPolicyRulesPage =
+    location.pathname === ROUTES.PROPERTY_INFO.POLICY_RULES;
   const isFinancePage = location.pathname === ROUTES.PROPERTY_INFO.FINANCE;
   const isDocumentPage = location.pathname === ROUTES.PROPERTY_INFO.DOCUMENT;
-  const isDocumentReviewPage = location.pathname === ROUTES.ADMIN.DOCUMENT_REVIEW;
-  const isPropertyInfoPage = isBasicInfoPage || isRoomsRatePlansPage || isPhotosVideosPage || 
-                             isAmenitiesRestaurantsPage || isPolicyRulesPage || isFinancePage || isDocumentPage;
+  const isDocumentReviewPage =
+    location.pathname === ROUTES.ADMIN.DOCUMENT_REVIEW;
+  const isPropertyInfoPage =
+    isBasicInfoPage ||
+    isRoomsRatePlansPage ||
+    isPhotosVideosPage ||
+    isAmenitiesRestaurantsPage ||
+    isPolicyRulesPage ||
+    isFinancePage ||
+    isDocumentPage;
   const isRoomInventoryPage = location.pathname === ROUTES.ROOM_INVENTORY.LIST;
   const isRatePlanPage = location.pathname === ROUTES.RATE_INVENTORY.LIST;
   const isInventoryPage = isRoomInventoryPage || isRatePlanPage;
-  
+
   // Check promotions pages
   const isPromotionsListPage = location.pathname === ROUTES.PROMOTIONS.LIST;
-  const isPromotionsCreatePage = location.pathname.startsWith(ROUTES.PROMOTIONS.CREATE);
-  const isPromotionsMyPromotionsPage = location.pathname === ROUTES.PROMOTIONS.MY_PROMOTIONS;
-  const isSpecialAudiencePage = location.pathname.startsWith("/promotions/special-audience");
-  const isPromotionsPage = isPromotionsListPage || isPromotionsCreatePage || isPromotionsMyPromotionsPage || isSpecialAudiencePage;
-  
+  const isPromotionsCreatePage = location.pathname.startsWith(
+    ROUTES.PROMOTIONS.CREATE,
+  );
+  const isPromotionsMyPromotionsPage =
+    location.pathname === ROUTES.PROMOTIONS.MY_PROMOTIONS;
+  const isSpecialAudiencePage = location.pathname.startsWith(
+    "/promotions/special-audience",
+  );
+  const isPromotionsPage =
+    isPromotionsListPage ||
+    isPromotionsCreatePage ||
+    isPromotionsMyPromotionsPage ||
+    isSpecialAudiencePage;
+
   // Check team page
   const isTeamPage = location.pathname === ROUTES.TEAM.LIST;
-  
+
   // Check if user is HOTEL_OWNER or SUPER_ADMIN
   const isHotelOwner = hasRole(user?.roles, ROLES.HOTEL_OWNER);
   const isSuperAdminUser = isSuperAdmin(user?.roles);
 
-  // Show hotel selector for HOTEL_OWNER on: basic info, room inventory, rate plan pages, promotions pages, and team page
+  // Check bookings page
+  const isBookingsPage = location.pathname === ROUTES.BOOKINGS.LIST;
+
+  // Show hotel selector for HOTEL_OWNER on: basic info, room inventory, rate plan pages, promotions pages, team page, and bookings page
   // Show for super admin on document review page and on inventory/rate plan pages
   const shouldShowHotelSelector =
     isPropertyInfoPage ||
@@ -69,6 +92,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     (isSuperAdminUser && isInventoryPage) ||
     isPromotionsPage ||
     isTeamPage ||
+    isBookingsPage ||
     isDocumentReviewPage;
   const selectedHotelId = searchParams.get("hotelId");
 
@@ -80,16 +104,19 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     getUserProfile();
   }, []);
 
-  const handleHotelChange = useCallback((hotelId: string) => {
-    setSearchParams({ hotelId });
-  }, [setSearchParams]);
+  const handleHotelChange = useCallback(
+    (hotelId: string) => {
+      setSearchParams({ hotelId });
+    },
+    [setSearchParams],
+  );
 
   const getInitials = (email: string) => {
     return email.charAt(0).toUpperCase();
   };
 
   const getUsername = () => {
-    return  user?.email.split("@")[0] || "User";
+    return user?.email.split("@")[0] || "User";
   };
 
   return (

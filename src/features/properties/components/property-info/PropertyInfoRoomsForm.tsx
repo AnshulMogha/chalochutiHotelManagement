@@ -242,12 +242,14 @@ export function PropertyInfoRoomsForm({
         }));
         return false;
       }
-      const { roomKey: newRoomKey } = await submitPropertyInfoRoomAmenitiesStep(
+      const data = await submitPropertyInfoRoomAmenitiesStep(
         roomDetailsState,
         hotelId,
         roomKey
       );
-      setRoomKey(newRoomKey);
+      if (data && data.roomKey) {
+        setRoomKey(data.roomKey);
+      }
       return true;
     },
   ];
@@ -256,6 +258,7 @@ export function PropertyInfoRoomsForm({
     const submitFn = stepSubmit[currentStep];
     if (submitFn) {
       const isValid = await submitFn();
+      
       if (!isValid) return;
     }
 

@@ -35,26 +35,26 @@ export const propertyService = {
   deattachMedia: async (
     mediaId: number,
     entityType: string,
-    entityId: string
+    entityId: string,
   ): Promise<null> => {
     const response = await apiClient.delete<ApiSuccessResponse<null>>(
-      API_ENDPOINTS.HOTELS.DEATTACH_MEDIA(mediaId, entityType, entityId)
+      API_ENDPOINTS.HOTELS.DEATTACH_MEDIA(mediaId, entityType, entityId),
     );
     return response.data;
   },
   assignMedia: async (
     data: AssignMediaRequest,
-    mediaId: number
+    mediaId: number,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTELS.ASSIGN_MEDIA(mediaId),
-      data
+      data,
     );
     return response.data;
   },
   getMedia: async (entityId: string): Promise<MediaResponse[]> => {
     const response = await apiClient.get<ApiSuccessResponse<MediaResponse[]>>(
-      API_ENDPOINTS.HOTELS.GET_MEDIA(entityId)
+      API_ENDPOINTS.HOTELS.GET_MEDIA(entityId),
     );
     return response.data;
   },
@@ -65,7 +65,7 @@ export const propertyService = {
     return response.data;
   },
   getLocationDetails: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<LocationInfoResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<LocationInfoResponse>
@@ -74,7 +74,7 @@ export const propertyService = {
   },
   getRoomDetails: async (
     hotelId: string,
-    roomKey: string
+    roomKey: string,
   ): Promise<GetRoomDetailsResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<GetRoomDetailsResponse>
@@ -82,7 +82,7 @@ export const propertyService = {
     return response.data;
   },
   getSelectedHotelAmenities: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<GetSelectedHotelAmenitiesResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<GetSelectedHotelAmenitiesResponse>
@@ -97,12 +97,12 @@ export const propertyService = {
   },
   getAvailableRoomAmenities: async (): Promise<Amenity[]> => {
     const response = await apiClient.get<ApiSuccessResponse<Amenity[]>>(
-      API_ENDPOINTS.HOTELS.GET_AVAILABLE_ROOM_AMENITIES
+      API_ENDPOINTS.HOTELS.GET_AVAILABLE_ROOM_AMENITIES,
     );
     return response.data;
   },
   uploadMedia: async (
-    data: UploadMediaRequest
+    data: UploadMediaRequest,
   ): Promise<UploadMediaResponse> => {
     const formData = new FormData();
 
@@ -120,11 +120,11 @@ export const propertyService = {
   },
   uploadHotelMedia: async (
     hotelId: string,
-    files: File[]
+    files: File[],
   ): Promise<UploadMediaResponse[]> => {
     // Upload all files in a single API call
     const formData = new FormData();
-    
+
     // Append all files with the parameter name "files"
     files.forEach((file) => {
       formData.append("files", file);
@@ -143,17 +143,17 @@ export const propertyService = {
   assignMediaTag: async (mediaId: number, tags: MediaTag[]): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTELS.ASSIGN_MEDIA_TAG(mediaId.toString()),
-      { tags }
+      { tags },
     );
     return response.data;
   },
   assignMediaTagToHotel: async (
     mediaId: number,
-    tags: MediaTag[]
+    tags: MediaTag[],
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTELS.ASSIGN_MEDIA_TAG(mediaId.toString()),
-      { tags }
+      { tags },
     );
     return response.data;
   },
@@ -164,7 +164,7 @@ export const propertyService = {
     return response.data;
   },
   getAllBasicInfo: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<GetAllBasicInfoResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<GetAllBasicInfoResponse>
@@ -172,7 +172,7 @@ export const propertyService = {
     return response.data;
   },
   getOnboardingStatus: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<GetOnboardingStatusResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<GetOnboardingStatusResponse>
@@ -181,50 +181,50 @@ export const propertyService = {
   },
   submitBasicInfo: async (
     data: SubmitBasicInfoRequest,
-    hotelId: string
+    hotelId: string,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTELS.SUBMIT_BASIC_INFO(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   submitLocationInfo: async (
     data: SubmitLocationInfoRequest,
-    hotelId: string
+    hotelId: string,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTELS.SUBMIT_LOCATION_INFO(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   getAvailableHotelAmenities: async (): Promise<Amenity[]> => {
     const response = await apiClient.get<ApiSuccessResponse<Amenity[]>>(
-      API_ENDPOINTS.HOTELS.GET_AVAILABLE_HOTEL_AMENITIES
+      API_ENDPOINTS.HOTELS.GET_AVAILABLE_HOTEL_AMENITIES,
     );
     return response.data;
   },
   mediaOnboarding: async (draft: boolean, hotelId: string): Promise<null> => {
     await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTELS.MEDIA_ONBOARDING(hotelId),
-      { draft }
+      { draft },
     );
     return null;
   },
   submitAmenitiesInfo: async (
     data: SubmitAmenitiesInfoRequest,
-    hotelId: string
+    hotelId: string,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTELS.SUBMIT_AMENITIES_INFO(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   submitRoomDetails: async (
     data: SubmitRoomDetailsRequest,
-    hotelId: string
+    hotelId: string,
   ): Promise<{ roomKey: string }> => {
     const response = await apiClient.post<
       ApiSuccessResponse<{ roomKey: string }>
@@ -234,33 +234,35 @@ export const propertyService = {
   },
   submitPolicies: async (
     data: SubmitPoliciesRequest,
-    hotelId: string
+    hotelId: string,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTELS.SUBMIT_POLICIES(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   submitFinanceAndLegal: async (
     data: SubmitFinanceAndLegalRequest,
-    hotelId: string
+    hotelId: string,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTELS.SUBMIT_FINANCE_AND_LEGAL(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   getFinanceAndLegal: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<GetFinanceAndLegalResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<GetFinanceAndLegalResponse>
     >(API_ENDPOINTS.HOTELS.GET_FINANCE_AND_LEGAL(hotelId));
     return response.data;
   },
-  getOnboardingDocuments: async (hotelId: string): Promise<OnboardingDocument[]> => {
+  getOnboardingDocuments: async (
+    hotelId: string,
+  ): Promise<OnboardingDocument[]> => {
     const response = await apiClient.get<
       ApiSuccessResponse<OnboardingDocument[]>
     >(API_ENDPOINTS.HOTELS.GET_ONBOARDING_DOCUMENTS(hotelId));
@@ -268,22 +270,20 @@ export const propertyService = {
   },
   uploadOnboardingDocument: async (
     hotelId: string,
-    data: UploadOnboardingDocumentRequest
+    data: UploadOnboardingDocumentRequest,
   ): Promise<OnboardingDocument> => {
     const formData = new FormData();
     formData.append("file", data.file);
     formData.append("docType", data.docType);
     formData.append("draft", String(data.draft));
 
-    const response = await apiClient.post<ApiSuccessResponse<OnboardingDocument>>(
-      API_ENDPOINTS.HOTELS.UPLOAD_ONBOARDING_DOCUMENT(hotelId),
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
+    const response = await apiClient.post<
+      ApiSuccessResponse<OnboardingDocument>
+    >(API_ENDPOINTS.HOTELS.UPLOAD_ONBOARDING_DOCUMENT(hotelId), formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
     return response.data;
   },
 };

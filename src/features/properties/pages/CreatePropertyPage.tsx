@@ -15,6 +15,7 @@ import { adminService } from "@/features/admin/services/adminService";
 import { ApproveRejectModal } from "@/features/admin/components/ApproveRejectModal";
 import { Button } from "@/components/ui";
 import { CheckCircle, XCircle } from "lucide-react";
+import { Toast, useToast } from "@/components/ui/Toast";
 
 import {
   submitBasicInfoStep,
@@ -33,6 +34,7 @@ import {
 } from "../submitter/stepValidators";
 
 import { propertyService } from "../services/propertyService";
+import type { ApiFailureResponse } from "@/services/api/types/api";
 
 export default function CreatePropertyPage() {
   return (
@@ -74,6 +76,7 @@ function Container() {
   const [isProcessing, setIsProcessing] = useState(false);
   const { formDataState } = useFormContext();
   const { user } = useAuth();
+  const { toast, showToast, hideToast } = useToast();
 
   // Check if user is super admin - if so, hide navigation buttons
   const isSuperAdmin = user?.roles?.includes("SUPER_ADMIN") ?? false;
@@ -206,6 +209,7 @@ function Container() {
   const handlePrev = () => {
     navigateWithParams(stepRoutes[currentStep - 1].id);
   };
+
   const handleSubmitFinanceAndLegal = async () => {
     const stepErrors = financeAndLegalValidator(
       formDataState.financeAndLegalInfo
@@ -216,10 +220,20 @@ function Container() {
       return;
     }
 
-    await submitFinanceAndLegalStep(formDataState.financeAndLegalInfo, {
-      hotelId: draftId!,
-    });
-    navigate("/", { replace: true });
+    try {
+      await submitFinanceAndLegalStep(formDataState.financeAndLegalInfo, {
+        hotelId: draftId!,
+      });
+      navigate("/", { replace: true });
+    } catch (error: any) {
+      const apiError = error as ApiFailureResponse<Record<string, string>>;
+      const data = apiError?.data || {};
+      const message =
+        data.propertyName ||
+        apiError?.message ||
+        "Failed to submit finance and legal information. Please try again.";
+      showToast(message, "error");
+    }
   };
 
   const handleApprove = async (remarks: string) => {
@@ -254,6 +268,12 @@ function Container() {
 
   return (
     <>
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
       {isSuperAdmin && draftId && (
         <div className="mb-6 flex justify-end items-center gap-3">
           <Button

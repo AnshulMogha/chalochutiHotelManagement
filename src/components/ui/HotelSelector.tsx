@@ -29,38 +29,67 @@ export function HotelSelector({
 }: HotelSelectorProps) {
   const { user } = useAuth();
   const isHotelOwnerUser = isHotelOwner(user?.roles);
-  const [hotels, setHotels] = useState<(HotelListResponse | ApprovedHotelItem)[]>([]);
+  const [hotels, setHotels] = useState<
+    (HotelListResponse | ApprovedHotelItem)[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const isBasicInfoPage = location.pathname === ROUTES.PROPERTY_INFO.BASIC_INFO;
-  const isRoomsRatePlansPage = location.pathname === ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS;
-  const isPhotosVideosPage = location.pathname === ROUTES.PROPERTY_INFO.PHOTOS_VIDEOS;
-  const isAmenitiesRestaurantsPage = location.pathname === ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS;
-  const isPolicyRulesPage = location.pathname === ROUTES.PROPERTY_INFO.POLICY_RULES;
+  const isRoomsRatePlansPage =
+    location.pathname === ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS;
+  const isPhotosVideosPage =
+    location.pathname === ROUTES.PROPERTY_INFO.PHOTOS_VIDEOS;
+  const isAmenitiesRestaurantsPage =
+    location.pathname === ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS;
+  const isPolicyRulesPage =
+    location.pathname === ROUTES.PROPERTY_INFO.POLICY_RULES;
   const isFinancePage = location.pathname === ROUTES.PROPERTY_INFO.FINANCE;
   const isDocumentPage = location.pathname === ROUTES.PROPERTY_INFO.DOCUMENT;
-  const isDocumentReviewPage = location.pathname === ROUTES.ADMIN.DOCUMENT_REVIEW;
-  const isPropertyInfoPage = isBasicInfoPage || isRoomsRatePlansPage || isPhotosVideosPage || 
-                             isAmenitiesRestaurantsPage || isPolicyRulesPage || isFinancePage || isDocumentPage;
-  
+  const isDocumentReviewPage =
+    location.pathname === ROUTES.ADMIN.DOCUMENT_REVIEW;
+  const isPropertyInfoPage =
+    isBasicInfoPage ||
+    isRoomsRatePlansPage ||
+    isPhotosVideosPage ||
+    isAmenitiesRestaurantsPage ||
+    isPolicyRulesPage ||
+    isFinancePage ||
+    isDocumentPage;
+
   // Check inventory/rate-plans pages
-  const isInventoryRoomTypesPage = location.pathname === ROUTES.ROOM_INVENTORY.LIST;
-  const isInventoryRatePlansPage = location.pathname === ROUTES.RATE_INVENTORY.LIST;
+  const isInventoryRoomTypesPage =
+    location.pathname === ROUTES.ROOM_INVENTORY.LIST;
+  const isInventoryRatePlansPage =
+    location.pathname === ROUTES.RATE_INVENTORY.LIST;
   const isInventoryPage = isInventoryRoomTypesPage || isInventoryRatePlansPage;
-  
+
   // Check promotions pages
   const isPromotionsListPage = location.pathname === ROUTES.PROMOTIONS.LIST;
-  const isPromotionsCreatePage = location.pathname.startsWith(ROUTES.PROMOTIONS.CREATE);
-  const isPromotionsMyPromotionsPage = location.pathname === ROUTES.PROMOTIONS.MY_PROMOTIONS;
-  const isPromotionsPage = isPromotionsListPage || isPromotionsCreatePage || isPromotionsMyPromotionsPage;
-  
+  const isPromotionsCreatePage = location.pathname.startsWith(
+    ROUTES.PROMOTIONS.CREATE,
+  );
+  const isPromotionsMyPromotionsPage =
+    location.pathname === ROUTES.PROMOTIONS.MY_PROMOTIONS;
+  const isPromotionsPage =
+    isPromotionsListPage ||
+    isPromotionsCreatePage ||
+    isPromotionsMyPromotionsPage;
+
   // Check team page
   const isTeamPage = location.pathname === ROUTES.TEAM.LIST;
-  
-  // Combined check for pages that need hotel filtering (property info + inventory + promotions + document review + team)
-  const isHotelFilterPage = isPropertyInfoPage || isInventoryPage || isPromotionsPage || isDocumentReviewPage || isTeamPage;
-  
+  // Check bookings page
+  const isBookingsPage = location.pathname === ROUTES.BOOKINGS.LIST;
+
+  // Combined check for pages that need hotel filtering (property info + inventory + promotions + document review + team + bookings)
+  const isHotelFilterPage =
+    isPropertyInfoPage ||
+    isInventoryPage ||
+    isPromotionsPage ||
+    isDocumentReviewPage ||
+    isTeamPage ||
+    isBookingsPage;
+
   const hasAutoSelectedRef = useRef(false);
 
   useEffect(() => {
@@ -68,7 +97,7 @@ export function HotelSelector({
       try {
         setIsLoading(true);
         let data: (HotelListResponse | ApprovedHotelItem)[] = [];
-        
+
         // For hotel owner on property info/promotions pages, use getAllHotels() which returns ALL hotels (LIVE, INPROCESS, etc.)
         // For super admin on property info/promotions pages, use approved hotels API
         if (isHotelFilterPage && !isHotelOwnerUser) {
@@ -90,21 +119,26 @@ export function HotelSelector({
             data = allHotels;
           }
         }
-        
+
         // Filter the final list to show only LIVE hotels
         data = data.filter((hotel) => {
           // Check if hotel has status field and it's LIVE
-          if ('status' in hotel && hotel.status) {
+          if ("status" in hotel && hotel.status) {
             return hotel.status === "LIVE";
           }
           // For approved hotels (which don't have status field but are LIVE by definition), include them
           return true;
         });
-        
+
         setHotels(data);
         // Auto-select first hotel if none selected (but not on document review page)
         // Always auto-select if no hotelId is in URL params (selectedHotelId is null)
-        if (!selectedHotelId && data.length > 0 && data[0].hotelId && !isDocumentReviewPage) {
+        if (
+          !selectedHotelId &&
+          data.length > 0 &&
+          data[0].hotelId &&
+          !isDocumentReviewPage
+        ) {
           hasAutoSelectedRef.current = true;
           onHotelChange(data[0].hotelId);
         }
@@ -118,7 +152,7 @@ export function HotelSelector({
     fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHotelFilterPage, isHotelOwnerUser, selectedHotelId]);
-  
+
   // Reset auto-select ref when selectedHotelId is cleared (allows re-auto-selection)
   useEffect(() => {
     if (!selectedHotelId) {
@@ -149,10 +183,7 @@ export function HotelSelector({
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className={`gap-2 ${className}`}
-        >
+        <Button variant="outline" className={`gap-2 ${className}`}>
           <Building2 className="w-4 h-4" />
           <span className="max-w-[200px] truncate">
             {selectedHotel?.hotelName || "Select Hotel"}
@@ -160,7 +191,10 @@ export function HotelSelector({
           <ChevronDown className="w-4 h-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64 max-h-[300px] overflow-y-auto">
+      <DropdownMenuContent
+        align="start"
+        className="w-64 max-h-[300px] overflow-y-auto"
+      >
         {hotels.map((hotel) => (
           <DropdownMenuItem
             key={hotel.hotelId}
@@ -170,13 +204,17 @@ export function HotelSelector({
             }}
             className={cn(
               "flex items-center gap-2 cursor-pointer",
-              selectedHotelId === hotel.hotelId && "bg-[#2f3d95]/10"
+              selectedHotelId === hotel.hotelId && "bg-[#2f3d95]/10",
             )}
           >
             <Building2 className="w-4 h-4 text-[#2f3d95]" />
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm truncate">{hotel.hotelName}</div>
-              <div className="text-xs text-gray-500 truncate">{hotel.hotelCode || ""}</div>
+              <div className="font-medium text-sm truncate">
+                {hotel.hotelName}
+              </div>
+              <div className="text-xs text-gray-500 truncate">
+                {hotel.hotelCode || ""}
+              </div>
             </div>
           </DropdownMenuItem>
         ))}
@@ -188,4 +226,3 @@ export function HotelSelector({
 function cn(...classes: (string | undefined)[]): string {
   return classes.filter(Boolean).join(" ");
 }
-

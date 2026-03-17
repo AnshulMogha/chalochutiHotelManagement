@@ -116,12 +116,16 @@ export const API_ENDPOINTS = {
     GET_SERVICE_FEE_BY_ID: (id: string | number) => `/admin/service-fee/${id}`,
     // Document Review APIs
     GET_PENDING_DOCUMENTS: "/admin/hotel/finance/documents/pending",
-    GET_HOTEL_DOCUMENTS: (hotelId: string) => `/admin/hotel/finance/${hotelId}/documents`,
-    APPROVE_DOCUMENT: (docId: string | number) => `/admin/hotel/finance/documents/${docId}/approve`,
-    REJECT_DOCUMENT: (docId: string | number) => `/admin/hotel/finance/documents/${docId}/reject`,
+    GET_HOTEL_DOCUMENTS: (hotelId: string) =>
+      `/admin/hotel/finance/${hotelId}/documents`,
+    APPROVE_DOCUMENT: (docId: string | number) =>
+      `/admin/hotel/finance/documents/${docId}/approve`,
+    REJECT_DOCUMENT: (docId: string | number) =>
+      `/admin/hotel/finance/documents/${docId}/reject`,
     // Travel agent onboarding
     TRAVEL_AGENT_ONBOARDING_LIST: "travel-agent/onboarding",
-    TRAVEL_AGENT_ONBOARDING_BY_ID: (id: string | number) => `travel-agent/onboarding/${id}`,
+    TRAVEL_AGENT_ONBOARDING_BY_ID: (id: string | number) =>
+      `travel-agent/onboarding/${id}`,
     // Admin-only actions include /admin after /api/v1
     TRAVEL_AGENT_ONBOARDING_APPROVE: (id: string | number) =>
       `admin/travel-agent/onboarding/${id}/approve`,
@@ -139,7 +143,8 @@ export const API_ENDPOINTS = {
     ASSIGN_MEDIA: (mediaId: number) => `/media/${mediaId}/attach`,
     GET_MEDIA: (entityId: string) => `/media/${entityId}`,
     UPLOAD_MEDIA: "/media/upload",
-    UPLOAD_HOTEL_MEDIA_ONBOARDING: (hotelId: string) => `/media/hotel/${hotelId}/upload`,
+    UPLOAD_HOTEL_MEDIA_ONBOARDING: (hotelId: string) =>
+      `/media/hotel/${hotelId}/upload`,
     ASSIGN_MEDIA_TAG: (mediaId: string) => `/media/${mediaId}/tags`,
     GET_ALL_HOTELS: "/onboarding/hotels",
     GET_LOCATION_DETAILS: (hotelId: string) =>
@@ -188,48 +193,76 @@ export const API_ENDPOINTS = {
     GET_HOTEL_ADDRESS: (hotelId: string) => `/hotel/${hotelId}/address`,
     GET_HOTEL_ROOMS: (hotelId: string) => `/hotel/${hotelId}/rooms`,
     CREATE_OR_UPDATE_ROOM: (hotelId: string) => `/hotel/${hotelId}/rooms`,
-    GET_ROOM_DETAILS: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}`,
-    UPDATE_ROOM_ACTIVE_STATUS: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/active-status`,
-    GET_ROOM_RATE_PLANS: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans`,
-    GET_RATE_PLAN_EDIT: (hotelId: string, roomId: string, ratePlanId: number) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans/${ratePlanId}/edit`,
-    CREATE_RATE_PLAN: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans`,
-    UPDATE_RATE_PLAN: (hotelId: string, roomId: string, ratePlanId: number) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans/${ratePlanId}`,
-    UPDATE_RATE_PLAN_ACTIVE_STATUS: (hotelId: string, roomId: string, ratePlanId: number) => `/hotel/${hotelId}/rooms/${roomId}/rate-plans/${ratePlanId}/active-status`,
+    GET_ROOM_DETAILS: (hotelId: string, roomId: string) =>
+      `/hotel/${hotelId}/rooms/${roomId}`,
+    UPDATE_ROOM_ACTIVE_STATUS: (hotelId: string, roomId: string) =>
+      `/hotel/${hotelId}/rooms/${roomId}/active-status`,
+    GET_ROOM_RATE_PLANS: (hotelId: string, roomId: string) =>
+      `/hotel/${hotelId}/rooms/${roomId}/rate-plans`,
+    GET_RATE_PLAN_EDIT: (hotelId: string, roomId: string, ratePlanId: number) =>
+      `/hotel/${hotelId}/rooms/${roomId}/rate-plans/${ratePlanId}/edit`,
+    CREATE_RATE_PLAN: (hotelId: string, roomId: string) =>
+      `/hotel/${hotelId}/rooms/${roomId}/rate-plans`,
+    UPDATE_RATE_PLAN: (hotelId: string, roomId: string, ratePlanId: number) =>
+      `/hotel/${hotelId}/rooms/${roomId}/rate-plans/${ratePlanId}`,
+    UPDATE_RATE_PLAN_ACTIVE_STATUS: (
+      hotelId: string,
+      roomId: string,
+      ratePlanId: number,
+    ) =>
+      `/hotel/${hotelId}/rooms/${roomId}/rate-plans/${ratePlanId}/active-status`,
     GET_HOTEL_MEDIA: (hotelId: string) => `/hotel/${hotelId}/media`,
-    GET_ROOM_MEDIA: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/media`,
+    GET_ROOM_MEDIA: (hotelId: string, roomId: string) =>
+      `/hotel/${hotelId}/rooms/${roomId}/media`,
     UPLOAD_HOTEL_MEDIA: (hotelId: string) => `/hotel/${hotelId}/media/upload`,
-    UPLOAD_ROOM_MEDIA: (hotelId: string, roomKey: string) => `/hotel/${hotelId}/rooms/${roomKey}/media/upload`,
-    ASSIGN_MEDIA_TAG: (hotelId: string, imageId: number) => `/hotel/${hotelId}/media/${imageId}/tag`,
-    ASSIGN_MEDIA_TAG_BULK: (hotelId: string) => `/hotel/${hotelId}/media/tag-bulk`,
-    ASSIGN_MEDIA_TO_ROOM: (hotelId: string, imageId: number) => `/hotel/${hotelId}/media/${imageId}/assign-room`,
-    ASSIGN_MEDIA_TO_HOTEL: (hotelId: string, imageId: number) => `/hotel/${hotelId}/media/${imageId}/assign-hotel`,
-    DETACH_MEDIA: (hotelId: string, imageId: number) => `/hotel/${hotelId}/media/${imageId}/detach`,
+    UPLOAD_ROOM_MEDIA: (hotelId: string, roomKey: string) =>
+      `/hotel/${hotelId}/rooms/${roomKey}/media/upload`,
+    ASSIGN_MEDIA_TAG: (hotelId: string, imageId: number) =>
+      `/hotel/${hotelId}/media/${imageId}/tag`,
+    ASSIGN_MEDIA_TAG_BULK: (hotelId: string) =>
+      `/hotel/${hotelId}/media/tag-bulk`,
+    ASSIGN_MEDIA_TO_ROOM: (hotelId: string, imageId: number) =>
+      `/hotel/${hotelId}/media/${imageId}/assign-room`,
+    ASSIGN_MEDIA_TO_HOTEL: (hotelId: string, imageId: number) =>
+      `/hotel/${hotelId}/media/${imageId}/assign-hotel`,
+    DETACH_MEDIA: (hotelId: string, imageId: number) =>
+      `/hotel/${hotelId}/media/${imageId}/detach`,
     REORDER_MEDIA: (hotelId: string) => `/hotel/${hotelId}/media/reorder`,
-    SET_MEDIA_COVER: (hotelId: string, mediaId: number) => `/hotel/${hotelId}/media/${mediaId}/cover`,
+    SET_MEDIA_COVER: (hotelId: string, mediaId: number) =>
+      `/hotel/${hotelId}/media/${mediaId}/cover`,
     GET_HOTEL_FINANCE: (hotelId: string) => `/hotel/${hotelId}/finance`,
     UPDATE_HOTEL_FINANCE: (hotelId: string) => `/hotel/${hotelId}/finance`,
-    GET_HOTEL_FOOD_SERVICES: (hotelId: string) => `/hotel/${hotelId}/food-services`,
-    UPDATE_HOTEL_FOOD_SERVICES: (hotelId: string) => `/hotel/${hotelId}/food-services`,
+    GET_HOTEL_FOOD_SERVICES: (hotelId: string) =>
+      `/hotel/${hotelId}/food-services`,
+    UPDATE_HOTEL_FOOD_SERVICES: (hotelId: string) =>
+      `/hotel/${hotelId}/food-services`,
     GET_HOTEL_AMENITIES: (hotelId: string) => `/hotel/${hotelId}/amenities`,
     UPDATE_HOTEL_AMENITIES: (hotelId: string) => `/hotel/${hotelId}/amenities`,
-    GET_ROOM_AMENITIES: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/amenities`,
-    UPDATE_ROOM_AMENITIES: (hotelId: string, roomId: string) => `/hotel/${hotelId}/rooms/${roomId}/amenities`,
+    GET_ROOM_AMENITIES: (hotelId: string, roomId: string) =>
+      `/hotel/${hotelId}/rooms/${roomId}/amenities`,
+    UPDATE_ROOM_AMENITIES: (hotelId: string, roomId: string) =>
+      `/hotel/${hotelId}/rooms/${roomId}/amenities`,
     HOTEL_POLICIES: (hotelId: string) => `/hotel/${hotelId}/policies`,
-    CANCELLATION_POLICIES: (hotelId: string) => `/hotel/${hotelId}/cancellation-policies`,
+    CANCELLATION_POLICIES: (hotelId: string) =>
+      `/hotel/${hotelId}/cancellation-policies`,
     CANCELLATION_POLICY_DETAIL: (hotelId: string, policyId: number | string) =>
       `/hotel/${hotelId}/cancellation-policies/${policyId}`,
     CHILD_AGE_POLICY: (hotelId: string) => `/hotel/${hotelId}/child-age-policy`,
     PAYMENT_RULES: (hotelId: string) => `/hotel/${hotelId}/payment-rules`,
     CREATE_PROMOTION: (hotelId: string) => `/hotel/${hotelId}/promotions`,
     GET_PROMOTIONS: (hotelId: string) => `/hotel/${hotelId}/promotions`,
-    GET_PROMOTION_EDIT: (hotelId: string, promotionId: string) => `/hotel/${hotelId}/promotions/${promotionId}/edit`,
-    UPDATE_PROMOTION_STATUS: (hotelId: string, promotionId: string) => `/hotel/${hotelId}/promotions/${promotionId}/status`,
+    GET_PROMOTION_EDIT: (hotelId: string, promotionId: string) =>
+      `/hotel/${hotelId}/promotions/${promotionId}/edit`,
+    UPDATE_PROMOTION_STATUS: (hotelId: string, promotionId: string) =>
+      `/hotel/${hotelId}/promotions/${promotionId}/status`,
     GET_DOCUMENTS: (hotelId: string) => `/hotel/${hotelId}/documents`,
     UPLOAD_DOCUMENT: (hotelId: string) => `/hotel/${hotelId}/document/upload`,
     GET_TEAM_MEMBERS: (hotelId: string) => `/hotel/${hotelId}/users`,
     CREATE_TEAM_MEMBER: (hotelId: string) => `/hotel/${hotelId}/users`,
-    ASSIGN_HOTEL_TO_USER: (hotelId: string, userId: string | number) => `/hotel/${hotelId}/users/${userId}`,
-    ASSIGN_PERMISSIONS: (accessId: string | number) => `/hotel-access/${accessId}/permissions`,
+    ASSIGN_HOTEL_TO_USER: (hotelId: string, userId: string | number) =>
+      `/hotel/${hotelId}/users/${userId}`,
+    ASSIGN_PERMISSIONS: (accessId: string | number) =>
+      `/hotel-access/${accessId}/permissions`,
     REVOKE_ACCESS: (accessId: string | number) => `/hotel-access/${accessId}`,
   },
   INVENTORY: {
@@ -240,8 +273,18 @@ export const API_ENDPOINTS = {
     UPDATE_BULK_RESTRICTIONS: (hotelId: string) =>
       `/hotel/inventory/${hotelId}/restrictions/bulk`,
   },
+  REPORTS: {
+    BOOKING_LIST: "/reports/booking-list",
+    BOOKING_DETAIL: (id: string) => `/reports/booking-list/${id}`,
+    BOOKING_VOUCHER: (id: string) => `/reports/booking-list/${id}/voucher`,
+  },
   RATES: {
-    GET_CALENDAR: (hotelId: string, fromDate: string, toDate: string, customerType: string = "RETAIL") =>
+    GET_CALENDAR: (
+      hotelId: string,
+      fromDate: string,
+      toDate: string,
+      customerType: string = "RETAIL",
+    ) =>
       `/hotel/${hotelId}/rates/calendar?from=${fromDate}&to=${toDate}&customerType=${customerType}`,
     UPDATE_SINGLE: "/hotel/rates/single",
     UPDATE_BULK: "/hotel/rates/bulk",
