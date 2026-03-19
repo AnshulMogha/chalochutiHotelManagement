@@ -27,7 +27,7 @@ const specialAudienceTypes: SpecialAudienceType[] = [
   {
     id: "mypartner",
     title: "MyPartner",
-    description: "We're among India's largest agent networks, with 40,000+ agents across 550+ cities. Offer discounts to expand your reach among customers.",
+    description: "",
     icon: <Building2 className="w-6 h-6" />,
     iconColor: "text-blue-600",
     iconBg: "bg-blue-50",
@@ -138,9 +138,11 @@ export default function SpecialAudiencePromotionsPage() {
                           <Info className="w-4 h-4" />
                         </button>
                       </div>
-                      <p className="text-sm text-gray-600 leading-relaxed">
-                        {audience.description}
-                      </p>
+                      {audience.description && (
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          {audience.description}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-4">

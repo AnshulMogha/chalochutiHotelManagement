@@ -35,16 +35,28 @@ export default function EditPromotionPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [extraLoggedDiscounts, setExtraLoggedDiscounts] = useState<number[]>([]);
+  const [extraLoggedDiscounts, setExtraLoggedDiscounts] = useState<number[]>(
+    [],
+  );
   const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
   const [wantBlackoutDates, setWantBlackoutDates] = useState<boolean>(false);
   const [editData, setEditData] = useState<PromotionEditResponse | null>(null);
-  const [status, setStatus] = useState<"DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED">("DRAFT");
-  const [applyAllRoomsAndRateplans, setApplyAllRoomsAndRateplans] = useState<"yes" | "no">("yes");
+  const [status, setStatus] = useState<
+    "DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED"
+  >("DRAFT");
+  const [applyAllRoomsAndRateplans, setApplyAllRoomsAndRateplans] = useState<
+    "yes" | "no"
+  >("yes");
   const [rooms, setRooms] = useState<HotelRoom[]>([]);
-  const [ratePlansData, setRatePlansData] = useState<Record<string, RatePlan[]>>({});
-  const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(new Set());
-  const [selectedRatePlanIds, setSelectedRatePlanIds] = useState<Set<string>>(new Set());
+  const [ratePlansData, setRatePlansData] = useState<
+    Record<string, RatePlan[]>
+  >({});
+  const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [selectedRatePlanIds, setSelectedRatePlanIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [loadingRooms, setLoadingRooms] = useState(false);
   const fetchingRoomsRef = useRef(false);
 
@@ -101,18 +113,27 @@ export default function EditPromotionPage() {
       try {
         const data = await adminService.getHotelAdminRooms(hotelId);
         setRooms(data.rooms || []);
-        
+
         // Fetch rate plans for each room
         const ratePlansPromises = (data.rooms || []).map(async (room) => {
           try {
-            const ratePlansData = await adminService.getRoomRatePlans(hotelId, room.roomId);
-            return { roomId: room.roomId, ratePlans: ratePlansData.ratePlans || [] };
+            const ratePlansData = await adminService.getRoomRatePlans(
+              hotelId,
+              room.roomId,
+            );
+            return {
+              roomId: room.roomId,
+              ratePlans: ratePlansData.ratePlans || [],
+            };
           } catch (error) {
-            console.error(`Error fetching rate plans for room ${room.roomId}:`, error);
+            console.error(
+              `Error fetching rate plans for room ${room.roomId}:`,
+              error,
+            );
             return { roomId: room.roomId, ratePlans: [] };
           }
         });
-        
+
         const ratePlansResults = await Promise.all(ratePlansPromises);
         const ratePlansMap: Record<string, RatePlan[]> = {};
         ratePlansResults.forEach(({ roomId, ratePlans }) => {
@@ -139,7 +160,10 @@ export default function EditPromotionPage() {
       return;
     }
     if (!hotelId) {
-      showToast("Hotel ID is required. Please select a hotel from the dropdown above.", "error");
+      showToast(
+        "Hotel ID is required. Please select a hotel from the dropdown above.",
+        "error",
+      );
       return;
     }
     loadPromotionData();
@@ -156,11 +180,11 @@ export default function EditPromotionPage() {
       console.log("Loading promotion data:", { hotelId, promotionId });
       const data = await adminService.getPromotionEdit(hotelId, promotionId);
       console.log("Promotion data loaded:", data);
-      
+
       if (!data || !data.data || !data.data.promotion) {
         throw new Error("Invalid promotion data structure");
       }
-      
+
       setEditData(data);
       const promo = data.data.promotion;
 
@@ -169,14 +193,21 @@ export default function EditPromotionPage() {
       let applicableDateType = promo.applicableDateType;
       if (applicableDateType === "STAY_ONLY") {
         applicableDateType = "STAY";
-      } else if (applicableDateType !== "STAY" && applicableDateType !== "BOOKING_AND_STAY") {
+      } else if (
+        applicableDateType !== "STAY" &&
+        applicableDateType !== "BOOKING_AND_STAY"
+      ) {
         applicableDateType = "BOOKING_AND_STAY"; // Default
       }
-      
+
       // Load blackout dates from edit data
       // Set wantBlackoutDates based on blackoutEnabled flag from API
       if (promo.blackoutEnabled) {
-        if (data.data.blackoutDates && Array.isArray(data.data.blackoutDates) && data.data.blackoutDates.length > 0) {
+        if (
+          data.data.blackoutDates &&
+          Array.isArray(data.data.blackoutDates) &&
+          data.data.blackoutDates.length > 0
+        ) {
           setBlackoutDates(data.data.blackoutDates);
         } else {
           setBlackoutDates([]);
@@ -209,15 +240,15 @@ export default function EditPromotionPage() {
         contractsJson: Array.isArray(promo.contractsJson)
           ? promo.contractsJson
           : typeof promo.contractsJson === "string"
-          ? JSON.parse(promo.contractsJson)
-          : [],
+            ? JSON.parse(promo.contractsJson)
+            : [],
         promotionName: promo.promotionName,
         bookablePeriod: promo.minDaysBeforeCheckin
           ? promo.minDaysBeforeCheckin === 0
             ? "SAME_DAY"
             : promo.minDaysBeforeCheckin === 1
-            ? "ONE_DAY"
-            : "TWO_DAYS"
+              ? "ONE_DAY"
+              : "TWO_DAYS"
           : "TWO_DAYS",
         advanceDays: promo.minDaysBeforeCheckin || 5,
         offerFreeNights: promo.offerMode === "FREE_NIGHT",
@@ -234,7 +265,10 @@ export default function EditPromotionPage() {
       }
 
       // Set status from API response
-      if (promo.status && ["DRAFT", "ACTIVE", "PAUSED", "EXPIRED"].includes(promo.status)) {
+      if (
+        promo.status &&
+        ["DRAFT", "ACTIVE", "PAUSED", "EXPIRED"].includes(promo.status)
+      ) {
         setStatus(promo.status as "DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED");
       }
 
@@ -243,11 +277,14 @@ export default function EditPromotionPage() {
         setSelectedRoomIds(new Set(data.data.roomIds));
       }
       if (data.data.rateplanIds && data.data.rateplanIds.length > 0) {
-        setSelectedRatePlanIds(new Set(data.data.rateplanIds.map(id => id.toString())));
+        setSelectedRatePlanIds(
+          new Set(data.data.rateplanIds.map((id) => id.toString())),
+        );
       }
     } catch (error: any) {
       console.error("Error loading promotion:", error);
-      const errorMessage = error?.response?.data?.message || "Failed to load promotion";
+      const errorMessage =
+        error?.response?.data?.message || "Failed to load promotion";
       showToast(errorMessage, "error");
       // Don't redirect immediately - let user see the error
       // navigate("/promotions");
@@ -256,7 +293,10 @@ export default function EditPromotionPage() {
     }
   };
 
-  const handleInputChange = (field: keyof CreatePromotionPayload, value: any) => {
+  const handleInputChange = (
+    field: keyof CreatePromotionPayload,
+    value: any,
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -294,24 +334,52 @@ export default function EditPromotionPage() {
         offerType: formData.offerType,
         discountAllUsers: formData.discountAllUsers,
         discountLoggedUsers: formData.discountLoggedUsers,
-        extraLoggedDiscount: extraLoggedDiscounts.reduce((sum, val) => sum + val, 0),
+        extraLoggedDiscount: extraLoggedDiscounts.reduce(
+          (sum, val) => sum + val,
+          0,
+        ),
         applicableDateType: formData.applicableDateType,
         stayStartDate: formData.stayStartDate || undefined,
-        stayEndDate: formData.noEndDateStay ? undefined : (formData.stayEndDate || undefined),
-        bookingStartDate: formData.applicableDateType === "STAY" ? undefined : (formData.noEndDateBooking ? undefined : (formData.bookingStartDate || undefined)),
-        bookingEndDate: formData.applicableDateType === "STAY" ? undefined : (formData.noEndDateBooking ? undefined : (formData.bookingEndDate || undefined)),
+        stayEndDate: formData.noEndDateStay
+          ? undefined
+          : formData.stayEndDate || undefined,
+        bookingStartDate:
+          formData.applicableDateType === "STAY"
+            ? undefined
+            : formData.noEndDateBooking
+              ? undefined
+              : formData.bookingStartDate || undefined,
+        bookingEndDate:
+          formData.applicableDateType === "STAY"
+            ? undefined
+            : formData.noEndDateBooking
+              ? undefined
+              : formData.bookingEndDate || undefined,
         noEndDateStay: formData.noEndDateStay,
-        noEndDateBooking: formData.applicableDateType === "STAY" ? false : formData.noEndDateBooking,
+        noEndDateBooking:
+          formData.applicableDateType === "STAY"
+            ? false
+            : formData.noEndDateBooking,
         blackoutEnabled: wantBlackoutDates ? true : false,
-        blackoutDates: wantBlackoutDates && blackoutDates.length > 0 ? blackoutDates : undefined,
+        blackoutDates:
+          wantBlackoutDates && blackoutDates.length > 0
+            ? blackoutDates
+            : undefined,
         nonRefundable: formData.nonRefundable,
         payAtHotel: formData.payAtHotel,
         applyAllRooms: applyAllRoomsAndRateplans === "yes",
         applyAllRateplans: applyAllRoomsAndRateplans === "yes",
-        roomIds: applyAllRoomsAndRateplans === "no" ? Array.from(selectedRoomIds) : undefined,
-        rateplanIds: applyAllRoomsAndRateplans === "no" ? Array.from(selectedRatePlanIds) : undefined,
+        roomIds:
+          applyAllRoomsAndRateplans === "no"
+            ? Array.from(selectedRoomIds)
+            : undefined,
+        rateplanIds:
+          applyAllRoomsAndRateplans === "no"
+            ? Array.from(selectedRatePlanIds)
+            : undefined,
         applyChannel: formData.applyChannel,
-        contractsJson: formData.applyChannel === "B2C" ? formData.contractsJson : [],
+        contractsJson:
+          formData.applyChannel === "B2C" ? formData.contractsJson : [],
         promotionName: formData.promotionName,
         ...(formData.promotionType === "LAST_MINUTE" && {
           bookablePeriod: formData.bookablePeriod,
@@ -321,7 +389,9 @@ export default function EditPromotionPage() {
         }),
         ...(formData.promotionType === "LONG_STAY" && {
           offerFreeNights: formData.offerFreeNights,
-          freeNightsCount: formData.offerFreeNights ? formData.freeNightsCount : undefined,
+          freeNightsCount: formData.offerFreeNights
+            ? formData.freeNightsCount
+            : undefined,
           minimumStayDays: formData.minimumStayDays,
         }),
       };
@@ -338,7 +408,10 @@ export default function EditPromotionPage() {
       navigate(url);
     } catch (error: any) {
       console.error("Error updating promotion:", error);
-      showToast(error?.response?.data?.message || "Failed to update promotion", "error");
+      showToast(
+        error?.response?.data?.message || "Failed to update promotion",
+        "error",
+      );
     } finally {
       setSaving(false);
     }
@@ -400,7 +473,8 @@ export default function EditPromotionPage() {
       {!hotelId && (
         <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
           <p className="text-sm text-amber-800">
-            <strong>Warning:</strong> Hotel ID is missing. Please select a hotel from the dropdown above.
+            <strong>Warning:</strong> Hotel ID is missing. Please select a hotel
+            from the dropdown above.
           </p>
         </div>
       )}
@@ -413,7 +487,9 @@ export default function EditPromotionPage() {
           Back
         </button>
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Edit Promotion</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Edit Promotion
+          </h1>
           <p className="text-gray-600 text-base">{promotion.promotionName}</p>
         </div>
       </div>
@@ -427,7 +503,9 @@ export default function EditPromotionPage() {
                 <Percent className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Configure Offer</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Configure Offer
+                </h3>
                 <p className="text-sm text-gray-500">Select offer Type *</p>
               </div>
             </div>
@@ -459,9 +537,13 @@ export default function EditPromotionPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {formData.offerType === "FIXED" ? "Set Discount Amount" : "Set Discount Percentage"}
+                  {formData.offerType === "FIXED"
+                    ? "Set Discount Amount"
+                    : "Set Discount Percentage"}
                 </h3>
-                <p className="text-sm text-gray-500">Configure discounts for all users and logged-in users</p>
+                <p className="text-sm text-gray-500">
+                  Configure discounts for all users and logged-in users
+                </p>
               </div>
             </div>
             <div className="space-y-6">
@@ -472,7 +554,16 @@ export default function EditPromotionPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => handleInputChange("discountAllUsers", Math.max(0, formData.discountAllUsers - (formData.offerType === "FIXED" ? 10 : 1)))}
+                    onClick={() =>
+                      handleInputChange(
+                        "discountAllUsers",
+                        Math.max(
+                          0,
+                          formData.discountAllUsers -
+                            (formData.offerType === "FIXED" ? 10 : 1),
+                        ),
+                      )
+                    }
                     className="px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-white hover:border-gray-400 font-semibold text-gray-700 transition-all h-10"
                   >
                     −
@@ -483,7 +574,12 @@ export default function EditPromotionPage() {
                       min={0}
                       max={formData.offerType === "FIXED" ? undefined : 100}
                       value={formData.discountAllUsers}
-                      onChange={(e) => handleInputChange("discountAllUsers", Number(e.target.value))}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "discountAllUsers",
+                          Number(e.target.value),
+                        )
+                      }
                       className="text-center text-2xl font-bold py-4 border-2 border-gray-300 focus:border-blue-500"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 font-semibold text-lg">
@@ -492,7 +588,13 @@ export default function EditPromotionPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleInputChange("discountAllUsers", formData.discountAllUsers + (formData.offerType === "FIXED" ? 10 : 1))}
+                    onClick={() =>
+                      handleInputChange(
+                        "discountAllUsers",
+                        formData.discountAllUsers +
+                          (formData.offerType === "FIXED" ? 10 : 1),
+                      )
+                    }
                     className="px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-white hover:border-gray-400 font-semibold text-gray-700 transition-all h-10"
                   >
                     +
@@ -516,7 +618,16 @@ export default function EditPromotionPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => handleInputChange("discountLoggedUsers", Math.max(0, formData.discountLoggedUsers - (formData.offerType === "FIXED" ? 10 : 1)))}
+                      onClick={() =>
+                        handleInputChange(
+                          "discountLoggedUsers",
+                          Math.max(
+                            0,
+                            formData.discountLoggedUsers -
+                              (formData.offerType === "FIXED" ? 10 : 1),
+                          ),
+                        )
+                      }
                       className="px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-white hover:border-gray-400 font-semibold text-gray-700 transition-all h-10"
                     >
                       −
@@ -527,7 +638,12 @@ export default function EditPromotionPage() {
                         min={0}
                         max={formData.offerType === "FIXED" ? undefined : 100}
                         value={formData.discountLoggedUsers}
-                        onChange={(e) => handleInputChange("discountLoggedUsers", Number(e.target.value))}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "discountLoggedUsers",
+                            Number(e.target.value),
+                          )
+                        }
                         className="text-center text-2xl font-bold py-4 border-2 border-gray-300 focus:border-blue-500"
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 font-semibold text-lg">
@@ -536,7 +652,13 @@ export default function EditPromotionPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleInputChange("discountLoggedUsers", formData.discountLoggedUsers + (formData.offerType === "FIXED" ? 10 : 1))}
+                      onClick={() =>
+                        handleInputChange(
+                          "discountLoggedUsers",
+                          formData.discountLoggedUsers +
+                            (formData.offerType === "FIXED" ? 10 : 1),
+                        )
+                      }
                       className="px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-white hover:border-gray-400 font-semibold text-gray-700 transition-all h-10"
                     >
                       +
@@ -555,8 +677,12 @@ export default function EditPromotionPage() {
               <Calendar className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Promotion Dates</h3>
-              <p className="text-sm text-gray-500">Specify promotion validity period</p>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Promotion Dates
+              </h3>
+              <p className="text-sm text-gray-500">
+                Specify promotion validity period
+              </p>
             </div>
           </div>
 
@@ -579,7 +705,9 @@ export default function EditPromotionPage() {
               </button>
               <button
                 type="button"
-                onClick={() => handleInputChange("applicableDateType", "BOOKING_AND_STAY")}
+                onClick={() =>
+                  handleInputChange("applicableDateType", "BOOKING_AND_STAY")
+                }
                 className={`flex-1 px-6 py-4 rounded-xl font-semibold transition-all duration-200 ${
                   formData.applicableDateType === "BOOKING_AND_STAY"
                     ? "bg-blue-600 text-white shadow-md border-2 border-blue-600"
@@ -595,14 +723,20 @@ export default function EditPromotionPage() {
             {/* Stay Date Section */}
             <div className="border border-gray-200 rounded-xl p-5 bg-gray-50">
               <div className="flex items-center justify-between mb-4">
-                <h4 className="text-base font-semibold text-gray-900">Stay Date</h4>
+                <h4 className="text-base font-semibold text-gray-900">
+                  Stay Date
+                </h4>
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <span className="text-sm font-medium text-gray-700">No End Date</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    No End Date
+                  </span>
                   <div className="relative inline-block">
                     <input
                       type="checkbox"
                       checked={formData.noEndDateStay}
-                      onChange={(e) => handleInputChange("noEndDateStay", e.target.checked)}
+                      onChange={(e) =>
+                        handleInputChange("noEndDateStay", e.target.checked)
+                      }
                       className="sr-only"
                     />
                     <div
@@ -612,13 +746,23 @@ export default function EditPromotionPage() {
                     >
                       <div
                         className={`w-5 h-5 bg-white rounded-full shadow-lg transform transition-all duration-200 ease-in-out flex items-center justify-center ${
-                          formData.noEndDateStay ? "translate-x-6" : "translate-x-0.5"
+                          formData.noEndDateStay
+                            ? "translate-x-6"
+                            : "translate-x-0.5"
                         }`}
                         style={{ marginTop: "2px" }}
                       >
                         {formData.noEndDateStay && (
-                          <svg className="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          <svg
+                            className="w-3 h-3 text-blue-600"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                         )}
                       </div>
@@ -634,7 +778,9 @@ export default function EditPromotionPage() {
                   <Input
                     type="date"
                     value={formData.stayStartDate || today}
-                    onChange={(e) => handleInputChange("stayStartDate", e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("stayStartDate", e.target.value)
+                    }
                     min={today}
                     className="w-full"
                   />
@@ -647,7 +793,9 @@ export default function EditPromotionPage() {
                     <Input
                       type="date"
                       value={formData.stayEndDate || ""}
-                      onChange={(e) => handleInputChange("stayEndDate", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("stayEndDate", e.target.value)
+                      }
                       min={formData.stayStartDate || today}
                       className="w-full"
                     />
@@ -660,30 +808,51 @@ export default function EditPromotionPage() {
             {formData.applicableDateType === "BOOKING_AND_STAY" && (
               <div className="border border-gray-200 rounded-xl p-5 bg-gray-50">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-base font-semibold text-gray-900">Booking Date</h4>
+                  <h4 className="text-base font-semibold text-gray-900">
+                    Booking Date
+                  </h4>
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <span className="text-sm font-medium text-gray-700">No End Date</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      No End Date
+                    </span>
                     <div className="relative inline-block">
                       <input
                         type="checkbox"
                         checked={formData.noEndDateBooking}
-                        onChange={(e) => handleInputChange("noEndDateBooking", e.target.checked)}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "noEndDateBooking",
+                            e.target.checked,
+                          )
+                        }
                         className="sr-only"
                       />
                       <div
                         className={`w-12 h-6 rounded-full transition-all duration-200 ease-in-out ${
-                          formData.noEndDateBooking ? "bg-blue-600" : "bg-gray-300"
+                          formData.noEndDateBooking
+                            ? "bg-blue-600"
+                            : "bg-gray-300"
                         }`}
                       >
                         <div
                           className={`w-5 h-5 bg-white rounded-full shadow-lg transform transition-all duration-200 ease-in-out flex items-center justify-center ${
-                            formData.noEndDateBooking ? "translate-x-6" : "translate-x-0.5"
+                            formData.noEndDateBooking
+                              ? "translate-x-6"
+                              : "translate-x-0.5"
                           }`}
                           style={{ marginTop: "2px" }}
                         >
                           {formData.noEndDateBooking && (
-                            <svg className="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            <svg
+                              className="w-3 h-3 text-blue-600"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                clipRule="evenodd"
+                              />
                             </svg>
                           )}
                         </div>
@@ -699,7 +868,9 @@ export default function EditPromotionPage() {
                     <Input
                       type="date"
                       value={formData.bookingStartDate || today}
-                      onChange={(e) => handleInputChange("bookingStartDate", e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("bookingStartDate", e.target.value)
+                      }
                       min={today}
                       className="w-full"
                     />
@@ -712,7 +883,9 @@ export default function EditPromotionPage() {
                       <Input
                         type="date"
                         value={formData.bookingEndDate || ""}
-                        onChange={(e) => handleInputChange("bookingEndDate", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("bookingEndDate", e.target.value)
+                        }
                         min={formData.bookingStartDate || today}
                         className="w-full"
                       />
@@ -731,8 +904,12 @@ export default function EditPromotionPage() {
               <Tag className="w-5 h-5 text-pink-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Promotion Name</h3>
-              <p className="text-sm text-gray-500">Enter a name for this promotion *</p>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Promotion Name
+              </h3>
+              <p className="text-sm text-gray-500">
+                Enter a name for this promotion *
+              </p>
             </div>
           </div>
           <Input
@@ -752,13 +929,21 @@ export default function EditPromotionPage() {
               <Settings className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Promotion Status</h3>
-              <p className="text-sm text-gray-500">Select the status for this promotion *</p>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Promotion Status
+              </h3>
+              <p className="text-sm text-gray-500">
+                Select the status for this promotion *
+              </p>
             </div>
           </div>
           <Select
             value={status}
-            onChange={(e) => setStatus(e.target.value as "DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED")}
+            onChange={(e) =>
+              setStatus(
+                e.target.value as "DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED",
+              )
+            }
             options={[
               { value: "DRAFT", label: "Draft" },
               { value: "ACTIVE", label: "Active" },
@@ -777,9 +962,12 @@ export default function EditPromotionPage() {
                 <Settings className="w-5 h-5 text-gray-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Advanced Settings</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Advanced Settings
+                </h3>
                 <p className="text-sm text-gray-500">
-                  Select relevant rooms, rate plans and applicable blackout dates if any.
+                  Select relevant rooms, rate plans and applicable blackout
+                  dates if any.
                 </p>
               </div>
             </div>
@@ -847,27 +1035,40 @@ export default function EditPromotionPage() {
                         const isRoomSelected = selectedRoomIds.has(room.roomId);
 
                         return (
-                          <div key={room.roomId} className="border border-gray-200 rounded-lg p-3 bg-white">
+                          <div
+                            key={room.roomId}
+                            className="border border-gray-200 rounded-lg p-3 bg-white"
+                          >
                             <label className="flex items-center gap-2 cursor-pointer mb-2">
                               <input
                                 type="checkbox"
                                 checked={isRoomSelected}
                                 onChange={(e) => {
-                                  const newSelectedRoomIds = new Set(selectedRoomIds);
-                                  const newSelectedRatePlanIds = new Set(selectedRatePlanIds);
+                                  const newSelectedRoomIds = new Set(
+                                    selectedRoomIds,
+                                  );
+                                  const newSelectedRatePlanIds = new Set(
+                                    selectedRatePlanIds,
+                                  );
                                   if (e.target.checked) {
                                     newSelectedRoomIds.add(room.roomId);
-                                    roomRatePlans.forEach(rp => {
-                                      newSelectedRatePlanIds.add(rp.ratePlanId.toString());
+                                    roomRatePlans.forEach((rp) => {
+                                      newSelectedRatePlanIds.add(
+                                        rp.ratePlanId.toString(),
+                                      );
                                     });
                                   } else {
                                     newSelectedRoomIds.delete(room.roomId);
-                                    roomRatePlans.forEach(rp => {
-                                      newSelectedRatePlanIds.delete(rp.ratePlanId.toString());
+                                    roomRatePlans.forEach((rp) => {
+                                      newSelectedRatePlanIds.delete(
+                                        rp.ratePlanId.toString(),
+                                      );
                                     });
                                   }
                                   setSelectedRoomIds(newSelectedRoomIds);
-                                  setSelectedRatePlanIds(newSelectedRatePlanIds);
+                                  setSelectedRatePlanIds(
+                                    newSelectedRatePlanIds,
+                                  );
                                 }}
                                 className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                               />
@@ -884,22 +1085,32 @@ export default function EditPromotionPage() {
                                   >
                                     <input
                                       type="checkbox"
-                                      checked={selectedRatePlanIds.has(ratePlan.ratePlanId.toString())}
+                                      checked={selectedRatePlanIds.has(
+                                        ratePlan.ratePlanId.toString(),
+                                      )}
                                       onChange={(e) => {
-                                        const newSelectedRatePlanIds = new Set(selectedRatePlanIds);
+                                        const newSelectedRatePlanIds = new Set(
+                                          selectedRatePlanIds,
+                                        );
                                         if (e.target.checked) {
-                                          newSelectedRatePlanIds.add(ratePlan.ratePlanId.toString());
+                                          newSelectedRatePlanIds.add(
+                                            ratePlan.ratePlanId.toString(),
+                                          );
                                         } else {
-                                          newSelectedRatePlanIds.delete(ratePlan.ratePlanId.toString());
+                                          newSelectedRatePlanIds.delete(
+                                            ratePlan.ratePlanId.toString(),
+                                          );
                                           if (isRoomSelected) {
-                                            setSelectedRoomIds(prev => {
+                                            setSelectedRoomIds((prev) => {
                                               const newSet = new Set(prev);
                                               newSet.delete(room.roomId);
                                               return newSet;
                                             });
                                           }
                                         }
-                                        setSelectedRatePlanIds(newSelectedRatePlanIds);
+                                        setSelectedRatePlanIds(
+                                          newSelectedRatePlanIds,
+                                        );
                                       }}
                                       className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                                     />
@@ -990,7 +1201,11 @@ export default function EditPromotionPage() {
                           // Set default contracts when selecting B2C
                           const currentContracts = formData.contractsJson || [];
                           if (currentContracts.length === 0) {
-                            handleInputChange("contractsJson", ["B2C", "MOBILE", "IPOS"]);
+                            handleInputChange("contractsJson", [
+                              "B2C",
+                              "MOBILE",
+                              "IPOS",
+                            ]);
                           }
                         }
                       }}
@@ -1063,50 +1278,83 @@ export default function EditPromotionPage() {
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={formData.contractsJson?.includes("B2C") || false}
+                          checked={
+                            formData.contractsJson?.includes("B2C") || false
+                          }
                           onChange={(e) => {
-                            const currentContracts = formData.contractsJson || [];
+                            const currentContracts =
+                              formData.contractsJson || [];
                             if (e.target.checked) {
-                              handleInputChange("contractsJson", [...currentContracts, "B2C"]);
+                              handleInputChange("contractsJson", [
+                                ...currentContracts,
+                                "B2C",
+                              ]);
                             } else {
-                              handleInputChange("contractsJson", currentContracts.filter(c => c !== "B2C"));
+                              handleInputChange(
+                                "contractsJson",
+                                currentContracts.filter((c) => c !== "B2C"),
+                              );
                             }
                           }}
                           className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                         />
-                        <span className="text-sm text-gray-700">B2C Contract</span>
+                        <span className="text-sm text-gray-700">
+                          B2C Contract
+                        </span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={formData.contractsJson?.includes("MOBILE") || false}
+                          checked={
+                            formData.contractsJson?.includes("MOBILE") || false
+                          }
                           onChange={(e) => {
-                            const currentContracts = formData.contractsJson || [];
+                            const currentContracts =
+                              formData.contractsJson || [];
                             if (e.target.checked) {
-                              handleInputChange("contractsJson", [...currentContracts, "MOBILE"]);
+                              handleInputChange("contractsJson", [
+                                ...currentContracts,
+                                "MOBILE",
+                              ]);
                             } else {
-                              handleInputChange("contractsJson", currentContracts.filter(c => c !== "MOBILE"));
+                              handleInputChange(
+                                "contractsJson",
+                                currentContracts.filter((c) => c !== "MOBILE"),
+                              );
                             }
                           }}
                           className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                         />
-                        <span className="text-sm text-gray-700">Mobile Contract</span>
+                        <span className="text-sm text-gray-700">
+                          Mobile Contract
+                        </span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={formData.contractsJson?.includes("IPOS") || false}
+                          checked={
+                            formData.contractsJson?.includes("IPOS") || false
+                          }
                           onChange={(e) => {
-                            const currentContracts = formData.contractsJson || [];
+                            const currentContracts =
+                              formData.contractsJson || [];
                             if (e.target.checked) {
-                              handleInputChange("contractsJson", [...currentContracts, "IPOS"]);
+                              handleInputChange("contractsJson", [
+                                ...currentContracts,
+                                "IPOS",
+                              ]);
                             } else {
-                              handleInputChange("contractsJson", currentContracts.filter(c => c !== "IPOS"));
+                              handleInputChange(
+                                "contractsJson",
+                                currentContracts.filter((c) => c !== "IPOS"),
+                              );
                             }
                           }}
                           className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                         />
-                        <span className="text-sm text-gray-700">IPOS Contract</span>
+                        <span className="text-sm text-gray-700">
+                          IPOS Contract
+                        </span>
                       </label>
                     </div>
                   </div>
@@ -1202,4 +1450,3 @@ export default function EditPromotionPage() {
     </div>
   );
 }
-

@@ -412,7 +412,7 @@ export default function BookingDetailPage() {
                     ? `${formatCurrency(
                         rateBreakup?.serviceChargeAmount,
                         rateBreakup?.currency
-                      )} (${rateBreakup.serviceChargePercent}%)`
+                      )} `
                     : formatCurrency(rateBreakup?.serviceChargeAmount, rateBreakup?.currency)
                 }
               />
@@ -443,11 +443,11 @@ export default function BookingDetailPage() {
                 Tax deduction
               </div>
               <RateRow
-                label="7. TCS"
+                label="7. TCS @ 0.5%"
                 value={formatCurrency(rateBreakup?.tcsAmount, rateBreakup?.currency)}
               />
               <RateRow
-                label="8. TDS"
+                label="8. TDS @ 0.1%"
                 value={formatCurrency(rateBreakup?.tdsAmount, rateBreakup?.currency)}
               />
               <RateRow

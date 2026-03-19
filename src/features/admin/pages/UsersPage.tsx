@@ -22,6 +22,15 @@ import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
 const ROLE_OPTIONS = [
   { value: "PLATFORM_ADMIN", label: "Platform Admin" },
   { value: "ONBOARDING_REVIEWER", label: "Onboarding Reviewer" },
+  { value: "HOTEL_OWNER", label: "Hotel Owner" },
+  { value: "HOTEL_MANAGER", label: "Hotel Manager" },
+  { value: "FRONT_DESK_EXEC", label: "Front Desk" },
+  { value: "HOUSEKEEPING_STAFF", label: "Housekeeping" },
+  { value: "ACCOUNTANT", label: "Accountant" },
+  { value: "BOOKING_AGENT", label: "Booking Agent" },
+  { value: "PACKAGE_MANAGER", label: "Package Manager" },
+  { value: "TRANSPORT_AGENT", label: "Transport Agent" },
+  { value: "AGENT", label: "Agent" },
 ];
 
 const STATUS_OPTIONS = [
@@ -292,7 +301,7 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
             onChange={(e) =>
               setFormData({
                 ...formData,
-                role: e.target.value as "PLATFORM_ADMIN" | "ONBOARDING_REVIEWER",
+                role: e.target.value as CreateUserRequest["role"],
               })
             }
             error={errors.role}
@@ -333,11 +342,18 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
 
 function RoleBadge({ roles }: { roles: string[] }) {
   const roleConfig: Record<string, { label: string; className: string }> = {
-    HOTEL_OWNER: { label: "Hotel Owner", className: "bg-blue-100 text-blue-700" },
-    HOTEL_MANAGER: { label: "Hotel Manager", className: "bg-purple-100 text-purple-700" },
     SUPER_ADMIN: { label: "Super Admin", className: "bg-red-100 text-red-700" },
     PLATFORM_ADMIN: { label: "Platform Admin", className: "bg-indigo-100 text-indigo-700" },
     ONBOARDING_REVIEWER: { label: "Onboarding Reviewer", className: "bg-amber-100 text-amber-700" },
+    HOTEL_OWNER: { label: "Hotel Owner", className: "bg-blue-100 text-blue-700" },
+    HOTEL_MANAGER: { label: "Hotel Manager", className: "bg-purple-100 text-purple-700" },
+    FRONT_DESK_EXEC: { label: "Front Desk", className: "bg-cyan-100 text-cyan-700" },
+    HOUSEKEEPING_STAFF: { label: "Housekeeping", className: "bg-teal-100 text-teal-700" },
+    ACCOUNTANT: { label: "Accountant", className: "bg-lime-100 text-lime-700" },
+    BOOKING_AGENT: { label: "Booking Agent", className: "bg-orange-100 text-orange-700" },
+    PACKAGE_MANAGER: { label: "Package Manager", className: "bg-pink-100 text-pink-700" },
+    TRANSPORT_AGENT: { label: "Transport Agent", className: "bg-sky-100 text-sky-700" },
+    AGENT: { label: "Agent", className: "bg-violet-100 text-violet-700" },
   };
 
   if (!roles || roles.length === 0) {

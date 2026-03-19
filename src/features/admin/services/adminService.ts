@@ -128,9 +128,23 @@ export interface UsersResponse {
   hasPrevious: boolean;
 }
 
+export type UserRole =
+  | "SUPER_ADMIN"
+  | "PLATFORM_ADMIN"
+  | "ONBOARDING_REVIEWER"
+  | "HOTEL_OWNER"
+  | "HOTEL_MANAGER"
+  | "FRONT_DESK_EXEC"
+  | "HOUSEKEEPING_STAFF"
+  | "ACCOUNTANT"
+  | "BOOKING_AGENT"
+  | "PACKAGE_MANAGER"
+  | "TRANSPORT_AGENT"
+  | "AGENT";
+
 export interface CreateUserRequest {
   email: string;
-  role: "HOTEL_OWNER" | "HOTEL_MANAGER" | "SUPER_ADMIN" | "PLATFORM_ADMIN" | "ONBOARDING_REVIEWER";
+  role: UserRole;
   firstName: string;
   lastName: string;
   phoneNumber: string;
@@ -138,7 +152,7 @@ export interface CreateUserRequest {
 
 export interface UpdateUserRequest {
   email: string;
-  role: "HOTEL_OWNER" | "HOTEL_MANAGER" | "SUPER_ADMIN" | "PLATFORM_ADMIN" | "ONBOARDING_REVIEWER";
+  role: UserRole;
   firstName: string;
   lastName: string;
   phoneNumber: string;
