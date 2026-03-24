@@ -1,8 +1,21 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
-import { teamService, type TeamMember, type CreateTeamMemberRequest, type UpdateTeamMemberRequest, type Permission, type TeamRole, type PermissionModule } from "../services/teamService";
-import { adminService, type CreateUserRequest } from "@/features/admin/services/adminService";
+import {
+  teamService,
+  type TeamMember,
+  type CreateTeamMemberRequest,
+  type UpdateTeamMemberRequest,
+  type Permission,
+  type TeamRole,
+  type PermissionModule,
+} from "../services/teamService";
+import {
+  adminService,
+  type CreateUserRequest,
+  type UpdateUserRequest,
+} from "@/features/admin/services/adminService";
 import { Button, Input, Select, LoadingSpinner } from "@/components/ui";
+import { RoleBadge } from "@/components/ui/badges/RoleBadge";
 import { Toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import {
@@ -50,19 +63,43 @@ const PERMISSION_MODULES: { value: PermissionModule; label: string }[] = [
 interface TeamMemberFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateTeamMemberRequest | (UpdateTeamMemberRequest & { accountStatus?: "ACTIVE" | "INACTIVE" | "SUSPENDED" })) => Promise<void>;
+  onSubmit: (
+    data:
+      | CreateTeamMemberRequest
+      | (UpdateTeamMemberRequest & {
+          accountStatus?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+        }),
+  ) => Promise<void>;
   member?: TeamMember | null;
   mode: "create" | "edit";
 }
 
-function TeamMemberFormModal({ isOpen, onClose, onSubmit, member, mode }: TeamMemberFormModalProps) {
-  const [formData, setFormData] = useState<CreateTeamMemberRequest | (UpdateTeamMemberRequest & { accountStatus?: "ACTIVE" | "INACTIVE" | "SUSPENDED" })>({
+function TeamMemberFormModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  member,
+  mode,
+}: TeamMemberFormModalProps) {
+  type TeamMemberFormData =
+    | CreateTeamMemberRequest
+    | (UpdateTeamMemberRequest & {
+        accountStatus?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+      });
+  const [formData, setFormData] = useState<TeamMemberFormData>({
     email: "",
-    role: "HOTEL_MANAGER",
+    roles: ["HOTEL_MANAGER"],
     firstName: "",
     lastName: "",
     phoneNumber: "",
-    ...(mode === "edit" && member ? { accountStatus: member.accountStatus as "ACTIVE" | "INACTIVE" | "SUSPENDED" } : {}),
+    ...(mode === "edit" && member
+      ? {
+          accountStatus: member.accountStatus as
+            | "ACTIVE"
+            | "INACTIVE"
+            | "SUSPENDED",
+        }
+      : {}),
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
@@ -71,16 +108,21 @@ function TeamMemberFormModal({ isOpen, onClose, onSubmit, member, mode }: TeamMe
   useEffect(() => {
     if (mode === "edit" && member) {
       setFormData({
-        role: member.role as TeamRole,
+        roles: (member.roles?.length ? member.roles : [member.role]).filter(
+          Boolean,
+        ) as TeamRole[],
         firstName: member.firstName || "",
         lastName: member.lastName || "",
         phoneNumber: member.mobile || "",
-        accountStatus: member.accountStatus as "ACTIVE" | "INACTIVE" | "SUSPENDED",
+        accountStatus: member.accountStatus as
+          | "ACTIVE"
+          | "INACTIVE"
+          | "SUSPENDED",
       });
     } else {
       setFormData({
         email: "",
-        role: "HOTEL_MANAGER",
+        roles: ["HOTEL_MANAGER"],
         firstName: "",
         lastName: "",
         phoneNumber: "",
@@ -95,7 +137,11 @@ function TeamMemberFormModal({ isOpen, onClose, onSubmit, member, mode }: TeamMe
 
     if (mode === "create" && (!("email" in formData) || !formData.email)) {
       newErrors.email = "Email is required";
-    } else if (mode === "create" && "email" in formData && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    } else if (
+      mode === "create" &&
+      "email" in formData &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
+    ) {
       newErrors.email = "Invalid email format";
     }
 
@@ -113,11 +159,15 @@ function TeamMemberFormModal({ isOpen, onClose, onSubmit, member, mode }: TeamMe
       newErrors.phoneNumber = "Phone number must be 10 digits";
     }
 
-    if (!formData.role) {
-      newErrors.role = "Role is required";
+    if (!formData.roles || formData.roles.length === 0) {
+      newErrors.roles = "At least one role is required";
     }
 
-    if (mode === "edit" && "accountStatus" in formData && !formData.accountStatus) {
+    if (
+      mode === "edit" &&
+      "accountStatus" in formData &&
+      !formData.accountStatus
+    ) {
       newErrors.accountStatus = "Account status is required";
     }
 
@@ -156,6 +206,21 @@ function TeamMemberFormModal({ isOpen, onClose, onSubmit, member, mode }: TeamMe
       setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors.phoneNumber;
+        return newErrors;
+      });
+    }
+  };
+
+  const handleRoleToggle = (role: TeamRole) => {
+    const currentRoles = formData.roles || [];
+    const nextRoles = currentRoles.includes(role)
+      ? currentRoles.filter((item) => item !== role)
+      : [...currentRoles, role];
+    setFormData({ ...formData, roles: nextRoles });
+    if (errors.roles) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.roles;
         return newErrors;
       });
     }
@@ -222,7 +287,12 @@ function TeamMemberFormModal({ isOpen, onClose, onSubmit, member, mode }: TeamMe
               label="Email"
               type="email"
               value={"email" in formData ? formData.email : ""}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value } as CreateTeamMemberRequest)}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  email: e.target.value,
+                } as CreateTeamMemberRequest)
+              }
               error={errors.email}
               required
               icon={<Mail className="w-4 h-4 text-gray-400" />}
@@ -233,14 +303,18 @@ function TeamMemberFormModal({ isOpen, onClose, onSubmit, member, mode }: TeamMe
             <Input
               label="First Name"
               value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, firstName: e.target.value })
+              }
               error={errors.firstName}
               required
             />
             <Input
               label="Last Name"
               value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, lastName: e.target.value })
+              }
               error={errors.lastName}
               required
             />
@@ -259,24 +333,54 @@ function TeamMemberFormModal({ isOpen, onClose, onSubmit, member, mode }: TeamMe
             inputMode="numeric"
           />
 
-          <Select
-            label="Role"
-            value={formData.role}
-            onChange={(e) => setFormData({ ...formData, role: e.target.value as TeamRole })}
-            error={errors.role}
-            options={TEAM_ROLE_OPTIONS}
-            required
-            icon={<Shield className="w-4 h-4 text-gray-400" />}
-          />
+          <div className={cn("w-full", errors.roles ? "mb-2" : "mb-0")}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Roles
+            </label>
+            <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+              {TEAM_ROLE_OPTIONS.map((option) => {
+                const checked = (formData.roles || []).includes(
+                  option.value as TeamRole,
+                );
+                return (
+                  <label
+                    key={option.value}
+                    className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        handleRoleToggle(option.value as TeamRole)
+                      }
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <Shield className="w-4 h-4 text-gray-400" />
+                    <span>{option.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+            {errors.roles && (
+              <p className="mt-2 text-sm text-red-600" role="alert">
+                {errors.roles}
+              </p>
+            )}
+          </div>
 
           {mode === "edit" && (
             <Select
               label="Account Status"
-              value={"accountStatus" in formData ? formData.accountStatus : "ACTIVE"}
+              value={
+                "accountStatus" in formData ? formData.accountStatus : "ACTIVE"
+              }
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  accountStatus: e.target.value as "ACTIVE" | "INACTIVE" | "SUSPENDED",
+                  accountStatus: e.target.value as
+                    | "ACTIVE"
+                    | "INACTIVE"
+                    | "SUSPENDED",
                 })
               }
               error={errors.accountStatus}
@@ -290,7 +394,11 @@ function TeamMemberFormModal({ isOpen, onClose, onSubmit, member, mode }: TeamMe
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : mode === "create" ? "Add Member" : "Update Member"}
+              {isSubmitting
+                ? "Saving..."
+                : mode === "create"
+                  ? "Add Member"
+                  : "Update Member"}
             </Button>
           </div>
         </form>
@@ -306,7 +414,12 @@ interface PermissionsModalProps {
   member: TeamMember | null;
 }
 
-function PermissionsModal({ isOpen, onClose, onSave, member }: PermissionsModalProps) {
+function PermissionsModal({
+  isOpen,
+  onClose,
+  onSave,
+  member,
+}: PermissionsModalProps) {
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -315,8 +428,12 @@ function PermissionsModal({ isOpen, onClose, onSave, member }: PermissionsModalP
     if (member?.permissions) {
       const existingPermissions = member.permissions;
       const allPermissions: Permission[] = PERMISSION_MODULES.map((module) => {
-        const existing = existingPermissions.find((p) => p.module === module.value);
-        return existing || { module: module.value, canView: false, canEdit: false };
+        const existing = existingPermissions.find(
+          (p) => p.module === module.value,
+        );
+        return (
+          existing || { module: module.value, canView: false, canEdit: false }
+        );
       });
       setPermissions(allPermissions);
     } else {
@@ -325,7 +442,7 @@ function PermissionsModal({ isOpen, onClose, onSave, member }: PermissionsModalP
           module: module.value,
           canView: false,
           canEdit: false,
-        }))
+        })),
       );
     }
   }, [member, isOpen]);
@@ -342,7 +459,7 @@ function PermissionsModal({ isOpen, onClose, onSave, member }: PermissionsModalP
           };
         }
         return p;
-      })
+      }),
     );
   };
 
@@ -358,7 +475,7 @@ function PermissionsModal({ isOpen, onClose, onSave, member }: PermissionsModalP
           };
         }
         return p;
-      })
+      }),
     );
   };
 
@@ -398,9 +515,13 @@ function PermissionsModal({ isOpen, onClose, onSave, member }: PermissionsModalP
               <Settings className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Manage Permissions</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                Manage Permissions
+              </h2>
               <p className="text-sm text-gray-600">
-                {member ? `${member.firstName} ${member.lastName}` : "Team Member"}
+                {member
+                  ? `${member.firstName} ${member.lastName}`
+                  : "Team Member"}
               </p>
             </div>
           </div>
@@ -436,7 +557,9 @@ function PermissionsModal({ isOpen, onClose, onSave, member }: PermissionsModalP
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3">
               {PERMISSION_MODULES.map((module) => {
-                const permission = permissions.find((p) => p.module === module.value);
+                const permission = permissions.find(
+                  (p) => p.module === module.value,
+                );
                 const canView = permission?.canView || false;
                 const canEdit = permission?.canEdit || false;
 
@@ -446,7 +569,9 @@ function PermissionsModal({ isOpen, onClose, onSave, member }: PermissionsModalP
                     className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">{module.label}</h3>
+                      <h3 className="font-medium text-gray-900">
+                        {module.label}
+                      </h3>
                     </div>
                     <div className="flex items-center gap-4">
                       <button
@@ -456,10 +581,14 @@ function PermissionsModal({ isOpen, onClose, onSave, member }: PermissionsModalP
                           "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                           canView
                             ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200",
                         )}
                       >
-                        {canView ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        {canView ? (
+                          <Eye className="w-4 h-4" />
+                        ) : (
+                          <EyeOff className="w-4 h-4" />
+                        )}
                         View
                       </button>
                       <button
@@ -471,10 +600,14 @@ function PermissionsModal({ isOpen, onClose, onSave, member }: PermissionsModalP
                           canEdit
                             ? "bg-green-100 text-green-700 hover:bg-green-200"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-                          !canView && "opacity-50 cursor-not-allowed"
+                          !canView && "opacity-50 cursor-not-allowed",
                         )}
                       >
-                        {canEdit ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                        {canEdit ? (
+                          <Unlock className="w-4 h-4" />
+                        ) : (
+                          <Lock className="w-4 h-4" />
+                        )}
                         Edit
                       </button>
                     </div>
@@ -488,7 +621,12 @@ function PermissionsModal({ isOpen, onClose, onSave, member }: PermissionsModalP
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="button" variant="primary" onClick={handleSave} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleSave}
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Saving..." : "Save Permissions"}
             </Button>
           </div>
@@ -505,8 +643,13 @@ export default function MyTeamPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
-  const [permissionsMember, setPermissionsMember] = useState<TeamMember | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [permissionsMember, setPermissionsMember] = useState<TeamMember | null>(
+    null,
+  );
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   useEffect(() => {
     if (selectedHotelId) {
@@ -535,25 +678,27 @@ export default function MyTeamPage() {
     }
   };
 
-  const handleCreateMember = async (data: CreateTeamMemberRequest | UpdateTeamMemberRequest) => {
+  const handleCreateMember = async (
+    data: CreateTeamMemberRequest | UpdateTeamMemberRequest,
+  ) => {
     if (!selectedHotelId) return;
     try {
       const createData = data as CreateTeamMemberRequest;
-      
+
       // Step 1: Create user using admin API (POST /admin/users)
       const userCreateRequest: CreateUserRequest = {
         email: createData.email,
-        role: "HOTEL_MANAGER", // Default role for user creation
+        roles: createData.roles,
         firstName: createData.firstName,
         lastName: createData.lastName,
         phoneNumber: createData.phoneNumber,
       };
-      
+
       const createdUser = await adminService.createUser(userCreateRequest);
-      
+
       // Step 2: Assign user to hotel using POST /hotel/{hotelId}/users/{userId} (no payload)
       await teamService.assignHotelToUser(selectedHotelId, createdUser.userId);
-      
+
       setToast({ message: "Team member added successfully", type: "success" });
       fetchTeamMembers();
     } catch (error: any) {
@@ -562,20 +707,36 @@ export default function MyTeamPage() {
     }
   };
 
-  const handleUpdateMember = async (data: CreateTeamMemberRequest | UpdateTeamMemberRequest) => {
+  const handleUpdateMember = async (
+    data: CreateTeamMemberRequest | UpdateTeamMemberRequest,
+  ) => {
     if (!editingMember) return;
     try {
       // Use the same update user API as super admin (PUT /admin/users/{userId})
-      const updateData = data as UpdateTeamMemberRequest & { accountStatus?: "ACTIVE" | "INACTIVE" | "SUSPENDED" };
+      const updateData = data as UpdateTeamMemberRequest & {
+        accountStatus?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+      };
+      const roles = (
+        updateData.roles?.length
+          ? updateData.roles
+          : editingMember.roles?.length
+            ? editingMember.roles
+            : ["HOTEL_MANAGER"]
+      ) as UpdateUserRequest["roles"];
       await adminService.updateUser(editingMember.userId, {
         email: editingMember.email,
-        role: "HOTEL_MANAGER", // System role (team role is managed separately via hotel assignment)
+        roles,
         firstName: updateData.firstName || editingMember.firstName || "",
         lastName: updateData.lastName || editingMember.lastName || "",
         phoneNumber: updateData.phoneNumber || editingMember.mobile || "",
-        accountStatus: updateData.accountStatus || editingMember.accountStatus as "ACTIVE" | "INACTIVE" | "SUSPENDED",
+        accountStatus:
+          updateData.accountStatus ||
+          (editingMember.accountStatus as "ACTIVE" | "INACTIVE" | "SUSPENDED"),
       });
-      setToast({ message: "Team member updated successfully", type: "success" });
+      setToast({
+        message: "Team member updated successfully",
+        type: "success",
+      });
       fetchTeamMembers();
       setEditingMember(null);
     } catch (error: any) {
@@ -590,8 +751,13 @@ export default function MyTeamPage() {
       return;
     }
     try {
-      await teamService.assignPermissions(permissionsMember.accessId, { permissions });
-      setToast({ message: "Permissions updated successfully", type: "success" });
+      await teamService.assignPermissions(permissionsMember.accessId, {
+        permissions,
+      });
+      setToast({
+        message: "Permissions updated successfully",
+        type: "success",
+      });
       fetchTeamMembers();
       setPermissionsMember(null);
     } catch (error: any) {
@@ -614,32 +780,14 @@ export default function MyTeamPage() {
     }
   };
 
-  const getRoleBadgeColor = (role: string) => {
-    const colors: Record<string, string> = {
-      HOTEL_MANAGER: "bg-purple-100 text-purple-700",
-      FRONT_DESK_EXEC: "bg-blue-100 text-blue-700",
-      HOUSEKEEPING_STAFF: "bg-green-100 text-green-700",
-      ACCOUNTANT: "bg-yellow-100 text-yellow-700",
-      BOOKING_AGENT: "bg-indigo-100 text-indigo-700",
-      READ_ONLY: "bg-gray-100 text-gray-700",
-      OWNER: "bg-red-100 text-red-700",
-    };
-    return colors[role] || "bg-gray-100 text-gray-700";
-  };
-
-  const getRoleLabel = (role: string) => {
-    const roleOption = TEAM_ROLE_OPTIONS.find((r) => r.value === role);
-    if (roleOption) return roleOption.label;
-    if (role === "OWNER") return "Owner";
-    return role;
-  };
-
   if (!selectedHotelId) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">My Team</h1>
-          <p className="text-gray-600 mt-2">Please select a hotel from the dropdown above to manage team members</p>
+          <p className="text-gray-600 mt-2">
+            Please select a hotel from the dropdown above to manage team members
+          </p>
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
           <div className="flex items-center justify-center min-h-[400px]">
@@ -655,7 +803,9 @@ export default function MyTeamPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">My Team</h1>
-          <p className="text-gray-600 mt-2">Manage your team members and their permissions</p>
+          <p className="text-gray-600 mt-2">
+            Manage your team members and their permissions
+          </p>
         </div>
         <Button
           variant="primary"
@@ -675,9 +825,17 @@ export default function MyTeamPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
           <div className="text-center">
             <UserIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No team members yet</h3>
-            <p className="text-gray-500 mb-6">Get started by adding your first team member</p>
-            <Button variant="primary" onClick={() => setShowCreateModal(true)} className="gap-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              No team members yet
+            </h3>
+            <p className="text-gray-500 mb-6">
+              Get started by adding your first team member
+            </p>
+            <Button
+              variant="primary"
+              onClick={() => setShowCreateModal(true)}
+              className="gap-2"
+            >
               <Plus className="w-4 h-4" />
               Add Team Member
             </Button>
@@ -699,7 +857,7 @@ export default function MyTeamPage() {
                     Mobile
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                    Role
+                    Roles
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                     Status
@@ -714,7 +872,10 @@ export default function MyTeamPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {teamMembers.map((member) => (
-                  <tr key={member.accessId} className="hover:bg-blue-50 transition-colors even:bg-gray-50">
+                  <tr
+                    key={member.accessId}
+                    className="hover:bg-blue-50 transition-colors even:bg-gray-50"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
@@ -725,8 +886,8 @@ export default function MyTeamPage() {
                             {member.firstName && member.lastName
                               ? `${member.firstName} ${member.lastName}`
                               : member.email
-                              ? member.email.split("@")[0]
-                              : `User ${member.userId}`}
+                                ? member.email.split("@")[0]
+                                : `User ${member.userId}`}
                           </div>
                         </div>
                       </div>
@@ -743,31 +904,42 @@ export default function MyTeamPage() {
                         {member.mobile || "N/A"}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold", getRoleBadgeColor(member.role))}>
-                        {getRoleLabel(member.role)}
-                      </span>
+                    <td className="px-6 py-4">
+                      <RoleBadge
+                        roles={
+                          member.roles?.length
+                            ? member.roles
+                            : member.role
+                              ? [member.role]
+                              : []
+                        }
+                      />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={cn(
-                        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold",
-                        member.accountStatus === "ACTIVE" 
-                          ? "bg-green-100 text-green-700"
-                          : member.accountStatus === "INACTIVE"
-                          ? "bg-gray-100 text-gray-700"
-                          : "bg-red-100 text-red-700"
-                      )}>
+                      <span
+                        className={cn(
+                          "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold",
+                          member.accountStatus === "ACTIVE"
+                            ? "bg-green-100 text-green-700"
+                            : member.accountStatus === "INACTIVE"
+                              ? "bg-gray-100 text-gray-700"
+                              : "bg-red-100 text-red-700",
+                        )}
+                      >
                         {member.accountStatus}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-700">
-                        {member.createdAt 
-                          ? new Date(member.createdAt).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })
+                        {member.createdAt
+                          ? new Date(member.createdAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              },
+                            )
                           : "N/A"}
                       </div>
                     </td>
@@ -789,7 +961,11 @@ export default function MyTeamPage() {
                         </button>
                         <button
                           onClick={() => {
-                            if (window.confirm("Are you sure you want to revoke access for this team member?")) {
+                            if (
+                              window.confirm(
+                                "Are you sure you want to revoke access for this team member?",
+                              )
+                            ) {
                               handleRevokeAccess(member.accessId);
                             }
                           }}

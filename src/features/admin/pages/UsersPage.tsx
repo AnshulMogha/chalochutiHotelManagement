@@ -1,20 +1,37 @@
 import { useState, useEffect } from "react";
-import { adminService, type User, type CreateUserRequest, type UpdateUserRequest } from "../services/adminService";
-import { Button, Input, Select, LoadingSpinner, ExportButton } from "@/components/ui";
+import {
+  adminService,
+  type User,
+  type CreateUserRequest,
+  type UpdateUserRequest,
+} from "../services/adminService";
+import {
+  Button,
+  Input,
+  Select,
+  LoadingSpinner,
+  ExportButton,
+} from "@/components/ui";
+import { RoleBadge } from "@/components/ui/badges/RoleBadge";
 import { cn } from "@/lib/utils";
-import { 
-  Plus, 
-  Edit, 
-  X, 
-  User as UserIcon, 
-  Mail, 
-  Phone, 
+import {
+  Plus,
+  Edit,
+  X,
+  User as UserIcon,
+  Mail,
+  Phone,
   Shield,
   CheckCircle2,
   XCircle,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
-import { DataGrid, GridToolbar, GridToolbarExport, GridToolbarQuickFilter } from "@mui/x-data-grid";
+import {
+  DataGrid,
+  GridToolbar,
+  GridToolbarExport,
+  GridToolbarQuickFilter,
+} from "@mui/x-data-grid";
 import type { GridColDef } from "@mui/x-data-grid";
 import { Box } from "@mui/material";
 import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
@@ -47,14 +64,24 @@ interface UserFormModalProps {
   mode: "create" | "edit";
 }
 
-function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalProps) {
-  const [formData, setFormData] = useState<CreateUserRequest | UpdateUserRequest>({
+function UserFormModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  user,
+  mode,
+}: UserFormModalProps) {
+  const [formData, setFormData] = useState<
+    CreateUserRequest | UpdateUserRequest
+  >({
     email: "",
-    role: "PLATFORM_ADMIN",
+    roles: ["PLATFORM_ADMIN"],
     firstName: "",
     lastName: "",
     phoneNumber: "",
-    ...(mode === "edit" && user ? { accountStatus: user.accountStatus || "ACTIVE" } : {}),
+    ...(mode === "edit" && user
+      ? { accountStatus: user.accountStatus || "ACTIVE" }
+      : {}),
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
@@ -62,13 +89,13 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
 
   useEffect(() => {
     if (mode === "edit" && user) {
-      // Get the first role from roles array, or default to PLATFORM_ADMIN
-      const primaryRole = user.roles && user.roles.length > 0 
-        ? (user.roles[0] as "PLATFORM_ADMIN" | "ONBOARDING_REVIEWER")
-        : "PLATFORM_ADMIN";
+      const normalizedRoles = (user.roles || []).filter(
+        (role): role is CreateUserRequest["roles"][number] =>
+          typeof role === "string" && role.trim().length > 0,
+      );
       setFormData({
         email: user.email,
-        role: primaryRole,
+        roles: normalizedRoles,
         firstName: user.firstName || "",
         lastName: user.lastName || "",
         phoneNumber: user.phoneNumber || "",
@@ -77,7 +104,7 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
     } else {
       setFormData({
         email: "",
-        role: "PLATFORM_ADMIN",
+        roles: mode === "edit" ? [] : ["PLATFORM_ADMIN"],
         firstName: "",
         lastName: "",
         phoneNumber: "",
@@ -111,11 +138,15 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
       newErrors.phoneNumber = "Phone number must be 10 digits";
     }
 
-    if (!formData.role) {
-      newErrors.role = "Role is required";
+    if (!formData.roles || formData.roles.length === 0) {
+      newErrors.roles = "At least one role is required";
     }
 
-    if (mode === "edit" && "accountStatus" in formData && !formData.accountStatus) {
+    if (
+      mode === "edit" &&
+      "accountStatus" in formData &&
+      !formData.accountStatus
+    ) {
       newErrors.accountStatus = "Account status is required";
     }
 
@@ -142,13 +173,13 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
         error?.response?.data?.message ||
         error?.data?.message ||
         "Failed to save user. Please try again.";
-      
+
       // Check if there are field-specific errors in the response
       // The API returns: { data: { phoneNumber: "Invalid phone number" } }
       // After interceptor: error.data.data contains the field errors
       const errorData = error?.data?.data || error?.response?.data?.data || {};
       const newErrors: Record<string, string> = {};
-      
+
       // Map API field errors to form field errors
       if (errorData.phoneNumber) {
         newErrors.phoneNumber = errorData.phoneNumber;
@@ -163,9 +194,12 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
         newErrors.lastName = errorData.lastName;
       }
       if (errorData.role) {
-        newErrors.role = errorData.role;
+        newErrors.roles = errorData.role;
       }
-      
+      if (errorData.roles) {
+        newErrors.roles = errorData.roles;
+      }
+
       // If we have field-specific errors, use those; otherwise show general error
       if (Object.keys(newErrors).length > 0) {
         setErrors(newErrors);
@@ -189,6 +223,21 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
       setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors.phoneNumber;
+        return newErrors;
+      });
+    }
+  };
+
+  const handleRoleToggle = (role: CreateUserRequest["roles"][number]) => {
+    const currentRoles = formData.roles || [];
+    const nextRoles = currentRoles.includes(role)
+      ? currentRoles.filter((item) => item !== role)
+      : [...currentRoles, role];
+    setFormData({ ...formData, roles: nextRoles });
+    if (errors.roles) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.roles;
         return newErrors;
       });
     }
@@ -276,7 +325,9 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
             label="Email"
             type="email"
             value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, email: e.target.value })
+            }
             error={errors.email}
             required
             icon={<Mail className="w-4 h-4 text-gray-400" />}
@@ -295,29 +346,56 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
             inputMode="numeric"
           />
 
-          <Select
-            label="Role"
-            value={formData.role}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                role: e.target.value as CreateUserRequest["role"],
-              })
-            }
-            error={errors.role}
-            options={ROLE_OPTIONS}
-            required
-            icon={<Shield className="w-4 h-4 text-gray-400" />}
-          />
+          <div className={cn("w-full", errors.roles ? "mb-2" : "mb-0")}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Roles
+            </label>
+            <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+              {ROLE_OPTIONS.map((option) => {
+                const checked = (formData.roles || []).includes(
+                  option.value as CreateUserRequest["roles"][number],
+                );
+                return (
+                  <label
+                    key={option.value}
+                    className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        handleRoleToggle(
+                          option.value as CreateUserRequest["roles"][number],
+                        )
+                      }
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <Shield className="w-4 h-4 text-gray-400" />
+                    <span>{option.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+            {errors.roles && (
+              <p className="mt-2 text-sm text-red-600" role="alert">
+                {errors.roles}
+              </p>
+            )}
+          </div>
 
           {mode === "edit" && (
             <Select
               label="Account Status"
-              value={"accountStatus" in formData ? formData.accountStatus : "ACTIVE"}
+              value={
+                "accountStatus" in formData ? formData.accountStatus : "ACTIVE"
+              }
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  accountStatus: e.target.value as "ACTIVE" | "INACTIVE" | "SUSPENDED",
+                  accountStatus: e.target.value as
+                    | "ACTIVE"
+                    | "INACTIVE"
+                    | "SUSPENDED",
                 })
               }
               error={errors.accountStatus}
@@ -331,59 +409,15 @@ function UserFormModal({ isOpen, onClose, onSubmit, user, mode }: UserFormModalP
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : mode === "create" ? "Create User" : "Update User"}
+              {isSubmitting
+                ? "Saving..."
+                : mode === "create"
+                  ? "Create User"
+                  : "Update User"}
             </Button>
           </div>
         </form>
       </div>
-    </div>
-  );
-}
-
-function RoleBadge({ roles }: { roles: string[] }) {
-  const roleConfig: Record<string, { label: string; className: string }> = {
-    SUPER_ADMIN: { label: "Super Admin", className: "bg-red-100 text-red-700" },
-    PLATFORM_ADMIN: { label: "Platform Admin", className: "bg-indigo-100 text-indigo-700" },
-    ONBOARDING_REVIEWER: { label: "Onboarding Reviewer", className: "bg-amber-100 text-amber-700" },
-    HOTEL_OWNER: { label: "Hotel Owner", className: "bg-blue-100 text-blue-700" },
-    HOTEL_MANAGER: { label: "Hotel Manager", className: "bg-purple-100 text-purple-700" },
-    FRONT_DESK_EXEC: { label: "Front Desk", className: "bg-cyan-100 text-cyan-700" },
-    HOUSEKEEPING_STAFF: { label: "Housekeeping", className: "bg-teal-100 text-teal-700" },
-    ACCOUNTANT: { label: "Accountant", className: "bg-lime-100 text-lime-700" },
-    BOOKING_AGENT: { label: "Booking Agent", className: "bg-orange-100 text-orange-700" },
-    PACKAGE_MANAGER: { label: "Package Manager", className: "bg-pink-100 text-pink-700" },
-    TRANSPORT_AGENT: { label: "Transport Agent", className: "bg-sky-100 text-sky-700" },
-    AGENT: { label: "Agent", className: "bg-violet-100 text-violet-700" },
-  };
-
-  if (!roles || roles.length === 0) {
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
-        No Role
-      </span>
-    );
-  }
-
-  // Display the first role, or multiple if needed
-  const primaryRole = roles[0];
-  const config = roleConfig[primaryRole] || { label: primaryRole, className: "bg-gray-100 text-gray-700" };
-
-  return (
-    <div className="flex flex-wrap gap-1">
-      {roles.map((role, index) => {
-        const roleConfigItem = roleConfig[role] || { label: role, className: "bg-gray-100 text-gray-700" };
-        return (
-          <span
-            key={index}
-            className={cn(
-              "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold",
-              roleConfigItem.className
-            )}
-          >
-            {roleConfigItem.label}
-          </span>
-        );
-      })}
     </div>
   );
 }
@@ -416,7 +450,7 @@ function StatusBadge({ status }: { status?: User["accountStatus"] }) {
     <span
       className={cn(
         "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold",
-        config.className
+        config.className,
       )}
     >
       <Icon className="w-3 h-3" />
@@ -462,8 +496,11 @@ export default function UsersPage() {
     }
   };
 
-  const handleUpdateUser = async (data: UpdateUserRequest) => {
+  const handleUpdateUser = async (
+    data: CreateUserRequest | UpdateUserRequest,
+  ) => {
     if (!editingUser) return;
+    if (!("accountStatus" in data)) return;
     try {
       await adminService.updateUser(editingUser.userId, data);
       await fetchUsers();
@@ -486,16 +523,25 @@ export default function UsersPage() {
         },
       },
       { field: "email", headerName: "Email" },
-      { field: "phoneNumber", headerName: "Phone", valueGetter: (row) => row.phoneNumber || "N/A" },
-      { 
-        field: "roles", 
+      {
+        field: "phoneNumber",
+        headerName: "Phone",
+        valueGetter: (row) => row.phoneNumber || "N/A",
+      },
+      {
+        field: "roles",
         headerName: "Roles",
-        valueGetter: (row) => row.roles && row.roles.length > 0 ? row.roles.join(", ") : "No Role"
+        valueGetter: (row) =>
+          row.roles && row.roles.length > 0 ? row.roles.join(", ") : "No Role",
       },
       { field: "accountStatus", headerName: "Status" },
       { field: "createdAt", headerName: "Created At" },
     ];
-    exportToCSV(users, exportColumns, `users-${new Date().toISOString().split('T')[0]}`);
+    exportToCSV(
+      users,
+      exportColumns,
+      `users-${new Date().toISOString().split("T")[0]}`,
+    );
   };
 
   const handleExportExcel = () => {
@@ -510,16 +556,25 @@ export default function UsersPage() {
         },
       },
       { field: "email", headerName: "Email" },
-      { field: "phoneNumber", headerName: "Phone", valueGetter: (row) => row.phoneNumber || "N/A" },
-      { 
-        field: "roles", 
+      {
+        field: "phoneNumber",
+        headerName: "Phone",
+        valueGetter: (row) => row.phoneNumber || "N/A",
+      },
+      {
+        field: "roles",
         headerName: "Roles",
-        valueGetter: (row) => row.roles && row.roles.length > 0 ? row.roles.join(", ") : "No Role"
+        valueGetter: (row) =>
+          row.roles && row.roles.length > 0 ? row.roles.join(", ") : "No Role",
       },
       { field: "accountStatus", headerName: "Status" },
       { field: "createdAt", headerName: "Created At" },
     ];
-    exportToExcel(users, exportColumns, `users-${new Date().toISOString().split('T')[0]}`);
+    exportToExcel(
+      users,
+      exportColumns,
+      `users-${new Date().toISOString().split("T")[0]}`,
+    );
   };
 
   const columns: GridColDef[] = [
@@ -541,7 +596,9 @@ export default function UsersPage() {
               <div className="text-sm font-semibold text-gray-900">
                 {fullName}
               </div>
-              <div className="text-xs text-gray-500">ID: {params.row.userId}</div>
+              <div className="text-xs text-gray-500">
+                ID: {params.row.userId}
+              </div>
             </div>
           </div>
         );
@@ -579,10 +636,10 @@ export default function UsersPage() {
     {
       field: "roles",
       headerName: "Roles",
-      flex: 0.8,
-      minWidth: 150,
+      flex: 1,
+      minWidth: 210,
       renderCell: (params) => (
-        <div className="flex items-center h-full w-full">
+        <div className="flex items-start h-full w-full py-2">
           <RoleBadge roles={params.value || []} />
         </div>
       ),
@@ -644,10 +701,10 @@ export default function UsersPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">User Management</h1>
-          <p className="text-gray-600">
-            Create and manage system users
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            User Management
+          </h1>
+          <p className="text-gray-600">Create and manage system users</p>
         </div>
         <div className="flex gap-2">
           {users.length > 0 && (
@@ -656,42 +713,40 @@ export default function UsersPage() {
               onExportExcel={handleExportExcel}
             />
           )}
-        <Button
-          variant="primary"
-          onClick={() => setShowCreateModal(true)}
-          className="gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Create User
-        </Button>
+          <Button
+            variant="primary"
+            onClick={() => setShowCreateModal(true)}
+            className="gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Create User
+          </Button>
         </div>
       </div>
 
       {users.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 shadow-md p-16 text-center">
           <UserIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-600 text-lg font-medium mb-2">
-            No users yet
-          </p>
+          <p className="text-gray-600 text-lg font-medium mb-2">No users yet</p>
           <p className="text-gray-500 text-sm mb-4">
             Create your first user to get started
           </p>
-            <Button
-              variant="primary"
-              onClick={() => setShowCreateModal(true)}
-              className="gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Create User
-            </Button>
+          <Button
+            variant="primary"
+            onClick={() => setShowCreateModal(true)}
+            className="gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Create User
+          </Button>
         </div>
       ) : (
-        <Box 
-          sx={{ 
+        <Box
+          sx={{
             width: "100%",
             borderRadius: "12px",
             overflow: "hidden",
-          }} 
+          }}
           className="bg-white border border-gray-200 shadow-md"
         >
           <DataGrid
@@ -699,6 +754,7 @@ export default function UsersPage() {
             columns={columns}
             getRowId={(row) => row.userId}
             autoHeight
+            getRowHeight={() => "auto"}
             pageSizeOptions={[5, 10, 20, 50, 100]}
             initialState={{
               pagination: { paginationModel: { pageSize: 10 } },
@@ -711,8 +767,8 @@ export default function UsersPage() {
                 showQuickFilter: true,
                 quickFilterProps: { debounceMs: 500 },
                 csvOptions: {
-                  fileName: `users-${new Date().toISOString().split('T')[0]}`,
-                  delimiter: ',',
+                  fileName: `users-${new Date().toISOString().split("T")[0]}`,
+                  delimiter: ",",
                   utf8WithBom: true,
                 },
                 printOptions: {
@@ -770,15 +826,16 @@ export default function UsersPage() {
                   opacity: 0,
                   transition: "opacity 0.2s",
                 },
-                "&.MuiDataGrid-columnHeader--sorted .MuiDataGrid-iconButtonContainer": {
-                  opacity: 1,
-                  "& .MuiDataGrid-sortIcon": {
-                    color: "#10b981 !important",
-                    fontSize: "0.875rem",
-                    width: "16px",
-                    height: "16px",
+                "&.MuiDataGrid-columnHeader--sorted .MuiDataGrid-iconButtonContainer":
+                  {
+                    opacity: 1,
+                    "& .MuiDataGrid-sortIcon": {
+                      color: "#10b981 !important",
+                      fontSize: "0.875rem",
+                      width: "16px",
+                      height: "16px",
+                    },
                   },
-                },
                 "& .MuiDataGrid-sortIcon": {
                   color: "#10b981 !important",
                   fontSize: "0.875rem",
@@ -803,12 +860,17 @@ export default function UsersPage() {
                 fontSize: "0.875rem",
                 display: "flex",
                 alignItems: "center",
+                whiteSpace: "normal",
+                lineHeight: "1.3rem",
                 "&:focus": {
                   outline: "none",
                 },
                 "&:focus-within": {
                   outline: "none",
                 },
+              },
+              "& .MuiDataGrid-cell--textLeft": {
+                alignItems: "flex-start",
               },
               "& .MuiDataGrid-footerContainer": {
                 borderTop: "1px solid #e5e7eb",
@@ -859,4 +921,3 @@ export default function UsersPage() {
     </div>
   );
 }
-
