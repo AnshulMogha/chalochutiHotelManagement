@@ -40,15 +40,12 @@ const ROLE_OPTIONS = [
   { value: "PLATFORM_ADMIN", label: "Platform Admin" },
   { value: "ONBOARDING_REVIEWER", label: "Onboarding Reviewer" },
   { value: "HOTEL_OWNER", label: "Hotel Owner" },
-  { value: "HOTEL_MANAGER", label: "Hotel Manager" },
-  { value: "FRONT_DESK_EXEC", label: "Front Desk" },
-  { value: "HOUSEKEEPING_STAFF", label: "Housekeeping" },
-  { value: "ACCOUNTANT", label: "Accountant" },
   { value: "BOOKING_AGENT", label: "Booking Agent" },
   { value: "PACKAGE_MANAGER", label: "Package Manager" },
   { value: "TRANSPORT_AGENT", label: "Transport Agent" },
   { value: "AGENT", label: "Agent" },
 ];
+const ALLOWED_SUPER_ADMIN_ROLES = new Set(ROLE_OPTIONS.map((role) => role.value));
 
 const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "Active" },
@@ -91,7 +88,9 @@ function UserFormModal({
     if (mode === "edit" && user) {
       const normalizedRoles = (user.roles || []).filter(
         (role): role is CreateUserRequest["roles"][number] =>
-          typeof role === "string" && role.trim().length > 0,
+          typeof role === "string" &&
+          role.trim().length > 0 &&
+          ALLOWED_SUPER_ADMIN_ROLES.has(role),
       );
       setFormData({
         email: user.email,
@@ -229,6 +228,7 @@ function UserFormModal({
   };
 
   const handleRoleToggle = (role: CreateUserRequest["roles"][number]) => {
+    if (!ALLOWED_SUPER_ADMIN_ROLES.has(role)) return;
     const currentRoles = formData.roles || [];
     const nextRoles = currentRoles.includes(role)
       ? currentRoles.filter((item) => item !== role)

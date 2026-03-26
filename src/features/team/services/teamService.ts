@@ -7,7 +7,6 @@ export type TeamRole =
   | "FRONT_DESK_EXEC"
   | "HOUSEKEEPING_STAFF"
   | "ACCOUNTANT"
-  | "BOOKING_AGENT"
   | "READ_ONLY";
 
 export type PermissionModule = 
@@ -45,14 +44,14 @@ export interface TeamMember {
 
 export interface CreateTeamMemberRequest {
   email: string;
-  role: TeamRole;
+  roles: TeamRole[];
   firstName: string;
   lastName: string;
   phoneNumber: string;
 }
 
 export interface UpdateTeamMemberRequest {
-  role: TeamRole;
+  roles: TeamRole[];
   firstName?: string;
   lastName?: string;
   phoneNumber?: string;

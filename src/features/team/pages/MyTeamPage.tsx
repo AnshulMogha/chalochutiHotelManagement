@@ -39,9 +39,11 @@ const TEAM_ROLE_OPTIONS = [
   { value: "FRONT_DESK_EXEC", label: "Front Desk" },
   { value: "HOUSEKEEPING_STAFF", label: "Housekeeping" },
   { value: "ACCOUNTANT", label: "Accountant" },
-  { value: "BOOKING_AGENT", label: "Booking Agent" },
   { value: "READ_ONLY", label: "Read Only" },
 ];
+const ALLOWED_TEAM_ROLES = new Set(
+  TEAM_ROLE_OPTIONS.map((role) => role.value as TeamRole),
+);
 
 const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "Active" },
@@ -107,10 +109,12 @@ function TeamMemberFormModal({
 
   useEffect(() => {
     if (mode === "edit" && member) {
+      const normalizedRoles = (member.roles?.length
+        ? member.roles
+        : [member.role]
+      ).filter((role): role is TeamRole => ALLOWED_TEAM_ROLES.has(role as TeamRole));
       setFormData({
-        roles: (member.roles?.length ? member.roles : [member.role]).filter(
-          Boolean,
-        ) as TeamRole[],
+        roles: normalizedRoles.length ? normalizedRoles : ["HOTEL_MANAGER"],
         firstName: member.firstName || "",
         lastName: member.lastName || "",
         phoneNumber: member.mobile || "",
@@ -212,6 +216,7 @@ function TeamMemberFormModal({
   };
 
   const handleRoleToggle = (role: TeamRole) => {
+    if (!ALLOWED_TEAM_ROLES.has(role)) return;
     const currentRoles = formData.roles || [];
     const nextRoles = currentRoles.includes(role)
       ? currentRoles.filter((item) => item !== role)
@@ -720,7 +725,9 @@ export default function MyTeamPage() {
         updateData.roles?.length
           ? updateData.roles
           : editingMember.roles?.length
-            ? editingMember.roles
+            ? editingMember.roles.filter((role): role is TeamRole =>
+                ALLOWED_TEAM_ROLES.has(role as TeamRole),
+              )
             : ["HOTEL_MANAGER"]
       ) as UpdateUserRequest["roles"];
       await adminService.updateUser(editingMember.userId, {

@@ -140,11 +140,12 @@ export type UserRole =
   | "BOOKING_AGENT"
   | "PACKAGE_MANAGER"
   | "TRANSPORT_AGENT"
-  | "AGENT";
+  | "AGENT"
+  | "READ_ONLY";
 
 export interface CreateUserRequest {
   email: string;
-  role: UserRole;
+  roles: UserRole[];
   firstName: string;
   lastName: string;
   phoneNumber: string;
@@ -152,7 +153,7 @@ export interface CreateUserRequest {
 
 export interface UpdateUserRequest {
   email: string;
-  role: UserRole;
+  roles: UserRole[];
   firstName: string;
   lastName: string;
   phoneNumber: string;
