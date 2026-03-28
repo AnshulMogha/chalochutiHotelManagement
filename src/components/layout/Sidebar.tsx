@@ -121,6 +121,18 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
         label: "Rate and Inventory",
         path: ROUTES.ROOM_INVENTORY.LIST,
         icon: IndianRupee,
+        children: [
+          {
+            label: "Room Inventory",
+            path: ROUTES.ROOM_INVENTORY.LIST,
+            icon: Info,
+          },
+          {
+            label: "Rate Plans",
+            path: ROUTES.RATE_INVENTORY.LIST,
+            icon: Info,
+          },
+        ],
       },
       {
         label: "Bookings",
