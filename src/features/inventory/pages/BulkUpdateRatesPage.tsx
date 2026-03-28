@@ -18,6 +18,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { rateService } from "../services/rateService";
+import { mapHotelRoomUuidsToNumericRoomIds } from "../utils/mapHotelRoomUuidsToNumericRoomIds";
 import {
   adminService,
   type HotelRoom,
@@ -275,33 +276,12 @@ export default function BulkUpdateRatesPage() {
       try {
         const fromDateStr = format(fromDate, "yyyy-MM-dd");
         const toDateStr = format(toDate, "yyyy-MM-dd");
-        const rateData = await rateService.getCalendar(
+        const uuidToNumericMapping = await mapHotelRoomUuidsToNumericRoomIds(
           hotelId,
-          fromDateStr,
-          toDateStr,
+          rooms,
           customerType,
+          { from: fromDateStr, to: toDateStr },
         );
-
-        // Build mapping: roomName -> numeric roomId
-        // New API structure: rooms → ratePlans → days
-        const mapping: Record<string, number> = {};
-        rateData.rooms.forEach((room) => {
-          // Map by room name (case-insensitive)
-          const roomNameKey = room.roomName.toLowerCase().trim();
-          if (!mapping[roomNameKey]) {
-            mapping[roomNameKey] = room.roomId;
-          }
-        });
-
-        // Now map UUID room IDs to numeric room IDs by matching room names
-        const uuidToNumericMapping: Record<string, number> = {};
-        rooms.forEach((hotelRoom) => {
-          const roomNameKey = hotelRoom.roomName.toLowerCase().trim();
-          if (mapping[roomNameKey]) {
-            uuidToNumericMapping[hotelRoom.roomId] = mapping[roomNameKey];
-          }
-        });
-
         setRoomIdMapping(uuidToNumericMapping);
       } catch (error: any) {
         console.error("Error fetching room mapping:", error);

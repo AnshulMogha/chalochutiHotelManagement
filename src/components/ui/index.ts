@@ -39,4 +39,15 @@ export { DataTable, type DataTableProps } from "./DataTable";
 export { StatusBadge } from "./badges/StatusBadge";
 export { RoleBadge } from "./badges/RoleBadge";
 export { ExportButton } from "./ExportButton";
+export {
+  Sheet,
+  SheetPortal,
+  SheetOverlay,
+  SheetTrigger,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetFooter,
+  SheetTitle,
+} from "./sheet";
 

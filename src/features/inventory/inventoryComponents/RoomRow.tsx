@@ -30,10 +30,10 @@ export const RoomRow = ({ room, dates, activeDate, onUpdate }: RoomRowProps) => 
       {/* Main Room Row with Inventory */}
       <div className="grid grid-cols-[250px_repeat(7,1fr)] items-center bg-white">
 
-        <div className="p-4 flex items-center gap-3 font-bold text-gray-700 border-r h-full bg-white">
+        <div className="p-4 flex items-start gap-3 font-bold text-gray-700 border-r h-full bg-white">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 transition-colors"
+            className="mt-0.5 shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 transition-colors"
           >
             {isExpanded ? (
               <ChevronDown className="w-4 h-4" />
@@ -41,7 +41,9 @@ export const RoomRow = ({ room, dates, activeDate, onUpdate }: RoomRowProps) => 
               <ChevronRight className="w-4 h-4" />
             )}
           </button>
-          <span className="truncate">{room.name}</span>
+          <span className="min-w-0 flex-1 break-words text-left leading-snug">
+            {room.name}
+          </span>
         </div>
         
 

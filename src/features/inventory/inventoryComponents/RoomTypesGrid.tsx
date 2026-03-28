@@ -10,7 +10,7 @@ import {
 import type { InventoryRoom } from '../type';
 import type { RatesRoom } from '../type';
 import type { ChildAgePolicyResponse } from '@/features/admin/services/adminService';
-import { RatePlansGrid } from './RatePlansGrid';
+import { RatePlansGrid, type OpenLinkRatePlansContext } from './RatePlansGrid';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
 /* ----------------------------------
@@ -92,6 +92,9 @@ interface RoomTypesGridProps {
   } | null;
   hidePaidChildCharge?: boolean;
   childPolicy?: ChildAgePolicyResponse | null;
+  onOpenLinkRatePlans?: (ctx: OpenLinkRatePlansContext) => void;
+  calendarIsLinkEnable?: boolean;
+  hotelId?: string | null;
 }
 
 export const RoomTypesGrid = ({
@@ -114,6 +117,9 @@ export const RoomTypesGrid = ({
   activeRateEdit,
   hidePaidChildCharge = false,
   childPolicy = null,
+  onOpenLinkRatePlans,
+  calendarIsLinkEnable,
+  hotelId = null,
 }: RoomTypesGridProps) => {
   // Track local input values as strings: key = `${roomId}-${dateStr}`
   const [localValues, setLocalValues] = useState<Map<string, string>>(new Map());
@@ -170,11 +176,11 @@ export const RoomTypesGrid = ({
           } bg-white hover:bg-slate-50/50 transition-colors duration-150`}
         >
           {/* Room Name Column */}
-          <div className="flex items-center gap-2 px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
+          <div className="flex items-start gap-2 px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
             <button
               type="button"
               onClick={() => onToggleExpand(room.roomId)}
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
+              className="mt-0.5 shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
               aria-label={expandedRoomIds.has(room.roomId) ? "Collapse rate plans" : "Expand rate plans"}
             >
               {expandedRoomIds.has(room.roomId) ? (
@@ -183,7 +189,9 @@ export const RoomTypesGrid = ({
                 <ChevronRight className="w-4 h-4" />
               )}
             </button>
-            <span className="truncate">{room.roomName}</span>
+            <span className="min-w-0 flex-1 break-words text-left leading-snug">
+              {room.roomName}
+            </span>
           </div>
 
           {/* Data Columns */}
@@ -401,6 +409,9 @@ export const RoomTypesGrid = ({
                 activeEdit={activeRateEdit}
                 hidePaidChildCharge={hidePaidChildCharge}
                 childPolicy={childPolicy}
+                onOpenLinkRatePlans={onOpenLinkRatePlans}
+                calendarIsLinkEnable={calendarIsLinkEnable}
+                hotelId={hotelId}
               />
             ) : (
               <div className="px-6 py-4 text-sm font-medium text-slate-500">

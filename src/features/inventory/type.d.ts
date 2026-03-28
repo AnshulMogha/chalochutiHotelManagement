@@ -73,18 +73,24 @@ export interface RatesData {
   customerType: 'RETAIL' | 'CORPORATE' | string;
   from: string; // YYYY-MM-DD
   to: string;   // YYYY-MM-DD
+  /** When false, linking is disabled for this calendar response. */
+  isLinkEnable?: boolean;
   rooms: RatesRoom[];
 }
 
 export interface RatesRoom {
   roomId: number;
   roomName: string;
+  /** When false, hide link actions for all rate plans in this room. */
+  isLinkEnable?: boolean;
   ratePlans: RoomRatePlan[];
 }
 
 export interface RoomRatePlan {
   ratePlanId: number;
   ratePlanName: string;
+  /** When false, hide the link control for this rate plan row. */
+  isLinkEnable?: boolean;
   days: RoomRateDay[];
 }
 

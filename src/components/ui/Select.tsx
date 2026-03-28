@@ -3,13 +3,18 @@ import { cn } from "@/lib/utils";
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
+  /** First empty option label (defaults to "Select {label}" when label is set). */
+  placeholder?: string;
   error?: string;
   options: Array<{ value: string | number; label: string }>;
   icon?: React.ReactNode;
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, error, options, icon, ...props }, ref) => {
+  ({ className, label, placeholder, error, options, icon, ...props }, ref) => {
+    const emptyLabel =
+      placeholder ??
+      (label ? `Select ${label}` : "Select…");
     return (
       <div className={cn("w-full relative", error ? "mb-6" : "mb-0")}>
         {label && (
@@ -36,7 +41,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             )}
             {...props}
           >
-            <option value="">Select {label}</option>
+            <option value="">{emptyLabel}</option>
             {options.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}

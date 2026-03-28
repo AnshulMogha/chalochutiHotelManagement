@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useSearchParams, useNavigate } from "react-router";
+import { ROUTES } from "@/constants";
 import { startOfToday, addDays, format } from "date-fns";
 import { ChevronDown } from "lucide-react";
 import { DateSelector } from "./inventoryComponents/DateSelector";
@@ -10,9 +11,17 @@ import { BulkUpdateModal } from "./inventoryComponents/BulkUpdateModal";
 import { TAB_OPTIONS } from "@/data/dummyData";
 import type { InventoryRoom, RatesRoom } from "./type";
 import { inventoryService } from "./services/inventoryService";
-import { rateService } from "./services/rateService";
+import {
+  rateService,
+  toLinkRatePlanLinkPayload,
+  type RatePlanLinkRecord,
+} from "./services/rateService";
 import { Toast, useToast } from "@/components/ui/Toast";
-import { RatePlansGrid } from "./inventoryComponents/RatePlansGrid";
+import {
+  RatePlansGrid,
+  type OpenLinkRatePlansContext,
+} from "./inventoryComponents/RatePlansGrid";
+import { LinkRatePlansSheet } from "./inventoryComponents/LinkRatePlansSheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +29,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui";
 import type { HotelRoom } from "@/features/admin/services/adminService";
-import { adminService, type ChildAgePolicyResponse } from "@/features/admin/services/adminService";
+import {
+  adminService,
+  type ChildAgePolicyResponse,
+  type RatePlan,
+} from "@/features/admin/services/adminService";
+import {
+  filterLinkableRatePlans,
+  ratePlansToSelectOptions,
+} from "./utils/filterLinkableRatePlans";
 
 // Track the single active edit
 interface ActiveEdit {
@@ -70,9 +87,26 @@ export default function Layout() {
   const [activeDate, setActiveDate] = useState(today);
   const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
   const [isBulkUpdateDropdownOpen, setIsBulkUpdateDropdownOpen] = useState(false);
+  const [isLinkRatePlansOpen, setIsLinkRatePlansOpen] = useState(false);
+  const [linkRatePlansTargetLabel, setLinkRatePlansTargetLabel] =
+    useState("EP");
+  const [linkRatePlansContext, setLinkRatePlansContext] =
+    useState<OpenLinkRatePlansContext | null>(null);
+  const [linkAllRatePlans, setLinkAllRatePlans] = useState<RatePlan[]>([]);
+  const [linkFilteredRatePlans, setLinkFilteredRatePlans] = useState<
+    RatePlan[]
+  >([]);
+  const [linkRpLoading, setLinkRpLoading] = useState(false);
+  const [linkRpError, setLinkRpError] = useState(false);
+  const [linkExistingRecord, setLinkExistingRecord] =
+    useState<RatePlanLinkRecord | null>(null);
+  const [linkRecordLoading, setLinkRecordLoading] = useState(false);
 
   const [rooms, setRooms] = useState<InventoryRoom[]>([]);
   const [rateRooms, setRateRooms] = useState<RatesRoom[]>([]);
+  const [ratesCalendarIsLinkEnable, setRatesCalendarIsLinkEnable] = useState<
+    boolean | undefined
+  >(undefined);
   const [ratePlansFromDate, setRatePlansFromDate] = useState<string>("");
   const [ratePlansToDate, setRatePlansToDate] = useState<string>("");
   const [customerType, setCustomerType] = useState<string>("RETAIL");
@@ -102,6 +136,112 @@ export default function Layout() {
   // Get current customerType from active tab
   const currentCustomerType = useMemo(() => getCustomerTypeFromTab(activeTab), [activeTab]);
   const [isLoading, setIsLoading] = useState(false);
+
+  const linkSheetBaseOptions = useMemo(() => {
+    const base = ratePlansToSelectOptions(linkFilteredRatePlans);
+    const slaveId = linkExistingRecord?.slaveRatePlanId;
+    if (
+      slaveId != null &&
+      !base.some((o) => o.value === String(slaveId))
+    ) {
+      const rp = linkAllRatePlans.find((r) => r.ratePlanId === slaveId);
+      const label = rp?.ratePlanName ?? `Plan #${slaveId}`;
+      return [...base, { value: String(slaveId), label }];
+    }
+    return base;
+  }, [linkFilteredRatePlans, linkAllRatePlans, linkExistingRecord]);
+
+  const openLinkRatePlansFromGrid = (ctx: OpenLinkRatePlansContext) => {
+    setLinkRatePlansContext(ctx);
+    setLinkAllRatePlans([]);
+    setLinkFilteredRatePlans([]);
+    setLinkRpLoading(true);
+    setLinkRpError(false);
+    setLinkRatePlansTargetLabel(
+      `${ctx.currentRatePlanName} (${ctx.roomName})`,
+    );
+    setIsLinkRatePlansOpen(true);
+  };
+
+  const handleLinkSheetOpenChange = (open: boolean) => {
+    setIsLinkRatePlansOpen(open);
+    if (!open) {
+      setLinkRatePlansContext(null);
+      setLinkAllRatePlans([]);
+      setLinkFilteredRatePlans([]);
+      setLinkRpLoading(false);
+      setLinkRpError(false);
+      setLinkExistingRecord(null);
+      setLinkRecordLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isLinkRatePlansOpen || !hotelId || !linkRatePlansContext) return;
+
+    let cancelled = false;
+    setLinkRpLoading(true);
+    setLinkRecordLoading(true);
+    setLinkRpError(false);
+    setLinkExistingRecord(null);
+
+    const run = async () => {
+      try {
+        const hotelRooms = await inventoryService.getHotelRooms(hotelId);
+        const key = linkRatePlansContext.roomName.toLowerCase().trim();
+        const match = hotelRooms.find(
+          (r) => r.roomName.toLowerCase().trim() === key,
+        );
+        if (!match) {
+          throw new Error("Could not resolve room for linking.");
+        }
+        const masterId = linkRatePlansContext.currentRatePlanId;
+        const [data, links] = await Promise.all([
+          adminService.getRoomRatePlans(hotelId, match.roomId),
+          rateService.getRatePlanLinksByMaster(masterId).catch(() => []),
+        ]);
+        if (cancelled) return;
+        const all = data.ratePlans ?? [];
+        const filtered = filterLinkableRatePlans(all, masterId);
+        setLinkAllRatePlans(all);
+        setLinkFilteredRatePlans(filtered);
+        const matchLink =
+          links.find(
+            (l) => l.masterRatePlanId === masterId && l.active !== false,
+          ) ??
+          links.find((l) => l.masterRatePlanId === masterId) ??
+          null;
+        setLinkExistingRecord(matchLink);
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setLinkAllRatePlans([]);
+          setLinkFilteredRatePlans([]);
+          setLinkExistingRecord(null);
+          setLinkRpError(true);
+          const message =
+            err instanceof Error ? err.message : "Failed to load rate plans";
+          showToast(message, "error");
+        }
+      } finally {
+        if (!cancelled) {
+          setLinkRpLoading(false);
+          setLinkRecordLoading(false);
+        }
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isLinkRatePlansOpen,
+    hotelId,
+    linkRatePlansContext?.roomId,
+    linkRatePlansContext?.roomName,
+    linkRatePlansContext?.currentRatePlanId,
+    // showToast omitted: not referentially stable from useToast
+  ]);
 
   // When switching customer segment while on Room Types, clear expanded rate-plan cache
   // so subsequent expansions fetch with the updated API customerType.
@@ -236,6 +376,7 @@ export default function Layout() {
     setExpandedRoomIds(new Set());
     setLoadingRatePlansByRoomId({});
     setRateRoomsByRoomId({});
+    setRatesCalendarIsLinkEnable(undefined);
   }, [hotelId, fromDate, toDate, currentCustomerType]);
 
   // Reset date range to today → today + 6 when hotel changes
@@ -285,6 +426,7 @@ export default function Layout() {
         const data = await rateService.getCalendar(hotelId, fromDate, toDate, customerTypeToFetch);
         console.log("rate plans data", data);
         setRateRooms(data.rooms);
+        setRatesCalendarIsLinkEnable(data.isLinkEnable);
         setRatePlansFromDate(data.from);
         setRatePlansToDate(data.to);
         setCustomerType(data.customerType);
@@ -295,6 +437,7 @@ export default function Layout() {
       } catch (error) {
         console.error("Error fetching rate plans:", error);
         setRateRooms([]);
+        setRatesCalendarIsLinkEnable(undefined);
         setRatePlansFromDate("");
         setRatePlansToDate("");
       } finally {
@@ -319,6 +462,7 @@ export default function Layout() {
         currentCustomerType
       );
       setRateRooms(data.rooms);
+      setRatesCalendarIsLinkEnable(data.isLinkEnable);
       setRatePlansFromDate(data.from);
       setRatePlansToDate(data.to);
       setCustomerType(data.customerType);
@@ -802,55 +946,69 @@ export default function Layout() {
                 onBaseDateChange={setBaseDate}
                 onActiveDateChange={setActiveDate}
                 rightAction={
-                  /* Bulk Update Dropdown Button - Available for both sections */
-                  <DropdownMenu
-                    open={isBulkUpdateDropdownOpen}
-                    onOpenChange={setIsBulkUpdateDropdownOpen}
-                  >
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap flex items-center gap-2"
-                      >
-                        Bulk Update
-                        <ChevronDown className="w-4 h-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setIsBulkUpdateModalOpen(true);
-                          setIsBulkUpdateDropdownOpen(false);
-                        }}
-                        className="cursor-pointer"
-                      >
-                        Bulk Update Inventory
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          if (hotelId) {
-                            navigate(`/rates/bulk-update?hotelId=${hotelId}`);
-                          }
-                          setIsBulkUpdateDropdownOpen(false);
-                        }}
-                        className="cursor-pointer"
-                        disabled={!hotelId}
-                      >
-                        Bulk Update Rates
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          if (hotelId) {
-                            navigate(`/restrictions/bulk-update?hotelId=${hotelId}`);
-                          }
-                          setIsBulkUpdateDropdownOpen(false);
-                        }}
-                        className="cursor-pointer"
-                        disabled={!hotelId}
-                      >
-                        Bulk Restrictions
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const q = hotelId
+                          ? `?hotelId=${encodeURIComponent(hotelId)}`
+                          : "";
+                        navigate(`${ROUTES.HOTEL_RATES_ADD_SINGLE_DERIVED}${q}`);
+                      }}
+                      className="px-5 py-2.5 text-sm font-semibold text-[#2A3170] bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors shadow-sm whitespace-nowrap"
+                    >
+                      Single Day Rate
+                    </button>
+                    <DropdownMenu
+                      open={isBulkUpdateDropdownOpen}
+                      onOpenChange={setIsBulkUpdateDropdownOpen}
+                    >
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap flex items-center gap-2"
+                        >
+                          Bulk Update
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setIsBulkUpdateModalOpen(true);
+                            setIsBulkUpdateDropdownOpen(false);
+                          }}
+                          className="cursor-pointer"
+                        >
+                          Bulk Update Inventory
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            if (hotelId) {
+                              navigate(`/rates/bulk-update?hotelId=${hotelId}`);
+                            }
+                            setIsBulkUpdateDropdownOpen(false);
+                          }}
+                          className="cursor-pointer"
+                          disabled={!hotelId}
+                        >
+                          Bulk Update Rates
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            if (hotelId) {
+                              navigate(`/restrictions/bulk-update?hotelId=${hotelId}`);
+                            }
+                            setIsBulkUpdateDropdownOpen(false);
+                          }}
+                          className="cursor-pointer"
+                          disabled={!hotelId}
+                        >
+                          Bulk Restrictions
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 }
               />
             </div>
@@ -885,6 +1043,9 @@ export default function Layout() {
                   activeRateEdit={activeRateEdit}
                   hidePaidChildCharge={childPolicyNotFound}
                   childPolicy={childPolicy}
+                  onOpenLinkRatePlans={openLinkRatePlansFromGrid}
+                  calendarIsLinkEnable={ratesCalendarIsLinkEnable}
+                  hotelId={hotelId}
                 />
               </div>
             ) : (
@@ -902,6 +1063,9 @@ export default function Layout() {
                     activeEdit={activeRateEdit}
                     hidePaidChildCharge={childPolicyNotFound}
                     childPolicy={childPolicy}
+                    onOpenLinkRatePlans={openLinkRatePlansFromGrid}
+                    calendarIsLinkEnable={ratesCalendarIsLinkEnable}
+                    hotelId={hotelId}
                   />
                 </div>
               ) : (
@@ -933,6 +1097,72 @@ export default function Layout() {
         roomsError={roomTypesError}
         isSubmitting={isBulkSubmitting}
         section="room-types"
+      />
+
+      <LinkRatePlansSheet
+        open={isLinkRatePlansOpen}
+        onOpenChange={handleLinkSheetOpenChange}
+        targetPlanLabel={linkRatePlansTargetLabel}
+        baseRateOptions={linkSheetBaseOptions}
+        isLoadingOptions={linkRpLoading}
+        noLinkablePlans={
+          !linkRpLoading &&
+          !linkRpError &&
+          linkFilteredRatePlans.length === 0
+        }
+        masterRatePlanId={linkRatePlansContext?.currentRatePlanId ?? 0}
+        existingLinkRecord={linkExistingRecord}
+        linkConfigLoading={linkRecordLoading}
+        onInvalid={() =>
+          showToast("Please choose a base rate plan.", "error")
+        }
+        onRemoveLink={async (linkId) => {
+          try {
+            await rateService.deleteRatePlanLink(linkId);
+            showToast("Rate plan link is removed.", "success");
+          } catch (err: unknown) {
+            const message =
+              err && typeof err === "object" && "message" in err
+                ? String((err as { message: string }).message)
+                : "Failed to remove rate plan link";
+            showToast(message, "error");
+            throw err;
+          }
+        }}
+        onConfirm={async (payload) => {
+          const slaveRatePlanId = Number.parseInt(payload.baseRateValue, 10);
+          if (!Number.isFinite(slaveRatePlanId)) {
+            showToast("Invalid base rate plan.", "error");
+            throw new Error("Invalid slave rate plan id");
+          }
+          const body = toLinkRatePlanLinkPayload(
+            payload.masterRatePlanId,
+            slaveRatePlanId,
+            payload.direction,
+            payload.unit,
+            payload.adjustmentAmount,
+            payload.advanced,
+          );
+          try {
+            if (payload.existingLinkId != null) {
+              await rateService.updateRatePlanLink(
+                payload.existingLinkId,
+                body,
+              );
+              showToast("Linked rates updated.", "success");
+            } else {
+              await rateService.linkRatePlans(body);
+              showToast("Linked rates saved.", "success");
+            }
+          } catch (err: unknown) {
+            const message =
+              err && typeof err === "object" && "message" in err
+                ? String((err as { message: string }).message)
+                : "Failed to save linked rates";
+            showToast(message, "error");
+            throw err;
+          }
+        }}
       />
 
       <Toast

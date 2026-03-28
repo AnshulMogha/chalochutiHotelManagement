@@ -40,6 +40,8 @@ export const ROUTES = {
   RATE_INVENTORY: {
     LIST: "/inventory/rate-plans",
   },
+  /** Single day derived rate form (hotel-scoped path). */
+  HOTEL_RATES_ADD_SINGLE_DERIVED: "/hotel/rates/add-single-derived",
   BOOKINGS: {
     LIST: "/bookings",
     DETAIL: (id: string) => `/bookings/${id}`,
@@ -288,6 +290,12 @@ export const API_ENDPOINTS = {
       `/hotel/${hotelId}/rates/calendar?from=${fromDate}&to=${toDate}&customerType=${customerType}`,
     UPDATE_SINGLE: "/hotel/rates/single",
     UPDATE_BULK: "/hotel/rates/bulk",
+    CREATE_SINGLE_DERIVED: "/hotel/rates/single-derived",
+    LINK_RATE_PLANS: "/hotel/rate-plan/link",
+    GET_RATE_PLAN_LINKS_BY_MASTER: (masterRatePlanId: number) =>
+      `/hotel/rate-plan/link?masterRatePlanId=${masterRatePlanId}`,
+    UPDATE_RATE_PLAN_LINK: (linkId: number) =>
+      `/hotel/rate-plan/link/${linkId}`,
   },
 } as const;
 
