@@ -1014,7 +1014,8 @@ export default function Layout() {
                 channelSegmentLabel={activeSegmentLabel}
                 rightAction={
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
+                    {/* Single Day Rate moved to each rate plan row in RatePlansGrid (with room + rate plan context). */}
+                    {/* <button
                       type="button"
                       onClick={() => {
                         const q = hotelId
@@ -1025,7 +1026,7 @@ export default function Layout() {
                       className="px-5 py-2.5 text-sm font-semibold text-[#2A3170] bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors shadow-sm whitespace-nowrap"
                     >
                       Single Day Rate
-                    </button>
+                    </button> */}
                     <DropdownMenu
                       open={isBulkUpdateDropdownOpen}
                       onOpenChange={setIsBulkUpdateDropdownOpen}

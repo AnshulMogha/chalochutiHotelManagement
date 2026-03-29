@@ -13,6 +13,8 @@
  */
 
 import { useMemo, useState, useRef } from 'react';
+import { useNavigate } from 'react-router';
+import { ROUTES } from '@/constants';
 import type { KeyboardEvent } from 'react';
 import {
   parseISO,
@@ -164,8 +166,7 @@ export const RatePlansGrid = ({
   calendarIsLinkEnable,
   hotelId = null,
 }: RatePlansGridProps) => {
-  // Debug: Log hidePaidChildCharge prop
-  console.log("RatePlansGrid - hidePaidChildCharge:", hidePaidChildCharge);
+  const navigate = useNavigate();
 
   // Helper function to generate dynamic paid child charge label
   const getPaidChildChargeLabel = (): string => {
@@ -472,6 +473,27 @@ export const RatePlansGrid = ({
                             </button>
                           )
                         ))}
+                      {hotelId ? (
+                        <button
+                          type="button"
+                          aria-label="Add single day derived rate for this rate plan"
+                          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-sm font-semibold text-[#2A3170] shadow-sm transition-colors hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2A3170] focus-visible:ring-offset-1"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const q = new URLSearchParams({
+                              hotelId,
+                              roomId: String(room.roomId),
+                              ratePlanId: String(ratePlan.ratePlanId),
+                            });
+                            navigate(
+                              `${ROUTES.HOTEL_RATES_ADD_SINGLE_DERIVED}?${q.toString()}`,
+                            );
+                          }}
+                        >
+                          Single Day Rate
+                        </button>
+                      ) : null}
                       {/* {hasMissingRates && (
                         <AlertTriangle className="w-4 h-4 text-amber-600" />
                       )} */}
