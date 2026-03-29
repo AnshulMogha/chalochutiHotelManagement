@@ -387,7 +387,7 @@ export const RoomTypesGrid = ({
 
         {/* Expanded Content: render existing Rate Plans component (unchanged) */}
         {expandedRoomIds.has(room.roomId) && (
-          <div className="border-t border-slate-200 bg-slate-50/30 relative z-50">
+          <div className="border-t border-slate-200 bg-slate-50/30 relative z-0">
             {loadingRatePlansByRoomId[room.roomId] ? (
               <div className="px-6 py-4 text-sm font-medium text-slate-500">
                 Loading rate plans...

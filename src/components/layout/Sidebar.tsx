@@ -13,8 +13,6 @@ import {
   BarChart3,
   MoreHorizontal,
   BedDouble,
-  Package,
-  Tag,
   Image as ImageIcon,
   UtensilsCrossed,
   FileText,
@@ -121,18 +119,18 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
         label: "Rate and Inventory",
         path: ROUTES.ROOM_INVENTORY.LIST,
         icon: IndianRupee,
-        children: [
-          {
-            label: "Room Inventory",
-            path: ROUTES.ROOM_INVENTORY.LIST,
-            icon: Info,
-          },
-          {
-            label: "Rate Plans",
-            path: ROUTES.RATE_INVENTORY.LIST,
-            icon: Info,
-          },
-        ],
+        // children: [
+        //   {
+        //     label: "Room Inventory",
+        //     path: ROUTES.ROOM_INVENTORY.LIST,
+        //     icon: Info,
+        //   },
+        //   {
+        //     label: "Rate Plans",
+        //     path: ROUTES.RATE_INVENTORY.LIST,
+        //     icon: Info,
+        //   },
+        // ],
       },
       {
         label: "Bookings",
@@ -232,7 +230,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       <aside
         className={cn(
           "fixed left-0 top-16 bottom-4 h-[calc(100vh-4rem-1rem)] z-50 bg-[#2f3d95] border-r border-[#253075] transition-all duration-300 ease-in-out shadow-xl",
-          "lg:top-20 lg:h-[calc(100vh-5rem-1rem)] lg:z-40 lg:left-4 lg:rounded-xl",
+          // Above main content (rates/inventory grids use low z-index); below topbar (z-50)
+          "lg:top-20 lg:h-[calc(100vh-5rem-1rem)] lg:z-[45] lg:left-4 lg:rounded-xl",
           "overflow-x-hidden overflow-y-auto",
           isOpen
             ? "translate-x-0 w-64 rounded-r-xl"

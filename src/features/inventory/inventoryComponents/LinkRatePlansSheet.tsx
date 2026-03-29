@@ -57,6 +57,10 @@ interface LinkRatePlansSheetProps {
   onRemoveLink?: (linkId: number) => void | Promise<void>;
   /** Called when user confirms but no base plan is selected while options exist. */
   onInvalid?: () => void;
+  /** Server / API error to show inside the sheet (not hidden behind overlay). */
+  apiError?: string | null;
+  /** Clear `apiError` when user retries submit or edits after an error. */
+  onClearApiError?: () => void;
 }
 
 function SegmentToggle<T extends string>({
@@ -108,6 +112,8 @@ export function LinkRatePlansSheet({
   onConfirm,
   onRemoveLink,
   onInvalid,
+  apiError = null,
+  onClearApiError,
 }: LinkRatePlansSheetProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRemovingLink, setIsRemovingLink] = useState(false);
@@ -192,6 +198,7 @@ export function LinkRatePlansSheet({
   const handleRemoveLink = async () => {
     const linkId = existingLinkRecord?.id;
     if (linkId == null || !onRemoveLink) return;
+    onClearApiError?.();
     setIsRemovingLink(true);
     try {
       await onRemoveLink(linkId);
@@ -224,6 +231,7 @@ export function LinkRatePlansSheet({
       },
       existingLinkId: existingLinkRecord?.id,
     };
+    onClearApiError?.();
     setIsSubmitting(true);
     try {
       await onConfirm?.(payload);
@@ -381,6 +389,14 @@ export function LinkRatePlansSheet({
         </div>
 
         <SheetFooter className="flex flex-col gap-3">
+          {apiError ? (
+            <div
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-900 whitespace-pre-wrap break-words shadow-sm"
+              role="alert"
+            >
+              {apiError}
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={handleConfirm}

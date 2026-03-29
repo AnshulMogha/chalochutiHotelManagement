@@ -1,6 +1,6 @@
 import { format, subDays, addDays, startOfToday, isBefore, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 /**
  * Date Selector Component
@@ -18,6 +18,8 @@ interface DateSelectorProps {
   baseDate: Date;
   onBaseDateChange: (date: Date) => void;
   onActiveDateChange: (date: Date) => void;
+  /** Shown under "Channel Segment" (B2C / MYBIZZ / B2B from inventory tabs). */
+  channelSegmentLabel?: string;
   rightAction?: ReactNode;
 }
 
@@ -25,6 +27,7 @@ export const DateSelector = ({
   baseDate,
   onBaseDateChange,
   onActiveDateChange,
+  channelSegmentLabel,
   rightAction,
 }: DateSelectorProps) => {
   const today = startOfToday();
@@ -69,8 +72,13 @@ export const DateSelector = ({
             Channel Segment
           </span>
           <span className="text-[#2A3170] font-bold text-lg tracking-wide">
-            {format(baseDate, 'MMMM yyyy').toUpperCase()}
+            {channelSegmentLabel ?? format(baseDate, "MMMM yyyy").toUpperCase()}
           </span>
+          {channelSegmentLabel != null && (
+            <span className="text-[11px] text-gray-500 font-medium">
+              {format(baseDate, "MMMM yyyy")}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-4">

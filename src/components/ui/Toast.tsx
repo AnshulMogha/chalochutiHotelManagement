@@ -31,9 +31,10 @@ export function Toast({
   return (
     <div
       className={cn(
-        "fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg",
+        // Above Radix Sheet overlay (z-[100]) / content (z-[101])
+        "fixed top-4 right-4 z-[200] flex items-start gap-3 px-4 py-3 rounded-lg shadow-lg",
         "transition-all duration-300 ease-in-out",
-        "min-w-[300px] max-w-md",
+        "min-w-[300px] max-w-lg",
         type === "success"
           ? "bg-green-50 border border-green-200 text-green-800"
           : "bg-red-50 border border-red-200 text-red-800"
@@ -47,7 +48,14 @@ export function Toast({
           <XCircle className="w-5 h-5 text-red-600" />
         )}
       </div>
-      <p className="flex-1 text-sm font-medium">{message}</p>
+      <p
+        className={cn(
+          "flex-1 text-sm font-medium",
+          type === "error" && "whitespace-pre-wrap break-words",
+        )}
+      >
+        {message}
+      </p>
       <button
         onClick={onClose}
         className="flex-shrink-0 p-1 hover:bg-black/10 rounded transition-colors"

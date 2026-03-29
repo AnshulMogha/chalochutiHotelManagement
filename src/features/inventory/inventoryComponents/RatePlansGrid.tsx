@@ -312,7 +312,7 @@ export const RatePlansGrid = ({
 
   const containerClassName =
     variant === "embedded"
-      ? "relative z-50 overflow-visible bg-transparent"
+      ? "relative z-0 overflow-visible bg-transparent"
       : "border border-slate-200 rounded-xl overflow-visible shadow-md bg-white";
 
   return (

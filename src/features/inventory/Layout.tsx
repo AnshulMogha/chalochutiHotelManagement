@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLocation, useSearchParams, useNavigate } from "react-router";
 import { ROUTES } from "@/constants";
 import { startOfToday, addDays, format } from "date-fns";
@@ -38,6 +38,7 @@ import {
   filterLinkableRatePlans,
   ratePlansToSelectOptions,
 } from "./utils/filterLinkableRatePlans";
+import { formatApiClientError } from "@/services/api/formatApiClientError";
 
 // Track the single active edit
 interface ActiveEdit {
@@ -88,6 +89,9 @@ export default function Layout() {
   const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
   const [isBulkUpdateDropdownOpen, setIsBulkUpdateDropdownOpen] = useState(false);
   const [isLinkRatePlansOpen, setIsLinkRatePlansOpen] = useState(false);
+  const [linkSheetApiError, setLinkSheetApiError] = useState<string | null>(
+    null,
+  );
   const [linkRatePlansTargetLabel, setLinkRatePlansTargetLabel] =
     useState("EP");
   const [linkRatePlansContext, setLinkRatePlansContext] =
@@ -135,6 +139,10 @@ export default function Layout() {
 
   // Get current customerType from active tab
   const currentCustomerType = useMemo(() => getCustomerTypeFromTab(activeTab), [activeTab]);
+  const activeSegmentLabel = useMemo(
+    () => TAB_OPTIONS.find((t) => t.id === activeTab)?.label,
+    [activeTab],
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   const linkSheetBaseOptions = useMemo(() => {
@@ -152,6 +160,7 @@ export default function Layout() {
   }, [linkFilteredRatePlans, linkAllRatePlans, linkExistingRecord]);
 
   const openLinkRatePlansFromGrid = (ctx: OpenLinkRatePlansContext) => {
+    setLinkSheetApiError(null);
     setLinkRatePlansContext(ctx);
     setLinkAllRatePlans([]);
     setLinkFilteredRatePlans([]);
@@ -166,6 +175,7 @@ export default function Layout() {
   const handleLinkSheetOpenChange = (open: boolean) => {
     setIsLinkRatePlansOpen(open);
     if (!open) {
+      setLinkSheetApiError(null);
       setLinkRatePlansContext(null);
       setLinkAllRatePlans([]);
       setLinkFilteredRatePlans([]);
@@ -242,18 +252,6 @@ export default function Layout() {
     linkRatePlansContext?.currentRatePlanId,
     // showToast omitted: not referentially stable from useToast
   ]);
-
-  // When switching customer segment while on Room Types, clear expanded rate-plan cache
-  // so subsequent expansions fetch with the updated API customerType.
-  useEffect(() => {
-    if (activeSidebarSection !== "room-types") return;
-    setExpandedRoomIds(new Set());
-    setLoadingRatePlansByRoomId({});
-    setRateRoomsByRoomId({});
-    setRateRooms([]);
-    originalRateRoomsRef.current = [];
-    setActiveRateEdit(null);
-  }, [currentCustomerType, activeSidebarSection]);
 
   // Child Age Policy State
   const [childPolicy, setChildPolicy] = useState<ChildAgePolicyResponse | null>(null);
@@ -376,7 +374,12 @@ export default function Layout() {
     setExpandedRoomIds(new Set());
     setLoadingRatePlansByRoomId({});
     setRateRoomsByRoomId({});
+    setRateRooms([]);
+    originalRateRoomsRef.current = [];
+    setRatePlansFromDate("");
+    setRatePlansToDate("");
     setRatesCalendarIsLinkEnable(undefined);
+    setActiveRateEdit(null);
   }, [hotelId, fromDate, toDate, currentCustomerType]);
 
   // Reset date range to today → today + 6 when hotel changes
@@ -412,6 +415,43 @@ export default function Layout() {
 
     fetchInventory();
   }, [hotelId, fromDate, toDate, activeSidebarSection]);
+
+  // Room inventory: load rates calendar for the selected segment (B2C / MYBIZZ / B2B) so
+  // expanded rows and saves use the correct customerType — tab change refetches rates.
+  useEffect(() => {
+    if (!hotelId || activeSidebarSection !== "room-types") return;
+
+    let cancelled = false;
+    const prefetchRatesForSegment = async () => {
+      try {
+        const data = await rateService.getCalendar(
+          hotelId,
+          fromDate,
+          toDate,
+          currentCustomerType,
+        );
+        if (cancelled) return;
+        setRateRooms(data.rooms);
+        setRatesCalendarIsLinkEnable(data.isLinkEnable);
+        setRatePlansFromDate(data.from);
+        setRatePlansToDate(data.to);
+        setCustomerType(data.customerType);
+        originalRateRoomsRef.current = JSON.parse(JSON.stringify(data.rooms));
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Error loading rates for segment (room inventory):", error);
+        setRateRooms([]);
+        setRatesCalendarIsLinkEnable(undefined);
+        setRatePlansFromDate("");
+        setRatePlansToDate("");
+      }
+    };
+
+    void prefetchRatesForSegment();
+    return () => {
+      cancelled = true;
+    };
+  }, [hotelId, fromDate, toDate, activeSidebarSection, currentCustomerType]);
 
   
   // Fetch rate plans data for rate-plans section
@@ -475,6 +515,32 @@ export default function Layout() {
       setLoadingRatePlansByRoomId((prev) => ({ ...prev, [roomId]: false }));
     }
   };
+
+  /** GET /hotel/{id}/rates/calendar — refresh grid after link create/update/remove. */
+  const refreshRatesCalendarAfterLinkChange = useCallback(async () => {
+    if (!hotelId) return;
+    try {
+      const data = await rateService.getCalendar(
+        hotelId,
+        fromDate,
+        toDate,
+        currentCustomerType,
+      );
+      setRateRooms(data.rooms);
+      setRatesCalendarIsLinkEnable(data.isLinkEnable);
+      setRatePlansFromDate(data.from);
+      setRatePlansToDate(data.to);
+      setCustomerType(data.customerType);
+      originalRateRoomsRef.current = JSON.parse(JSON.stringify(data.rooms));
+      setActiveRateEdit(null);
+    } catch (error) {
+      console.error("Error refreshing rates calendar after link change:", error);
+      showToast(
+        "Link saved, but the calendar could not be refreshed. Try changing the date range or reloading.",
+        "error",
+      );
+    }
+  }, [hotelId, fromDate, toDate, currentCustomerType, showToast]);
 
   const toggleRoomExpand = (roomId: number) => {
     const shouldExpand = !expandedRoomIds.has(roomId);
@@ -945,6 +1011,7 @@ export default function Layout() {
                 baseDate={baseDate}
                 onBaseDateChange={setBaseDate}
                 onActiveDateChange={setActiveDate}
+                channelSegmentLabel={activeSegmentLabel}
                 rightAction={
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
@@ -1113,26 +1180,26 @@ export default function Layout() {
         masterRatePlanId={linkRatePlansContext?.currentRatePlanId ?? 0}
         existingLinkRecord={linkExistingRecord}
         linkConfigLoading={linkRecordLoading}
-        onInvalid={() =>
-          showToast("Please choose a base rate plan.", "error")
-        }
+        onInvalid={() => {
+          setLinkSheetApiError("Please choose a base rate plan.");
+        }}
+        apiError={linkSheetApiError}
+        onClearApiError={() => setLinkSheetApiError(null)}
         onRemoveLink={async (linkId) => {
           try {
             await rateService.deleteRatePlanLink(linkId);
             showToast("Rate plan link is removed.", "success");
+            await refreshRatesCalendarAfterLinkChange();
           } catch (err: unknown) {
-            const message =
-              err && typeof err === "object" && "message" in err
-                ? String((err as { message: string }).message)
-                : "Failed to remove rate plan link";
-            showToast(message, "error");
+            const message = formatApiClientError(err);
+            setLinkSheetApiError(message);
             throw err;
           }
         }}
         onConfirm={async (payload) => {
           const slaveRatePlanId = Number.parseInt(payload.baseRateValue, 10);
           if (!Number.isFinite(slaveRatePlanId)) {
-            showToast("Invalid base rate plan.", "error");
+            setLinkSheetApiError("Invalid base rate plan.");
             throw new Error("Invalid slave rate plan id");
           }
           const body = toLinkRatePlanLinkPayload(
@@ -1154,12 +1221,10 @@ export default function Layout() {
               await rateService.linkRatePlans(body);
               showToast("Linked rates saved.", "success");
             }
+            await refreshRatesCalendarAfterLinkChange();
           } catch (err: unknown) {
-            const message =
-              err && typeof err === "object" && "message" in err
-                ? String((err as { message: string }).message)
-                : "Failed to save linked rates";
-            showToast(message, "error");
+            const message = formatApiClientError(err);
+            setLinkSheetApiError(message);
             throw err;
           }
         }}
@@ -1170,6 +1235,7 @@ export default function Layout() {
         type={toast.type}
         isVisible={toast.isVisible}
         onClose={hideToast}
+        duration={toast.type === "error" ? 9000 : 3000}
       />
     </div>
   );

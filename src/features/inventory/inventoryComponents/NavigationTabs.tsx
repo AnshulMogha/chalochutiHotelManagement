@@ -26,6 +26,7 @@ export const NavigationTabs = ({ tabs, activeTab, onTabChange }: NavigationTabsP
         
         return (
           <button
+            type="button"
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             // UI ENHANCEMENT: Better spacing, transitions, focus states, and hover effects
