@@ -1,5 +1,10 @@
 import { cn } from "@/lib/utils";
-import { ROLE_LABELS, ROLE_COLORS, type Role } from "@/constants/roles";
+import {
+  ROLE_LABELS,
+  ROLE_COLORS,
+  ADMIN_MANAGED_ROLE_BADGE_STYLES,
+  type Role,
+} from "@/constants/roles";
 
 interface RoleBadgeProps {
   roles: string[];
@@ -51,7 +56,10 @@ export function RoleBadge({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {visibleRoles.map((role) => {
-        const config = ROLE_COLORS[role as Role] || DEFAULT_ROLE_STYLE;
+        const config =
+          ADMIN_MANAGED_ROLE_BADGE_STYLES[role] ||
+          ROLE_COLORS[role as Role] ||
+          DEFAULT_ROLE_STYLE;
         const label = toRoleLabel(role);
 
         return (

@@ -39,6 +39,7 @@ import type { GridColDef } from "@mui/x-data-grid";
 import { Box } from "@mui/material";
 import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
 
+/** Roles Super Admin can assign on User Management (create/edit). Not exposed on hotel My Team. */
 const ROLE_OPTIONS = [
   { value: "PLATFORM_ADMIN", label: "Platform Admin" },
   { value: "ONBOARDING_REVIEWER", label: "Onboarding Reviewer" },

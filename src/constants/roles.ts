@@ -28,6 +28,14 @@ export const ROLE_COLORS: Record<Role, { bg: string; text: string }> = {
   [ROLES.HOTEL_MANAGER]: { bg: "bg-purple-100", text: "text-purple-700" },
 };
 
+/** Badge styles for roles assigned only via Super Admin User Management (not in `Role` union). */
+export const ADMIN_MANAGED_ROLE_BADGE_STYLES: Record<
+  string,
+  { bg: string; text: string }
+> = {
+  PACKAGE_MANAGER: { bg: "bg-emerald-100", text: "text-emerald-800" },
+};
+
 /**
  * Check if user has a specific role
  */
