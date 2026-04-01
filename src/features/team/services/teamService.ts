@@ -5,19 +5,27 @@ import { API_ENDPOINTS } from "@/constants";
 export type TeamRole = 
   | "HOTEL_MANAGER"
   | "FRONT_DESK_EXEC"
-  | "HOUSEKEEPING_STAFF"
-  | "ACCOUNTANT"
-  | "READ_ONLY";
+  | "ACCOUNTANT";
 
 export type PermissionModule = 
   | "BOOKINGS"
+  | "MY_TEAM"
   | "RATES_INVENTORY"
   | "OFFERS"
   | "CONTENT"
   | "ANALYTICS"
   | "MESSAGES"
   | "DASHBOARD"
-  | "FINANCE";
+  | "FINANCE"
+  // Property Information modules (Hotel Owner / Hotel Manager)
+  // These are separate string keys so backend can grant permissions per section.
+  | "PROPERTY_BASIC_INFO"
+  | "PROPERTY_ROOMS_RATEPLANS"
+  | "PROPERTY_PHOTOS_VIDEOS"
+  | "PROPERTY_AMENITIES_RESTAURANTS"
+  | "PROPERTY_POLICY_RULES"
+  | "PROPERTY_FINANCE"
+  | "PROPERTY_DOCUMENT";
 
 export interface Permission {
   module: PermissionModule;

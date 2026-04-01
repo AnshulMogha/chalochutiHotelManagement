@@ -1,11 +1,15 @@
 import { Suspense, useState, useEffect } from "react";
-import { Outlet } from "react-router";
+import { Outlet, useLocation, Navigate } from "react-router";
 import { Topbar } from "./Topbar";
 import { Sidebar } from "./Sidebar";
 import { LoadingSpinner } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks";
+import { canViewPath } from "@/lib/permissions";
 
 export default function MainLayout() {
+  const { user } = useAuth();
+  const location = useLocation();
   // Default: sidebar open on desktop, closed on mobile
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (typeof window !== "undefined") {
@@ -32,6 +36,10 @@ export default function MainLayout() {
   const toggleSidebar = () => {
     setIsSidebarOpen((prev) => !prev);
   };
+
+  if (!canViewPath(user, location.pathname)) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">

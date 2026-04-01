@@ -10,6 +10,7 @@ import { UserContext } from "./UserContext.context";
 import { ApiClient } from "@/services/api/client";
 import userApi from "@/services/api/user";
 import type { User } from "@/types";
+import { setStoredUserProfile } from "@/lib/userProfileStorage";
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +72,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setAccessToken(null);
       setAccessTokenExpiration(null);
       setUser(null);
+      setStoredUserProfile(null);
       ApiClient.setAccessToken("");
     }
   };
@@ -79,9 +81,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const userData = await userApi.getUser();
       setUser(userData);
+      setStoredUserProfile(userData);
     } catch (error) {
       console.error("Error fetching user:", error);
       setUser(null);
+      setStoredUserProfile(null);
     }
   }, []);
 

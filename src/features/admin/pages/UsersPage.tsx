@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import {
   adminService,
   type User,
@@ -25,12 +26,14 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Building2,
 } from "lucide-react";
+import { ROUTES } from "@/constants";
+import { isSuperAdminExcludedFromUserEdit } from "@/constants/roles";
 import {
   DataGrid,
   GridToolbar,
-  GridToolbarExport,
-  GridToolbarQuickFilter,
+  type GridPaginationModel,
 } from "@mui/x-data-grid";
 import type { GridColDef } from "@mui/x-data-grid";
 import { Box } from "@mui/material";
@@ -460,27 +463,48 @@ function StatusBadge({ status }: { status?: User["accountStatus"] }) {
 }
 
 export default function UsersPage() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (
+      editingUser &&
+      isSuperAdminExcludedFromUserEdit(editingUser.roles)
+    ) {
+      setEditingUser(null);
+    }
+  }, [editingUser]);
+  const [rowCount, setRowCount] = useState(0);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: 20,
+  });
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [paginationModel.page, paginationModel.pageSize]);
 
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await adminService.getUsers();
+      const response = await adminService.getUsers({
+        page: paginationModel.page,
+        size: paginationModel.pageSize,
+      });
       // Extract content array from paginated response
       setUsers(response.content || []);
+      setRowCount(response.totalElements || 0);
     } catch (err) {
       setError("Failed to load users");
       console.error("Error fetching users:", err);
       setUsers([]); // Set to empty array on error
+      setRowCount(0);
     } finally {
       setIsLoading(false);
     }
@@ -500,6 +524,10 @@ export default function UsersPage() {
     data: CreateUserRequest | UpdateUserRequest,
   ) => {
     if (!editingUser) return;
+    if (isSuperAdminExcludedFromUserEdit(editingUser.roles)) {
+      setEditingUser(null);
+      return;
+    }
     if (!("accountStatus" in data)) return;
     try {
       await adminService.updateUser(editingUser.userId, data);
@@ -658,23 +686,49 @@ export default function UsersPage() {
     {
       field: "actions",
       headerName: "Actions",
-      flex: 0.5,
-      minWidth: 100,
+      flex: 1,
+      minWidth: 260,
       sortable: false,
       filterable: false,
-      renderCell: (params) => (
-        <div className="flex items-center h-full w-full">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setEditingUser(params.row)}
-            className="gap-2"
-          >
-            <Edit className="w-4 h-4" />
-            Edit
-          </Button>
-        </div>
-      ),
+      renderCell: (params) => {
+        const staffExcluded = isSuperAdminExcludedFromUserEdit(
+          params.row.roles,
+        );
+        return (
+          <div className="flex items-center h-full w-full overflow-visible">
+            <div className="flex flex-nowrap gap-2 py-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditingUser(params.row)}
+                className="gap-2"
+                disabled={staffExcluded}
+                title={
+                  staffExcluded
+                    ? "Hotel staff are managed from the property account (My Team), not here."
+                    : undefined
+                }
+              >
+                <Edit className="w-4 h-4" />
+                Edit
+              </Button>
+              {(params.row.roles || []).includes("HOTEL_OWNER") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    navigate(ROUTES.ADMIN.USER_MANAGE_HOTELS(params.row.userId))
+                  }
+                  className="gap-2 whitespace-nowrap"
+                >
+                  <Building2 className="w-4 h-4" />
+                  Manage Hotel
+                </Button>
+              )}
+            </div>
+          </div>
+        );
+      },
     },
   ];
 
@@ -724,6 +778,20 @@ export default function UsersPage() {
         </div>
       </div>
 
+      {successMessage && (
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center justify-between">
+          <span>{successMessage}</span>
+          <button
+            type="button"
+            className="text-green-700 hover:text-green-900"
+            onClick={() => setSuccessMessage(null)}
+            aria-label="Dismiss success message"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {users.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 shadow-md p-16 text-center">
           <UserIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -745,7 +813,8 @@ export default function UsersPage() {
           sx={{
             width: "100%",
             borderRadius: "12px",
-            overflow: "hidden",
+            // Keep menus/popups from being clipped by container edges.
+            overflow: "visible",
           }}
           className="bg-white border border-gray-200 shadow-md"
         >
@@ -756,9 +825,10 @@ export default function UsersPage() {
             autoHeight
             getRowHeight={() => "auto"}
             pageSizeOptions={[5, 10, 20, 50, 100]}
-            initialState={{
-              pagination: { paginationModel: { pageSize: 10 } },
-            }}
+            paginationMode="server"
+            rowCount={rowCount}
+            paginationModel={paginationModel}
+            onPaginationModelChange={setPaginationModel}
             slots={{
               toolbar: GridToolbar,
             }}
@@ -872,6 +942,9 @@ export default function UsersPage() {
               "& .MuiDataGrid-cell--textLeft": {
                 alignItems: "flex-start",
               },
+              "& .MuiDataGrid-cell[data-field='actions']": {
+                overflow: "visible",
+              },
               "& .MuiDataGrid-footerContainer": {
                 borderTop: "1px solid #e5e7eb",
                 padding: "12px 16px",
@@ -889,13 +962,16 @@ export default function UsersPage() {
                 },
               },
               "& .MuiDataGrid-main": {
-                overflowX: "hidden",
+                overflowX: "auto",
               },
               "& .MuiDataGrid-columnHeadersInner": {
                 backgroundColor: "#2f3d95 !important",
               },
               "& .MuiDataGrid-columnHeaders .MuiDataGrid-filler": {
                 backgroundColor: "#2f3d95 !important",
+              },
+              "& .MuiDataGrid-menu, & .MuiDataGrid-panel, & .MuiPopper-root": {
+                zIndex: 1700,
               },
             }}
           />
@@ -918,6 +994,7 @@ export default function UsersPage() {
         user={editingUser}
         mode="edit"
       />
+
     </div>
   );
 }

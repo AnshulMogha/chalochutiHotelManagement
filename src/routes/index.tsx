@@ -49,6 +49,9 @@ const HotelReviewDetailPage = lazy(
   () => import("../features/admin/pages/HotelReviewDetailPage"),
 );
 const UsersPage = lazy(() => import("../features/admin/pages/UsersPage"));
+const UserHotelAssignmentsPage = lazy(
+  () => import("../features/admin/pages/UserHotelAssignmentsPage"),
+);
 const BasicInformationPage = lazy(
   () => import("../features/properties/pages/BasicInformationPage"),
 );
@@ -177,6 +180,10 @@ export const routes: RouteObject[] = [
         element: <HotelReviewListPage />,
       },
       {
+        path: "admin/users/:userId/hotels",
+        element: <UserHotelAssignmentsPage />,
+      },
+      {
         path: "admin/users",
         element: <UsersPage />,
       },
@@ -277,6 +284,10 @@ export const routes: RouteObject[] = [
       {
         path: "restrictions/bulk-update",
         element: <BulkUpdateRestrictionsPage />,
+      },
+      {
+        path: "team/users/:userId/hotels",
+        element: <UserHotelAssignmentsPage />,
       },
       {
         path: "team",

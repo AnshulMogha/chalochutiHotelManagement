@@ -4,6 +4,8 @@ import { format, addDays, startOfToday, isBefore, isSameDay, differenceInDays } 
 import { ArrowLeft, Calendar } from "lucide-react";
 import { inventoryService } from "../services/inventoryService";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { useAuth } from "@/hooks";
+import { canEditModule } from "@/lib/permissions";
 
 const CUTOFF_TIME_OPTIONS = [
   { value: "00:00:00", label: "At Midnight" },
@@ -12,6 +14,8 @@ const CUTOFF_TIME_OPTIONS = [
 ];
 
 export default function BulkUpdateRestrictionsPage() {
+  const { user } = useAuth();
+  const isReadOnly = !canEditModule(user, "RATES_INVENTORY");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast, showToast, hideToast } = useToast();
@@ -144,6 +148,11 @@ export default function BulkUpdateRestrictionsPage() {
   return (
     <div className="w-full h-full bg-gray-50 pb-24 overflow-x-auto">
       <div className="max-w-5xl mx-auto px-6 pt-6">
+        {isReadOnly && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            You have view-only access for Rate & Inventory.
+          </div>
+        )}
         <button
           onClick={handleCancel}
           className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
@@ -163,6 +172,7 @@ export default function BulkUpdateRestrictionsPage() {
           </div>
 
           <div className="p-6 space-y-6">
+            <fieldset disabled={isSubmitting || isReadOnly} className="space-y-6">
             {/* Stay Dates */}
             <div className="space-y-3">
               <label className="text-sm font-semibold text-gray-900">Stay Dates</label>
@@ -334,6 +344,7 @@ export default function BulkUpdateRestrictionsPage() {
                 ))}
               </select>
             </div>
+            </fieldset>
           </div>
 
           <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
@@ -348,7 +359,7 @@ export default function BulkUpdateRestrictionsPage() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isReadOnly}
               className="px-6 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60"
             >
               {isSubmitting ? "Saving..." : "Save"}

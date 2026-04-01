@@ -1,9 +1,14 @@
 import { useSearchParams } from "react-router";
 import { AmenitiesAndRestaurantsTab } from "../components/property-info/AmenitiesAndRestaurantsTab";
+import { useAuth } from "@/hooks";
+import { canEditModule } from "@/lib/permissions";
+import { ReadOnlySection } from "@/components/ui/ReadOnlySection";
 
 export default function AmenitiesAndRestaurantsPage() {
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const selectedHotelId = searchParams.get("hotelId");
+  const isReadOnly = !canEditModule(user, "PROPERTY_AMENITIES_RESTAURANTS");
 
   if (!selectedHotelId) {
     return (
@@ -29,7 +34,9 @@ export default function AmenitiesAndRestaurantsPage() {
           Manage amenities and restaurant options for your hotel
         </p>
       </div>
-      <AmenitiesAndRestaurantsTab hotelId={selectedHotelId} />
+      <ReadOnlySection isReadOnly={isReadOnly}>
+        <AmenitiesAndRestaurantsTab hotelId={selectedHotelId} />
+      </ReadOnlySection>
     </div>
   );
 }

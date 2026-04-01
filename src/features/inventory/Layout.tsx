@@ -28,10 +28,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui";
-import type { HotelRoom } from "@/features/admin/services/adminService";
 import {
   adminService,
   type ChildAgePolicyResponse,
+  type HotelRoom,
   type RatePlan,
 } from "@/features/admin/services/adminService";
 import {
@@ -39,6 +39,8 @@ import {
   ratePlansToSelectOptions,
 } from "./utils/filterLinkableRatePlans";
 import { formatApiClientError } from "@/services/api/formatApiClientError";
+import { useAuth } from "@/hooks";
+import { canEditModule } from "@/lib/permissions";
 
 // Track the single active edit
 interface ActiveEdit {
@@ -62,6 +64,8 @@ interface ActiveRateEdit {
 }
 
 export default function Layout() {
+  const { user } = useAuth();
+  const isReadOnly = !canEditModule(user, "RATES_INVENTORY");
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -588,6 +592,7 @@ export default function Layout() {
     dateStr: string,
     value: number,
   ) => {
+    if (isReadOnly) return;
     // Update local state optimistically
     setRooms((prev) =>
       prev.map((room) =>
@@ -724,6 +729,7 @@ export default function Layout() {
     }
   };
   const handleSave = async () => {
+    if (isReadOnly) return;
     if (!hotelId) return;
     
     // Handle room inventory save
@@ -789,6 +795,7 @@ export default function Layout() {
     value: number | null,
     roomId: string,
   ) => {
+    if (isReadOnly) return;
     if (!hotelId) return;
 
     if (roomTypes.length === 0) {
@@ -870,6 +877,7 @@ export default function Layout() {
     maxStay?: number | null | undefined,
     cutoffTime?: string | null | undefined,
   ) => {
+    if (isReadOnly) return;
     // Update local state optimistically
     // New structure: rooms → ratePlans → days
     setRateRooms((prev) =>
@@ -997,6 +1005,13 @@ export default function Layout() {
 
   return (
     <div className="w-full h-full bg-slate-100 pb-24 overflow-x-auto">
+      {isReadOnly && (
+        <div className="max-w-450 mx-auto px-6 pt-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            You have view-only access for Rate & Inventory.
+          </div>
+        </div>
+      )}
       <div className="max-w-450 mx-auto">
         <div className="flex pt-3 px-6">
           <div className="flex-1">
@@ -1014,19 +1029,6 @@ export default function Layout() {
                 channelSegmentLabel={activeSegmentLabel}
                 rightAction={
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Single Day Rate moved to each rate plan row in RatePlansGrid (with room + rate plan context). */}
-                    {/* <button
-                      type="button"
-                      onClick={() => {
-                        const q = hotelId
-                          ? `?hotelId=${encodeURIComponent(hotelId)}`
-                          : "";
-                        navigate(`${ROUTES.HOTEL_RATES_ADD_SINGLE_DERIVED}${q}`);
-                      }}
-                      className="px-5 py-2.5 text-sm font-semibold text-[#2A3170] bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors shadow-sm whitespace-nowrap"
-                    >
-                      Single Day Rate
-                    </button> */}
                     <DropdownMenu
                       open={isBulkUpdateDropdownOpen}
                       onOpenChange={setIsBulkUpdateDropdownOpen}
@@ -1034,7 +1036,8 @@ export default function Layout() {
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap flex items-center gap-2"
+                          disabled={isReadOnly}
+                          className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                         >
                           Bulk Update
                           <ChevronDown className="w-4 h-4" />
@@ -1047,6 +1050,7 @@ export default function Layout() {
                             setIsBulkUpdateDropdownOpen(false);
                           }}
                           className="cursor-pointer"
+                          disabled={isReadOnly}
                         >
                           Bulk Update Inventory
                         </DropdownMenuItem>
@@ -1058,7 +1062,7 @@ export default function Layout() {
                             setIsBulkUpdateDropdownOpen(false);
                           }}
                           className="cursor-pointer"
-                          disabled={!hotelId}
+                          disabled={!hotelId || isReadOnly}
                         >
                           Bulk Update Rates
                         </DropdownMenuItem>
@@ -1070,7 +1074,7 @@ export default function Layout() {
                             setIsBulkUpdateDropdownOpen(false);
                           }}
                           className="cursor-pointer"
-                          disabled={!hotelId}
+                          disabled={!hotelId || isReadOnly}
                         >
                           Bulk Restrictions
                         </DropdownMenuItem>
@@ -1097,7 +1101,7 @@ export default function Layout() {
                   activeDate={activeDate}
                   onUpdate={handleAvailabilityUpdate}
                   onActiveDateChange={setActiveDate}
-                  isLocked={hasChanges}
+                  isLocked={isReadOnly || hasChanges}
                   activeEdit={activeEdit}
                   updatingCells={updatingCells}
                   expandedRoomIds={expandedRoomIds}
@@ -1127,7 +1131,7 @@ export default function Layout() {
                     customerType={currentCustomerType}
                     onUpdate={handleRatePlanUpdate}
                     onActiveDateChange={setActiveDate}
-                    isLocked={hasChanges}
+                    isLocked={isReadOnly || hasChanges}
                     activeEdit={activeRateEdit}
                     hidePaidChildCharge={childPolicyNotFound}
                     childPolicy={childPolicy}

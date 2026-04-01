@@ -10,7 +10,8 @@ import { StatusRemarkModal } from "./StatusRemarkModal";
 import { adminService, type HotelBasicInfoResponse } from "@/features/admin/services/adminService";
 import { Building, Tag, Hash, User, Calendar } from "lucide-react";
 import { useAuth } from "@/hooks";
-import { isHotelOwner } from "@/constants/roles";
+import { isSuperAdmin } from "@/constants/roles";
+import { canEditBasicInfoPropertyDetails } from "@/lib/permissions";
 
 interface PropertyDetailsTabProps {
   hotelId: string;
@@ -18,7 +19,9 @@ interface PropertyDetailsTabProps {
 
 export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
   const { user } = useAuth();
-  const isHotelOwnerUser = isHotelOwner(user?.roles);
+  const isSuperAdminUser = isSuperAdmin(user?.roles);
+  const canEditPropertyDetails = canEditBasicInfoPropertyDetails(user);
+  const useHotelAdminBasicInfo = !isSuperAdminUser;
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
@@ -60,7 +63,7 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const data = isHotelOwnerUser
+        const data = useHotelAdminBasicInfo
           ? await adminService.getHotelAdminBasicInfo(hotelId)
           : await adminService.getHotelBasicInfo(hotelId);
         if (data) {
@@ -89,7 +92,7 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
     if (hotelId) {
       fetchData();
     }
-  }, [hotelId, isHotelOwnerUser]);
+  }, [hotelId, useHotelAdminBasicInfo]);
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -112,32 +115,11 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // For hotel owner, only validate description
-    if (isHotelOwnerUser) {
-      setIsSaving(true);
-      try {
-        await adminService.updateHotelAdminProfile(hotelId, {
-          description: formData.description,
-        });
-        // Refresh data after update
-        const data = await adminService.getHotelAdminBasicInfo(hotelId);
-        if (data) {
-          setHotelData(data);
-          setFormData((prev) => ({ ...prev, description: data.description || "" }));
-          setErrors({});
-        }
-        showToast("Description updated successfully!", "success");
-      } catch (error) {
-        console.error("Error saving description:", error);
-        showToast("Failed to update description. Please try again.", "error");
-      } finally {
-        setIsSaving(false);
-      }
+
+    if (!canEditPropertyDetails) {
       return;
     }
 
-    // For super admin, validate and update all fields
     if (!validateForm()) {
       return;
     }
@@ -174,6 +156,9 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
   };
 
   const handleStatusUpdate = async (remark: string) => {
+    if (!canEditPropertyDetails) {
+      return;
+    }
     setIsSavingStatus(true);
     try {
       await adminService.updateHotelStatus(hotelId, {
@@ -232,9 +217,9 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
                 value={formData.name}
                 onChange={(e) => handleChange("name", e.target.value)}
                 icon={<Building className="w-4 h-4 text-blue-500" />}
-                readOnly={isHotelOwnerUser}
-                className={isHotelOwnerUser ? "bg-gray-50" : ""}
-                required={!isHotelOwnerUser}
+                readOnly={!canEditPropertyDetails}
+                className={!canEditPropertyDetails ? "bg-gray-50" : ""}
+                required={canEditPropertyDetails}
               />
             </div>
 
@@ -247,9 +232,9 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
                 value={formData.displayName}
                 onChange={(e) => handleChange("displayName", e.target.value)}
                 icon={<Tag className="w-4 h-4 text-purple-500" />}
-                readOnly={isHotelOwnerUser}
-                className={isHotelOwnerUser ? "bg-gray-50" : ""}
-                required={!isHotelOwnerUser}
+                readOnly={!canEditPropertyDetails}
+                className={!canEditPropertyDetails ? "bg-gray-50" : ""}
+                required={canEditPropertyDetails}
               />
             </div>
 
@@ -262,8 +247,8 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
                 options={[
                   { value: "HOTEL", label: "Hotel" },
                 ]}
-                disabled={isHotelOwnerUser}
-                required={!isHotelOwnerUser}
+                disabled={!canEditPropertyDetails}
+                required={canEditPropertyDetails}
               />
             </div>
 
@@ -282,8 +267,8 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
                   { value: "4", label: "4 Stars" },
                   { value: "5", label: "5 Stars" },
                 ]}
-                disabled={isHotelOwnerUser}
-                required={!isHotelOwnerUser}
+                disabled={!canEditPropertyDetails}
+                required={canEditPropertyDetails}
               />
             </div>
 
@@ -297,8 +282,8 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
                 onChange={(e) => handleChange("yearOfConstruction", e.target.value)}
                 options={yearOptions}
                 error={errors.yearOfConstruction}
-                disabled={isHotelOwnerUser}
-                required={!isHotelOwnerUser}
+                disabled={!canEditPropertyDetails}
+                required={canEditPropertyDetails}
               />
             </div>
 
@@ -311,8 +296,8 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
                 options={[
                   { value: "INR", label: "Indian Rupee (INR)" },
                 ]}
-                disabled={isHotelOwnerUser}
-                required={!isHotelOwnerUser}
+                disabled={!canEditPropertyDetails}
+                required={canEditPropertyDetails}
               />
             </div>
 
@@ -322,8 +307,8 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
                 id="description"
                 value={formData.description}
                 onChange={(e) => handleChange("description", e.target.value)}
-                readOnly={!isHotelOwnerUser}
-                className={!isHotelOwnerUser ? "bg-gray-50 resize-none" : "resize-none"}
+                readOnly={!canEditPropertyDetails}
+                className={!canEditPropertyDetails ? "bg-gray-50 resize-none" : "resize-none"}
                 rows={4}
                 placeholder="No description available"
               />
@@ -335,7 +320,7 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
                 checked={statusData.status === "LIVE"}
                 onChange={handleToggleChange}
                 label="Status"
-                disabled={isSavingStatus || isHotelOwnerUser}
+                disabled={isSavingStatus || !canEditPropertyDetails}
               />
             </div>
           </div>

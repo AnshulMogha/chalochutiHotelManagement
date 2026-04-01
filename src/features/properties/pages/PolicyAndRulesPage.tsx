@@ -1,9 +1,14 @@
 import { useSearchParams } from "react-router";
 import { PolicyAndRulesTab } from "../components/property-info/PolicyAndRulesTab";
+import { useAuth } from "@/hooks";
+import { canEditModule } from "@/lib/permissions";
+import { ReadOnlySection } from "@/components/ui/ReadOnlySection";
 
 export default function PolicyAndRulesPage() {
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const selectedHotelId = searchParams.get("hotelId");
+  const isReadOnly = !canEditModule(user, "PROPERTY_POLICY_RULES");
 
   if (!selectedHotelId) {
     return (
@@ -23,7 +28,9 @@ export default function PolicyAndRulesPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <PolicyAndRulesTab hotelId={selectedHotelId} />
+      <ReadOnlySection isReadOnly={isReadOnly}>
+        <PolicyAndRulesTab hotelId={selectedHotelId} />
+      </ReadOnlySection>
     </div>
   );
 }

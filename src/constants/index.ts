@@ -20,6 +20,8 @@ export const ROUTES = {
     HOTEL_REVIEW_DETAIL: (hotelId: string) => `/admin/hotels/review/${hotelId}`,
     USERS: "/admin/users",
     USER_DETAIL: (userId: string | number) => `/admin/users/${userId}`,
+    USER_MANAGE_HOTELS: (userId: string | number) =>
+      `/admin/users/${userId}/hotels`,
     COMMISSION_AND_TAX: "/admin/commission-tax",
     DOCUMENT_REVIEW: "/admin/document-review",
     TRAVEL_PARTNERS: "/admin/travel-partners",
@@ -57,6 +59,8 @@ export const ROUTES = {
   },
   TEAM: {
     LIST: "/team",
+    USER_MANAGE_HOTELS: (userId: string | number) =>
+      `/team/users/${userId}/hotels`,
   },
   PROMOTIONS: {
     LIST: "/promotions",
@@ -263,6 +267,8 @@ export const API_ENDPOINTS = {
     CREATE_TEAM_MEMBER: (hotelId: string) => `/hotel/${hotelId}/users`,
     ASSIGN_HOTEL_TO_USER: (hotelId: string, userId: string | number) =>
       `/hotel/${hotelId}/users/${userId}`,
+    GET_USER_HOTEL_ASSIGNMENTS: (userId: string | number) =>
+      `/hotel/users/${userId}/assignments`,
     ASSIGN_PERMISSIONS: (accessId: string | number) =>
       `/hotel-access/${accessId}/permissions`,
     REVOKE_ACCESS: (accessId: string | number) => `/hotel-access/${accessId}`,

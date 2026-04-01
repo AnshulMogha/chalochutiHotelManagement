@@ -9,6 +9,11 @@ export interface User {
   gender: string | null;
   dob: string | null;
   roles: string[];
+  permissions?: Array<{
+    module: string;
+    canView: boolean;
+    canEdit: boolean;
+  }>;
   createdAt: string;
 }
 

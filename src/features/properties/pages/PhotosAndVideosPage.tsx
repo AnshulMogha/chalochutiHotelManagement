@@ -2,12 +2,17 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { adminService, type HotelRoom } from "@/features/admin/services/adminService";
 import { PropertyMediaTab } from "../components/property-info/PropertyMediaTab";
+import { useAuth } from "@/hooks";
+import { canEditModule } from "@/lib/permissions";
+import { ReadOnlySection } from "@/components/ui/ReadOnlySection";
 
 export default function PhotosAndVideosPage() {
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const selectedHotelId = searchParams.get("hotelId");
   const [rooms, setRooms] = useState<HotelRoom[]>([]);
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
+  const isReadOnly = !canEditModule(user, "PROPERTY_PHOTOS_VIDEOS");
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -66,7 +71,9 @@ export default function PhotosAndVideosPage() {
           </div>
         </div>
       ) : (
-        <PropertyMediaTab hotelId={selectedHotelId} rooms={rooms} />
+        <ReadOnlySection isReadOnly={isReadOnly}>
+          <PropertyMediaTab hotelId={selectedHotelId} rooms={rooms} />
+        </ReadOnlySection>
       )}
     </div>
   );

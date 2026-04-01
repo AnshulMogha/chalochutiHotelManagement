@@ -17,8 +17,12 @@ import { RiMenuUnfold3Line } from "react-icons/ri";
 import { RiMenuFold3Line } from "react-icons/ri";
 import { HotelSelector } from "@/components/ui/HotelSelector";
 import { ROUTES, ROLES } from "@/constants";
-import { hasRole, isSuperAdmin } from "@/constants/roles";
+import { isSuperAdmin } from "@/constants/roles";
 import { RoleBadge } from "@/components/ui/badges";
+import {
+  getStoredSelectedHotelId,
+  setStoredSelectedHotelId,
+} from "@/lib/selectedHotelStorage";
 
 interface TopbarProps {
   onSidebarToggle?: () => void;
@@ -77,24 +81,23 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   // Check team page
   const isTeamPage = location.pathname === ROUTES.TEAM.LIST;
 
-  // Check if user is HOTEL_OWNER or SUPER_ADMIN
-  const isHotelOwner = hasRole(user?.roles, ROLES.HOTEL_OWNER);
   const isSuperAdminUser = isSuperAdmin(user?.roles);
 
   // Check bookings page
   const isBookingsPage = location.pathname === ROUTES.BOOKINGS.LIST;
 
-  // Show hotel selector for HOTEL_OWNER on: basic info, room inventory, rate plan pages, promotions pages, team page, and bookings page
-  // Show for super admin on document review page and on inventory/rate plan pages
+  // Show hotel selector on hotel-scoped pages for all roles.
+  // Access to pages themselves is still controlled by role/permission checks.
   const shouldShowHotelSelector =
     isPropertyInfoPage ||
-    (isHotelOwner && isInventoryPage) ||
-    (isSuperAdminUser && isInventoryPage) ||
+    isInventoryPage ||
     isPromotionsPage ||
     isTeamPage ||
     isBookingsPage ||
     isDocumentReviewPage;
-  const selectedHotelId = searchParams.get("hotelId");
+  const hotelIdFromUrl = searchParams.get("hotelId");
+  const selectedHotelId =
+    hotelIdFromUrl ?? getStoredSelectedHotelId();
 
   useEffect(() => {
     async function getUserProfile() {
@@ -104,9 +107,40 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     getUserProfile();
   }, []);
 
+  // Keep URL in sync with persisted hotel when navigating to hotel-scoped pages without ?hotelId=
+  useEffect(() => {
+    if (!shouldShowHotelSelector) return;
+    const fromUrl = searchParams.get("hotelId");
+    if (fromUrl) {
+      setStoredSelectedHotelId(fromUrl);
+      return;
+    }
+    const stored = getStoredSelectedHotelId();
+    if (stored) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (!next.has("hotelId")) {
+            next.set("hotelId", stored);
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [shouldShowHotelSelector, location.pathname, location.search, setSearchParams]);
+
   const handleHotelChange = useCallback(
     (hotelId: string) => {
-      setSearchParams({ hotelId });
+      setStoredSelectedHotelId(hotelId);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("hotelId", hotelId);
+          return next;
+        },
+        { replace: true },
+      );
     },
     [setSearchParams],
   );
@@ -251,7 +285,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
                 {/* Logout */}
                 <DropdownMenuItem
                   onClick={async () => {
-                    const redirectTo = hasRole(user?.roles, ROLES.SUPER_ADMIN)
+                    const redirectTo = isSuperAdminUser
                       ? "/auth/super-admin/login"
                       : "/auth/login";
                     await logout();

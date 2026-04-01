@@ -26,6 +26,8 @@ import {
   type ChildAgePolicyResponse,
 } from "@/features/admin/services/adminService";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { useAuth } from "@/hooks";
+import { canEditModule } from "@/lib/permissions";
 
 interface RoomRateData {
   roomUUID: string; // UUID from HotelRoom
@@ -41,6 +43,8 @@ interface RoomRateData {
 }
 
 export default function BulkUpdateRatesPage() {
+  const { user } = useAuth();
+  const isReadOnly = !canEditModule(user, "RATES_INVENTORY");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast, showToast, hideToast } = useToast();
@@ -422,6 +426,7 @@ export default function BulkUpdateRatesPage() {
   const canSubmit = hasFormData && isDateRangeValid && !isSubmitting;
 
   const handleSubmit = async () => {
+    if (isReadOnly) return;
     if (!canSubmit || !hotelId) return;
 
     setIsSubmitting(true);
@@ -800,6 +805,11 @@ export default function BulkUpdateRatesPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {isReadOnly && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            You have view-only access for Rate & Inventory.
+          </div>
+        )}
         {/* Step 2: Rate Plan Search */}
 
         {/* Step 3: Room Cards */}
@@ -1287,7 +1297,7 @@ export default function BulkUpdateRatesPage() {
                       <button
                         type="button"
                         onClick={handleSubmit}
-                        disabled={!canSubmit}
+                        disabled={!canSubmit || isReadOnly}
                         className="px-8 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 disabled:hover:shadow-md flex items-center gap-2"
                       >
                         {isSubmitting ? (

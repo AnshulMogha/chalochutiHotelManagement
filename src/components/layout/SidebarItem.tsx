@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { ROUTES } from "@/constants";
+import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 
 interface NavItem {
   label: string;
@@ -33,12 +34,24 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
   const isInventoryRoute = (path: string) => {
     return path === ROUTES.ROOM_INVENTORY.LIST || path === ROUTES.RATE_INVENTORY.LIST;
   };
-  
+
+  const isHotelScopedNavPath = (path: string) => {
+    return (
+      isPropertyInfoRoute(path) ||
+      isInventoryRoute(path) ||
+      path === ROUTES.BOOKINGS.LIST ||
+      path === ROUTES.TEAM.LIST ||
+      path === ROUTES.PROMOTIONS.LIST ||
+      path === ROUTES.ADMIN.DOCUMENT_REVIEW
+    );
+  };
+
   // Helper function to build URL with preserved hotelId for hotel-scoped routes
   const buildUrl = (path: string) => {
-    const hotelId = searchParams.get("hotelId");
-    if (hotelId && (isPropertyInfoRoute(path) || isInventoryRoute(path))) {
-      return `${path}?hotelId=${hotelId}`;
+    const hotelId =
+      searchParams.get("hotelId") ?? getStoredSelectedHotelId();
+    if (hotelId && isHotelScopedNavPath(path)) {
+      return `${path}?hotelId=${encodeURIComponent(hotelId)}`;
     }
     return path;
   };

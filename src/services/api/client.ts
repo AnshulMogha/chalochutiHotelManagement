@@ -1,6 +1,8 @@
 import axios from "axios";
 import type { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 import type { ApiFailureResponse } from "./types/api";
+import { canEditPath, shouldBlockBasicInfoWriteRequest } from "@/lib/permissions";
+import { getStoredUserProfile } from "@/lib/userProfileStorage";
 
 // Base URL
 const API_BASE_URL =
@@ -42,6 +44,54 @@ export class ApiClient {
 
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Enforce view-only mode for non-owner/non-super-admin users on mapped modules.
+      // If route module has no edit access, block write calls from UI.
+      if (typeof window !== "undefined") {
+        const method = (config.method || "get").toLowerCase();
+        const isWriteMethod =
+          method === "post" ||
+          method === "put" ||
+          method === "patch" ||
+          method === "delete";
+        if (isWriteMethod) {
+          const requestUrl = String(config.url || "");
+          const isAuthEndpoint =
+            requestUrl.startsWith("/auth/") || requestUrl.startsWith("auth/");
+          if (isAuthEndpoint) {
+            return config;
+          }
+          const user = getStoredUserProfile();
+          if (
+            user &&
+            shouldBlockBasicInfoWriteRequest(
+              requestUrl,
+              config.method || "get",
+              user,
+            )
+          ) {
+            return Promise.reject({
+              message:
+                "You cannot modify this section. Edit contact details in Property Contact Details, or ask a Super Admin.",
+              statusCode: 403,
+              status: "FORBIDDEN",
+              traceId: "",
+              timestamp: new Date().toISOString(),
+              data: null,
+            } satisfies ApiFailureResponse);
+          }
+          if (!canEditPath(user, window.location.pathname)) {
+            return Promise.reject({
+              message: "You have view-only access for this feature.",
+              statusCode: 403,
+              status: "FORBIDDEN",
+              traceId: "",
+              timestamp: new Date().toISOString(),
+              data: null,
+            } satisfies ApiFailureResponse);
+          }
+        }
       }
 
       return config;

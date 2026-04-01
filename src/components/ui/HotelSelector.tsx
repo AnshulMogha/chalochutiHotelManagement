@@ -14,7 +14,8 @@ import type { ApprovedHotelItem } from "@/features/admin/services/adminService";
 import { useLocation } from "react-router";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks";
-import { isHotelOwner } from "@/constants/roles";
+import { isHotelOwner, isSuperAdmin } from "@/constants/roles";
+import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 
 interface HotelSelectorProps {
   selectedHotelId: string | null;
@@ -29,6 +30,11 @@ export function HotelSelector({
 }: HotelSelectorProps) {
   const { user } = useAuth();
   const isHotelOwnerUser = isHotelOwner(user?.roles);
+  const isSuperAdminUser = isSuperAdmin(user?.roles);
+  // If parent hasn't provided a hotelId yet, fall back to persisted selection.
+  // This prevents auto-selecting the first hotel by default.
+  const effectiveSelectedHotelId =
+    selectedHotelId ?? getStoredSelectedHotelId();
   const [hotels, setHotels] = useState<
     (HotelListResponse | ApprovedHotelItem)[]
   >([]);
@@ -98,9 +104,9 @@ export function HotelSelector({
         setIsLoading(true);
         let data: (HotelListResponse | ApprovedHotelItem)[] = [];
 
-        // For hotel owner on property info/promotions pages, use getAllHotels() which returns ALL hotels (LIVE, INPROCESS, etc.)
-        // For super admin on property info/promotions pages, use approved hotels API
-        if (isHotelFilterPage && !isHotelOwnerUser) {
+        // Super admin gets approved hotels list.
+        // Other roles (owner/manager/team users) use accessible hotels list.
+        if (isHotelFilterPage && isSuperAdminUser) {
           const approvedHotels = await adminService.getApprovedHotels();
           // Convert ApprovedHotelItem to HotelListResponse format
           data = approvedHotels.map((hotel) => ({
@@ -109,8 +115,7 @@ export function HotelSelector({
             hotelCode: hotel.hotelCode,
           }));
         } else {
-          // For hotel owners, getAllHotels() returns all hotels regardless of status
-          // But on property info/promotions pages, we only want to show LIVE hotels
+          // For non-superadmin users, backend should return hotels they can access.
           const allHotels = await propertyService.getAllHotels();
           if (isHotelFilterPage && isHotelOwnerUser) {
             // Filter to show only LIVE hotels for hotel owners on property info/promotions pages
@@ -134,7 +139,7 @@ export function HotelSelector({
         // Auto-select first hotel if none selected (but not on document review page)
         // Always auto-select if no hotelId is in URL params (selectedHotelId is null)
         if (
-          !selectedHotelId &&
+          !effectiveSelectedHotelId &&
           data.length > 0 &&
           data[0].hotelId &&
           !isDocumentReviewPage
@@ -160,7 +165,7 @@ export function HotelSelector({
     }
   }, [selectedHotelId]);
 
-  const selectedHotel = hotels.find((h) => h.hotelId === selectedHotelId);
+  const selectedHotel = hotels.find((h) => h.hotelId === effectiveSelectedHotelId);
 
   if (isLoading) {
     return (
@@ -204,7 +209,8 @@ export function HotelSelector({
             }}
             className={cn(
               "flex items-center gap-2 cursor-pointer",
-              selectedHotelId === hotel.hotelId && "bg-[#2f3d95]/10",
+                  effectiveSelectedHotelId === hotel.hotelId &&
+                    "bg-[#2f3d95]/10",
             )}
           >
             <Building2 className="w-4 h-4 text-[#2f3d95]" />

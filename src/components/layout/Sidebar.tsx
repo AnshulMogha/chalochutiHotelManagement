@@ -2,6 +2,8 @@ import { cn } from "@/lib/utils";
 import { ROUTES, hasAnyRole, ROLES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { SidebarItem } from "./SidebarItem";
+import { canViewModule } from "@/lib/permissions";
+import type { User } from "@/types";
 import { 
   Hotel, 
   ClipboardCheck, 
@@ -35,8 +37,13 @@ export interface NavItem {
   children?: NavItem[];
 }
 
-const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
+const getNavItems = (user: User | null): NavItem[] => {
+  const userRoles = user?.roles;
   const items: NavItem[] = [];
+  const isScopedPropertyViewer =
+    !!userRoles?.includes("HOTEL_MANAGER") ||
+    !!userRoles?.includes("FRONT_DESK_EXEC") ||
+    !!userRoles?.includes("ACCOUNTANT");
 
   // Check if user is ONBOARDING_REVIEWER - they only see Hotel Review and Document Review
   const isOnboardingReviewer = userRoles?.includes("ONBOARDING_REVIEWER");
@@ -59,7 +66,7 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
 
   // Regular items for other roles
   items.push({
-    label: "My Properties",
+    label: isScopedPropertyViewer ? "Properties" : "My Properties",
     path: ROUTES.PROPERTIES.LIST,
     icon: Hotel,
   });
@@ -72,99 +79,134 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
   ]);
 
   if (isAdminOrOwner) {
-    items.push(
+    const propertyChildren: NavItem[] = [
       {
-        label: "Property Information",
-        path: ROUTES.PROPERTY_INFO.LIST,
+        label: "Basic Information",
+        path: ROUTES.PROPERTY_INFO.BASIC_INFO,
         icon: Info,
-        children: [
-          {
-            label: "Basic Information",
-            path: ROUTES.PROPERTY_INFO.BASIC_INFO,
-            icon: Info,
-          },
-          {
-            label: "Rooms & Rate Plans",
-            path: ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS,
-            icon: BedDouble,
-          },
-          {
-            label: "Photos and Videos",
-            path: ROUTES.PROPERTY_INFO.PHOTOS_VIDEOS,
-            icon: ImageIcon,
-          },
-          {
-            label: "Amenities and Restaurants",
-            path: ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS,
-            icon: UtensilsCrossed,
-          },
-          {
-            label: "Policy and Rules",
-            path: ROUTES.PROPERTY_INFO.POLICY_RULES,
-            icon: FileText,
-          },
-          {
-            label: "Finance",
-            path: ROUTES.PROPERTY_INFO.FINANCE,
-            icon: CreditCard,
-          },
-          {
-            label: "Document",
-            path: ROUTES.PROPERTY_INFO.DOCUMENT,
-            icon: FileText,
-          },
-        ],
       },
       {
-        label: "Rate and Inventory",
-        path: ROUTES.ROOM_INVENTORY.LIST,
-        icon: IndianRupee,
-        // children: [
-        //   {
-        //     label: "Room Inventory",
-        //     path: ROUTES.ROOM_INVENTORY.LIST,
-        //     icon: Info,
-        //   },
-        //   {
-        //     label: "Rate Plans",
-        //     path: ROUTES.RATE_INVENTORY.LIST,
-        //     icon: Info,
-        //   },
-        // ],
+        label: "Rooms & Rate Plans",
+        path: ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS,
+        icon: BedDouble,
       },
       {
-        label: "Bookings",
-        path: ROUTES.BOOKINGS.LIST,
-        icon: BookOpen,
+        label: "Photos and Videos",
+        path: ROUTES.PROPERTY_INFO.PHOTOS_VIDEOS,
+        icon: ImageIcon,
       },
+      {
+        label: "Amenities and Restaurants",
+        path: ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS,
+        icon: UtensilsCrossed,
+      },
+      {
+        label: "Policy and Rules",
+        path: ROUTES.PROPERTY_INFO.POLICY_RULES,
+        icon: FileText,
+      },
+      {
+        label: "Finance",
+        path: ROUTES.PROPERTY_INFO.FINANCE,
+        icon: CreditCard,
+      },
+      {
+        label: "Document",
+        path: ROUTES.PROPERTY_INFO.DOCUMENT,
+        icon: FileText,
+      },
+    ].filter((item) => {
+      const moduleByPath: Record<string, Parameters<typeof canViewModule>[1]> = {
+        [ROUTES.PROPERTY_INFO.BASIC_INFO]: "PROPERTY_BASIC_INFO",
+        [ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS]: "PROPERTY_ROOMS_RATEPLANS",
+        [ROUTES.PROPERTY_INFO.PHOTOS_VIDEOS]: "PROPERTY_PHOTOS_VIDEOS",
+        [ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS]:
+          "PROPERTY_AMENITIES_RESTAURANTS",
+        [ROUTES.PROPERTY_INFO.POLICY_RULES]: "PROPERTY_POLICY_RULES",
+        [ROUTES.PROPERTY_INFO.FINANCE]: "PROPERTY_FINANCE",
+        [ROUTES.PROPERTY_INFO.DOCUMENT]: "PROPERTY_DOCUMENT",
+      };
+      return canViewModule(user, moduleByPath[item.path]);
+    });
+
+    items.push(
+      ...(propertyChildren.length
+        ? [
+            {
+              label: "Property Information",
+              path: ROUTES.PROPERTY_INFO.LIST,
+              icon: Info,
+              children: propertyChildren,
+            },
+          ]
+        : []),
+      ...(canViewModule(user, "RATES_INVENTORY")
+        ? [
+            {
+              label: "Rate and Inventory",
+              path: ROUTES.ROOM_INVENTORY.LIST,
+              icon: IndianRupee,
+            },
+          ]
+        : []),
+      ...(canViewModule(user, "BOOKINGS")
+        ? [
+            {
+              label: "Bookings",
+              path: ROUTES.BOOKINGS.LIST,
+              icon: BookOpen,
+            },
+          ]
+        : []),
       {
         label: "Rating and Review",
         path: ROUTES.RATINGS_REVIEWS.LIST,
         icon: Star,
       },
-      {
-        label: "Analytics",
-        path: ROUTES.ANALYTICS.DASHBOARD,
-        icon: BarChart3,
-      }
+      ...(canViewModule(user, "ANALYTICS")
+        ? [
+            {
+              label: "Analytics",
+              path: ROUTES.ANALYTICS.DASHBOARD,
+              icon: BarChart3,
+            },
+          ]
+        : []),
     );
   }
 
-  // Items visible only to HOTEL_OWNER
+  // Items visible to HOTEL_OWNER / HOTEL_MANAGER based on permissions
   const isHotelOwner = hasAnyRole(userRoles, [ROLES.HOTEL_OWNER]);
+  const isHotelManager = hasAnyRole(userRoles, [ROLES.HOTEL_MANAGER]);
   if (isHotelOwner) {
     items.push(
-      {
-        label: "Promotions",
-        path: ROUTES.PROMOTIONS.LIST,
-        icon: Sparkles,
-      },
-      {
-        label: "My Team",
-        path: ROUTES.TEAM.LIST,
-        icon: Users,
-      }
+      ...(canViewModule(user, "OFFERS")
+        ? [
+            {
+              label: "Promotions",
+              path: ROUTES.PROMOTIONS.LIST,
+              icon: Sparkles,
+            },
+          ]
+        : []),
+      ...(canViewModule(user, "MY_TEAM")
+        ? [
+            {
+              label: "My Team",
+              path: ROUTES.TEAM.LIST,
+              icon: Users,
+            },
+          ]
+        : [])
     );
+  }
+
+  if (isHotelManager && canViewModule(user, "MY_TEAM")) {
+    items.push({
+      label: "My Team",
+      path: ROUTES.TEAM.LIST,
+      icon: Users,
+    });
   }
 
   // Items visible only to SUPER_ADMIN
@@ -208,12 +250,32 @@ const getNavItems = (userRoles: string[] | undefined): NavItem[] => {
     });
   }
 
+  // Staff roles (e.g. Front Desk / Accountant) still need permission-driven booking access.
+  const isStaffRole = !!userRoles?.some((role) =>
+    ["FRONT_DESK_EXEC", "ACCOUNTANT"].includes(role),
+  );
+  if (isStaffRole && canViewModule(user, "BOOKINGS")) {
+    items.push({
+      label: "Bookings",
+      path: ROUTES.BOOKINGS.LIST,
+      icon: BookOpen,
+    });
+  }
+  const isAccountant = !!userRoles?.includes("ACCOUNTANT");
+  if (isAccountant && canViewModule(user, "PROPERTY_FINANCE")) {
+    items.push({
+      label: "Finance",
+      path: ROUTES.PROPERTY_INFO.FINANCE,
+      icon: CreditCard,
+    });
+  }
+
   return items;
 };
 
 export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const { user } = useAuth();
-  const navItems = getNavItems(user?.roles);
+  const navItems = getNavItems(user);
 
   return (
     <>

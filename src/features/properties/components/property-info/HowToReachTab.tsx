@@ -5,7 +5,8 @@ import { MapPin, Navigation, X, Globe, Home, Hash } from "lucide-react";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { adminService } from "@/features/admin/services/adminService";
 import { useAuth } from "@/hooks";
-import { isHotelOwner } from "@/constants/roles";
+import { isSuperAdmin } from "@/constants/roles";
+import { canEditBasicInfoHowToReach } from "@/lib/permissions";
 
 const DEFAULT_CENTER = { lat: 28.6139, lng: 77.209 };
 
@@ -15,7 +16,10 @@ interface HowToReachTabProps {
 
 export function HowToReachTab({ hotelId }: HowToReachTabProps) {
   const { user } = useAuth();
-  const isHotelOwnerUser = isHotelOwner(user?.roles);
+  const isSuperAdminUser = isSuperAdmin(user?.roles);
+  const canEditHowToReach = canEditBasicInfoHowToReach(user);
+  /** Super Admin uses admin APIs; hotel users use hotel-scoped GETs. */
+  const useHotelAdminLocationApis = !isSuperAdminUser;
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [locationData, setLocationData] = useState({
@@ -57,10 +61,10 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
       try {
         setIsLoading(true);
         const [location, address] = await Promise.all([
-          isHotelOwnerUser
+          useHotelAdminLocationApis
             ? adminService.getHotelAdminLocation(hotelId)
             : adminService.getHotelLocation(hotelId),
-          isHotelOwnerUser
+          useHotelAdminLocationApis
             ? adminService.getHotelAdminAddress(hotelId)
             : adminService.getHotelAddress(hotelId),
         ]);
@@ -95,7 +99,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hotelId, isHotelOwnerUser]);
+  }, [hotelId, useHotelAdminLocationApis]);
 
   const extractAddressComponents = useCallback(
     (components: readonly google.maps.GeocoderAddressComponent[]) => {
@@ -254,7 +258,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
   }, []);
 
   const onMarkerDragEnd = (e: google.maps.MapMouseEvent) => {
-    if (isHotelOwnerUser) return; // Disable for hotel owner
+    if (!canEditHowToReach) return;
     if (!e.latLng) return;
 
     const lat = e.latLng.lat();
@@ -270,7 +274,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
   };
 
   const onMapClick = (e: google.maps.MapMouseEvent) => {
-    if (isHotelOwnerUser) return; // Disable for hotel owner
+    if (!canEditHowToReach) return;
     if (!e.latLng) return;
 
     const lat = e.latLng.lat();
@@ -299,7 +303,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
   };
 
   const handleChange = (field: string, value: string) => {
-    if (isHotelOwnerUser) return; // Disable for hotel owner
+    if (!canEditHowToReach) return;
     if (field.startsWith("location_")) {
       const locationField = field.replace("location_", "");
       setLocationData((prev) => ({ ...prev, [locationField]: value }));
@@ -352,6 +356,10 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!canEditHowToReach) {
+      return;
+    }
 
     if (!validateForm()) {
       return;
@@ -413,7 +421,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
                 <span className="font-medium">Location on Map</span>
               </div>
 
-              {!isHotelOwnerUser && (
+              {canEditHowToReach && (
                 <Button
                   type="button"
                   variant="outline"
@@ -440,8 +448,8 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
                     onChange={(e) => handleSearchInput(e.target.value)}
                   placeholder="Search for a location..."
                   className="w-full outline-none pr-8"
-                  readOnly={isHotelOwnerUser}
-                  disabled={isHotelOwnerUser}
+                  readOnly={!canEditHowToReach}
+                  disabled={!canEditHowToReach}
                 />
                   {searchValue && (
                     <button
@@ -496,7 +504,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
                   onClick={onMapClick}
                   options={{
                     disableDefaultUI: false,
-                    clickableIcons: !isHotelOwnerUser,
+                    clickableIcons: canEditHowToReach,
                   }}
                 >
                   {locationData.latitude && locationData.longitude && (
@@ -505,7 +513,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
                         lat: locationData.latitude,
                         lng: locationData.longitude,
                       }}
-                      draggable={!isHotelOwnerUser}
+                      draggable={canEditHowToReach}
                       onDragEnd={onMarkerDragEnd}
                     />
                   )}
@@ -522,9 +530,9 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
               onChange={(e) => handleChange("location_country", e.target.value)}
               error={errors.location_country}
               icon={<Globe className="w-4 h-4 text-cyan-500" />}
-              readOnly={isHotelOwnerUser}
-              className={isHotelOwnerUser ? "bg-gray-50" : ""}
-              required={!isHotelOwnerUser}
+              readOnly={!canEditHowToReach}
+              className={!canEditHowToReach ? "bg-gray-50" : ""}
+              required={canEditHowToReach}
             />
 
             <Input
@@ -533,9 +541,9 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
               onChange={(e) => handleChange("location_state", e.target.value)}
               error={errors.location_state}
               icon={<MapPin className="w-4 h-4 text-red-500" />}
-              readOnly={isHotelOwnerUser}
-              className={isHotelOwnerUser ? "bg-gray-50" : ""}
-              required={!isHotelOwnerUser}
+              readOnly={!canEditHowToReach}
+              className={!canEditHowToReach ? "bg-gray-50" : ""}
+              required={canEditHowToReach}
             />
 
             <Input
@@ -544,9 +552,9 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
               onChange={(e) => handleChange("location_city", e.target.value)}
               error={errors.location_city}
               icon={<MapPin className="w-4 h-4 text-red-500" />}
-              readOnly={isHotelOwnerUser}
-              className={isHotelOwnerUser ? "bg-gray-50" : ""}
-              required={!isHotelOwnerUser}
+              readOnly={!canEditHowToReach}
+              className={!canEditHowToReach ? "bg-gray-50" : ""}
+              required={canEditHowToReach}
             />
 
             <Input
@@ -558,9 +566,9 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
               maxLength={6}
               error={errors.location_pincode}
               icon={<Hash className="w-4 h-4 text-indigo-500" />}
-              readOnly={isHotelOwnerUser}
-              className={isHotelOwnerUser ? "bg-gray-50" : ""}
-              required={!isHotelOwnerUser}
+              readOnly={!canEditHowToReach}
+              className={!canEditHowToReach ? "bg-gray-50" : ""}
+              required={canEditHowToReach}
             />
           </div>
 
@@ -576,9 +584,9 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
                 }
                 error={errors.houseBuildingApartmentNo}
                 icon={<Home className="w-4 h-4 text-amber-500" />}
-                readOnly={isHotelOwnerUser}
-                className={isHotelOwnerUser ? "bg-gray-50" : ""}
-                required={!isHotelOwnerUser}
+                readOnly={!canEditHowToReach}
+                className={!canEditHowToReach ? "bg-gray-50" : ""}
+                required={canEditHowToReach}
               />
 
               <Input
@@ -589,9 +597,9 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
                 }
                 error={errors.localityAreaStreetSector}
                 icon={<MapPin className="w-4 h-4 text-red-500" />}
-                readOnly={isHotelOwnerUser}
-                className={isHotelOwnerUser ? "bg-gray-50" : ""}
-                required={!isHotelOwnerUser}
+                readOnly={!canEditHowToReach}
+                className={!canEditHowToReach ? "bg-gray-50" : ""}
+                required={canEditHowToReach}
               />
 
               <div className="md:col-span-2">
@@ -600,14 +608,14 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
                   value={addressData.landmark}
                   onChange={(e) => handleChange("landmark", e.target.value)}
                   icon={<MapPin className="w-4 h-4 text-orange-500" />}
-                  readOnly={isHotelOwnerUser}
-                  className={isHotelOwnerUser ? "bg-gray-50" : ""}
+                  readOnly={!canEditHowToReach}
+                  className={!canEditHowToReach ? "bg-gray-50" : ""}
                 />
               </div>
             </div>
           </div>
 
-          {!isHotelOwnerUser && (
+          {canEditHowToReach && (
             <div className="flex justify-end mt-8">
               <Button type="submit" disabled={isSaving} className="bg-blue-500 hover:bg-blue-600">
                 {isSaving ? "Saving..." : "SAVE"}

@@ -12,6 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
+import { useAuth } from "@/hooks";
 import type { HotelList, HotelStatus } from "../types";
 import { propertyService } from "../services/propertyService";
 import { useEffect, useState } from "react";
@@ -81,12 +82,17 @@ const formatDate = (dateString?: string) => {
 
 export default function MyPropertiesPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [activeHotels, setActiveHotels] = useState<HotelList[]>([]);
   const [inProcessHotels, setInProcessHotels] = useState<HotelList[]>([]);
   const [rejectedHotels, setRejectedHotels] = useState<HotelList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("active");
+  const isScopedPropertyViewer =
+    !!user?.roles?.includes("HOTEL_MANAGER") ||
+    !!user?.roles?.includes("FRONT_DESK_EXEC") ||
+    !!user?.roles?.includes("ACCOUNTANT");
 
   const handleAddProperty = async () => {
     const response = await propertyService.generateDraftHotel();
@@ -229,7 +235,11 @@ export default function MyPropertiesPage() {
     exportToExcel(hotels, exportColumns, filename);
   };
 
-  const renderTable = (hotels: HotelList[], isActiveTab: boolean = false) => {
+  const renderTable = (
+    hotels: HotelList[],
+    isActiveTab: boolean = false,
+    canAddProperty: boolean = true,
+  ) => {
     if (hotels.length === 0) {
       return (
         <div className="bg-white rounded-xl border border-gray-200 shadow-md p-16 text-center">
@@ -237,17 +247,21 @@ export default function MyPropertiesPage() {
           <p className="text-gray-600 text-lg font-medium mb-2">
             No properties found
           </p>
-          <p className="text-gray-500 text-sm mb-6">
-            Get started by adding your first property
-          </p>
-          <Button
-            onClick={handleAddProperty}
-            variant="primary"
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Property
-          </Button>
+          {canAddProperty && (
+            <>
+              <p className="text-gray-500 text-sm mb-6">
+                Get started by adding your first property
+              </p>
+              <Button
+                onClick={handleAddProperty}
+                variant="primary"
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Property
+              </Button>
+            </>
+          )}
         </div>
       );
     }
@@ -570,102 +584,107 @@ export default function MyPropertiesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            My Properties
+            {isScopedPropertyViewer ? "Properties" : "My Properties"}
           </h1>
           <p className="text-gray-600">
             Manage your property listings and information
           </p>
         </div>
-        <Button
-          onClick={handleAddProperty}
-          variant="primary"
-          className="gap-2 shadow-lg hover:shadow-xl transition-shadow"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Add New Property</span>
-        </Button>
+        {!isScopedPropertyViewer && (
+          <Button
+            onClick={handleAddProperty}
+            variant="primary"
+            className="gap-2 shadow-lg hover:shadow-xl transition-shadow"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Add New Property</span>
+          </Button>
+        )}
       </div>
 
-      {/* Enhanced Tabs */}
-      <Tabs
-        defaultValue="active"
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="space-y-6"
-      >
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <TabsList className="bg-white border border-gray-200 shadow-sm h-12 px-1 space-x-1 rounded-xl">
-            <TabsTrigger
-              value="active"
-              className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
-            >
-              <span>Active Properties</span>
-              <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
-                {activeHotels.length}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="inprocess"
-              className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
-            >
-              <span>In Process</span>
-              <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
-                {inProcessHotels.length}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="rejected"
-              className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
-            >
-              <span>Rejected</span>
-              <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
-                {rejectedHotels.length}
-              </span>
-            </TabsTrigger>
-          </TabsList>
+      {isScopedPropertyViewer ? (
+        renderTable(activeHotels, true, false)
+      ) : (
+        <Tabs
+          defaultValue="active"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-6"
+        >
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <TabsList className="bg-white border border-gray-200 shadow-sm h-12 px-1 space-x-1 rounded-xl">
+              <TabsTrigger
+                value="active"
+                className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
+              >
+                <span>Active Properties</span>
+                <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
+                  {activeHotels.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="inprocess"
+                className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
+              >
+                <span>In Process</span>
+                <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
+                  {inProcessHotels.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="rejected"
+                className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
+              >
+                <span>Rejected</span>
+                <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
+                  {rejectedHotels.length}
+                </span>
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Export Buttons - Show based on active tab */}
-          {activeTab === "active" && activeHotels.length > 0 && (
-            <ExportButton
-              onExportCSV={() => handleExportCSV(activeHotels, "active")}
-              onExportExcel={() => handleExportExcel(activeHotels, "active")}
-            />
-          )}
+            {/* Export Buttons - Show based on active tab */}
+            {activeTab === "active" && activeHotels.length > 0 && (
+              <ExportButton
+                onExportCSV={() => handleExportCSV(activeHotels, "active")}
+                onExportExcel={() => handleExportExcel(activeHotels, "active")}
+              />
+            )}
 
-          {activeTab === "inprocess" && inProcessHotels.length > 0 && (
-            <ExportButton
-              onExportCSV={() => handleExportCSV(inProcessHotels, "inprocess")}
-              onExportExcel={() =>
-                handleExportExcel(inProcessHotels, "inprocess")
-              }
-            />
-          )}
+            {activeTab === "inprocess" && inProcessHotels.length > 0 && (
+              <ExportButton
+                onExportCSV={() => handleExportCSV(inProcessHotels, "inprocess")}
+                onExportExcel={() =>
+                  handleExportExcel(inProcessHotels, "inprocess")
+                }
+              />
+            )}
 
-          {activeTab === "rejected" && rejectedHotels.length > 0 && (
-            <ExportButton
-              onExportCSV={() => handleExportCSV(rejectedHotels, "rejected")}
-              onExportExcel={() =>
-                handleExportExcel(rejectedHotels, "rejected")
-              }
-            />
-          )}
-        </div>
+            {activeTab === "rejected" && rejectedHotels.length > 0 && (
+              <ExportButton
+                onExportCSV={() => handleExportCSV(rejectedHotels, "rejected")}
+                onExportExcel={() =>
+                  handleExportExcel(rejectedHotels, "rejected")
+                }
+              />
+            )}
+          </div>
 
-        {/* Active Properties Tab */}
-        <TabsContent value="active" className="mt-0">
-          {renderTable(activeHotels, true)}
-        </TabsContent>
+          {/* Active Properties Tab */}
+          <TabsContent value="active" className="mt-0">
+            {renderTable(activeHotels, true)}
+          </TabsContent>
 
-        {/* In Process Properties Tab */}
-        <TabsContent value="inprocess" className="mt-0">
-          {renderTable(inProcessHotels, false)}
-        </TabsContent>
+          {/* In Process Properties Tab */}
+          <TabsContent value="inprocess" className="mt-0">
+            {renderTable(inProcessHotels, false)}
+          </TabsContent>
 
-        {/* Rejected Properties Tab */}
-        <TabsContent value="rejected" className="mt-0">
-          {renderTable(rejectedHotels, false)}
-        </TabsContent>
-      </Tabs>
+          {/* Rejected Properties Tab */}
+          <TabsContent value="rejected" className="mt-0">
+            {renderTable(rejectedHotels, false)}
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }

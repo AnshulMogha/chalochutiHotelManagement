@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams, useNavigate } from "react-router";
 import {
   teamService,
   type TeamMember,
@@ -17,11 +17,14 @@ import {
 import { Button, Input, Select, LoadingSpinner } from "@/components/ui";
 import { RoleBadge } from "@/components/ui/badges/RoleBadge";
 import { Toast } from "@/components/ui/Toast";
+import { ROUTES } from "@/constants";
+import { useAuth } from "@/hooks";
 import { cn } from "@/lib/utils";
 import {
   Plus,
   Edit,
   X,
+  Building2,
   User as UserIcon,
   Mail,
   Phone,
@@ -37,13 +40,36 @@ import {
 const TEAM_ROLE_OPTIONS = [
   { value: "HOTEL_MANAGER", label: "Hotel Manager" },
   { value: "FRONT_DESK_EXEC", label: "Front Desk" },
-  { value: "HOUSEKEEPING_STAFF", label: "Housekeeping" },
   { value: "ACCOUNTANT", label: "Accountant" },
-  { value: "READ_ONLY", label: "Read Only" },
+];
+const HOTEL_OWNER_ASSIGNABLE_ROLES: TeamRole[] = ["HOTEL_MANAGER"];
+const HOTEL_MANAGER_ASSIGNABLE_ROLES: TeamRole[] = [
+  "FRONT_DESK_EXEC",
+  "ACCOUNTANT",
 ];
 const ALLOWED_TEAM_ROLES = new Set(
   TEAM_ROLE_OPTIONS.map((role) => role.value as TeamRole),
 );
+
+function teamMemberRoleList(member: TeamMember): string[] {
+  const fromRoles = member.roles?.length ? member.roles : [];
+  const primary = member.role ? [member.role] : [];
+  return [...new Set([...fromRoles, ...primary])].filter(Boolean);
+}
+
+/**
+ * Logged-in hotel owner cannot manage their own My Team row or any HOTEL_OWNER
+ * row (including co-owners).
+ */
+function isHotelOwnerRestrictedMyTeamRow(
+  member: TeamMember,
+  viewerUserId: number | undefined,
+  viewerIsHotelOwner: boolean,
+): boolean {
+  if (!viewerIsHotelOwner || viewerUserId == null) return false;
+  if (member.userId === viewerUserId) return true;
+  return teamMemberRoleList(member).includes("HOTEL_OWNER");
+}
 
 const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "Active" },
@@ -53,14 +79,28 @@ const STATUS_OPTIONS = [
 
 const PERMISSION_MODULES: { value: PermissionModule; label: string }[] = [
   { value: "BOOKINGS", label: "Bookings" },
+  { value: "MY_TEAM", label: "My Team" },
   { value: "RATES_INVENTORY", label: "Rates & Inventory" },
-  { value: "OFFERS", label: "Offers" },
-  { value: "CONTENT", label: "Content" },
-  { value: "ANALYTICS", label: "Analytics" },
-  { value: "MESSAGES", label: "Messages" },
   { value: "DASHBOARD", label: "Dashboard" },
   { value: "FINANCE", label: "Finance" },
+
+  // Hotel / Property Information sections
+  { value: "PROPERTY_BASIC_INFO", label: "Property - Basic Information" },
+  { value: "PROPERTY_ROOMS_RATEPLANS", label: "Property - Rooms & Rate Plans" },
+  { value: "PROPERTY_PHOTOS_VIDEOS", label: "Property - Photos & Videos" },
+  { value: "PROPERTY_AMENITIES_RESTAURANTS", label: "Property - Amenities & Restaurants" },
+  { value: "PROPERTY_POLICY_RULES", label: "Property - Policy & Rules" },
+  { value: "PROPERTY_FINANCE", label: "Property - Finance" },
+  { value: "PROPERTY_DOCUMENT", label: "Property - Documents" },
 ];
+
+const HOTEL_MANAGER_BLOCKED_MODULES: PermissionModule[] = [
+  "FINANCE",
+  "PROPERTY_FINANCE",
+  "PROPERTY_DOCUMENT",
+];
+const VIEW_ONLY_MODULES: PermissionModule[] = ["BOOKINGS"];
+const ACCOUNTANT_ALLOWED_MODULES: PermissionModule[] = ["BOOKINGS", "FINANCE"];
 
 interface TeamMemberFormModalProps {
   isOpen: boolean;
@@ -74,6 +114,8 @@ interface TeamMemberFormModalProps {
   ) => Promise<void>;
   member?: TeamMember | null;
   mode: "create" | "edit";
+  roleOptions: { value: TeamRole; label: string }[];
+  defaultRoles: TeamRole[];
 }
 
 function TeamMemberFormModal({
@@ -82,6 +124,8 @@ function TeamMemberFormModal({
   onSubmit,
   member,
   mode,
+  roleOptions,
+  defaultRoles,
 }: TeamMemberFormModalProps) {
   type TeamMemberFormData =
     | CreateTeamMemberRequest
@@ -90,7 +134,7 @@ function TeamMemberFormModal({
       });
   const [formData, setFormData] = useState<TeamMemberFormData>({
     email: "",
-    roles: ["HOTEL_MANAGER"],
+    roles: defaultRoles,
     firstName: "",
     lastName: "",
     phoneNumber: "",
@@ -113,8 +157,12 @@ function TeamMemberFormModal({
         ? member.roles
         : [member.role]
       ).filter((role): role is TeamRole => ALLOWED_TEAM_ROLES.has(role as TeamRole));
+      const allowedRoleValues = new Set(roleOptions.map((role) => role.value));
+      const filteredRoles = normalizedRoles.filter((role) =>
+        allowedRoleValues.has(role),
+      );
       setFormData({
-        roles: normalizedRoles.length ? normalizedRoles : ["HOTEL_MANAGER"],
+        roles: filteredRoles.length ? filteredRoles : defaultRoles,
         firstName: member.firstName || "",
         lastName: member.lastName || "",
         phoneNumber: member.mobile || "",
@@ -126,7 +174,7 @@ function TeamMemberFormModal({
     } else {
       setFormData({
         email: "",
-        roles: ["HOTEL_MANAGER"],
+        roles: defaultRoles,
         firstName: "",
         lastName: "",
         phoneNumber: "",
@@ -134,7 +182,7 @@ function TeamMemberFormModal({
     }
     setErrors({});
     setApiError(null);
-  }, [mode, member, isOpen]);
+  }, [mode, member, isOpen, roleOptions, defaultRoles]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -217,6 +265,8 @@ function TeamMemberFormModal({
 
   const handleRoleToggle = (role: TeamRole) => {
     if (!ALLOWED_TEAM_ROLES.has(role)) return;
+    const allowedRoleValues = new Set(roleOptions.map((option) => option.value));
+    if (!allowedRoleValues.has(role)) return;
     const currentRoles = formData.roles || [];
     const nextRoles = currentRoles.includes(role)
       ? currentRoles.filter((item) => item !== role)
@@ -343,7 +393,7 @@ function TeamMemberFormModal({
               Roles
             </label>
             <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
-              {TEAM_ROLE_OPTIONS.map((option) => {
+              {roleOptions.map((option) => {
                 const checked = (formData.roles || []).includes(
                   option.value as TeamRole,
                 );
@@ -428,29 +478,59 @@ function PermissionsModal({
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const memberRoles = member?.roles?.length ? member.roles : member?.role ? [member.role] : [];
+  const isHotelManager = memberRoles.includes("HOTEL_MANAGER");
+  const isFrontDesk = memberRoles.includes("FRONT_DESK_EXEC");
+  const isAccountant = memberRoles.includes("ACCOUNTANT");
+  const visiblePermissionModules = useMemo(
+    () => {
+      if (isFrontDesk) {
+        return PERMISSION_MODULES.filter((module) => module.value === "BOOKINGS");
+      }
+      if (isAccountant) {
+        return PERMISSION_MODULES.filter((module) =>
+          ACCOUNTANT_ALLOWED_MODULES.includes(module.value),
+        );
+      }
+      return PERMISSION_MODULES.filter((module) => {
+        if (!isHotelManager && module.value === "MY_TEAM") return false;
+        if (isHotelManager && HOTEL_MANAGER_BLOCKED_MODULES.includes(module.value)) {
+          return false;
+        }
+        return true;
+      });
+    },
+    [isAccountant, isFrontDesk, isHotelManager],
+  );
 
   useEffect(() => {
     if (member?.permissions) {
       const existingPermissions = member.permissions;
-      const allPermissions: Permission[] = PERMISSION_MODULES.map((module) => {
+      const allPermissions: Permission[] = visiblePermissionModules.map((module) => {
         const existing = existingPermissions.find(
           (p) => p.module === module.value,
         );
-        return (
-          existing || { module: module.value, canView: false, canEdit: false }
-        );
+        const basePermission =
+          existing || { module: module.value, canView: false, canEdit: false };
+        if (
+          VIEW_ONLY_MODULES.includes(module.value) ||
+          (isAccountant && ACCOUNTANT_ALLOWED_MODULES.includes(module.value))
+        ) {
+          return { ...basePermission, canEdit: false };
+        }
+        return basePermission;
       });
       setPermissions(allPermissions);
     } else {
       setPermissions(
-        PERMISSION_MODULES.map((module) => ({
+        visiblePermissionModules.map((module) => ({
           module: module.value,
           canView: false,
           canEdit: false,
         })),
       );
     }
-  }, [member, isOpen]);
+  }, [member, isOpen, isHotelManager, isAccountant, visiblePermissionModules]);
 
   const handleToggleView = (module: PermissionModule) => {
     setPermissions((prev) =>
@@ -469,6 +549,12 @@ function PermissionsModal({
   };
 
   const handleToggleEdit = (module: PermissionModule) => {
+    if (
+      VIEW_ONLY_MODULES.includes(module) ||
+      (isAccountant && ACCOUNTANT_ALLOWED_MODULES.includes(module))
+    ) {
+      return;
+    }
     setPermissions((prev) =>
       prev.map((p) => {
         if (p.module === module) {
@@ -488,7 +574,26 @@ function PermissionsModal({
     setIsSubmitting(true);
     setApiError(null);
     try {
-      await onSave(permissions);
+      const filteredPermissions = permissions.filter((permission) =>
+        visiblePermissionModules.some((module) => module.value === permission.module),
+      );
+      const normalizedPermissions = filteredPermissions.map((permission) =>
+        VIEW_ONLY_MODULES.includes(permission.module) ||
+        (isAccountant &&
+          ACCOUNTANT_ALLOWED_MODULES.includes(permission.module as PermissionModule))
+          ? { ...permission, canEdit: false }
+          : permission,
+      );
+      const finalPermissions = isFrontDesk
+        ? normalizedPermissions.filter((permission) => permission.module === "BOOKINGS")
+        : isAccountant
+          ? normalizedPermissions.filter((permission) =>
+              ACCOUNTANT_ALLOWED_MODULES.includes(
+                permission.module as PermissionModule,
+              ),
+            )
+          : normalizedPermissions;
+      await onSave(finalPermissions);
       onClose();
     } catch (error: any) {
       console.error("Error saving permissions:", error);
@@ -561,12 +666,16 @@ function PermissionsModal({
 
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3">
-              {PERMISSION_MODULES.map((module) => {
+              {visiblePermissionModules.map((module) => {
                 const permission = permissions.find(
                   (p) => p.module === module.value,
                 );
                 const canView = permission?.canView || false;
                 const canEdit = permission?.canEdit || false;
+                const isViewOnlyModule =
+                  VIEW_ONLY_MODULES.includes(module.value) ||
+                  (isAccountant &&
+                    ACCOUNTANT_ALLOWED_MODULES.includes(module.value));
 
                 return (
                   <div
@@ -599,13 +708,13 @@ function PermissionsModal({
                       <button
                         type="button"
                         onClick={() => handleToggleEdit(module.value)}
-                        disabled={!canView}
+                        disabled={!canView || isViewOnlyModule}
                         className={cn(
                           "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                           canEdit
                             ? "bg-green-100 text-green-700 hover:bg-green-200"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-                          !canView && "opacity-50 cursor-not-allowed",
+                          (!canView || isViewOnlyModule) && "opacity-50 cursor-not-allowed",
                         )}
                       >
                         {canEdit ? (
@@ -613,7 +722,7 @@ function PermissionsModal({
                         ) : (
                           <Lock className="w-4 h-4" />
                         )}
-                        Edit
+                        {isViewOnlyModule ? "View Only" : "Edit"}
                       </button>
                     </div>
                   </div>
@@ -642,6 +751,8 @@ function PermissionsModal({
 }
 
 export default function MyTeamPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const selectedHotelId = searchParams.get("hotelId");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -651,10 +762,68 @@ export default function MyTeamPage() {
   const [permissionsMember, setPermissionsMember] = useState<TeamMember | null>(
     null,
   );
+  const [revokeMember, setRevokeMember] = useState<TeamMember | null>(null);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
+  const isCurrentUserHotelManager =
+    !!user?.roles?.includes("HOTEL_MANAGER") &&
+    !user?.roles?.includes("HOTEL_OWNER") &&
+    !user?.roles?.includes("SUPER_ADMIN");
+  const isCurrentUserHotelOwner =
+    !!user?.roles?.includes("HOTEL_OWNER") &&
+    !user?.roles?.includes("SUPER_ADMIN");
+  const roleOptionsForForm = isCurrentUserHotelOwner
+    ? TEAM_ROLE_OPTIONS.filter((role) =>
+        HOTEL_OWNER_ASSIGNABLE_ROLES.includes(role.value as TeamRole),
+      )
+    : isCurrentUserHotelManager
+      ? TEAM_ROLE_OPTIONS.filter((role) =>
+          HOTEL_MANAGER_ASSIGNABLE_ROLES.includes(role.value as TeamRole),
+        )
+      : TEAM_ROLE_OPTIONS;
+  const defaultRolesForForm: TeamRole[] = isCurrentUserHotelOwner
+    ? ["HOTEL_MANAGER"]
+    : isCurrentUserHotelManager
+      ? ["FRONT_DESK_EXEC"]
+      : ["HOTEL_MANAGER"];
+  const sanitizeAssignableRoles = (
+    roles: TeamRole[] | undefined,
+    fallbackRoles: TeamRole[] = defaultRolesForForm,
+  ): TeamRole[] => {
+    const incoming = roles || [];
+    const normalized = incoming.filter((role): role is TeamRole =>
+      ALLOWED_TEAM_ROLES.has(role as TeamRole),
+    );
+    if (isCurrentUserHotelOwner) {
+      const allowed = normalized.filter((role) =>
+        HOTEL_OWNER_ASSIGNABLE_ROLES.includes(role),
+      );
+      return allowed.length ? allowed : fallbackRoles;
+    }
+    if (isCurrentUserHotelManager) {
+      const allowed = normalized.filter((role) =>
+        HOTEL_MANAGER_ASSIGNABLE_ROLES.includes(role),
+      );
+      return allowed.length ? allowed : fallbackRoles;
+    }
+    return normalized.length ? normalized : fallbackRoles;
+  };
+  const canHotelManagerAssignForMember = (member: TeamMember): boolean => {
+    if (!isCurrentUserHotelManager) return true;
+    const memberRoles = teamMemberRoleList(member);
+    return memberRoles.some((role) =>
+      HOTEL_MANAGER_ASSIGNABLE_ROLES.includes(role as TeamRole),
+    );
+  };
+
+  const canHotelOwnerManageMember = (member: TeamMember): boolean =>
+    !isHotelOwnerRestrictedMyTeamRow(
+      member,
+      user?.userId,
+      isCurrentUserHotelOwner,
+    );
 
   useEffect(() => {
     if (selectedHotelId) {
@@ -663,6 +832,45 @@ export default function MyTeamPage() {
       setIsLoading(false);
     }
   }, [selectedHotelId]);
+
+  useEffect(() => {
+    if (
+      editingMember &&
+      isHotelOwnerRestrictedMyTeamRow(
+        editingMember,
+        user?.userId,
+        isCurrentUserHotelOwner,
+      )
+    ) {
+      setEditingMember(null);
+    }
+  }, [editingMember, isCurrentUserHotelOwner, user?.userId]);
+
+  useEffect(() => {
+    if (
+      permissionsMember &&
+      isHotelOwnerRestrictedMyTeamRow(
+        permissionsMember,
+        user?.userId,
+        isCurrentUserHotelOwner,
+      )
+    ) {
+      setPermissionsMember(null);
+    }
+  }, [permissionsMember, isCurrentUserHotelOwner, user?.userId]);
+
+  useEffect(() => {
+    if (
+      revokeMember &&
+      isHotelOwnerRestrictedMyTeamRow(
+        revokeMember,
+        user?.userId,
+        isCurrentUserHotelOwner,
+      )
+    ) {
+      setRevokeMember(null);
+    }
+  }, [revokeMember, isCurrentUserHotelOwner, user?.userId]);
 
   const fetchTeamMembers = async () => {
     if (!selectedHotelId) return;
@@ -693,7 +901,7 @@ export default function MyTeamPage() {
       // Step 1: Create user using admin API (POST /admin/users)
       const userCreateRequest: CreateUserRequest = {
         email: createData.email,
-        roles: createData.roles,
+        roles: sanitizeAssignableRoles(createData.roles) as CreateUserRequest["roles"],
         firstName: createData.firstName,
         lastName: createData.lastName,
         phoneNumber: createData.phoneNumber,
@@ -716,6 +924,10 @@ export default function MyTeamPage() {
     data: CreateTeamMemberRequest | UpdateTeamMemberRequest,
   ) => {
     if (!editingMember) return;
+    if (!canHotelOwnerManageMember(editingMember)) {
+      setEditingMember(null);
+      return;
+    }
     try {
       // Use the same update user API as super admin (PUT /admin/users/{userId})
       const updateData = data as UpdateTeamMemberRequest & {
@@ -723,12 +935,14 @@ export default function MyTeamPage() {
       };
       const roles = (
         updateData.roles?.length
-          ? updateData.roles
+          ? sanitizeAssignableRoles(updateData.roles)
           : editingMember.roles?.length
-            ? editingMember.roles.filter((role): role is TeamRole =>
-                ALLOWED_TEAM_ROLES.has(role as TeamRole),
+            ? sanitizeAssignableRoles(
+                editingMember.roles.filter((role): role is TeamRole =>
+                  ALLOWED_TEAM_ROLES.has(role as TeamRole),
+                ),
               )
-            : ["HOTEL_MANAGER"]
+            : defaultRolesForForm
       ) as UpdateUserRequest["roles"];
       await adminService.updateUser(editingMember.userId, {
         email: editingMember.email,
@@ -757,6 +971,10 @@ export default function MyTeamPage() {
       setToast({ message: "Access ID not found", type: "error" });
       return;
     }
+    if (!canHotelOwnerManageMember(permissionsMember)) {
+      setPermissionsMember(null);
+      return;
+    }
     try {
       await teamService.assignPermissions(permissionsMember.accessId, {
         permissions,
@@ -774,6 +992,22 @@ export default function MyTeamPage() {
   };
 
   const handleRevokeAccess = async (accessId: number) => {
+    const member = teamMembers.find((m) => m.accessId === accessId);
+    if (
+      member &&
+      isHotelOwnerRestrictedMyTeamRow(
+        member,
+        user?.userId,
+        isCurrentUserHotelOwner,
+      )
+    ) {
+      setToast({
+        message:
+          "You cannot revoke access for yourself or for another hotel owner.",
+        type: "error",
+      });
+      return;
+    }
     try {
       await teamService.revokeAccess(accessId);
       setToast({ message: "Access revoked successfully", type: "success" });
@@ -878,7 +1112,11 @@ export default function MyTeamPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {teamMembers.map((member) => (
+                {teamMembers.map((member) => {
+                  const ownerLocked = !canHotelOwnerManageMember(member);
+                  const ownerLockTitle =
+                    "You cannot manage your own account or another hotel owner here.";
+                  return (
                   <tr
                     key={member.accessId}
                     className="hover:bg-blue-50 transition-colors even:bg-gray-50"
@@ -953,38 +1191,96 @@ export default function MyTeamPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => setEditingMember(member)}
-                          className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Edit"
+                          type="button"
+                          disabled={ownerLocked}
+                          onClick={() =>
+                            !ownerLocked && setEditingMember(member)
+                          }
+                          className={cn(
+                            "p-2 rounded-lg transition-colors",
+                            ownerLocked
+                              ? "text-gray-300 cursor-not-allowed"
+                              : "text-blue-600 hover:text-blue-900 hover:bg-blue-50",
+                          )}
+                          title={
+                            ownerLocked ? ownerLockTitle : "Edit"
+                          }
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => setPermissionsMember(member)}
-                          className="text-indigo-600 hover:text-indigo-900 p-2 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="Manage Permissions"
+                          type="button"
+                          disabled={ownerLocked}
+                          onClick={() =>
+                            !ownerLocked && setPermissionsMember(member)
+                          }
+                          className={cn(
+                            "p-2 rounded-lg transition-colors",
+                            ownerLocked
+                              ? "text-gray-300 cursor-not-allowed"
+                              : "text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50",
+                          )}
+                          title={
+                            ownerLocked
+                              ? ownerLockTitle
+                              : "Manage Permissions"
+                          }
                         >
                           <Settings className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                "Are you sure you want to revoke access for this team member?",
-                              )
-                            ) {
-                              handleRevokeAccess(member.accessId);
-                            }
-                          }}
-                          className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Revoke Access"
+                          type="button"
+                          disabled={
+                            ownerLocked ||
+                            !canHotelManagerAssignForMember(member)
+                          }
+                          onClick={() =>
+                            !ownerLocked &&
+                            canHotelManagerAssignForMember(member) &&
+                            navigate(
+                              `${ROUTES.TEAM.USER_MANAGE_HOTELS(member.userId)}?hotelId=${encodeURIComponent(selectedHotelId)}`,
+                            )
+                          }
+                          className={cn(
+                            "p-2 rounded-lg transition-colors",
+                            ownerLocked ||
+                              !canHotelManagerAssignForMember(member)
+                              ? "text-gray-300 cursor-not-allowed"
+                              : "text-purple-600 hover:text-purple-900 hover:bg-purple-50",
+                          )}
+                          title={
+                            ownerLocked
+                              ? ownerLockTitle
+                              : "Manage Hotel"
+                          }
+                        >
+                          <Building2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={ownerLocked}
+                          onClick={() =>
+                            !ownerLocked && setRevokeMember(member)
+                          }
+                          className={cn(
+                            "p-2 rounded-lg transition-colors",
+                            ownerLocked
+                              ? "text-gray-300 cursor-not-allowed"
+                              : "text-red-600 hover:text-red-900 hover:bg-red-50",
+                          )}
+                          title={
+                            ownerLocked
+                              ? ownerLockTitle
+                              : "Revoke Access"
+                          }
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1001,6 +1297,8 @@ export default function MyTeamPage() {
         onSubmit={editingMember ? handleUpdateMember : handleCreateMember}
         member={editingMember}
         mode={editingMember ? "edit" : "create"}
+        roleOptions={roleOptionsForForm as { value: TeamRole; label: string }[]}
+        defaultRoles={defaultRolesForForm}
       />
 
       {/* Permissions Modal */}
@@ -1010,6 +1308,56 @@ export default function MyTeamPage() {
         onSave={handleSavePermissions}
         member={permissionsMember}
       />
+
+      {/* Revoke Confirmation Modal */}
+      {revokeMember && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => e.target === e.currentTarget && setRevokeMember(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
+              <h3 className="text-lg font-bold text-gray-900">Revoke Access</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Remove this user&apos;s access to the selected hotel.
+              </p>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-gray-700">
+                Are you sure you want to revoke access for{" "}
+                <span className="font-semibold text-gray-900">
+                  {revokeMember.firstName && revokeMember.lastName
+                    ? `${revokeMember.firstName} ${revokeMember.lastName}`
+                    : revokeMember.email}
+                </span>
+                ?
+              </p>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setRevokeMember(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={async () => {
+                    await handleRevokeAccess(revokeMember.accessId);
+                    setRevokeMember(null);
+                  }}
+                >
+                  Revoke
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (

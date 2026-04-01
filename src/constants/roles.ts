@@ -46,7 +46,10 @@ export function isSuperAdmin(userRoles: string[] | undefined): boolean {
 /**
  * Check if user has any of the specified roles
  */
-export function hasAnyRole(userRoles: string[] | undefined, roles: Role[]): boolean {
+export function hasAnyRole(
+  userRoles: string[] | undefined,
+  roles: Role[],
+): boolean {
   if (!userRoles) return false;
   return roles.some((role) => userRoles.includes(role));
 }
@@ -62,3 +65,22 @@ export function isHotelOwner(userRoles: string[] | undefined): boolean {
   );
 }
 
+/**
+ * Hotel staff created under a property account (My Team). Super Admin may see
+ * these users in the global list but must not edit them or manage their hotel
+ * access from admin screens — that stays with the hotel account.
+ * Users who also have HOTEL_OWNER are still manageable as property owners.
+ */
+export const SUPER_ADMIN_EXCLUDED_EDIT_ROLES = [
+  "HOTEL_MANAGER",
+  "ACCOUNTANT",
+  "FRONT_DESK_EXEC",
+] as const;
+
+export function isSuperAdminExcludedFromUserEdit(
+  roles: string[] | undefined,
+): boolean {
+  if (!roles?.length) return false;
+  if (roles.includes("HOTEL_OWNER")) return false;
+  return SUPER_ADMIN_EXCLUDED_EDIT_ROLES.some((r) => roles.includes(r));
+}

@@ -1,9 +1,14 @@
 import { useSearchParams } from "react-router";
 import { RoomsAndRatePlansTab } from "../components/property-info/RoomsAndRatePlansTab";
+import { useAuth } from "@/hooks";
+import { canEditModule } from "@/lib/permissions";
+import { ReadOnlySection } from "@/components/ui/ReadOnlySection";
 
 export default function RoomsAndRatePlansPage() {
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const selectedHotelId = searchParams.get("hotelId");
+  const isReadOnly = !canEditModule(user, "PROPERTY_ROOMS_RATEPLANS");
 
   if (!selectedHotelId) {
     return (
@@ -26,7 +31,9 @@ export default function RoomsAndRatePlansPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Rooms & Rate Plans</h1>
       </div>
-      <RoomsAndRatePlansTab hotelId={selectedHotelId} />
+      <ReadOnlySection isReadOnly={isReadOnly}>
+        <RoomsAndRatePlansTab hotelId={selectedHotelId} />
+      </ReadOnlySection>
     </div>
   );
 }

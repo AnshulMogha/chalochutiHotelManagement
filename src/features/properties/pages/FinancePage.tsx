@@ -1,9 +1,14 @@
 import { useSearchParams } from "react-router";
 import { FinanceTab } from "../components/property-info/FinanceTab";
+import { useAuth } from "@/hooks";
+import { canEditModule } from "@/lib/permissions";
+import { ReadOnlySection } from "@/components/ui/ReadOnlySection";
 
 export default function FinancePage() {
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const selectedHotelId = searchParams.get("hotelId");
+  const isReadOnly = !canEditModule(user, "PROPERTY_FINANCE");
 
   if (!selectedHotelId) {
     return (
@@ -23,7 +28,9 @@ export default function FinancePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <FinanceTab hotelId={selectedHotelId} />
+      <ReadOnlySection isReadOnly={isReadOnly}>
+        <FinanceTab hotelId={selectedHotelId} />
+      </ReadOnlySection>
     </div>
   );
 }

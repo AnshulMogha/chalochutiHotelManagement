@@ -128,6 +128,21 @@ export interface UsersResponse {
   hasPrevious: boolean;
 }
 
+export interface GetUsersParams {
+  page?: number;
+  size?: number;
+}
+
+/** Item from GET /hotel/users/{userId}/assignments (shape may include extra fields from API). */
+export interface UserHotelAssignment {
+  hotelId?: string;
+  hotelName?: string;
+  hotelCode?: string;
+  accessId?: number;
+  role?: string;
+  [key: string]: unknown;
+}
+
 export type UserRole =
   | "SUPER_ADMIN"
   | "PLATFORM_ADMIN"
@@ -135,13 +150,11 @@ export type UserRole =
   | "HOTEL_OWNER"
   | "HOTEL_MANAGER"
   | "FRONT_DESK_EXEC"
-  | "HOUSEKEEPING_STAFF"
   | "ACCOUNTANT"
   | "BOOKING_AGENT"
   | "PACKAGE_MANAGER"
   | "TRANSPORT_AGENT"
-  | "AGENT"
-  | "READ_ONLY";
+  | "AGENT";
 
 export interface CreateUserRequest {
   email: string;
@@ -806,9 +819,10 @@ export const adminService = {
     return response.data;
   },
   // User Management
-  getUsers: async (): Promise<UsersResponse> => {
+  getUsers: async (params?: GetUsersParams): Promise<UsersResponse> => {
     const response = await apiClient.get<ApiSuccessResponse<UsersResponse>>(
-      API_ENDPOINTS.ADMIN.GET_USERS
+      API_ENDPOINTS.ADMIN.GET_USERS,
+      { params }
     );
     return response.data;
   },
@@ -834,6 +848,34 @@ export const adminService = {
       data
     );
     return response.data;
+  },
+  assignHotelToUser: async (
+    hotelId: string,
+    userId: string | number,
+  ): Promise<null> => {
+    const response = await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.ASSIGN_HOTEL_TO_USER(hotelId, userId),
+    );
+    return response.data;
+  },
+
+  getUserHotelAssignments: async (
+    userId: string | number,
+  ): Promise<UserHotelAssignment[]> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<UserHotelAssignment[] | { content: UserHotelAssignment[] }>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_USER_HOTEL_ASSIGNMENTS(userId));
+    const payload = response.data;
+    if (Array.isArray(payload)) return payload;
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "content" in payload &&
+      Array.isArray((payload as { content: UserHotelAssignment[] }).content)
+    ) {
+      return (payload as { content: UserHotelAssignment[] }).content;
+    }
+    return [];
   },
   // Hotel Management
   getHotelBasicInfo: async (
