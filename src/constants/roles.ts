@@ -34,6 +34,7 @@ export const ADMIN_MANAGED_ROLE_BADGE_STYLES: Record<
   { bg: string; text: string }
 > = {
   PACKAGE_MANAGER: { bg: "bg-emerald-100", text: "text-emerald-800" },
+  PACKAGE_REVIEWER: { bg: "bg-cyan-100", text: "text-cyan-800" },
 };
 
 /**

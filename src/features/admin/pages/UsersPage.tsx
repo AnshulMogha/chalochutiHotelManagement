@@ -46,6 +46,7 @@ const ROLE_OPTIONS = [
   { value: "HOTEL_OWNER", label: "Hotel Owner" },
   { value: "BOOKING_AGENT", label: "Booking Agent" },
   { value: "PACKAGE_MANAGER", label: "Package Manager" },
+  { value: "PACKAGE_REVIEWER", label: "Package Reviewer" },
   { value: "TRANSPORT_AGENT", label: "Transport Agent" },
   { value: "AGENT", label: "Agent" },
 ];

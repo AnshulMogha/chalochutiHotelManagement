@@ -153,6 +153,7 @@ export type UserRole =
   | "ACCOUNTANT"
   | "BOOKING_AGENT"
   | "PACKAGE_MANAGER"
+  | "PACKAGE_REVIEWER"
   | "TRANSPORT_AGENT"
   | "AGENT";
 
