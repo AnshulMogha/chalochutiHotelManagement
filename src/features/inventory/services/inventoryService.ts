@@ -35,12 +35,27 @@ export interface UpdateInventoryRequest {
   status: "OPEN" | "CLOSED";
 }
 
-export interface BulkUpdateInventoryRequest {
+/** Weekday values expected by POST /hotel/inventory/bulk/rooms */
+export type InventoryBulkRoomsWeekDay =
+  | "MONDAY"
+  | "TUESDAY"
+  | "WEDNESDAY"
+  | "THURSDAY"
+  | "FRIDAY"
+  | "SATURDAY"
+  | "SUNDAY";
+
+export interface BulkUpdateInventoryRoomPayload {
   roomId: number;
+  totalRooms: number;
+}
+
+export interface BulkUpdateInventoryRoomsRequest {
   from: string; // YYYY-MM-DD
   to: string; // YYYY-MM-DD
+  rooms: BulkUpdateInventoryRoomPayload[];
   totalRooms: number;
-  status: "OPEN" | "CLOSED";
+  weekDays: InventoryBulkRoomsWeekDay[];
 }
 
 export interface BulkUpdateRestrictionsRequest {
@@ -102,14 +117,13 @@ export const inventoryService = {
     // Wrapped in ApiSuccessResponse, so response.data is null and message is in response.message
   },
 
-  bulkUpdateInventory: async (
-    request: BulkUpdateInventoryRequest
+  bulkUpdateInventoryRooms: async (
+    request: BulkUpdateInventoryRoomsRequest
   ): Promise<void> => {
     await apiClient.post<ApiSuccessResponse<null>>(
-      API_ENDPOINTS.INVENTORY.UPDATE_BULK,
+      API_ENDPOINTS.INVENTORY.UPDATE_BULK_ROOMS,
       request
     );
-    // API returns: { statusCode: 200, status: "SUCCESS", message: "Inventory bulk updated successfully." }
   },
 
   bulkUpdateRestrictions: async (

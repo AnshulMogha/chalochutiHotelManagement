@@ -38,6 +38,7 @@ export const ROUTES = {
   },
   ROOM_INVENTORY: {
     LIST: "/inventory/room-types",
+    BULK_UPDATE: "/inventory/bulk-update",
   },
   RATE_INVENTORY: {
     LIST: "/inventory/rate-plans",
@@ -277,7 +278,7 @@ export const API_ENDPOINTS = {
     GET_CALENDAR: (hotelId: string, fromDate: string, toDate: string) =>
       `/hotel/inventory/${hotelId}/calendar?from=${fromDate}&to=${toDate}`,
     UPDATE_SINGLE: "/hotel/inventory/single",
-    UPDATE_BULK: "/hotel/inventory/bulk",
+    UPDATE_BULK_ROOMS: "/hotel/inventory/bulk/rooms",
     UPDATE_BULK_RESTRICTIONS: (hotelId: string) =>
       `/hotel/inventory/${hotelId}/restrictions/bulk`,
   },

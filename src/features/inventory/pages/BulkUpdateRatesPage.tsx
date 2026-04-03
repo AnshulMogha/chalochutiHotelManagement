@@ -85,7 +85,7 @@ export default function BulkUpdateRatesPage() {
   const [selectedWeekDays, setSelectedWeekDays] =
     useState<string[]>(ALL_WEEK_DAYS);
 
-  // Customer type - UI value (B2C, B2B, MYBIZZ)
+  // Customer type - UI value (B2C, B2B, MYBIZZ, BUNDLE)
   const [customerTypeUI, setCustomerTypeUI] = useState("B2C");
 
   // Map UI customer type to API customer type
@@ -96,6 +96,7 @@ export default function BulkUpdateRatesPage() {
       MYBIZZ: "CORPORATE",
       // Backward-compat (in case older saved values exist)
       MYBIZ: "CORPORATE",
+      BUNDLE: "PACKAGE",
     };
     return uiToApi[uiValue] || "RETAIL";
   };
@@ -622,6 +623,7 @@ export default function BulkUpdateRatesPage() {
                     <option value="B2C">B2C</option>
                     <option value="B2B">B2B</option>
                     <option value="MYBIZZ">MYBIZZ</option>
+                    <option value="BUNDLE">Bundle</option>
                   </select>
                 </div>
 

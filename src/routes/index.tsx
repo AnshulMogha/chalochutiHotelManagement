@@ -64,6 +64,9 @@ const BulkUpdateRatesPage = lazy(
 const BulkUpdateRestrictionsPage = lazy(
   () => import("../features/inventory/pages/BulkUpdateRestrictionsPage"),
 );
+const BulkUpdateInventoryPage = lazy(
+  () => import("../features/inventory/pages/BulkUpdateInventoryPage"),
+);
 const AddSingleDerivedRatePage = lazy(
   () => import("../features/inventory/pages/AddSingleDerivedRatePage")
 );
@@ -276,6 +279,10 @@ export const routes: RouteObject[] = [
       {
         path: "hotel/rates/add-single-derived",
         element: <AddSingleDerivedRatePage />,
+      },
+      {
+        path: "inventory/bulk-update",
+        element: <BulkUpdateInventoryPage />,
       },
       {
         path: "rates/bulk-update",

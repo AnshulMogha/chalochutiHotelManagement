@@ -7,7 +7,6 @@ import { DateSelector } from "./inventoryComponents/DateSelector";
 import { NavigationTabs } from "./inventoryComponents/NavigationTabs";
 import { RoomTypesGrid } from "./inventoryComponents/RoomTypesGrid";
 import { SaveCancelButtons } from "./inventoryComponents/SaveCancelButtons";
-import { BulkUpdateModal } from "./inventoryComponents/BulkUpdateModal";
 import { TAB_OPTIONS } from "@/data/dummyData";
 import type { InventoryRoom, RatesRoom } from "./type";
 import { inventoryService } from "./services/inventoryService";
@@ -31,7 +30,6 @@ import {
 import {
   adminService,
   type ChildAgePolicyResponse,
-  type HotelRoom,
   type RatePlan,
 } from "@/features/admin/services/adminService";
 import {
@@ -90,7 +88,6 @@ export default function Layout() {
   // Default: today to today + 6 days (7 days total)
   const [baseDate, setBaseDate] = useState(today);
   const [activeDate, setActiveDate] = useState(today);
-  const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
   const [isBulkUpdateDropdownOpen, setIsBulkUpdateDropdownOpen] = useState(false);
   const [isLinkRatePlansOpen, setIsLinkRatePlansOpen] = useState(false);
   const [linkSheetApiError, setLinkSheetApiError] = useState<string | null>(
@@ -126,10 +123,6 @@ export default function Layout() {
   const [rateRoomsByRoomId, setRateRoomsByRoomId] = useState<
     Record<number, RatesRoom>
   >({});
-  const [roomTypes, setRoomTypes] = useState<HotelRoom[]>([]);
-  const [isLoadingRoomTypes, setIsLoadingRoomTypes] = useState(false);
-  const [roomTypesError, setRoomTypesError] = useState<string | null>(null);
-  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<string>("");
 
   // Map navigation tab ID to customerType
   const getCustomerTypeFromTab = (tabId: string): string => {
@@ -137,6 +130,7 @@ export default function Layout() {
       'b2c': 'RETAIL',
       'mybiz': 'CORPORATE',
       'b2b': 'AGENT',
+      'bundle': 'PACKAGE',
     };
     return tabToCustomerType[tabId] || 'RETAIL';
   };
@@ -288,7 +282,6 @@ export default function Layout() {
   const isCancelingRef = useRef(false);
 
   const hasChanges = activeEdit !== null || activeRateEdit !== null;
-  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
 
   // Reset all changes when switching between room-types and rate-plans tabs
   useEffect(() => {
@@ -559,34 +552,6 @@ export default function Layout() {
     }
   };
 
-  useEffect(() => {
-    if (!hotelId || !isBulkUpdateModalOpen) return;
-
-    const fetchRoomTypes = async () => {
-      setIsLoadingRoomTypes(true);
-      setRoomTypesError(null);
-      setSelectedRoomTypeId("");
-      try {
-        const roomTypeList = await inventoryService.getHotelRooms(hotelId);
-        setRoomTypes(roomTypeList);
-
-        if (roomTypeList.length === 0) {
-          const message = "No room types available for this hotel.";
-          setRoomTypesError(message);
-          showToast(message, "error");
-        }
-      } catch (error: any) {
-        const message = error?.message || "Failed to load room types";
-        setRoomTypesError(message);
-        showToast(message, "error");
-      } finally {
-        setIsLoadingRoomTypes(false);
-      }
-    };
-
-    fetchRoomTypes();
-  }, [hotelId, isBulkUpdateModalOpen]);
-
   const handleAvailabilityUpdate = (
     roomId: number,
     dateStr: string,
@@ -789,81 +754,6 @@ export default function Layout() {
   };
 
 
-  const handleBulkUpdate = async (
-    startDate: Date,
-    endDate: Date,
-    value: number | null,
-    roomId: string,
-  ) => {
-    if (isReadOnly) return;
-    if (!hotelId) return;
-
-    if (roomTypes.length === 0) {
-      showToast("No room types available for this hotel.", "error");
-      return;
-    }
-
-    if (!roomId) {
-      showToast("Please select a room type before applying.", "error");
-      return;
-    }
-
-    if (value === null) {
-      showToast("Please enter a value for total rooms.", "error");
-      return;
-    }
-
-    if (isBulkSubmitting) return;
-
-    // Map selected room type (admin room list) to numeric inventory roomId by room name
-    const selectedRoom = roomTypes.find((r) => r.roomId === roomId);
-    const matchingInventoryRoom = rooms.find(
-      (r) =>
-        r.roomName.toLowerCase().trim() ===
-        (selectedRoom?.roomName.toLowerCase().trim() || "")
-    );
-    const numericRoomId = matchingInventoryRoom?.roomId;
-    if (!numericRoomId) {
-      showToast("Invalid room type selected. Please refresh inventory and try again.", "error");
-      return;
-    }
-
-    const fromDateStr = format(startDate, "yyyy-MM-dd");
-    const toDateStr = format(endDate, "yyyy-MM-dd");
-    
-    // Determine status: OPEN if totalRooms > 0, CLOSED if totalRooms === 0
-    const status: "OPEN" | "CLOSED" = value > 0 ? "OPEN" : "CLOSED";
-
-    setIsBulkSubmitting(true);
-    setIsLoading(true);
-    try {
-      await inventoryService.bulkUpdateInventory({
-        roomId: numericRoomId,
-        from: fromDateStr,
-        to: toDateStr,
-        totalRooms: value,
-        status,
-      });
-
-      // Refetch data to get updated inventory
-      const data = await inventoryService.getCalendar(hotelId, fromDateStr, toDateStr);
-      setRooms(data);
-      setActiveEdit(null);
-      setIsBulkUpdateModalOpen(false);
-
-      // Show success toast
-      showToast("Inventory bulk updated successfully", "success");
-    } catch (error: any) {
-      // Show error toast
-      const errorMessage =
-        error?.message || "Failed to update inventory";
-      showToast(errorMessage, "error");
-    } finally {
-      setIsLoading(false);
-      setIsBulkSubmitting(false);
-    }
-  };
-
   // Handle rate plan update (local state only - NOT API call)
   const handleRatePlanUpdate = (
     ratePlanId: number,
@@ -1046,11 +936,15 @@ export default function Layout() {
                       <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuItem
                           onClick={() => {
-                            setIsBulkUpdateModalOpen(true);
+                            if (hotelId) {
+                              navigate(
+                                `${ROUTES.ROOM_INVENTORY.BULK_UPDATE}?hotelId=${hotelId}`,
+                              );
+                            }
                             setIsBulkUpdateDropdownOpen(false);
                           }}
                           className="cursor-pointer"
-                          disabled={isReadOnly}
+                          disabled={!hotelId || isReadOnly}
                         >
                           Bulk Update Inventory
                         </DropdownMenuItem>
@@ -1154,21 +1048,6 @@ export default function Layout() {
         hasChanges={hasChanges}
         onSave={handleSave}
         onCancel={handleCancel}
-      />
-
-      {/* Bulk Update Modal - Available from both sections */}
-      <BulkUpdateModal
-        key={isBulkUpdateModalOpen ? "open" : "closed"}
-        isOpen={isBulkUpdateModalOpen}
-        onClose={() => setIsBulkUpdateModalOpen(false)}
-        onApply={handleBulkUpdate}
-        rooms={roomTypes}
-        selectedRoomId={selectedRoomTypeId}
-        onSelectRoom={setSelectedRoomTypeId}
-        isLoadingRooms={isLoadingRoomTypes}
-        roomsError={roomTypesError}
-        isSubmitting={isBulkSubmitting}
-        section="room-types"
       />
 
       <LinkRatePlansSheet
