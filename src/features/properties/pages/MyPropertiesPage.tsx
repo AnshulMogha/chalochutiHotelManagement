@@ -12,6 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
+import { canOnboardHotel } from "@/constants/roles";
 import { useAuth } from "@/hooks";
 import type { HotelList, HotelStatus } from "../types";
 import { propertyService } from "../services/propertyService";
@@ -94,7 +95,10 @@ export default function MyPropertiesPage() {
     !!user?.roles?.includes("FRONT_DESK_EXEC") ||
     !!user?.roles?.includes("ACCOUNTANT");
 
+  const canOnboard = canOnboardHotel(user?.roles);
+
   const handleAddProperty = async () => {
+    if (!canOnboard) return;
     const response = await propertyService.generateDraftHotel();
     navigate(`${ROUTES.PROPERTIES.CREATE}?draftId=${response.hotelId}`);
   };
@@ -590,7 +594,7 @@ export default function MyPropertiesPage() {
             Manage your property listings and information
           </p>
         </div>
-        {!isScopedPropertyViewer && (
+        {!isScopedPropertyViewer && canOnboard && (
           <Button
             onClick={handleAddProperty}
             variant="primary"
@@ -671,17 +675,17 @@ export default function MyPropertiesPage() {
 
           {/* Active Properties Tab */}
           <TabsContent value="active" className="mt-0">
-            {renderTable(activeHotels, true)}
+            {renderTable(activeHotels, true, canOnboard)}
           </TabsContent>
 
           {/* In Process Properties Tab */}
           <TabsContent value="inprocess" className="mt-0">
-            {renderTable(inProcessHotels, false)}
+            {renderTable(inProcessHotels, false, canOnboard)}
           </TabsContent>
 
           {/* Rejected Properties Tab */}
           <TabsContent value="rejected" className="mt-0">
-            {renderTable(rejectedHotels, false)}
+            {renderTable(rejectedHotels, false, canOnboard)}
           </TabsContent>
         </Tabs>
       )}

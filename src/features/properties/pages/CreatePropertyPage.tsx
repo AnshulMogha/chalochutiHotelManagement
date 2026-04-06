@@ -11,6 +11,7 @@ import {
 } from "react-router";
 import type { Errors } from "../types";
 import { useAuth } from "@/hooks/useAuth";
+import { canOnboardHotel } from "@/constants/roles";
 import { adminService } from "@/features/admin/services/adminService";
 import { ApproveRejectModal } from "@/features/admin/components/ApproveRejectModal";
 import { Button } from "@/components/ui";
@@ -96,7 +97,7 @@ function Container() {
   );
   useEffect(() => {
     async function getCurrentStep() {
-      if (!draftId) return;
+      if (!canOnboardHotel(user?.roles) || !draftId) return;
       const response = await propertyService.getOnboardingStatus(draftId);
       setOngoingStep(response.currentStep.toLowerCase());
       // Check if status is SUBMITTED or APPROVED - then it's read-only
@@ -107,7 +108,7 @@ function Container() {
       navigateWithParams(response.currentStep.toLowerCase());
     }
     getCurrentStep();
-  }, [draftId, navigateWithParams]);
+  }, [draftId, navigateWithParams, user?.roles]);
 
   // 🔹 derived error count
   const errorCount = Object.values(errors).flatMap((e) =>
@@ -265,6 +266,24 @@ function Container() {
       setShowRejectModal(false);
     }
   };
+
+  if (!canOnboardHotel(user?.roles)) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-16 text-center">
+        <p className="text-gray-900 font-medium mb-2">
+          You cannot onboard hotels with this account
+        </p>
+        <p className="text-gray-600 text-sm mb-6">
+          Hotel onboarding is limited to Super Admins, Onboarding Reviewers, and
+          Hotel Owners. Ask a Super Admin to assign the correct role on{" "}
+          <span className="font-medium">Admin → Users</span>.
+        </p>
+        <Button type="button" variant="primary" onClick={() => navigate("/")}>
+          Back to properties
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <>
