@@ -44,7 +44,9 @@ export function canOnboardHotel(userRoles: string[] | undefined): boolean {
   return (
     userRoles.includes("SUPER_ADMIN") ||
     userRoles.includes("ONBOARDING_REVIEWER") ||
-    userRoles.includes("HOTEL_OWNER")
+    userRoles.includes("HOTEL_OWNER") ||
+    userRoles.includes("BOOKING_AGENT") ||
+    userRoles.includes("booking_agent")
   );
 }
 
