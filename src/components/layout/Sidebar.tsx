@@ -22,6 +22,7 @@ import {
   Sparkles,
   Percent,
   Handshake,
+  Package,
   type LucideIcon 
 } from "lucide-react";
 
@@ -35,6 +36,7 @@ export interface NavItem {
   icon: LucideIcon;
   badge?: string;
   children?: NavItem[];
+  external?: boolean;
 }
 
 const getNavItems = (user: User | null): NavItem[] => {
@@ -47,6 +49,13 @@ const getNavItems = (user: User | null): NavItem[] => {
 
   // Check if user is ONBOARDING_REVIEWER - they only see Hotel Review and Document Review
   const isOnboardingReviewer = userRoles?.includes("ONBOARDING_REVIEWER");
+
+  items.push({
+    label: "Packages",
+    path: "https://thedemonstrate.com/packageManagement/",
+    icon: Package,
+    external: true,
+  });
   
   if (isOnboardingReviewer) {
     items.push(
