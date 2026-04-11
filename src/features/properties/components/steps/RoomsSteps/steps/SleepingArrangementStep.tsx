@@ -1,5 +1,5 @@
 import { Input, Select } from "@/components/ui";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { bedTypeOptions, roomCapacityOptions } from "../constants";
 import { Minus, Plus, X } from "lucide-react";
 import { useFormContext } from "@/features/properties/context/useFormContext";
@@ -292,8 +292,26 @@ export function SleepingArrangementStep({
     setRoomDetailsState(setMaxOccupancy(sleepingArrangement.maxOccupancy + 1));
   };
 
-  // Auto-calculate occupancy when beds change
+  /**
+   * Suggest occupancy from bed layout when the user changes beds — not on mount.
+   * On mount we must keep values from the server (edit) or existing state; the old
+   * effect always forced baseAdults=1 / baseChildren=0 and overwrote max fields.
+   */
+  const bedLayoutKeyRef = useRef<string | null>(null);
+  const standardBedsKey = JSON.stringify(sleepingArrangement.standardBeds);
+  const extraBedKey = `${sleepingArrangement.canAccommodateExtraBed}:${sleepingArrangement.numberOfExtraBeds}`;
+
   useEffect(() => {
+    const layoutKey = `${standardBedsKey}|${extraBedKey}`;
+    if (bedLayoutKeyRef.current === null) {
+      bedLayoutKeyRef.current = layoutKey;
+      return;
+    }
+    if (bedLayoutKeyRef.current === layoutKey) {
+      return;
+    }
+    bedLayoutKeyRef.current = layoutKey;
+
     // Calculate capacity from standard beds
     let totalMaxOccupancy = 0;
     let totalMaxAdults = 0;
@@ -355,11 +373,7 @@ export function SleepingArrangementStep({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    JSON.stringify(sleepingArrangement.standardBeds),
-    sleepingArrangement.canAccommodateExtraBed,
-    sleepingArrangement.numberOfExtraBeds,
-  ]);
+  }, [standardBedsKey, extraBedKey]);
 
   const getStandardBedOptions = (currentIndex: number) => {
     const selectedTypes = sleepingArrangement.standardBeds
