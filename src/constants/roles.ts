@@ -35,7 +35,20 @@ export const ADMIN_MANAGED_ROLE_BADGE_STYLES: Record<
 > = {
   PACKAGE_MANAGER: { bg: "bg-emerald-100", text: "text-emerald-800" },
   PACKAGE_REVIEWER: { bg: "bg-cyan-100", text: "text-cyan-800" },
+  ONBOARDING_REVIEWER: { bg: "bg-amber-100", text: "text-amber-800" },
 };
+
+/** Who may start or continue the multi-step hotel onboarding wizard (`/properties/hotel`). */
+export function canOnboardHotel(userRoles: string[] | undefined): boolean {
+  if (!userRoles?.length) return false;
+  return (
+    userRoles.includes("SUPER_ADMIN") ||
+    userRoles.includes("ONBOARDING_REVIEWER") ||
+    userRoles.includes("HOTEL_OWNER") ||
+    userRoles.includes("BOOKING_AGENT") ||
+    userRoles.includes("booking_agent")
+  );
+}
 
 /**
  * Check if user has a specific role
