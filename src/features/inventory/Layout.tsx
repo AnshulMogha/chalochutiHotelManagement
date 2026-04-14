@@ -513,8 +513,8 @@ export default function Layout() {
     }
   };
 
-  /** GET /hotel/{id}/rates/calendar — refresh grid after link create/update/remove. */
-  const refreshRatesCalendarAfterLinkChange = useCallback(async () => {
+  /** GET /hotel/{id}/rates/calendar — reload latest calendar after a successful save. */
+  const refreshRatesCalendar = useCallback(async () => {
     if (!hotelId) return;
     try {
       const data = await rateService.getCalendar(
@@ -530,14 +530,12 @@ export default function Layout() {
       setCustomerType(data.customerType);
       originalRateRoomsRef.current = JSON.parse(JSON.stringify(data.rooms));
       setActiveRateEdit(null);
+      return true;
     } catch (error) {
-      console.error("Error refreshing rates calendar after link change:", error);
-      showToast(
-        "Link saved, but the calendar could not be refreshed. Try changing the date range or reloading.",
-        "error",
-      );
+      console.error("Error refreshing rates calendar after save:", error);
+      return false;
     }
-  }, [hotelId, fromDate, toDate, currentCustomerType, showToast]);
+  }, [hotelId, fromDate, toDate, currentCustomerType]);
 
   const toggleRoomExpand = (roomId: number) => {
     const shouldExpand = !expandedRoomIds.has(roomId);
@@ -651,8 +649,13 @@ export default function Layout() {
         setActiveEdit(null);
       }
 
-      // Show success toast
-      showToast("Inventory updated successfully", "success");
+      const refreshed = await refreshRatesCalendar();
+      showToast(
+        refreshed
+          ? "Inventory updated successfully"
+          : "Inventory updated, but the calendar could not be refreshed. Try changing the date range or reloading.",
+        refreshed ? "success" : "error",
+      );
     } catch (error: any) {
       // Revert to previous value
       setRooms((prev) =>
@@ -873,7 +876,13 @@ export default function Layout() {
           activeRateEdit?.date === date) {
         setActiveRateEdit(null);
       }
-      showToast("Rate updated successfully", "success");
+      const refreshed = await refreshRatesCalendar();
+      showToast(
+        refreshed
+          ? "Rate updated successfully"
+          : "Rate updated, but the calendar could not be refreshed. Try changing the date range or reloading.",
+        refreshed ? "success" : "error",
+      );
     } catch (error: any) {
       // Revert to previous values on error
       handleRatePlanUpdate(
@@ -1073,7 +1082,13 @@ export default function Layout() {
           try {
             await rateService.deleteRatePlanLink(linkId);
             showToast("Rate plan link is removed.", "success");
-            await refreshRatesCalendarAfterLinkChange();
+            const refreshed = await refreshRatesCalendar();
+            if (!refreshed) {
+              showToast(
+                "Link removed, but the calendar could not be refreshed. Try changing the date range or reloading.",
+                "error",
+              );
+            }
           } catch (err: unknown) {
             const message = formatApiClientError(err);
             setLinkSheetApiError(message);
@@ -1105,7 +1120,13 @@ export default function Layout() {
               await rateService.linkRatePlans(body);
               showToast("Linked rates saved.", "success");
             }
-            await refreshRatesCalendarAfterLinkChange();
+            const refreshed = await refreshRatesCalendar();
+            if (!refreshed) {
+              showToast(
+                "Linked rates saved, but the calendar could not be refreshed. Try changing the date range or reloading.",
+                "error",
+              );
+            }
           } catch (err: unknown) {
             const message = formatApiClientError(err);
             setLinkSheetApiError(message);
