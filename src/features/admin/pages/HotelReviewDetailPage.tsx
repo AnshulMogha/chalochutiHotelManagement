@@ -40,6 +40,7 @@ function Container() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [ongoingStep, setOngoingStep] = useState<string | null>(null);
+  const [hotelStatus, setHotelStatus] = useState<string | null>(null);
   const { formDataState } = useFormContext();
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -64,6 +65,7 @@ function Container() {
       try {
         const response = await propertyService.getOnboardingStatus(hotelId);
         setOngoingStep(response.currentStep.toLowerCase());
+        setHotelStatus((response.status || "").toUpperCase());
         const stepIndex = stepRoutes.findIndex(
           (step) => step.id === response.currentStep.toLowerCase()
         );
@@ -126,6 +128,9 @@ function Container() {
     }
   };
 
+  const isFinalReviewStatus =
+    hotelStatus === "APPROVED" || hotelStatus === "REJECTED";
+
 
   return (
     <>
@@ -136,26 +141,28 @@ function Container() {
           </h1>
           <p className="text-gray-600 mt-1">View-only mode - No edits allowed</p>
         </div>
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={() => setShowRejectModal(true)}
-            disabled={isProcessing}
-            className="gap-2"
-          >
-            <XCircle className="w-4 h-4" />
-            Reject
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => setShowApproveModal(true)}
-            disabled={isProcessing}
-            className="gap-2"
-          >
-            <CheckCircle className="w-4 h-4" />
-            Approve
-          </Button>
-        </div>
+        {!isFinalReviewStatus && (
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowRejectModal(true)}
+              disabled={isProcessing}
+              className="gap-2"
+            >
+              <XCircle className="w-4 h-4" />
+              Reject
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => setShowApproveModal(true)}
+              disabled={isProcessing}
+              className="gap-2"
+            >
+              <CheckCircle className="w-4 h-4" />
+              Approve
+            </Button>
+          </div>
+        )}
       </div>
 
       <MultiStepForm

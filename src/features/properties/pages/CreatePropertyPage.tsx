@@ -75,6 +75,7 @@ function Container() {
   );
 
   const [ongoingStep, setOngoingStep] = useState<string | null>(null);
+  const [hotelStatus, setHotelStatus] = useState<string | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -102,6 +103,10 @@ function Container() {
   const showApproveRejectActions =
     !!draftId &&
     (isSuperAdmin || ((isQcUser || isZonalUser) && onFinanceStep));
+  const isFinalReviewStatus =
+    hotelStatus === "APPROVED" ||
+    hotelStatus === "REJECTED" ||
+    hotelStatus === "LIVE";
 
   // ✅ NEW: derive allowedStep from server step
   const allowedStep = ongoingStep
@@ -124,6 +129,7 @@ function Container() {
       if (!canOnboardHotel(user?.roles) || !draftId) return;
       const response = await propertyService.getOnboardingStatus(draftId);
       setOngoingStep(response.currentStep.toLowerCase());
+      setHotelStatus((response.status || "").toUpperCase());
       // Check if status is SUBMITTED or APPROVED - then it's read-only
       // REJECTED hotels can be edited, so don't set read-only for them
       setIsReadOnly(
@@ -366,7 +372,7 @@ function Container() {
           Back
         </Button>
       </div>
-      {showApproveRejectActions && (
+      {showApproveRejectActions && !isFinalReviewStatus && (
         <div className="mb-6 flex justify-end items-center gap-3">
           <Button
             variant="outline"
