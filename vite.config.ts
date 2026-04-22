@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig(() => ({
   // App base path
-  base: "/console/",
+  base: "/chalochutti/",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
