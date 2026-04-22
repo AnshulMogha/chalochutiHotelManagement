@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeft,
   BedDouble,
-  Tag,
   Users,
   CalendarDays,
   IndianRupee,
@@ -91,6 +90,8 @@ export default function AddSingleDerivedRatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const hotelId = searchParams.get("hotelId");
+  const fromDateFromUrl = searchParams.get("from");
+  const toDateFromUrl = searchParams.get("to");
   const roomIdFromUrl = searchParams.get("roomId");
   const ratePlanIdFromUrl = searchParams.get("ratePlanId");
   const { toast, showToast, hideToast } = useToast();
@@ -366,6 +367,9 @@ export default function AddSingleDerivedRatePage() {
         cutoffTime,
         currency,
       });
+      const refreshFrom = fromDateFromUrl || date;
+      const refreshTo = toDateFromUrl || date;
+      await rateService.getCalendar(hotelId, refreshFrom, refreshTo, customerType);
       showToast("Single day derived rate saved successfully.", "success");
       const next = initialFormFields();
       setCustomerType(next.customerType);

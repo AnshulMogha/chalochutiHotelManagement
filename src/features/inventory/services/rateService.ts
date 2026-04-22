@@ -137,7 +137,7 @@ export const rateService = {
     request: UpdateSingleRateRequest
   ): Promise<void> => {
     await apiClient.put<ApiSuccessResponse<null>>(
-      API_ENDPOINTS.RATES.UPDATE_SINGLE,
+      API_ENDPOINTS.RATES.UPDATE_SINGLE_DERIVED,
       request
     );
   },
@@ -155,7 +155,7 @@ export const rateService = {
     request: SingleDerivedRateRequest
   ): Promise<void> => {
     await apiClient.put<ApiSuccessResponse<null>>(
-      API_ENDPOINTS.RATES.CREATE_SINGLE_DERIVED,
+      API_ENDPOINTS.RATES.UPDATE_SINGLE_DERIVED,
       request
     );
   },

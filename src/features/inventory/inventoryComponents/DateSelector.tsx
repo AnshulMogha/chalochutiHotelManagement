@@ -1,6 +1,6 @@
 import { format, subDays, addDays, startOfToday, isBefore, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 
 /**
  * Date Selector Component
@@ -31,6 +31,7 @@ export const DateSelector = ({
   rightAction,
 }: DateSelectorProps) => {
   const today = startOfToday();
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
   // Check if going back one week would result in a past date
   const prevWeekDate = subDays(baseDate, 7);
   const wouldGoToPast = isBefore(prevWeekDate, today) && !isSameDay(prevWeekDate, today);
@@ -60,6 +61,17 @@ export const DateSelector = ({
       onBaseDateChange(picked);
       onActiveDateChange(picked);
     }
+  };
+
+  const openDatePicker = () => {
+    const input = dateInputRef.current;
+    if (!input) return;
+    input.focus();
+    if ("showPicker" in input && typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+    input.click();
   };
 
   return (
@@ -107,9 +119,13 @@ export const DateSelector = ({
           </div>
 
           {/* Date Picker - UI ENHANCEMENT: Premium styling with better visual hierarchy */}
-          <div className="flex items-center gap-2.5 bg-white border border-gray-300 rounded-lg px-4 py-2.5 shadow-sm hover:shadow-md hover:border-[#2A3170] transition-all duration-150 group">
+          <div
+            className="flex items-center gap-2.5 bg-white border border-gray-300 rounded-lg px-4 py-2.5 shadow-sm hover:shadow-md hover:border-[#2A3170] transition-all duration-150 group cursor-pointer"
+            onClick={openDatePicker}
+          >
             <CalendarIcon className="w-4 h-4 text-gray-500 group-hover:text-[#2A3170] transition-colors" />
             <input
+              ref={dateInputRef}
               type="date"
               value={format(baseDate, 'yyyy-MM-dd')}
               min={format(today, 'yyyy-MM-dd')}

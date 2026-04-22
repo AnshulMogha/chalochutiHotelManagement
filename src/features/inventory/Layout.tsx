@@ -867,6 +867,18 @@ export default function Layout() {
 
     try {
       await rateService.updateSingleRate(payload);
+      const refreshed = await rateService.getCalendar(
+        hotelId,
+        fromDate,
+        toDate,
+        currentCustomerType,
+      );
+      setRateRooms(refreshed.rooms);
+      setRatesCalendarIsLinkEnable(refreshed.isLinkEnable);
+      setRatePlansFromDate(refreshed.from);
+      setRatePlansToDate(refreshed.to);
+      setCustomerType(refreshed.customerType);
+      originalRateRoomsRef.current = JSON.parse(JSON.stringify(refreshed.rooms));
       // On success, clear active edit
       if (activeRateEdit?.ratePlanId === ratePlanId && 
           activeRateEdit?.roomId === roomId && 

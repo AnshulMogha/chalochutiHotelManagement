@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   format,
@@ -65,6 +65,18 @@ export default function BulkUpdateInventoryPage() {
     {},
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const startDateInputRef = useRef<HTMLInputElement | null>(null);
+  const endDateInputRef = useRef<HTMLInputElement | null>(null);
+
+  const openDatePicker = (input: HTMLInputElement | null) => {
+    if (!input) return;
+    input.focus();
+    if ("showPicker" in input && typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+    input.click();
+  };
 
   useEffect(() => {
     if (!hotelId) return;
@@ -94,9 +106,8 @@ export default function BulkUpdateInventoryPage() {
       setRoomTotalInputs({});
       return;
     }
-
-    const fromStr = format(fromDate, "yyyy-MM-dd");
-    const toStr = format(toDate, "yyyy-MM-dd");
+    const fromStr = format(today, "yyyy-MM-dd");
+    const toStr = format(addDays(today, 6), "yyyy-MM-dd");
 
     let cancelled = false;
     setMappingLoading(true);
@@ -147,7 +158,7 @@ export default function BulkUpdateInventoryPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hotelId, rooms, fromDate, toDate]);
+  }, [hotelId, rooms, today]);
 
   const handleStartDateChange = (date: Date) => {
     if (!isBefore(date, today) || isSameDay(date, today)) {
@@ -336,9 +347,13 @@ export default function BulkUpdateInventoryPage() {
                   Start and end date
                 </label>
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="relative flex-1 min-w-[140px]">
+                  <div
+                    className="relative flex-1 min-w-[140px] cursor-pointer"
+                    onClick={() => openDatePicker(startDateInputRef.current)}
+                  >
                     <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
+                      ref={startDateInputRef}
                       type="date"
                       value={format(fromDate, "yyyy-MM-dd")}
                       min={format(today, "yyyy-MM-dd")}
@@ -349,9 +364,13 @@ export default function BulkUpdateInventoryPage() {
                     />
                   </div>
                   <span className="text-slate-500 font-medium text-sm">to</span>
-                  <div className="relative flex-1 min-w-[140px]">
+                  <div
+                    className="relative flex-1 min-w-[140px] cursor-pointer"
+                    onClick={() => openDatePicker(endDateInputRef.current)}
+                  >
                     <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
+                      ref={endDateInputRef}
                       type="date"
                       value={format(toDate, "yyyy-MM-dd")}
                       min={format(fromDate, "yyyy-MM-dd")}

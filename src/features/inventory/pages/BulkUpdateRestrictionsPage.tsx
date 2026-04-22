@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { format, addDays, startOfToday, isBefore, isSameDay, differenceInDays } from "date-fns";
 import { ArrowLeft, Calendar } from "lucide-react";
@@ -39,8 +39,20 @@ export default function BulkUpdateRestrictionsPage() {
 
   const [minStay, setMinStay] = useState<string>("");
   const [cutoffTime, setCutoffTime] = useState<string>("");
+  const startDateInputRef = useRef<HTMLInputElement | null>(null);
+  const endDateInputRef = useRef<HTMLInputElement | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const openDatePicker = (input: HTMLInputElement | null) => {
+    if (!input) return;
+    input.focus();
+    if ("showPicker" in input && typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+    input.click();
+  };
 
   if (!hotelId) {
     return (
@@ -177,9 +189,13 @@ export default function BulkUpdateRestrictionsPage() {
             <div className="space-y-3">
               <label className="text-sm font-semibold text-gray-900">Stay Dates</label>
               <div className="flex items-center gap-3">
-                <div className="relative flex-1">
+                <div
+                  className="relative flex-1 cursor-pointer"
+                  onClick={() => openDatePicker(startDateInputRef.current)}
+                >
                   <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
+                    ref={startDateInputRef}
                     type="date"
                     value={format(startDate, "yyyy-MM-dd")}
                     min={format(today, "yyyy-MM-dd")}
@@ -190,9 +206,13 @@ export default function BulkUpdateRestrictionsPage() {
                   />
                 </div>
                 <span className="text-gray-500 font-medium">to</span>
-                <div className="relative flex-1">
+                <div
+                  className="relative flex-1 cursor-pointer"
+                  onClick={() => openDatePicker(endDateInputRef.current)}
+                >
                   <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
+                    ref={endDateInputRef}
                     type="date"
                     value={format(endDate, "yyyy-MM-dd")}
                     min={format(startDate, "yyyy-MM-dd")}

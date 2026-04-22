@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   format,
@@ -117,6 +117,18 @@ export default function BulkUpdateRatesPage() {
   const [updateExtraGuestCharges, setUpdateExtraGuestCharges] = useState(false);
   const [enableRateRestrictions, setEnableRateRestrictions] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const startDateInputRef = useRef<HTMLInputElement | null>(null);
+  const endDateInputRef = useRef<HTMLInputElement | null>(null);
+
+  const openDatePicker = (input: HTMLInputElement | null) => {
+    if (!input) return;
+    input.focus();
+    if ("showPicker" in input && typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+    input.click();
+  };
 
   // Data state
   const [rooms, setRooms] = useState<HotelRoom[]>([]);
@@ -278,14 +290,15 @@ export default function BulkUpdateRatesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hotelId]);
 
-  // Fetch rate calendar to map room names to numeric room IDs
+  // Fetch rate calendar to map room names to numeric room IDs.
+  // This mapping does not need to refetch on every date-range change.
   useEffect(() => {
     if (!hotelId || rooms.length === 0) return;
 
     const fetchRoomMapping = async () => {
       try {
-        const fromDateStr = format(fromDate, "yyyy-MM-dd");
-        const toDateStr = format(toDate, "yyyy-MM-dd");
+        const fromDateStr = format(today, "yyyy-MM-dd");
+        const toDateStr = format(addDays(today, 6), "yyyy-MM-dd");
         const uuidToNumericMapping = await mapHotelRoomUuidsToNumericRoomIds(
           hotelId,
           rooms,
@@ -301,7 +314,7 @@ export default function BulkUpdateRatesPage() {
 
     fetchRoomMapping();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hotelId, rooms, fromDate, toDate, customerType]);
+  }, [hotelId, rooms, customerType, today]);
 
   // Fetch rate plans when room is expanded
   const fetchRatePlansForRoom = async (roomId: string) => {
@@ -638,9 +651,13 @@ export default function BulkUpdateRatesPage() {
                     Date Range <span className="text-red-500">*</span>
                   </label>
                   <div className="flex items-center gap-3">
-                    <div className="relative flex-1">
+                    <div
+                      className="relative flex-1 cursor-pointer"
+                      onClick={() => openDatePicker(startDateInputRef.current)}
+                    >
                       <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
+                        ref={startDateInputRef}
                         type="date"
                         value={format(fromDate, "yyyy-MM-dd")}
                         min={format(today, "yyyy-MM-dd")}
@@ -654,9 +671,13 @@ export default function BulkUpdateRatesPage() {
                     <span className="text-slate-500 font-medium text-sm">
                       to
                     </span>
-                    <div className="relative flex-1">
+                    <div
+                      className="relative flex-1 cursor-pointer"
+                      onClick={() => openDatePicker(endDateInputRef.current)}
+                    >
                       <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
+                        ref={endDateInputRef}
                         type="date"
                         value={format(toDate, "yyyy-MM-dd")}
                         min={format(fromDate, "yyyy-MM-dd")}
