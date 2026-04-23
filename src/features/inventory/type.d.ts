@@ -33,6 +33,8 @@ export interface InventoryDay {
 export interface InventoryRoom {
   roomId: number;
   roomName: string;
+  /** Room type code from API (e.g. STANDARD, DELUXE). */
+  room_type_code?: string | null;
   days: InventoryDay[];
 }
 
@@ -81,6 +83,8 @@ export interface RatesData {
 export interface RatesRoom {
   roomId: number;
   roomName: string;
+  /** Room type code from API (e.g. STANDARD, DELUXE). */
+  room_type_code?: string | null;
   /** When false, hide link actions for all rate plans in this room. */
   isLinkEnable?: boolean;
   ratePlans: RoomRatePlan[];
@@ -89,6 +93,8 @@ export interface RatesRoom {
 export interface RoomRatePlan {
   ratePlanId: number;
   ratePlanName: string;
+  /** Meal plan code from API (e.g. EP, CP, MAP, AP). */
+  plan_code?: string | null;
   /** When false, hide the link control for this rate plan row. */
   isLinkEnable?: boolean;
   days: RoomRateDay[];

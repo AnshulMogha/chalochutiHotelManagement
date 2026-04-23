@@ -3,6 +3,19 @@ import { API_ENDPOINTS } from "@/constants";
 import type { ApiSuccessResponse } from "@/services/api/types/api";
 import type { RatesData } from "../type";
 
+const RATE_PLAN_DISPLAY_ORDER: Record<string, number> = {
+  EP: 0,
+  CP: 1,
+  MAP: 2,
+  AP: 3,
+};
+
+const getRatePlanOrder = (planCode?: string | null): number => {
+  if (!planCode) return Number.MAX_SAFE_INTEGER;
+  const normalizedPlanCode = planCode.trim().toUpperCase();
+  return RATE_PLAN_DISPLAY_ORDER[normalizedPlanCode] ?? Number.MAX_SAFE_INTEGER;
+};
+
 export interface UpdateSingleRateRequest {
   roomId: number;
   ratePlanId: number;
@@ -130,7 +143,20 @@ export const rateService = {
     // API response: ApiSuccessResponse wraps { data: { hotelId, customerType, from, to, rooms } }
     // So response.data = { hotelId, customerType, from, to, rooms }
     // Structure: rooms[] → ratePlans[] → days[]
-    return response.data;
+    return {
+      ...response.data,
+      rooms: response.data.rooms.map((room) => ({
+        ...room,
+        ratePlans: [...room.ratePlans].sort((firstPlan, secondPlan) => {
+          const orderDiff =
+            getRatePlanOrder(firstPlan.plan_code) -
+            getRatePlanOrder(secondPlan.plan_code);
+
+          if (orderDiff !== 0) return orderDiff;
+          return firstPlan.ratePlanName.localeCompare(secondPlan.ratePlanName);
+        }),
+      })),
+    };
   },
 
   updateSingleRate: async (

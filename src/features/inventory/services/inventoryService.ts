@@ -4,6 +4,59 @@ import type { ApiSuccessResponse } from "@/services/api/types/api";
 import type { InventoryRoom } from "../type";
 import type { HotelRoomsResponse } from "@/features/admin/services/adminService";
 
+const ROOM_TYPE_DISPLAY_ORDER: Record<string, number> = {
+  DORMITORY: 0,
+  SHARED_ROOM: 1,
+  STUDIO: 2,
+  STANDARD: 3,
+  DELUXE: 4,
+  SUPER_DELUXE: 5,
+  PREMIUM: 6,
+  EXECUTIVE: 7,
+  CLUB: 8,
+  JUNIOR_SUITE: 9,
+  SUITE: 10,
+  FAMILY_SUITE: 11,
+  PRESIDENTIAL_SUITE: 12,
+  COTTAGE: 13,
+  BUNGALOW: 14,
+  VILLA: 15,
+};
+
+const normalizeForOrdering = (value?: string | null): string => {
+  if (!value) return "";
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+};
+
+const getRoomTypeOrder = (roomTypeCode?: string | null): number => {
+  const trimmedCode = roomTypeCode?.trim().toUpperCase();
+  if (!trimmedCode) return Number.MAX_SAFE_INTEGER;
+
+  if (ROOM_TYPE_DISPLAY_ORDER[trimmedCode] !== undefined) {
+    return ROOM_TYPE_DISPLAY_ORDER[trimmedCode];
+  }
+
+  // Support alternate code formats if API sends variants.
+  const normalized = normalizeForOrdering(trimmedCode);
+  const roomTypeAliases: Record<string, keyof typeof ROOM_TYPE_DISPLAY_ORDER> = {
+    SHAREDROOM: "SHARED_ROOM",
+    STUDIOROOM: "STUDIO",
+    STANDARDROOM: "STANDARD",
+    DELUXEROOM: "DELUXE",
+    SUPERDELUXEROOM: "SUPER_DELUXE",
+    PREMIUMROOM: "PREMIUM",
+    EXECUTIVEROOM: "EXECUTIVE",
+    CLUBROOM: "CLUB",
+    JUNIORSUITE: "JUNIOR_SUITE",
+    FAMILYSUITE: "FAMILY_SUITE",
+    PRESIDENTIALSUITE: "PRESIDENTIAL_SUITE",
+  };
+
+  const aliasKey = roomTypeAliases[normalized];
+  if (!aliasKey) return Number.MAX_SAFE_INTEGER;
+  return ROOM_TYPE_DISPLAY_ORDER[aliasKey];
+};
+
 export interface InventoryCalendarApiResponse {
   data: {
     hotelId: string;
@@ -12,6 +65,7 @@ export interface InventoryCalendarApiResponse {
     rooms: Array<{
       roomId: number;
       roomName: string;
+      room_type_code?: string | null;
       days: Array<{
         date: string; // YYYY-MM-DD
         total: number;
@@ -88,22 +142,31 @@ export const inventoryService = {
     // API response: ApiSuccessResponse wraps { data: { hotelId, from, to, rooms } }
     // So response.data = { hotelId, from, to, rooms }
     const apiData = response.data;
-    return apiData.rooms.map((room) => ({
-      roomId: room.roomId,
-      roomName: room.roomName,
-      days: room.days.map((day) => ({
-        date: day.date,
-        total: day.total,
-        sold: day.sold,
-        blocked: day.blocked,
-        available: day.available,
-        status: day.status,
-        minStay: day.minStay ?? 0,
-        maxStay: day.maxStay ?? null,
-        cta: day.cta,
-        ctd: day.ctd,
-      })),
-    }));
+    return [...apiData.rooms]
+      .map((room) => ({
+        roomId: room.roomId,
+        roomName: room.roomName,
+        room_type_code: room.room_type_code,
+        days: room.days.map((day) => ({
+          date: day.date,
+          total: day.total,
+          sold: day.sold,
+          blocked: day.blocked,
+          available: day.available,
+          status: day.status,
+          minStay: day.minStay ?? 0,
+          maxStay: day.maxStay ?? null,
+          cta: day.cta,
+          ctd: day.ctd,
+        })),
+      }))
+      .sort((firstRoom, secondRoom) => {
+        const orderDiff =
+          getRoomTypeOrder(firstRoom.room_type_code) -
+          getRoomTypeOrder(secondRoom.room_type_code);
+        if (orderDiff !== 0) return orderDiff;
+        return firstRoom.roomName.localeCompare(secondRoom.roomName);
+      });
   },
 
   updateInventory: async (
