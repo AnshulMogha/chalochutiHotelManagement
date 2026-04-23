@@ -39,14 +39,20 @@ export function MultiStepForm({
   readOnly = false,
   allowStepNavigation = true,
 }: MultiStepFormProps) {
-  console.log(allowedStep);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
-  const preserveReadOnly = (() => {
-    if (typeof window === "undefined") return false;
-    const params = new URLSearchParams(window.location.search);
-    return params.get("readOnly") === "true";
-  })();
+  const getStepSearchParams = () => {
+    const params = new URLSearchParams();
+    if (typeof window !== "undefined") {
+      const current = new URLSearchParams(window.location.search);
+      const readOnly = current.get("readOnly");
+      const reviewTab = current.get("reviewTab");
+      if (readOnly === "true") params.set("readOnly", "true");
+      if (reviewTab) params.set("reviewTab", reviewTab);
+    }
+    params.set("draftId", draftId);
+    return params.toString();
+  };
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
       onNext();
@@ -105,12 +111,8 @@ export function MultiStepForm({
                 <button
                   type="button"
                   onClick={() => {
-                    if (index <= allowedStep) {
-                      navigate(
-                        `${step.id}?draftId=${draftId}${
-                          preserveReadOnly ? "&readOnly=true" : ""
-                        }`,
-                      );
+                    if (allowStepNavigation && index <= allowedStep) {
+                      navigate(`${step.id}?${getStepSearchParams()}`);
                     }
                   }}
                   disabled={isUpcoming}

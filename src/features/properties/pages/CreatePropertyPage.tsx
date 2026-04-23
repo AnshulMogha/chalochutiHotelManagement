@@ -61,6 +61,13 @@ const stepRoutes = [
   { id: "documents", title: "Documents" },
   { id: "finance", title: "Finance and Legal" },
 ];
+const REVIEW_CONTEXT_KEY = "hotel-review-context";
+type ReviewTab = "pending" | "approved" | "rejected";
+type StoredReviewContext = {
+  tab?: ReviewTab;
+  hotelId?: string | null;
+  updatedAt?: number;
+};
 
 function Container() {
   const location = useLocation();
@@ -72,16 +79,37 @@ function Container() {
   const reviewTabFromQuery = searchParams.get("reviewTab");
   const reviewTabFromState =
     (location.state as { reviewTab?: string } | null)?.reviewTab ?? null;
-  const normalizedReviewTab = (reviewTabFromQuery || reviewTabFromState || "")
+  const storedReviewContext: StoredReviewContext | null =
+    typeof window !== "undefined"
+      ? (() => {
+          try {
+            const raw = sessionStorage.getItem(REVIEW_CONTEXT_KEY);
+            return raw ? (JSON.parse(raw) as StoredReviewContext) : null;
+          } catch {
+            return null;
+          }
+        })()
+      : null;
+  const reviewTabFromClientState =
+    storedReviewContext?.hotelId &&
+    draftId &&
+    String(storedReviewContext.hotelId) === String(draftId)
+      ? storedReviewContext.tab || null
+      : null;
+  const normalizedReviewTab = (
+    reviewTabFromQuery ||
+    reviewTabFromState ||
+    reviewTabFromClientState ||
+    ""
+  )
     .trim()
     .toLowerCase();
-  const reviewTab =
+  const reviewTab: ReviewTab | null =
     normalizedReviewTab === "pending" ||
     normalizedReviewTab === "approved" ||
     normalizedReviewTab === "rejected"
       ? normalizedReviewTab
       : null;
-  const isPendingReviewContext = reviewTab === "pending";
 
   const currentStep = stepRoutes.findIndex((step) =>
     location.pathname.endsWith(step.id),
@@ -101,8 +129,11 @@ function Container() {
   const isSuperAdmin = user?.roles?.includes("SUPER_ADMIN") ?? false;
   const isQcUser = isQcReviewerRole(user?.roles);
   const isZonalUser = isZonalHotelReviewerRole(user?.roles);
+  const isOnboardingReviewer = user?.roles?.includes("ONBOARDING_REVIEWER") ?? false;
+  const isReviewActor =
+    isSuperAdmin || isQcUser || isZonalUser || isOnboardingReviewer;
   const isAdminStyleReview =
-    !!draftId && (isSuperAdmin || isQcUser || isZonalUser);
+    !!draftId && isReviewActor;
   const formReadOnly =
     isForcedReadOnly ||
     isReadOnly ||
@@ -113,15 +144,21 @@ function Container() {
   const lastStepIndex = stepRoutes.length - 1;
   const onFinanceStep =
     currentStep >= 0 && currentStep === lastStepIndex;
-  const showApproveRejectActions =
-    !!draftId &&
-    isPendingReviewContext &&
-    onFinanceStep &&
-    (isSuperAdmin || isQcUser || isZonalUser);
   const isFinalReviewStatus =
     hotelStatus === "APPROVED" ||
     hotelStatus === "REJECTED" ||
     hotelStatus === "LIVE";
+  const isPendingReviewContext =
+    reviewTab === "pending" ||
+    (reviewTab === null &&
+      !!draftId &&
+      isReviewActor &&
+      !isFinalReviewStatus);
+  const showApproveRejectActions =
+    !!draftId &&
+    isPendingReviewContext &&
+    onFinanceStep &&
+    isReviewActor;
 
   // ✅ NEW: derive allowedStep from server step
   const allowedStep = ongoingStep
@@ -140,6 +177,14 @@ function Container() {
     },
     [draftId, isForcedReadOnly, navigate, reviewTab],
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !draftId || !reviewTab) return;
+    sessionStorage.setItem(
+      REVIEW_CONTEXT_KEY,
+      JSON.stringify({ tab: reviewTab, hotelId: draftId, updatedAt: Date.now() }),
+    );
+  }, [draftId, reviewTab]);
   useEffect(() => {
     async function getCurrentStep() {
       if (!canOnboardHotel(user?.roles) || !draftId) return;

@@ -23,6 +23,8 @@ import {
 } from "@/constants/roles";
 
 type HotelReviewFetchMode = "super_admin" | "qc" | "zonal";
+type ReviewBucket = "pending" | "approved" | "rejected";
+const REVIEW_CONTEXT_KEY = "hotel-review-context";
 
 function getHotelReviewFetchMode(
   roles: string[] | undefined,
@@ -57,6 +59,18 @@ export default function HotelReviewListPage() {
   const fetchMode = getHotelReviewFetchMode(user?.roles);
   const useReviewerReadOnlyView =
     fetchMode === "qc" || fetchMode === "zonal";
+
+  const persistReviewContext = (tab: ReviewBucket, hotelId?: string) => {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem(
+      REVIEW_CONTEXT_KEY,
+      JSON.stringify({ tab, hotelId: hotelId || null, updatedAt: Date.now() }),
+    );
+  };
+
+  useEffect(() => {
+    persistReviewContext(activeTab as ReviewBucket);
+  }, [activeTab]);
 
   useEffect(() => {
     const fetchHotelsByTab = async () => {
@@ -311,6 +325,7 @@ export default function HotelReviewListPage() {
           variant="outline"
           size="sm"
           onClick={() => {
+            persistReviewContext(activeTab as ReviewBucket, String(params.row.hotelId));
             const q = new URLSearchParams({
               draftId: String(params.row.hotelId),
               reviewTab: activeTab,
@@ -548,6 +563,7 @@ export default function HotelReviewListPage() {
       <Tabs
         value={activeTab}
         onValueChange={(nextTab) => {
+          persistReviewContext(nextTab as ReviewBucket);
           setActiveTab(nextTab);
           setPaginationModel((prev) => ({ ...prev, page: 0 }));
         }}
