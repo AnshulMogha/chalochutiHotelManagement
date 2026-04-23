@@ -411,7 +411,9 @@ export const RatePlansGrid = ({
                   <div className="bg-blue-100/50 border-b border-slate-200 px-6 py-3">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-sm text-slate-800">
-                        {ratePlan.ratePlanName}
+                        {ratePlan.plan_code
+                          ? `${ratePlan.ratePlanName} (${ratePlan.plan_code})`
+                          : ratePlan.ratePlanName}
                       </span>
                       {onOpenLinkRatePlans &&
                         (ratePlan.isLinkEnable === false ? (

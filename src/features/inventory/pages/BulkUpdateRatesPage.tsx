@@ -42,6 +42,101 @@ interface RoomRateData {
   cutoffTime?: string | null;
 }
 
+const ROOM_TYPE_DISPLAY_ORDER: Record<string, number> = {
+  DORMITORY: 0,
+  SHARED_ROOM: 1,
+  STUDIO: 2,
+  STANDARD: 3,
+  DELUXE: 4,
+  SUPER_DELUXE: 5,
+  PREMIUM: 6,
+  EXECUTIVE: 7,
+  CLUB: 8,
+  JUNIOR_SUITE: 9,
+  SUITE: 10,
+  FAMILY_SUITE: 11,
+  PRESIDENTIAL_SUITE: 12,
+  COTTAGE: 13,
+  BUNGALOW: 14,
+  VILLA: 15,
+};
+
+const RATE_PLAN_DISPLAY_ORDER: Record<string, number> = {
+  EP: 0,
+  CP: 1,
+  MAP: 2,
+  AP: 3,
+};
+
+const normalizeForOrdering = (value?: string | null): string => {
+  if (!value) return "";
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+};
+
+const getRatePlanOrder = (mealPlanCode?: string | null): number => {
+  if (!mealPlanCode) return Number.MAX_SAFE_INTEGER;
+  const normalizedCode = mealPlanCode.trim().toUpperCase();
+  return RATE_PLAN_DISPLAY_ORDER[normalizedCode] ?? Number.MAX_SAFE_INTEGER;
+};
+
+const getRoomTypeOrder = (
+  roomTypeCode?: string | null,
+  roomName?: string,
+): number => {
+  const trimmedCode = roomTypeCode?.trim().toUpperCase();
+  if (trimmedCode && ROOM_TYPE_DISPLAY_ORDER[trimmedCode] !== undefined) {
+    return ROOM_TYPE_DISPLAY_ORDER[trimmedCode];
+  }
+
+  const normalizedCode = normalizeForOrdering(trimmedCode);
+  const normalizedName = normalizeForOrdering(roomName);
+  const roomTypeAliases: Record<string, keyof typeof ROOM_TYPE_DISPLAY_ORDER> = {
+    SHAREDROOM: "SHARED_ROOM",
+    STUDIOROOM: "STUDIO",
+    STANDARDROOM: "STANDARD",
+    DELUXEROOM: "DELUXE",
+    SUPERDELUXEROOM: "SUPER_DELUXE",
+    PREMIUMROOM: "PREMIUM",
+    EXECUTIVEROOM: "EXECUTIVE",
+    CLUBROOM: "CLUB",
+    JUNIORSUITE: "JUNIOR_SUITE",
+    FAMILYSUITE: "FAMILY_SUITE",
+    PRESIDENTIALSUITE: "PRESIDENTIAL_SUITE",
+  };
+
+  if (normalizedCode && roomTypeAliases[normalizedCode]) {
+    return ROOM_TYPE_DISPLAY_ORDER[roomTypeAliases[normalizedCode]];
+  }
+
+  // Fallback for endpoints that don't return room_type_code.
+  const nameMatchers: Array<[RegExp, keyof typeof ROOM_TYPE_DISPLAY_ORDER]> = [
+    [/\bDORMITORY\b/, "DORMITORY"],
+    [/\bSHARED\s*ROOM\b/, "SHARED_ROOM"],
+    [/\bSTUDIO\b/, "STUDIO"],
+    [/\bSUPER\s*DELUXE\b/, "SUPER_DELUXE"],
+    [/\bDELUXE\b/, "DELUXE"],
+    [/\bSTANDARD\b/, "STANDARD"],
+    [/\bPREMIUM\b/, "PREMIUM"],
+    [/\bEXECUTIVE\b/, "EXECUTIVE"],
+    [/\bCLUB\b/, "CLUB"],
+    [/\bJUNIOR\s*SUITE\b/, "JUNIOR_SUITE"],
+    [/\bFAMILY\s*SUITE\b/, "FAMILY_SUITE"],
+    [/\bPRESIDENTIAL\s*SUITE\b/, "PRESIDENTIAL_SUITE"],
+    [/\bSUITE\b/, "SUITE"],
+    [/\bCOTTAGE\b/, "COTTAGE"],
+    [/\bBUNGALOW\b/, "BUNGALOW"],
+    [/\bVILLA\b/, "VILLA"],
+  ];
+
+  for (const [pattern, roomType] of nameMatchers) {
+    if (pattern.test(normalizedName)) {
+      return ROOM_TYPE_DISPLAY_ORDER[roomType];
+    }
+  }
+
+  return Number.MAX_SAFE_INTEGER;
+};
+
 export default function BulkUpdateRatesPage() {
   const { user } = useAuth();
   const isReadOnly = !canEditModule(user, "RATES_INVENTORY");
@@ -322,9 +417,20 @@ export default function BulkUpdateRatesPage() {
     setLoadingRatePlans((prev) => ({ ...prev, [roomId]: true }));
     try {
       const data = await adminService.getRoomRatePlans(hotelId, roomId);
+      const sortedRatePlans = [...(data.ratePlans || [])].sort(
+        (firstRatePlan, secondRatePlan) => {
+          const orderDiff =
+            getRatePlanOrder(firstRatePlan.mealPlan) -
+            getRatePlanOrder(secondRatePlan.mealPlan);
+          if (orderDiff !== 0) return orderDiff;
+          return firstRatePlan.ratePlanName.localeCompare(
+            secondRatePlan.ratePlanName,
+          );
+        },
+      );
       setRatePlansByRoom((prev) => ({
         ...prev,
-        [roomId]: data.ratePlans || [],
+        [roomId]: sortedRatePlans,
       }));
     } catch (error: any) {
       console.error("Error fetching rate plans:", error);
@@ -411,9 +517,23 @@ export default function BulkUpdateRatesPage() {
 
   // Filter rooms by search query
   const filteredRooms = useMemo(() => {
-    if (!searchQuery.trim()) return rooms;
+    const sortedRooms = [...rooms].sort((firstRoom, secondRoom) => {
+      const firstRoomTypeCode = (firstRoom as { room_type_code?: string | null })
+        .room_type_code;
+      const secondRoomTypeCode = (
+        secondRoom as { room_type_code?: string | null }
+      ).room_type_code;
+      const orderDiff =
+        getRoomTypeOrder(firstRoomTypeCode, firstRoom.roomName) -
+        getRoomTypeOrder(secondRoomTypeCode, secondRoom.roomName);
+
+      if (orderDiff !== 0) return orderDiff;
+      return firstRoom.roomName.localeCompare(secondRoom.roomName);
+    });
+
+    if (!searchQuery.trim()) return sortedRooms;
     const query = searchQuery.toLowerCase();
-    return rooms.filter(
+    return sortedRooms.filter(
       (room) =>
         room.roomName.toLowerCase().includes(query) ||
         ratePlansByRoom[room.roomId]?.some((rp) =>

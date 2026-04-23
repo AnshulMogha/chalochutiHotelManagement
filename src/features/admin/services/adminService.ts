@@ -589,6 +589,7 @@ export interface HotelRoom {
   roomId: string;
   roomKey?: string;
   roomName: string;
+  room_type_code?: string | null;
   description: string;
   active: boolean;
   ratePlans: string[];
