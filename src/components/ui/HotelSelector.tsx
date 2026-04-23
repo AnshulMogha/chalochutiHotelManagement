@@ -68,7 +68,17 @@ export function HotelSelector({
     location.pathname === ROUTES.ROOM_INVENTORY.LIST;
   const isInventoryRatePlansPage =
     location.pathname === ROUTES.RATE_INVENTORY.LIST;
-  const isInventoryPage = isInventoryRoomTypesPage || isInventoryRatePlansPage;
+  const isBulkUpdateInventoryPage =
+    location.pathname === ROUTES.ROOM_INVENTORY.BULK_UPDATE;
+  const isBulkUpdateRatesPage = location.pathname === "/rates/bulk-update";
+  const isBulkUpdateRestrictionsPage =
+    location.pathname === "/restrictions/bulk-update";
+  const isInventoryPage =
+    isInventoryRoomTypesPage ||
+    isInventoryRatePlansPage ||
+    isBulkUpdateInventoryPage ||
+    isBulkUpdateRatesPage ||
+    isBulkUpdateRestrictionsPage;
 
   // Check promotions pages
   const isPromotionsListPage = location.pathname === ROUTES.PROMOTIONS.LIST;

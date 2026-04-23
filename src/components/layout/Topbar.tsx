@@ -59,7 +59,17 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     isDocumentPage;
   const isRoomInventoryPage = location.pathname === ROUTES.ROOM_INVENTORY.LIST;
   const isRatePlanPage = location.pathname === ROUTES.RATE_INVENTORY.LIST;
-  const isInventoryPage = isRoomInventoryPage || isRatePlanPage;
+  const isBulkUpdateInventoryPage =
+    location.pathname === ROUTES.ROOM_INVENTORY.BULK_UPDATE;
+  const isBulkUpdateRatesPage = location.pathname === "/rates/bulk-update";
+  const isBulkUpdateRestrictionsPage =
+    location.pathname === "/restrictions/bulk-update";
+  const isInventoryPage =
+    isRoomInventoryPage ||
+    isRatePlanPage ||
+    isBulkUpdateInventoryPage ||
+    isBulkUpdateRatesPage ||
+    isBulkUpdateRestrictionsPage;
 
   // Check promotions pages
   const isPromotionsListPage = location.pathname === ROUTES.PROMOTIONS.LIST;
