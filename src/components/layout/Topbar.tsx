@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Lock, LogOut, ChevronDown, UserRound } from "lucide-react";
+import { LogOut, ChevronDown, UserRound } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import userApi from "@/services/api/user";
 import type { User } from "@/types";
@@ -293,20 +293,6 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
                 >
                   <UserRound className="w-4 h-4" />
                   <span className="font-medium">My Profile</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
-
-                {/* Change Password */}
-                <DropdownMenuItem
-                  className="px-4 py-2"
-                  onClick={() => {
-                    // Open change password modal
-                    console.log("Change password");
-                  }}
-                >
-                  <Lock className="w-4 h-4" />
-                  <span className="font-medium">Change Password</span>
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
