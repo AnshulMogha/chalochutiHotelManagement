@@ -162,6 +162,7 @@ export default function HotelReviewListPage() {
     const hotels = getCurrentHotels();
     const exportColumns: ExportColumn[] = [
       { field: "hotelName", headerName: "Hotel Name" },
+      { field: "hotelCity", headerName: "Hotel City" },
       { field: "hotelCode", headerName: "Hotel Code" },
       { field: "requestedBy", headerName: "Submitted By" },
       {
@@ -182,6 +183,7 @@ export default function HotelReviewListPage() {
     const hotels = getCurrentHotels();
     const exportColumns: ExportColumn[] = [
       { field: "hotelName", headerName: "Hotel Name" },
+      { field: "hotelCity", headerName: "Hotel City" },
       { field: "hotelCode", headerName: "Hotel Code" },
       { field: "requestedBy", headerName: "Submitted By" },
       {
@@ -213,6 +215,15 @@ export default function HotelReviewListPage() {
             {params.value}
           </div>
         </div>
+      ),
+    },
+    {
+      field: "hotelCity",
+      headerName: "Hotel City",
+      flex: 0.9,
+      minWidth: 150,
+      renderCell: (params) => (
+        <div className="text-sm text-gray-700">{params.value || "-"}</div>
       ),
     },
     {
@@ -300,9 +311,14 @@ export default function HotelReviewListPage() {
           variant="outline"
           size="sm"
           onClick={() => {
-            const q = new URLSearchParams({ draftId: String(params.row.hotelId) });
+            const q = new URLSearchParams({
+              draftId: String(params.row.hotelId),
+              reviewTab: activeTab,
+            });
             if (useReviewerReadOnlyView) q.set("readOnly", "true");
-            navigate(`${ROUTES.PROPERTIES.CREATE}?${q.toString()}`);
+            navigate(`${ROUTES.PROPERTIES.CREATE}?${q.toString()}`, {
+              state: { reviewTab: activeTab },
+            });
           }}
           className="gap-2"
         >

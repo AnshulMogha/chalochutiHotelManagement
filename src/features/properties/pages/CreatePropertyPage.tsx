@@ -69,6 +69,19 @@ function Container() {
 
   const draftId = searchParams.get("draftId");
   const isForcedReadOnly = searchParams.get("readOnly") === "true";
+  const reviewTabFromQuery = searchParams.get("reviewTab");
+  const reviewTabFromState =
+    (location.state as { reviewTab?: string } | null)?.reviewTab ?? null;
+  const normalizedReviewTab = (reviewTabFromQuery || reviewTabFromState || "")
+    .trim()
+    .toLowerCase();
+  const reviewTab =
+    normalizedReviewTab === "pending" ||
+    normalizedReviewTab === "approved" ||
+    normalizedReviewTab === "rejected"
+      ? normalizedReviewTab
+      : null;
+  const isPendingReviewContext = reviewTab === "pending";
 
   const currentStep = stepRoutes.findIndex((step) =>
     location.pathname.endsWith(step.id),
@@ -102,7 +115,9 @@ function Container() {
     currentStep >= 0 && currentStep === lastStepIndex;
   const showApproveRejectActions =
     !!draftId &&
-    (isSuperAdmin || ((isQcUser || isZonalUser) && onFinanceStep));
+    isPendingReviewContext &&
+    onFinanceStep &&
+    (isSuperAdmin || isQcUser || isZonalUser);
   const isFinalReviewStatus =
     hotelStatus === "APPROVED" ||
     hotelStatus === "REJECTED" ||
@@ -117,12 +132,13 @@ function Container() {
       const nextParams = new URLSearchParams();
       if (draftId) nextParams.set("draftId", draftId);
       if (isForcedReadOnly) nextParams.set("readOnly", "true");
+      if (reviewTab) nextParams.set("reviewTab", reviewTab);
       navigate({
         pathname: path,
         search: nextParams.toString() ? `?${nextParams.toString()}` : "",
       });
     },
-    [draftId, isForcedReadOnly, navigate],
+    [draftId, isForcedReadOnly, navigate, reviewTab],
   );
   useEffect(() => {
     async function getCurrentStep() {

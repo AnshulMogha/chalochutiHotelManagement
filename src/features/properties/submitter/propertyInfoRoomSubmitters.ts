@@ -29,7 +29,6 @@ function buildRoomDetails(roomDetails: RoomDetails) {
     roomView: roomDetails.roomView,
     roomSize: roomDetails.roomSize,
     roomSizeUnit: roomDetails.roomSizeUnit,
-    totalRooms: roomDetails.totalRooms,
     numberOfBathrooms: roomDetails.numberOfBathrooms,
     description: roomDetails.description,
   };

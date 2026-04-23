@@ -11,7 +11,6 @@ import {
   setRoomSize,
   setRoomSizeUnit,
   setRoomName,
-  setTotalRooms,
   setDescription,
   setNumberOfBathrooms,
 } from "@/features/properties/state/actionCreators";
@@ -66,34 +65,11 @@ export function RoomDetailsStep({
     setRoomDetailsState(setRoomName(value));
   }
 
-  function handleTotalRoomsChange(value: number) {
-    if (value >= 0) {
-      if (errors.roomDetails?.totalRooms) {
-        resetFieldError("roomDetails", "totalRooms");
-      }
-      setRoomDetailsState(setTotalRooms(value));
-    }
-  }
-
   function handleDescriptionChange(value: string) {
     if (errors.roomDetails?.description) {
       resetFieldError("roomDetails", "description");
     }
     setRoomDetailsState(setDescription(value));
-  }
-  function handleIncrementTotalRooms() {
-    if (errors.roomDetails?.totalRooms) {
-      resetFieldError("roomDetails", "totalRooms");
-    }
-    setRoomDetailsState(setTotalRooms(roomDetails.totalRooms + 1));
-  }
-  function handleDecrementTotalRooms() {
-    if (roomDetails.totalRooms > 0) {
-      if (errors.roomDetails?.totalRooms) {
-        resetFieldError("roomDetails", "totalRooms");
-      }
-      setRoomDetailsState(setTotalRooms(roomDetails.totalRooms - 1));
-    }
   }
 
   function handleNumberOfBathroomsChange(value: number) {
@@ -188,41 +164,6 @@ export function RoomDetailsStep({
                 handleRoomSizeUnitChange(e.target.value as "SQFT" | "SQM")
               }
             />
-          </div>
-        </div>
-
-        {/* Number of Rooms */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            No. of Rooms of This Type (Inventory) <span className="text-red-500">*</span>
-          </label>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => handleDecrementTotalRooms()}
-              disabled={roomDetails.totalRooms === 0}
-            >
-              <Minus className="w-4 h-4 text-gray-600" />
-            </button>
-
-            <Input
-              type="number"
-              className="w-24 text-center font-medium"
-              error={errors.roomDetails?.totalRooms}
-              min={0}
-              value={roomDetails.totalRooms}
-              onChange={(e) => handleTotalRoomsChange(Number(e.target.value))}
-            />
-
-            <button
-              type="button"
-              className="w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors"
-              onClick={() => handleIncrementTotalRooms()}
-            >
-              <Plus className="w-4 h-4 text-gray-600" />
-            </button>
           </div>
         </div>
 

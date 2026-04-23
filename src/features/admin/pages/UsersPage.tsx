@@ -48,6 +48,7 @@ import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
 const ROLE_OPTIONS = [
   { value: "HOTEL_OWNER", label: "Hotel Owner" },
   { value: "HOTEL_BD", label: "Hotel BD" },
+  { value: "PACKAGE_CREATOR", label: "Package Creator" },
   { value: "PACKAGE_BD", label: "Package BD" },
   { value: "TRANSPORT_BD", label: "Transport BD" },
   { value: "SALES_MANAGER", label: "Sales Manager" },

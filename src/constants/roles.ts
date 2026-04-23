@@ -34,6 +34,7 @@ export const ADMIN_MANAGED_ROLE_BADGE_STYLES: Record<
   { bg: string; text: string }
 > = {
   HOTEL_BD: { bg: "bg-blue-100", text: "text-blue-800" },
+  PACKAGE_CREATOR: { bg: "bg-purple-100", text: "text-purple-800" },
   PACKAGE_BD: { bg: "bg-violet-100", text: "text-violet-800" },
   TRANSPORT_BD: { bg: "bg-sky-100", text: "text-sky-800" },
   SALES_MANAGER: { bg: "bg-emerald-100", text: "text-emerald-800" },
@@ -49,6 +50,7 @@ export const ADMIN_MANAGED_ROLE_BADGE_STYLES: Record<
 /** Friendly labels for admin-managed roles not present in `Role` union. */
 export const ADMIN_MANAGED_ROLE_LABELS: Record<string, string> = {
   HOTEL_BD: "Hotel BD",
+  PACKAGE_CREATOR: "Package Creator",
   PACKAGE_BD: "Package BD",
   TRANSPORT_BD: "Transport BD",
   SALES_MANAGER: "Sales Manager",

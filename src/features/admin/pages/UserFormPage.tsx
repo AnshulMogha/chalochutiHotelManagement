@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 const ROLE_OPTIONS: { value: CreateUserRequest["roles"][number]; label: string }[] = [
   { value: "HOTEL_OWNER", label: "Hotel Owner" },
   { value: "HOTEL_BD", label: "Hotel BD" },
+  { value: "PACKAGE_CREATOR", label: "Package Creator" },
   { value: "PACKAGE_BD", label: "Package BD" },
   { value: "TRANSPORT_BD", label: "Transport BD" },
   { value: "SALES_MANAGER", label: "Sales Manager" },
@@ -46,6 +47,7 @@ const STATUS_OPTIONS = [
 
 const STATE_MAPPED_ROLES = new Set<CreateUserRequest["roles"][number]>([
   "HOTEL_BD",
+  "PACKAGE_CREATOR",
   "PACKAGE_BD",
   "TRANSPORT_BD",
   "SALES_MANAGER",

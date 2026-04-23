@@ -1,5 +1,5 @@
 import { createBrowserRouter, type RouteObject } from "react-router";
-import { lazy } from "react";
+import { lazy, type ComponentType } from "react";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { PublicRoute } from "./auth/PublicRoute";
 import { BasicInfoStep } from "@/features/properties/components/steps/BasicInfoStep";
@@ -13,6 +13,30 @@ import {
   RoomsPage,
 } from "@/features/properties/components/steps";
 import Layout from "@/features/inventory/Layout";
+import RouteErrorPage from "@/features/common/pages/RouteErrorPage";
+
+function lazyWithChunkRetry<TModule extends { default: ComponentType<unknown> }>(
+  importer: () => Promise<TModule>,
+) {
+  return lazy(async () => {
+    try {
+      return await importer();
+    } catch (error) {
+      const err = error as Error;
+      const shouldRetry =
+        typeof window !== "undefined" &&
+        /Failed to fetch dynamically imported module|Importing a module script failed/i.test(
+          err?.message || "",
+        );
+      const retryKey = "chunk-reload-attempted";
+      if (shouldRetry && !sessionStorage.getItem(retryKey)) {
+        sessionStorage.setItem(retryKey, "1");
+        window.location.reload();
+      }
+      throw error;
+    }
+  });
+}
 
 // Lazy load layouts
 const MainLayout = lazy(() => import("../components/layout/MainLayout"));
@@ -57,10 +81,10 @@ const ChangePasswordPage = lazy(
 );
 
 // Lazy load admin pages
-const HotelReviewListPage = lazy(
+const HotelReviewListPage = lazyWithChunkRetry(
   () => import("../features/admin/pages/HotelReviewListPage"),
 );
-const HotelReviewDetailPage = lazy(
+const HotelReviewDetailPage = lazyWithChunkRetry(
   () => import("../features/admin/pages/HotelReviewDetailPage"),
 );
 const UsersPage = lazy(() => import("../features/admin/pages/UsersPage"));
@@ -144,6 +168,7 @@ const MyProfilePage = lazy(
 export const routes: RouteObject[] = [
   {
     path: "/",
+    errorElement: <RouteErrorPage />,
     element: (
       <ProtectedRoute>
         <MainLayout />
@@ -378,6 +403,7 @@ export const routes: RouteObject[] = [
   },
   {
     path: "/auth",
+    errorElement: <RouteErrorPage />,
     element: <AuthLayout />,
     children: [
       {
@@ -432,10 +458,12 @@ export const routes: RouteObject[] = [
   },
   {
     path: "/pricing/quote",
+    errorElement: <RouteErrorPage />,
     element: <PricingQuotePage />,
   },
   {
     path: "*",
+    errorElement: <RouteErrorPage />,
     element: <NotFoundPage />,
   },
 ];

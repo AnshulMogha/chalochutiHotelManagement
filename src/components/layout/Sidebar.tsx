@@ -265,6 +265,15 @@ const getNavItems = (user: User | null): NavItem[] => {
             },
           ]
         : []),
+      ...(canViewModule(user, "OFFERS")
+        ? [
+            {
+              label: "Promotions",
+              path: ROUTES.PROMOTIONS.LIST,
+              icon: Sparkles,
+            },
+          ]
+        : []),
     );
   }
 

@@ -60,6 +60,7 @@ const HOTEL_BD_PERMISSION_MODULES: { value: PermissionModule; label: string }[] 
   { value: "PROPERTY_POLICY_RULES", label: "Property - Policy & Rules" },
   { value: "PROPERTY_DOCUMENT", label: "Property - Documents" },
   { value: "RATES_INVENTORY", label: "Rates & Inventory" },
+  { value: "OFFERS", label: "Promotions" },
 ];
 
 function HotelBdPermissionsModal({

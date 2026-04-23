@@ -7,6 +7,7 @@ export interface HotelReviewItem {
   hotelId: string;
   hotelCode: string;
   hotelName: string;
+  hotelCity?: string;
   submittedAt: string;
   requestedBy: string;
   qcRemarks?: ReviewRemark[];
@@ -16,6 +17,7 @@ export interface ApprovedHotelItem {
   hotelId: string;
   hotelCode: string;
   hotelName: string;
+  hotelCity?: string;
   submittedAt: string;
   requestedBy: string;
   qcRemarks?: ReviewRemark[];
@@ -25,6 +27,7 @@ export interface RejectedHotelItem {
   hotelId: string;
   hotelCode: string;
   hotelName: string;
+  hotelCity?: string;
   submittedAt: string;
   requestedBy: string;
   qcRemarks?: ReviewRemark[];
@@ -195,6 +198,7 @@ export interface UserHotelAssignment {
 export type UserRole =
   | "HOTEL_OWNER"
   | "HOTEL_BD"
+  | "PACKAGE_CREATOR"
   | "PACKAGE_BD"
   | "TRANSPORT_BD"
   | "SALES_MANAGER"
@@ -659,7 +663,7 @@ export interface HotelRoomDetailsRequest {
     roomView: string;
     roomSize: number;
     roomSizeUnit: "SQFT" | "SQM";
-    totalRooms: number;
+    totalRooms?: number;
     numberOfBathrooms: number;
     description: string;
   };
