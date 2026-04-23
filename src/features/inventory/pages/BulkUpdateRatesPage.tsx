@@ -60,7 +60,7 @@ export default function BulkUpdateRatesPage() {
   >({});
 
   // Date range state
-  const today = startOfToday();
+  const today = useMemo(() => startOfToday(), []);
   const [fromDate, setFromDate] = useState(today);
   const [toDate, setToDate] = useState(addDays(today, 6));
 
@@ -171,10 +171,9 @@ export default function BulkUpdateRatesPage() {
   };
 
   const shouldShowPaidChildRate = (): boolean => {
-    // Hide if policy is not found
-    if (childPolicyNotFound) return false;
-    // Show if policy exists (even if childrenAllowed is false, we show with default label)
-    return childPolicy !== null;
+    // Always show paid child charge field in bulk update guest charges.
+    // If policy is unavailable, we still render with default static label.
+    return true;
   };
 
   const getFreeChildRateLabel = (): string => {
@@ -314,7 +313,7 @@ export default function BulkUpdateRatesPage() {
 
     fetchRoomMapping();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hotelId, rooms, customerType, today]);
+  }, [hotelId, rooms, customerType]);
 
   // Fetch rate plans when room is expanded
   const fetchRatePlansForRoom = async (roomId: string) => {
