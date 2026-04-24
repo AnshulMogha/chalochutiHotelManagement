@@ -12,6 +12,7 @@ interface BulkRestrictionsModalProps {
     cta: boolean;
     ctd: boolean;
     minStay: number | null;
+    maxStay: number | null;
     cutoffTime: string | null;
   }) => void;
 }
@@ -47,6 +48,7 @@ export const BulkRestrictionsModal = ({
   
   // Minimum Length of Stay
   const [minStay, setMinStay] = useState<string>('');
+  const [maxStay, setMaxStay] = useState<string>('');
   
   // Cutoff Time
   const [cutoffTime, setCutoffTime] = useState<string>('');
@@ -124,6 +126,7 @@ export const BulkRestrictionsModal = ({
       cta: cta,
       ctd: ctd,
       minStay: minStay ? parseInt(minStay) : null,
+      maxStay: maxStay ? parseInt(maxStay) : null,
       cutoffTime: cutoffTime || null,
     };
 
@@ -219,7 +222,7 @@ export const BulkRestrictionsModal = ({
             </div>
           </div>
 
-          {/* Arrival Restrictions */}
+          {/*
           <div className="space-y-3">
             <label className="text-sm font-semibold text-slate-700">Arrival Restrictions</label>
             <div className="space-y-2">
@@ -244,7 +247,6 @@ export const BulkRestrictionsModal = ({
             </div>
           </div>
 
-          {/* Departure Restrictions */}
           <div className="space-y-3">
             <label className="text-sm font-semibold text-slate-700">Departure Restrictions</label>
             <div className="space-y-2">
@@ -268,20 +270,36 @@ export const BulkRestrictionsModal = ({
               </label>
             </div>
           </div>
+          */}
 
-          {/* Minimum Length of Stay */}
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">
-              Set Minimum length of stay.
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={minStay}
-              onChange={(e) => setMinStay(e.target.value)}
-              placeholder="e.g. 2"
-              className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
-            />
+          {/* Length of Stay */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">
+                Set Minimum length of stay.
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={minStay}
+                onChange={(e) => setMinStay(e.target.value)}
+                placeholder="e.g. 2"
+                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">
+                Set Maximum length of stay.
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={maxStay}
+                onChange={(e) => setMaxStay(e.target.value)}
+                placeholder="e.g. 7"
+                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
+              />
+            </div>
           </div>
 
           {/* Cutoff Time */}

@@ -199,9 +199,10 @@ export const RoomTypesGrid = ({
             const dateStr = format(date, 'yyyy-MM-dd');
             const dayData = room.days.find((d: { date: string }) => d.date === dateStr);
             const isColumnSelected = isSameDay(date, activeDate);
+            const isClosed = dayData?.status === 'CLOSED';
             
             const isThisCellEdited = activeEdit?.roomId === room.roomId && activeEdit?.date === dateStr;
-            const canEdit = isColumnSelected && (!isLocked || isThisCellEdited);
+            const canEdit = !isClosed && isColumnSelected && (!isLocked || isThisCellEdited);
             
             const cellKey = `${room.roomId}-${dateStr}`;
             const isUpdating = updatingCells.has(cellKey);
@@ -246,6 +247,25 @@ export const RoomTypesGrid = ({
                     <span className="text-[10px] font-medium uppercase tracking-wide text-blue-600 mt-2.5">
                       Updating...
                     </span>
+                  </>
+                ) : isClosed ? (
+                  <>
+                    <input
+                      type="number"
+                      value={displayValue}
+                      readOnly
+                      disabled
+                      className="
+                        w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
+                        tabular-nums cursor-not-allowed bg-slate-100 border-slate-200 text-slate-400
+                        focus:outline-none
+                      "
+                    />
+                    <div className="flex flex-col items-center mt-2.5 gap-0.5">
+                      <span className="text-[10px] font-medium uppercase tracking-wide text-rose-600">
+                        BLOCKED
+                      </span>
+                    </div>
                   </>
                 ) : isNotSet ? (
                   // Not Set: total === 0 - show input field so user can update value

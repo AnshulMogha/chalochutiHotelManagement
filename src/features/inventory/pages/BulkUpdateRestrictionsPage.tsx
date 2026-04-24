@@ -38,6 +38,7 @@ export default function BulkUpdateRestrictionsPage() {
   const [inactivateCtd, setInactivateCtd] = useState(false);
 
   const [minStay, setMinStay] = useState<string>("");
+  const [maxStay, setMaxStay] = useState<string>("");
   const [cutoffTime, setCutoffTime] = useState<string>("");
   const startDateInputRef = useRef<HTMLInputElement | null>(null);
   const endDateInputRef = useRef<HTMLInputElement | null>(null);
@@ -137,6 +138,7 @@ export default function BulkUpdateRestrictionsPage() {
       cta,
       ctd,
       minStay: minStay ? parseInt(minStay) : null,
+      maxStay: maxStay ? parseInt(maxStay) : null,
       cutoffTime: cutoffTime || null,
     };
 
@@ -270,7 +272,7 @@ export default function BulkUpdateRestrictionsPage() {
                 </div>
               </div>
 
-              {/* Arrival Restrictions */}
+              {/*
               <div className="flex-1 space-y-3">
                 <label className="text-sm font-semibold text-gray-900">
                   Arrival Restrictions
@@ -301,7 +303,6 @@ export default function BulkUpdateRestrictionsPage() {
                 </div>
               </div>
 
-              {/* Departure Restrictions */}
               <div className="flex-1 space-y-3">
                 <label className="text-sm font-semibold text-gray-900">
                   Departure Restrictions
@@ -331,21 +332,37 @@ export default function BulkUpdateRestrictionsPage() {
                   </label>
                 </div>
               </div>
+              */}
             </div>
 
-            {/* Minimum Length of Stay */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-900">
-                Set Minimum length of stay.
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={minStay}
-                onChange={(e) => setMinStay(e.target.value)}
-                placeholder="e.g. 2"
-                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 placeholder:text-gray-400"
-              />
+            {/* Length of stay */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-900">
+                  Set Minimum length of stay.
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={minStay}
+                  onChange={(e) => setMinStay(e.target.value)}
+                  placeholder="e.g. 2"
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 placeholder:text-gray-400"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-900">
+                  Set Maximum length of stay.
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={maxStay}
+                  onChange={(e) => setMaxStay(e.target.value)}
+                  placeholder="e.g. 7"
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 placeholder:text-gray-400"
+                />
+              </div>
             </div>
 
             {/* Cutoff */}

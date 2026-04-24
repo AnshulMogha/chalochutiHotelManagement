@@ -119,6 +119,7 @@ export interface BulkUpdateRestrictionsRequest {
   cta: boolean;
   ctd: boolean;
   minStay: number | null;
+  maxStay: number | null;
   cutoffTime: string | null; // HH:mm:ss format
 }
 

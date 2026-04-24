@@ -148,6 +148,18 @@ export default function BulkUpdateRatesPage() {
   const hotelId = searchParams.get("hotelId");
   const contractTypeParam = searchParams.get("contractType");
 
+  const normalizeContractTypeParam = (value: string | null): string => {
+    const normalized = (value || "").trim().toUpperCase();
+    const aliases: Record<string, string> = {
+      B2C: "B2C",
+      B2B: "B2B",
+      MYBIZ: "MYBIZZ",
+      MYBIZZ: "MYBIZZ",
+      BUNDLE: "BUNDLE",
+    };
+    return aliases[normalized] || "B2C";
+  };
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [loadingRatePlans, setLoadingRatePlans] = useState<
@@ -182,11 +194,9 @@ export default function BulkUpdateRatesPage() {
     useState<string[]>(ALL_WEEK_DAYS);
 
   // Customer type - UI value (B2C, B2B, MYBIZZ, BUNDLE)
-  const [customerTypeUI, setCustomerTypeUI] = useState(() => {
-    const normalized = (contractTypeParam || "").toUpperCase();
-    const allowed = new Set(["B2C", "B2B", "MYBIZZ", "BUNDLE"]);
-    return allowed.has(normalized) ? normalized : "B2C";
-  });
+  const [customerTypeUI, setCustomerTypeUI] = useState(() =>
+    normalizeContractTypeParam(contractTypeParam),
+  );
 
   // Map UI customer type to API customer type
   const getCustomerTypeFromUI = (uiValue: string): string => {
@@ -206,6 +216,10 @@ export default function BulkUpdateRatesPage() {
     () => getCustomerTypeFromUI(customerTypeUI),
     [customerTypeUI],
   );
+
+  useEffect(() => {
+    setCustomerTypeUI(normalizeContractTypeParam(contractTypeParam));
+  }, [contractTypeParam]);
 
   // UI state
   const [showNettRate, setShowNettRate] = useState(false);
@@ -760,7 +774,7 @@ export default function BulkUpdateRatesPage() {
                     <option value="B2C">B2C</option>
                     <option value="B2B">B2B</option>
                     <option value="MYBIZZ">MYBIZZ</option>
-                    <option value="BUNDLE">Bundle</option>
+                    <option value="BUNDLE">BUNDLE</option>
                   </select>
                 </div>
 

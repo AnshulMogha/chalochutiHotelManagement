@@ -558,6 +558,9 @@ export default function Layout() {
     value: number,
   ) => {
     if (isReadOnly) return;
+    const room = rooms.find((item) => item.roomId === roomId);
+    const dayData = room?.days.find((day) => day.date === dateStr);
+    if (dayData?.status === "CLOSED") return;
     // Update local state optimistically
     setRooms((prev) =>
       prev.map((room) =>
