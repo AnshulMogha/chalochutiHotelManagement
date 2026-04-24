@@ -3,7 +3,7 @@ import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { canViewModule } from "@/lib/permissions";
 import { hasAnyRole, ROLES } from "@/constants";
-import { isReviewerPortalRole } from "@/constants/roles";
+import { isReviewerPortalRole, isZonalManagerSalesRole } from "@/constants/roles";
 import {
   BarChart3,
   BookOpen,
@@ -164,9 +164,11 @@ export default function SuperAdminDashboardPage() {
   const isSuperAdmin = hasAnyRole(userRoles, [ROLES.SUPER_ADMIN]);
   const isReviewer = isReviewerPortalRole(userRoles);
   const isOnboardingReviewer = !!userRoles?.includes("ONBOARDING_REVIEWER");
+  const isZonalSales = isZonalManagerSalesRole(userRoles);
 
   const visibleCards = DASHBOARD_LINKS.filter((item) => {
     if (isSuperAdmin) return true;
+    if (isZonalSales) return item.key === "TRAVEL_PARTNERS";
     if (isReviewer) return item.key === "HOTEL_REVIEW";
     if (isOnboardingReviewer) {
       return item.key === "HOTEL_REVIEW" || item.key === "DOCUMENT_REVIEW";

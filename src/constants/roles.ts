@@ -173,3 +173,10 @@ export function isQcReviewerRole(userRoles: string[] | undefined): boolean {
 export function isReviewerPortalRole(userRoles: string[] | undefined): boolean {
   return isQcReviewerRole(userRoles) || isZonalHotelReviewerRole(userRoles);
 }
+
+/** Sales-side zonal reviewer/manager role for travel partner workflows. */
+export function isZonalManagerSalesRole(
+  userRoles: string[] | undefined,
+): boolean {
+  return !!userRoles?.includes("ZONAL_MANAGER_SALES");
+}

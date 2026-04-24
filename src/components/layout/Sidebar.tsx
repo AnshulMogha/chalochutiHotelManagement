@@ -1,6 +1,10 @@
 import { cn } from "@/lib/utils";
 import { ROUTES, hasAnyRole, ROLES } from "@/constants";
-import { isHotelBdRole, isReviewerPortalRole } from "@/constants/roles";
+import {
+  isHotelBdRole,
+  isReviewerPortalRole,
+  isZonalManagerSalesRole,
+} from "@/constants/roles";
 import { useAuth } from "@/hooks/useAuth";
 import { SidebarItem } from "./SidebarItem";
 import { canViewModule } from "@/lib/permissions";
@@ -43,6 +47,7 @@ const getNavItems = (user: User | null): NavItem[] => {
   const userRoles = user?.roles;
   const items: NavItem[] = [];
   const isReviewer = isReviewerPortalRole(userRoles);
+  const isZonalSales = isZonalManagerSalesRole(userRoles);
   const isSuperAdmin = hasAnyRole(userRoles, [ROLES.SUPER_ADMIN]);
   const dashboardPath = ROUTES.PROPERTIES.LIST;
   items.push({
@@ -50,6 +55,14 @@ const getNavItems = (user: User | null): NavItem[] => {
     path: dashboardPath,
     icon: LayoutDashboard,
   });
+  if (isZonalSales) {
+    items.push({
+      label: "Travel Partners",
+      path: ROUTES.ADMIN.TRAVEL_PARTNERS,
+      icon: Handshake,
+    });
+    return items;
+  }
   const isScopedPropertyViewer =
     !!userRoles?.includes("HOTEL_MANAGER") ||
     !!userRoles?.includes("FRONT_DESK_EXEC") ||
