@@ -183,7 +183,7 @@ export default function UserFormPage() {
       next.phoneNumber = "Phone number must be a valid 10-digit mobile";
     }
 
-    if (!formData.roles.length) next.roles = "At least one role is required";
+    if (!formData.roles.length) next.roles = "Role is required";
     if (requiresStateMapping && !formData.stateIds.length) {
       next.stateIds = "Select at least one state";
     }
@@ -195,26 +195,7 @@ export default function UserFormPage() {
   const toggleRole = (role: CreateUserRequest["roles"][number]) => {
     setFormData((prev) => {
       const has = prev.roles.includes(role);
-      const roles = has ? prev.roles.filter((r) => r !== role) : [...prev.roles, role];
-      const roleNeedsState = roles.some((selectedRole) => STATE_MAPPED_ROLES.has(selectedRole));
-      return {
-        ...prev,
-        roles,
-        stateIds: roleNeedsState ? prev.stateIds : [],
-      };
-    });
-    if (errors.roles) {
-      setErrors((prev) => ({ ...prev, roles: "" }));
-    }
-    if (errors.stateIds) {
-      setErrors((prev) => ({ ...prev, stateIds: "" }));
-    }
-  };
-
-  const toggleAllRoles = () => {
-    setFormData((prev) => {
-      const allSelected = prev.roles.length === ROLE_OPTIONS.length;
-      const roles = allSelected ? [] : ROLE_OPTIONS.map((option) => option.value);
+      const roles = has ? [] : [role];
       const roleNeedsState = roles.some((selectedRole) => STATE_MAPPED_ROLES.has(selectedRole));
       return {
         ...prev,
@@ -411,16 +392,8 @@ export default function UserFormPage() {
                 </span>
                 Roles
               </label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={toggleAllRoles}
-                className="h-8 px-3 text-xs"
-              >
-                {formData.roles.length === ROLE_OPTIONS.length ? "Clear All" : "Select All"}
-              </Button>
             </div>
+            <p className="mb-3 text-xs text-blue-900/80">Select exactly one role.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
               {ROLE_OPTIONS.map((option) => {
                 const checked = formData.roles.includes(option.value);
@@ -435,10 +408,11 @@ export default function UserFormPage() {
                     )}
                   >
                     <input
-                      type="checkbox"
+                      type="radio"
+                      name="role"
                       checked={checked}
                       onChange={() => toggleRole(option.value)}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <Shield className={cn("w-4 h-4", checked ? "text-blue-600" : "text-gray-400")} />
                     <span>{option.label}</span>
