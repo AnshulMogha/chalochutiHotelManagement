@@ -168,7 +168,18 @@ export const RoomTypesGrid = ({
       </div>
 
       {/* Room Rows */}
-      {rooms.map((room, roomIndex) => (
+      {rooms.map((room, roomIndex) => {
+        const inventoryDaysByDate = room.days.reduce<
+          Record<string, { minStay: number | null; maxStay: number | null }>
+        >((acc, day) => {
+          acc[day.date] = {
+            minStay: day.minStay ?? null,
+            maxStay: day.maxStay ?? null,
+          };
+          return acc;
+        }, {});
+
+        return (
         <Fragment key={room.roomId}>
         <div
           className={`grid grid-cols-[280px_repeat(7,1fr)] ${
@@ -432,6 +443,7 @@ export const RoomTypesGrid = ({
                 onOpenLinkRatePlans={onOpenLinkRatePlans}
                 calendarIsLinkEnable={calendarIsLinkEnable}
                 hotelId={hotelId}
+                inventoryDaysByDate={inventoryDaysByDate}
               />
             ) : (
               <div className="px-6 py-4 text-sm font-medium text-slate-500">
@@ -441,7 +453,7 @@ export const RoomTypesGrid = ({
           </div>
         )}
         </Fragment>
-      ))}
+      )})}
     </div>
   );
 };

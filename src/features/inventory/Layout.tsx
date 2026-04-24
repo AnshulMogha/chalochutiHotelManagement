@@ -841,14 +841,16 @@ export default function Layout() {
     const room = rateRooms.find((r) => r.roomId === roomId);
     const ratePlan = room?.ratePlans.find((rp) => rp.ratePlanId === ratePlanId);
     const dayData = ratePlan?.days.find((d) => d.date === date);
+    const inventoryRoom = rooms.find((r) => r.roomId === roomId);
+    const inventoryDayData = inventoryRoom?.days.find((d) => d.date === date);
 
     // Store previous values for reverting on error
     const previousBaseRate = dayData?.baseRate ?? 0;
     const previousSingleOccupancyRate = dayData?.singleOccupancyRate ?? null;
     const previousExtraAdultCharge = dayData?.extraAdultCharge ?? 0;
     const previousPaidChildCharge = dayData?.paidChildCharge ?? 0;
-    const previousMinStay = dayData?.minStay ?? null;
-    const previousMaxStay = dayData?.maxStay ?? null;
+    const previousMinStay = inventoryDayData?.minStay ?? null;
+    const previousMaxStay = inventoryDayData?.maxStay ?? null;
     const previousCutoffTime = dayData?.cutoffTime ?? null;
 
     // Build payload using values from activeEdit or existing day data
@@ -882,6 +884,28 @@ export default function Layout() {
       setRatePlansToDate(refreshed.to);
       setCustomerType(refreshed.customerType);
       originalRateRoomsRef.current = JSON.parse(JSON.stringify(refreshed.rooms));
+      if (minStay !== undefined || maxStay !== undefined) {
+        setRooms((prev) => {
+          const next = prev.map((inventoryRoom) =>
+            inventoryRoom.roomId !== roomId
+              ? inventoryRoom
+              : {
+                  ...inventoryRoom,
+                  days: inventoryRoom.days.map((inventoryDay) =>
+                    inventoryDay.date !== date
+                      ? inventoryDay
+                      : {
+                          ...inventoryDay,
+                          ...(minStay !== undefined && { minStay }),
+                          ...(maxStay !== undefined && { maxStay }),
+                        },
+                  ),
+                },
+          );
+          originalRoomsRef.current = JSON.parse(JSON.stringify(next));
+          return next;
+        });
+      }
       // On success, clear active edit
       if (activeRateEdit?.ratePlanId === ratePlanId && 
           activeRateEdit?.roomId === roomId && 

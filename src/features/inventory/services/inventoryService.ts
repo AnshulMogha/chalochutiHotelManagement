@@ -155,7 +155,7 @@ export const inventoryService = {
           blocked: day.blocked,
           available: day.available,
           status: day.status,
-          minStay: day.minStay ?? 0,
+          minStay: day.minStay ?? null,
           maxStay: day.maxStay ?? null,
           cta: day.cta,
           ctd: day.ctd,

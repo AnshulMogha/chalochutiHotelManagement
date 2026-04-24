@@ -24,7 +24,7 @@ export interface InventoryDay {
   blocked: number;
   available: number;
   status: InventoryStatus;
-  minStay: number;
+  minStay: number | null;
   maxStay: number | null;
   cta: boolean;
   ctd: boolean;

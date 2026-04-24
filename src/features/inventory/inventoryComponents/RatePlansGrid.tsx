@@ -144,6 +144,14 @@ interface RatePlansGridProps {
   calendarIsLinkEnable?: boolean;
   /** Current hotel (URL); required for “Add LinkRate” navigation to add-single-derived. */
   hotelId?: string | null;
+  /** Optional inventory restrictions source for embedded room inventory view. */
+  inventoryDaysByDate?: Record<
+    string,
+    {
+      minStay: number | null;
+      maxStay: number | null;
+    }
+  >;
 }
 
 export const RatePlansGrid = ({
@@ -165,6 +173,7 @@ export const RatePlansGrid = ({
   onOpenLinkRatePlans,
   calendarIsLinkEnable,
   hotelId = null,
+  inventoryDaysByDate,
 }: RatePlansGridProps) => {
   const navigate = useNavigate();
 
@@ -295,8 +304,8 @@ export const RatePlansGrid = ({
     if (field === 'singleOccupancyRate') return dayData?.singleOccupancyRate ?? null;
     if (field === 'extraAdultCharge') return dayData?.extraAdultCharge ?? 0;
     if (field === 'paidChildCharge') return dayData?.paidChildCharge ?? 0;
-    if (field === 'minStay') return dayData?.minStay ?? null;
-    if (field === 'maxStay') return dayData?.maxStay ?? null;
+    if (field === 'minStay') return inventoryDaysByDate?.[dateStr]?.minStay ?? dayData?.minStay ?? null;
+    if (field === 'maxStay') return inventoryDaysByDate?.[dateStr]?.maxStay ?? dayData?.maxStay ?? null;
     if (field === 'cutoffTime') return dayData?.cutoffTime ?? null;
     return 0;
   };
@@ -1070,7 +1079,7 @@ export const RatePlansGrid = ({
                           const isSelected = isSameDay(date, activeDate);
                           const dateStr = format(date, 'yyyy-MM-dd');
                           const dayData = getDayData(ratePlan.days, dateStr);
-                          const minStay = dayData?.minStay ?? null;
+                          const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
 
                           const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-minStay`;
                           const localValue = localValues.get(cellKey);
@@ -1182,7 +1191,7 @@ export const RatePlansGrid = ({
                           const isSelected = isSameDay(date, activeDate);
                           const dateStr = format(date, 'yyyy-MM-dd');
                           const dayData = getDayData(ratePlan.days, dateStr);
-                          const maxStay = dayData?.maxStay ?? null;
+                          const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
 
                           const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-maxStay`;
                           const localValue = localValues.get(cellKey);
