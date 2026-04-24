@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import logo from "@/assets/originallogo.webp";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut, ChevronDown, UserRound } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
@@ -186,19 +187,11 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
 
             {/* Company Logo Section */}
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-[#2f3d95] rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300">
-                <span className="text-white font-bold text-lg drop-shadow-lg">
-                  H
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <h1 className="text-lg font-bold text-gray-900 tracking-tight group-hover:text-[#2f3d95] transition-colors">
-                  Chalochutti
-                </h1>
-                <p className="text-xs text-gray-500 font-medium">
-                  Hotel Management
-                </p>
-              </div>
+              <img
+                src={logo}
+                alt="Chalochutti"
+                className="h-9 shadow shadow-gray-300 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
+              />
             </Link>
 
             {/* Hotel Selector - Show on Property Info pages and Inventory pages for HOTEL_OWNER */}
@@ -214,6 +207,11 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
 
           {/* Profile Section - Right Side */}
           <div className="flex items-center gap-4">
+            {user?.roles?.length ? (
+              <div className="hidden md:flex items-center">
+                <RoleBadge roles={user.roles} maxVisible={1} />
+              </div>
+            ) : null}
             <DropdownMenu
               open={isUserDropdownOpen}
               onOpenChange={setIsUserDropdownOpen}

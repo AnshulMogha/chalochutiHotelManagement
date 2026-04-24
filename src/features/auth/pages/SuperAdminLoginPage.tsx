@@ -9,7 +9,9 @@ import {
   CardContent,
 } from "@/components/ui";
 import { authService } from "../services/authService";
-import { Mail, Lock, Shield, Sparkles, ArrowRight, Eye, EyeOff } from "lucide-react";
+import logo from "@/assets/originallogo.webp";
+
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { emailSchema } from "@/shared/validation/email.schema";
 import { AxiosError } from "axios";
 import type { ApiFailureResponse } from "@/services/api/types/api";
@@ -109,12 +111,11 @@ export default function SuperAdminLoginPage() {
 
           <div className="relative">
             <div className="mx-auto mb-6 relative">
-              <div className="relative w-20 h-20 bg-linear-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-300">
-                <Shield className="w-10 h-10 text-white" />
-              </div>
-              <div className="absolute -top-1 -right-1 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center shadow-md">
-                <Sparkles className="w-3 h-3 text-yellow-800" />
-              </div>
+              <img
+                src={logo}
+                alt="Chalochutti"
+                className="h-9 shadow shadow-gray-300 w-auto mx-auto object-contain"
+              />
             </div>
 
             <CardTitle className="text-3xl font-bold text-gray-900 mb-2">
