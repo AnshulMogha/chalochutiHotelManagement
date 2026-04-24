@@ -352,6 +352,7 @@ export function RoomsForm({
             errors={errors}
             resetFieldError={resetFieldError}
             showBathroomField={false}
+            showTotalRoomsField={true}
           />
         )}
 

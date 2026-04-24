@@ -228,8 +228,11 @@ export function PropertyInfoRoomsForm({
     // STEP 0 — Room Details
     async () => {
       const stepErrors = roomDetailsValidator(roomDetailsState.roomDetails);
+      if (stepErrors?.totalRooms) {
+        delete stepErrors.totalRooms;
+      }
 
-      if (stepErrors) {
+      if (stepErrors && Object.keys(stepErrors).length > 0) {
         setErrors((prev) => ({
           ...prev,
           roomDetails: stepErrors,
@@ -383,7 +386,11 @@ export function PropertyInfoRoomsForm({
 
         {/* Steps */}
         {currentStep === 0 && (
-          <RoomDetailsStep errors={errors} resetFieldError={resetFieldError} />
+          <RoomDetailsStep
+            errors={errors}
+            resetFieldError={resetFieldError}
+            showTotalRoomsField={false}
+          />
         )}
 
         {currentStep === 1 && (

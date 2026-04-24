@@ -11,6 +11,7 @@ import {
   setRoomSize,
   setRoomSizeUnit,
   setRoomName,
+  setTotalRooms,
   setDescription,
   setNumberOfBathrooms,
 } from "@/features/properties/state/actionCreators";
@@ -20,10 +21,12 @@ export function RoomDetailsStep({
   errors,
   resetFieldError,
   showBathroomField = true,
+  showTotalRoomsField = true,
 }: {
   errors: roomStepErrors;
   resetFieldError: (step: roomStepKeys, field: string) => void;
   showBathroomField?: boolean;
+  showTotalRoomsField?: boolean;
 }) {
   const { roomDetailsState, setRoomDetailsState } = useFormContext();
   const roomDetails = roomDetailsState.roomDetails;
@@ -70,6 +73,31 @@ export function RoomDetailsStep({
       resetFieldError("roomDetails", "description");
     }
     setRoomDetailsState(setDescription(value));
+  }
+
+  function handleTotalRoomsChange(value: number) {
+    if (value >= 1) {
+      if (errors.roomDetails?.totalRooms) {
+        resetFieldError("roomDetails", "totalRooms");
+      }
+      setRoomDetailsState(setTotalRooms(value));
+    }
+  }
+
+  function handleIncrementTotalRooms() {
+    if (errors.roomDetails?.totalRooms) {
+      resetFieldError("roomDetails", "totalRooms");
+    }
+    setRoomDetailsState(setTotalRooms(roomDetails.totalRooms + 1));
+  }
+
+  function handleDecrementTotalRooms() {
+    if (roomDetails.totalRooms > 1) {
+      if (errors.roomDetails?.totalRooms) {
+        resetFieldError("roomDetails", "totalRooms");
+      }
+      setRoomDetailsState(setTotalRooms(roomDetails.totalRooms - 1));
+    }
   }
 
   function handleNumberOfBathroomsChange(value: number) {
@@ -166,6 +194,42 @@ export function RoomDetailsStep({
             />
           </div>
         </div>
+
+        {showTotalRoomsField && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Number of Rooms (Inventory) <span className="text-red-500">*</span>
+            </label>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => handleDecrementTotalRooms()}
+                disabled={roomDetails.totalRooms <= 1}
+              >
+                <Minus className="w-4 h-4 text-gray-600" />
+              </button>
+
+              <Input
+                type="number"
+                className="w-24 text-center font-medium"
+                error={errors.roomDetails?.totalRooms}
+                min={1}
+                value={roomDetails.totalRooms}
+                onChange={(e) => handleTotalRoomsChange(Number(e.target.value))}
+              />
+
+              <button
+                type="button"
+                className="w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors"
+                onClick={() => handleIncrementTotalRooms()}
+              >
+                <Plus className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {showBathroomField && (
           <div>
