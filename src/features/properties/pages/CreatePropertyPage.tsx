@@ -129,11 +129,11 @@ function Container() {
   const isSuperAdmin = user?.roles?.includes("SUPER_ADMIN") ?? false;
   const isQcUser = isQcReviewerRole(user?.roles);
   const isZonalUser = isZonalHotelReviewerRole(user?.roles);
-  const isOnboardingReviewer = user?.roles?.includes("ONBOARDING_REVIEWER") ?? false;
+  const isOnboardingReviewer =
+    user?.roles?.includes("ONBOARDING_REVIEWER") ?? false;
   const isReviewActor =
     isSuperAdmin || isQcUser || isZonalUser || isOnboardingReviewer;
-  const isAdminStyleReview =
-    !!draftId && isReviewActor;
+  const isAdminStyleReview = !!draftId && isReviewActor;
   const formReadOnly =
     isForcedReadOnly ||
     isReadOnly ||
@@ -142,23 +142,16 @@ function Container() {
     (isZonalUser && !!draftId);
 
   const lastStepIndex = stepRoutes.length - 1;
-  const onFinanceStep =
-    currentStep >= 0 && currentStep === lastStepIndex;
+  const onFinanceStep = currentStep >= 0 && currentStep === lastStepIndex;
   const isFinalReviewStatus =
     hotelStatus === "APPROVED" ||
     hotelStatus === "REJECTED" ||
     hotelStatus === "LIVE";
   const isPendingReviewContext =
     reviewTab === "pending" ||
-    (reviewTab === null &&
-      !!draftId &&
-      isReviewActor &&
-      !isFinalReviewStatus);
+    (reviewTab === null && !!draftId && isReviewActor && !isFinalReviewStatus);
   const showApproveRejectActions =
-    !!draftId &&
-    isPendingReviewContext &&
-    onFinanceStep &&
-    isReviewActor;
+    !!draftId && isPendingReviewContext && onFinanceStep && isReviewActor;
 
   // ✅ NEW: derive allowedStep from server step
   const allowedStep = ongoingStep
@@ -182,7 +175,11 @@ function Container() {
     if (typeof window === "undefined" || !draftId || !reviewTab) return;
     sessionStorage.setItem(
       REVIEW_CONTEXT_KEY,
-      JSON.stringify({ tab: reviewTab, hotelId: draftId, updatedAt: Date.now() }),
+      JSON.stringify({
+        tab: reviewTab,
+        hotelId: draftId,
+        updatedAt: Date.now(),
+      }),
     );
   }, [draftId, reviewTab]);
   useEffect(() => {
@@ -465,7 +462,6 @@ function Container() {
         onSubmit={handleSubmitFinanceAndLegal}
         draftId={draftId!}
         readOnly={formReadOnly}
-        allowStepNavigation={isAdminStyleReview}
       >
         <Outlet
           context={{
