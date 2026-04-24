@@ -24,6 +24,7 @@ import {
   Plus,
   Edit,
   X,
+  ArrowLeft,
   Building2,
   User as UserIcon,
   Mail,
@@ -35,6 +36,7 @@ import {
   EyeOff,
   Lock,
   Unlock,
+  CalendarDays,
 } from "lucide-react";
 
 const TEAM_ROLE_OPTIONS = [
@@ -99,6 +101,11 @@ const HOTEL_MANAGER_BLOCKED_MODULES: PermissionModule[] = [
   "PROPERTY_FINANCE",
   "PROPERTY_DOCUMENT",
 ];
+const HOTEL_MANAGER_RESTRICTED_MANAGE_ROLES = [
+  "HOTEL_OWNER",
+  "HOTEL_BD",
+  "HOTEL_MANAGER",
+] as const;
 const VIEW_ONLY_MODULES: PermissionModule[] = ["BOOKINGS"];
 const ACCOUNTANT_ALLOWED_MODULES: PermissionModule[] = ["BOOKINGS", "FINANCE"];
 
@@ -292,7 +299,7 @@ function TeamMemberFormModal({
         className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl m-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-linear-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
               <UserIcon className="w-5 h-5 text-white" />
@@ -469,6 +476,183 @@ interface PermissionsModalProps {
   member: TeamMember | null;
 }
 
+function TeamStatusBadge({ status }: { status: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold",
+        status === "ACTIVE"
+          ? "bg-green-100 text-green-700"
+          : status === "INACTIVE"
+            ? "bg-gray-100 text-gray-700"
+            : "bg-red-100 text-red-700",
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+interface TeamMemberDetailsModalProps {
+  member: TeamMember | null;
+  onClose: () => void;
+  onEdit: (member: TeamMember) => void;
+  onPermissions: (member: TeamMember) => void;
+  onManageHotel: (member: TeamMember) => void;
+  onRevoke: (member: TeamMember) => void;
+  canManageMember: (member: TeamMember) => boolean;
+  canManageHotel: (member: TeamMember) => boolean;
+}
+
+function TeamMemberDetailsModal({
+  member,
+  onClose,
+  onEdit,
+  onPermissions,
+  onManageHotel,
+  onRevoke,
+  canManageMember,
+  canManageHotel,
+}: TeamMemberDetailsModalProps) {
+  if (!member) return null;
+  const actionLocked = !canManageMember(member);
+  const lockTitle = "You do not have permission to manage this team member.";
+  const fullName =
+    member.firstName && member.lastName
+      ? `${member.firstName} ${member.lastName}`
+      : member.email
+        ? member.email.split("@")[0]
+        : `User ${member.userId}`;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-linear-to-r from-blue-50 to-indigo-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
+              <UserIcon className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">{fullName}</h2>
+              <p className="text-sm text-gray-600">User ID: {member.userId}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
+
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 mb-3">
+              Contact
+            </p>
+            <div className="space-y-2 text-sm text-gray-700">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-blue-500" />
+                <span>{member.email || "N/A"}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-blue-500" />
+                <span>{member.mobile || "N/A"}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-violet-100 bg-violet-50/40 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-violet-700 mb-3">
+              Account
+            </p>
+            <div className="space-y-2 text-sm text-gray-700">
+              <div>
+                <TeamStatusBadge status={member.accountStatus} />
+              </div>
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-4 h-4 text-violet-500" />
+                <span>
+                  Created:{" "}
+                  {member.createdAt
+                    ? new Date(member.createdAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : "N/A"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-4 md:col-span-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3">
+              Roles
+            </p>
+            <RoleBadge
+              roles={
+                member.roles?.length
+                  ? member.roles
+                  : member.role
+                    ? [member.role]
+                    : []
+              }
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2 px-6 py-4 border-t border-gray-200 bg-gray-50">
+          <Button variant="outline" onClick={onClose} className="gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Button>
+          <Button
+            variant="outline"
+            disabled={actionLocked}
+            onClick={() => onEdit(member)}
+            title={actionLocked ? lockTitle : "Edit"}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="outline"
+            disabled={actionLocked}
+            onClick={() => onPermissions(member)}
+            title={actionLocked ? lockTitle : "Manage Permissions"}
+          >
+            Manage Permissions
+          </Button>
+          <Button
+            variant="outline"
+            disabled={actionLocked || !canManageHotel(member)}
+            onClick={() => onManageHotel(member)}
+            title={actionLocked ? lockTitle : "Manage Hotel"}
+          >
+            Manage Hotel
+          </Button>
+          <Button
+            variant="danger"
+            disabled={actionLocked}
+            onClick={() => onRevoke(member)}
+            title={actionLocked ? lockTitle : "Revoke Access"}
+          >
+            Revoke
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PermissionsModal({
   isOpen,
   onClose,
@@ -619,7 +803,7 @@ function PermissionsModal({
         className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl m-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-linear-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center">
               <Settings className="w-5 h-5 text-white" />
@@ -763,6 +947,7 @@ export default function MyTeamPage() {
     null,
   );
   const [revokeMember, setRevokeMember] = useState<TeamMember | null>(null);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -818,12 +1003,25 @@ export default function MyTeamPage() {
     );
   };
 
+  const canHotelManagerManageMemberActions = (member: TeamMember): boolean => {
+    if (!isCurrentUserHotelManager) return true;
+    const memberRoles = teamMemberRoleList(member);
+    return !memberRoles.some((role) =>
+      HOTEL_MANAGER_RESTRICTED_MANAGE_ROLES.includes(
+        role as (typeof HOTEL_MANAGER_RESTRICTED_MANAGE_ROLES)[number],
+      ),
+    );
+  };
+
   const canHotelOwnerManageMember = (member: TeamMember): boolean =>
     !isHotelOwnerRestrictedMyTeamRow(
       member,
       user?.userId,
       isCurrentUserHotelOwner,
     );
+
+  const canManageMemberActions = (member: TeamMember): boolean =>
+    canHotelOwnerManageMember(member) && canHotelManagerManageMemberActions(member);
 
   useEffect(() => {
     if (selectedHotelId) {
@@ -836,41 +1034,29 @@ export default function MyTeamPage() {
   useEffect(() => {
     if (
       editingMember &&
-      isHotelOwnerRestrictedMyTeamRow(
-        editingMember,
-        user?.userId,
-        isCurrentUserHotelOwner,
-      )
+      !canManageMemberActions(editingMember)
     ) {
       setEditingMember(null);
     }
-  }, [editingMember, isCurrentUserHotelOwner, user?.userId]);
+  }, [editingMember, canManageMemberActions]);
 
   useEffect(() => {
     if (
       permissionsMember &&
-      isHotelOwnerRestrictedMyTeamRow(
-        permissionsMember,
-        user?.userId,
-        isCurrentUserHotelOwner,
-      )
+      !canManageMemberActions(permissionsMember)
     ) {
       setPermissionsMember(null);
     }
-  }, [permissionsMember, isCurrentUserHotelOwner, user?.userId]);
+  }, [permissionsMember, canManageMemberActions]);
 
   useEffect(() => {
     if (
       revokeMember &&
-      isHotelOwnerRestrictedMyTeamRow(
-        revokeMember,
-        user?.userId,
-        isCurrentUserHotelOwner,
-      )
+      !canManageMemberActions(revokeMember)
     ) {
       setRevokeMember(null);
     }
-  }, [revokeMember, isCurrentUserHotelOwner, user?.userId]);
+  }, [revokeMember, canManageMemberActions]);
 
   const fetchTeamMembers = async () => {
     if (!selectedHotelId) return;
@@ -925,7 +1111,7 @@ export default function MyTeamPage() {
     data: CreateTeamMemberRequest | UpdateTeamMemberRequest,
   ) => {
     if (!editingMember) return;
-    if (!canHotelOwnerManageMember(editingMember)) {
+    if (!canManageMemberActions(editingMember)) {
       setEditingMember(null);
       return;
     }
@@ -969,16 +1155,16 @@ export default function MyTeamPage() {
   };
 
   const handleSavePermissions = async (permissions: Permission[]) => {
-    if (!permissionsMember?.accessId) {
-      setToast({ message: "Access ID not found", type: "error" });
+    if (!permissionsMember?.userId) {
+      setToast({ message: "User ID not found", type: "error" });
       return;
     }
-    if (!canHotelOwnerManageMember(permissionsMember)) {
+    if (!canManageMemberActions(permissionsMember)) {
       setPermissionsMember(null);
       return;
     }
     try {
-      await teamService.assignPermissions(permissionsMember.accessId, {
+      await teamService.assignPermissions(permissionsMember.userId, {
         permissions,
       });
       setToast({
@@ -995,17 +1181,9 @@ export default function MyTeamPage() {
 
   const handleRevokeAccess = async (accessId: number) => {
     const member = teamMembers.find((m) => m.accessId === accessId);
-    if (
-      member &&
-      isHotelOwnerRestrictedMyTeamRow(
-        member,
-        user?.userId,
-        isCurrentUserHotelOwner,
-      )
-    ) {
+    if (member && !canManageMemberActions(member)) {
       setToast({
-        message:
-          "You cannot revoke access for yourself or for another hotel owner.",
+        message: "You cannot revoke access for this team member.",
         type: "error",
       });
       return;
@@ -1115,13 +1293,14 @@ export default function MyTeamPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {teamMembers.map((member) => {
-                  const ownerLocked = !canHotelOwnerManageMember(member);
-                  const ownerLockTitle =
-                    "You cannot manage your own account or another hotel owner here.";
+                  const actionLocked = !canManageMemberActions(member);
+                  const actionLockTitle =
+                    "You do not have permission to manage this team member.";
                   return (
                   <tr
                     key={member.accessId}
                     className="hover:bg-blue-50 transition-colors even:bg-gray-50"
+                    onClick={() => setSelectedMember(member)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -1194,37 +1373,39 @@ export default function MyTeamPage() {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          disabled={ownerLocked}
-                          onClick={() =>
-                            !ownerLocked && setEditingMember(member)
-                          }
+                          disabled={actionLocked}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            !actionLocked && setEditingMember(member);
+                          }}
                           className={cn(
                             "p-2 rounded-lg transition-colors",
-                            ownerLocked
+                            actionLocked
                               ? "text-gray-300 cursor-not-allowed"
                               : "text-blue-600 hover:text-blue-900 hover:bg-blue-50",
                           )}
                           title={
-                            ownerLocked ? ownerLockTitle : "Edit"
+                            actionLocked ? actionLockTitle : "Edit"
                           }
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
                           type="button"
-                          disabled={ownerLocked}
-                          onClick={() =>
-                            !ownerLocked && setPermissionsMember(member)
-                          }
+                          disabled={actionLocked}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            !actionLocked && setPermissionsMember(member);
+                          }}
                           className={cn(
                             "p-2 rounded-lg transition-colors",
-                            ownerLocked
+                            actionLocked
                               ? "text-gray-300 cursor-not-allowed"
                               : "text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50",
                           )}
                           title={
-                            ownerLocked
-                              ? ownerLockTitle
+                            actionLocked
+                              ? actionLockTitle
                               : "Manage Permissions"
                           }
                         >
@@ -1233,26 +1414,27 @@ export default function MyTeamPage() {
                         <button
                           type="button"
                           disabled={
-                            ownerLocked ||
+                            actionLocked ||
                             !canHotelManagerAssignForMember(member)
                           }
-                          onClick={() =>
-                            !ownerLocked &&
-                            canHotelManagerAssignForMember(member) &&
-                            navigate(
-                              `${ROUTES.TEAM.USER_MANAGE_HOTELS(member.userId)}?hotelId=${encodeURIComponent(selectedHotelId)}`,
-                            )
-                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            !actionLocked &&
+                              canHotelManagerAssignForMember(member) &&
+                              navigate(
+                                `${ROUTES.TEAM.USER_MANAGE_HOTELS(member.userId)}?hotelId=${encodeURIComponent(selectedHotelId)}`,
+                              );
+                          }}
                           className={cn(
                             "p-2 rounded-lg transition-colors",
-                            ownerLocked ||
+                            actionLocked ||
                               !canHotelManagerAssignForMember(member)
                               ? "text-gray-300 cursor-not-allowed"
                               : "text-purple-600 hover:text-purple-900 hover:bg-purple-50",
                           )}
                           title={
-                            ownerLocked
-                              ? ownerLockTitle
+                            actionLocked
+                              ? actionLockTitle
                               : "Manage Hotel"
                           }
                         >
@@ -1260,19 +1442,20 @@ export default function MyTeamPage() {
                         </button>
                         <button
                           type="button"
-                          disabled={ownerLocked}
-                          onClick={() =>
-                            !ownerLocked && setRevokeMember(member)
-                          }
+                          disabled={actionLocked}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            !actionLocked && setRevokeMember(member);
+                          }}
                           className={cn(
                             "p-2 rounded-lg transition-colors",
-                            ownerLocked
+                            actionLocked
                               ? "text-gray-300 cursor-not-allowed"
                               : "text-red-600 hover:text-red-900 hover:bg-red-50",
                           )}
                           title={
-                            ownerLocked
-                              ? ownerLockTitle
+                            actionLocked
+                              ? actionLockTitle
                               : "Revoke Access"
                           }
                         >
@@ -1311,6 +1494,31 @@ export default function MyTeamPage() {
         member={permissionsMember}
       />
 
+      <TeamMemberDetailsModal
+        member={selectedMember}
+        onClose={() => setSelectedMember(null)}
+        onEdit={(member) => {
+          setSelectedMember(null);
+          setEditingMember(member);
+        }}
+        onPermissions={(member) => {
+          setSelectedMember(null);
+          setPermissionsMember(member);
+        }}
+        onManageHotel={(member) => {
+          setSelectedMember(null);
+          navigate(
+            `${ROUTES.TEAM.USER_MANAGE_HOTELS(member.userId)}?hotelId=${encodeURIComponent(selectedHotelId)}`,
+          );
+        }}
+        onRevoke={(member) => {
+          setSelectedMember(null);
+          setRevokeMember(member);
+        }}
+        canManageMember={canManageMemberActions}
+        canManageHotel={canHotelManagerAssignForMember}
+      />
+
       {/* Revoke Confirmation Modal */}
       {revokeMember && (
         <div
@@ -1321,7 +1529,7 @@ export default function MyTeamPage() {
             className="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
+            <div className="px-6 py-4 border-b border-gray-200 bg-linear-to-r from-red-50 to-orange-50">
               <h3 className="text-lg font-bold text-gray-900">Revoke Access</h3>
               <p className="text-sm text-gray-600 mt-1">
                 Remove this user&apos;s access to the selected hotel.
