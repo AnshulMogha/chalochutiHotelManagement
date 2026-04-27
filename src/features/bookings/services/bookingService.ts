@@ -71,6 +71,8 @@ export interface BookingDetail {
   paymentType: string | null;
   cancellationPolicy: string | null;
   totalAmount: number;
+  hotelPricingComputation?: "RETAIL_RATE" | "PACKAGE_RATE" | string | null;
+  hotel_pricing_computation?: "RETAIL_RATE" | "PACKAGE_RATE" | string | null;
 }
 
 /** API response data wrapper (response.data) */
@@ -133,7 +135,13 @@ export const bookingService = {
     if (!data) {
       throw new Error("Booking not found");
     }
-    return data;
+    return {
+      ...data,
+      hotelPricingComputation:
+        data.hotelPricingComputation ??
+        data.hotel_pricing_computation ??
+        null,
+    };
   },
 
   /** Fetch voucher as blob (PDF). id = list item id (numeric) from booking list. */

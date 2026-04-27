@@ -60,6 +60,18 @@ function getPaymentStatusStyle(status: string | undefined): string {
   return "bg-gray-100 text-gray-700 border-gray-200";
 }
 
+function getPricingComputationStyle(value: string | undefined | null): string {
+  if (!value) return "bg-gray-100 text-gray-700 border-gray-200";
+  const normalized = String(value).toUpperCase();
+  if (normalized === "PACKAGE_RATE") {
+    return "bg-violet-100 text-violet-800 border-violet-200";
+  }
+  if (normalized === "RETAIL_RATE") {
+    return "bg-sky-100 text-sky-800 border-sky-200";
+  }
+  return "bg-gray-100 text-gray-700 border-gray-200";
+}
+
 function DetailCard({
   icon: Icon,
   iconBg,
@@ -211,6 +223,10 @@ export default function BookingDetailPage() {
   }
 
   const rateBreakup = booking.rateBreakup;
+  const hotelPricingComputation =
+    booking.hotelPricingComputation || booking.hotel_pricing_computation || null;
+  const isPackageRate =
+    String(hotelPricingComputation || "").toUpperCase() === "PACKAGE_RATE";
 
   return (
     <>
@@ -257,6 +273,28 @@ export default function BookingDetailPage() {
             </span>
           </div>
         </div>
+
+        {hotelPricingComputation && (
+          <div className="mb-6 rounded-2xl border border-violet-200 bg-linear-to-r from-violet-50 to-indigo-50 px-5 py-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
+                <Tag className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+                  Hotel Pricing Computation
+                </p>
+                <span
+                  className={`mt-1 inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold border ${getPricingComputationStyle(
+                    hotelPricingComputation
+                  )}`}
+                >
+                  {hotelPricingComputation}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Hotel */}
@@ -405,53 +443,70 @@ export default function BookingDetailPage() {
                 label="3. Property taxes"
                 value={formatCurrency(rateBreakup?.propertyTaxes, rateBreakup?.currency)}
               />
+              {!isPackageRate && (
+                <RateRow
+                  label="4. Service charges"
+                  value={
+                    rateBreakup?.serviceChargePercent
+                      ? `${formatCurrency(
+                          rateBreakup?.serviceChargeAmount,
+                          rateBreakup?.currency
+                        )} `
+                      : formatCurrency(
+                          rateBreakup?.serviceChargeAmount,
+                          rateBreakup?.currency
+                        )
+                  }
+                />
+              )}
               <RateRow
-                label="4. Service charges"
-                value={
-                  rateBreakup?.serviceChargePercent
-                    ? `${formatCurrency(
-                        rateBreakup?.serviceChargeAmount,
-                        rateBreakup?.currency
-                      )} `
-                    : formatCurrency(rateBreakup?.serviceChargeAmount, rateBreakup?.currency)
+                label={
+                  isPackageRate
+                    ? "(A) Property gross charges (1+2+3)"
+                    : "(A) Property gross charges (1+2+3+4)"
                 }
-              />
-              <RateRow
-                label="(A) Property gross charges (1+2+3+4)"
                 value={formatCurrency(rateBreakup?.hotelGrossCharges, rateBreakup?.currency)}
                 highlight
               />
 
-              <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide border-t border-gray-200">
-                Commission
-              </div>
-              <RateRow
-                label="5. OTA commission"
-                value={formatCurrency(rateBreakup?.commissionAmount, rateBreakup?.currency)}
-              />
-              <RateRow
-                label="6. GST on commission"
-                value={formatCurrency(rateBreakup?.commissionGst, rateBreakup?.currency)}
-              />
-              <RateRow
-                label="(B) Commission including GST (5+6)"
-                value={formatCurrency(rateBreakup?.commissionTotal, rateBreakup?.currency)}
-                highlight
-              />
+              {!isPackageRate && (
+                <>
+                  <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide border-t border-gray-200">
+                    Commission
+                  </div>
+                  <RateRow
+                    label="5. OTA commission"
+                    value={formatCurrency(rateBreakup?.commissionAmount, rateBreakup?.currency)}
+                  />
+                  <RateRow
+                    label="6. GST on commission"
+                    value={formatCurrency(rateBreakup?.commissionGst, rateBreakup?.currency)}
+                  />
+                  <RateRow
+                    label="(B) Commission including GST (5+6)"
+                    value={formatCurrency(rateBreakup?.commissionTotal, rateBreakup?.currency)}
+                    highlight
+                  />
+                </>
+              )}
 
               <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide border-t border-gray-200">
                 Tax deduction
               </div>
               <RateRow
-                label="7. TCS @ 0.5%"
+                label={isPackageRate ? "4. TCS @ 0.5%" : "7. TCS @ 0.5%"}
                 value={formatCurrency(rateBreakup?.tcsAmount, rateBreakup?.currency)}
               />
               <RateRow
-                label="8. TDS @ 0.1%"
+                label={isPackageRate ? "5. TDS @ 0.1%" : "8. TDS @ 0.1%"}
                 value={formatCurrency(rateBreakup?.tdsAmount, rateBreakup?.currency)}
               />
               <RateRow
-                label="(C) Tax deduction (7+8)"
+                label={
+                  isPackageRate
+                    ? "(B) Tax deduction (4+5)"
+                    : "(C) Tax deduction (7+8)"
+                }
                 value={formatCurrency(rateBreakup?.taxDeductions, rateBreakup?.currency)}
                 highlight
               />
@@ -459,7 +514,9 @@ export default function BookingDetailPage() {
               <div className="bg-sky-50 border-t border-sky-100 px-4 py-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="text-sm font-semibold text-sky-800">
-                    Payable to property (A - B - C)
+                    {isPackageRate
+                      ? "Payable to property (A - B)"
+                      : "Payable to property (A - B - C)"}
                   </div>
                   <div className="text-base sm:text-lg font-extrabold text-sky-900 tabular-nums">
                     {formatCurrency(rateBreakup?.payableToHotel, rateBreakup?.currency)}
