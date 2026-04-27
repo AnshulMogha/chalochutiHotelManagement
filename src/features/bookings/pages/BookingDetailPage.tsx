@@ -490,32 +490,32 @@ export default function BookingDetailPage() {
                 </>
               )}
 
-              <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide border-t border-gray-200">
-                Tax deduction
-              </div>
-              <RateRow
-                label={isPackageRate ? "4. TCS @ 0.5%" : "7. TCS @ 0.5%"}
-                value={formatCurrency(rateBreakup?.tcsAmount, rateBreakup?.currency)}
-              />
-              <RateRow
-                label={isPackageRate ? "5. TDS @ 0.1%" : "8. TDS @ 0.1%"}
-                value={formatCurrency(rateBreakup?.tdsAmount, rateBreakup?.currency)}
-              />
-              <RateRow
-                label={
-                  isPackageRate
-                    ? "(B) Tax deduction (4+5)"
-                    : "(C) Tax deduction (7+8)"
-                }
-                value={formatCurrency(rateBreakup?.taxDeductions, rateBreakup?.currency)}
-                highlight
-              />
+              {!isPackageRate && (
+                <>
+                  <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide border-t border-gray-200">
+                    Tax deduction
+                  </div>
+                  <RateRow
+                    label="7. TCS @ 0.5%"
+                    value={formatCurrency(rateBreakup?.tcsAmount, rateBreakup?.currency)}
+                  />
+                  <RateRow
+                    label="8. TDS @ 0.1%"
+                    value={formatCurrency(rateBreakup?.tdsAmount, rateBreakup?.currency)}
+                  />
+                  <RateRow
+                    label="(C) Tax deduction (7+8)"
+                    value={formatCurrency(rateBreakup?.taxDeductions, rateBreakup?.currency)}
+                    highlight
+                  />
+                </>
+              )}
 
               <div className="bg-sky-50 border-t border-sky-100 px-4 py-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="text-sm font-semibold text-sky-800">
                     {isPackageRate
-                      ? "Payable to property (A - B)"
+                      ? "Payable to property (A)"
                       : "Payable to property (A - B - C)"}
                   </div>
                   <div className="text-base sm:text-lg font-extrabold text-sky-900 tabular-nums">
