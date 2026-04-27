@@ -144,6 +144,7 @@ interface RatePlansGridProps {
   calendarIsLinkEnable?: boolean;
   /** Current hotel (URL); required for “Add LinkRate” navigation to add-single-derived. */
   hotelId?: string | null;
+  hideRestrictions?: boolean;
   /** Optional inventory restrictions source for embedded room inventory view. */
   inventoryDaysByDate?: Record<
     string,
@@ -173,6 +174,7 @@ export const RatePlansGrid = ({
   onOpenLinkRatePlans,
   calendarIsLinkEnable,
   hotelId = null,
+  hideRestrictions = false,
   inventoryDaysByDate,
 }: RatePlansGridProps) => {
   const navigate = useNavigate();
@@ -268,6 +270,24 @@ export const RatePlansGrid = ({
     const key = `${ratePlanId}-${roomId}`;
     setSelectedOption((prev) => {
       const next = new Map(prev);
+      next.delete(key);
+      return next;
+    });
+  };
+
+  const toggleExtraRatesOnly = (ratePlanId: number, roomId: number) => {
+    const key = `${ratePlanId}-${roomId}`;
+    setSelectedOption((prev) => {
+      const next = new Map(prev);
+      if (next.get(key) === "extra-rates") {
+        next.delete(key);
+      } else {
+        next.set(key, "extra-rates");
+      }
+      return next;
+    });
+    setExpandedRateRestrictions((prev) => {
+      const next = new Set(prev);
       next.delete(key);
       return next;
     });
@@ -765,15 +785,29 @@ export const RatePlansGrid = ({
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
+                            if (hideRestrictions) {
+                              toggleExtraRatesOnly(ratePlan.ratePlanId, room.roomId);
+                              return;
+                            }
                             toggleRateRestrictions(ratePlan.ratePlanId, room.roomId);
                           }}
                         >
-                          Rate and Restrictions
-                          <ChevronDown className={`w-4 h-4 transition-transform ${expandedRateRestrictions.has(`${ratePlan.ratePlanId}-${room.roomId}`) ? 'rotate-180' : ''
-                            }`} />
+                          {hideRestrictions ? "Extra Rates" : "Rate and Restrictions"}
+                          <ChevronDown
+                            className={`w-4 h-4 transition-transform ${
+                              hideRestrictions
+                                ? selectedOption.get(`${ratePlan.ratePlanId}-${room.roomId}`) === "extra-rates"
+                                  ? "rotate-180"
+                                  : ""
+                                : expandedRateRestrictions.has(`${ratePlan.ratePlanId}-${room.roomId}`)
+                                  ? "rotate-180"
+                                  : ""
+                            }`}
+                          />
                         </button>
 
-                        {expandedRateRestrictions.has(`${ratePlan.ratePlanId}-${room.roomId}`) && (
+                        {!hideRestrictions &&
+                          expandedRateRestrictions.has(`${ratePlan.ratePlanId}-${room.roomId}`) && (
                           <div
                             className="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded-md shadow-xl min-w-[180px]"
                             style={{ zIndex: 9999 }}
@@ -789,17 +823,19 @@ export const RatePlansGrid = ({
                             >
                               Extra Rates
                             </button>
-                            <button
-                              type="button"
-                              className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors last:rounded-b-md border-t border-slate-200"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                selectOption(ratePlan.ratePlanId, room.roomId, 'restrictions');
-                              }}
-                            >
-                              Restrictions
-                            </button>
+                            {!hideRestrictions && (
+                              <button
+                                type="button"
+                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors last:rounded-b-md border-t border-slate-200"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  selectOption(ratePlan.ratePlanId, room.roomId, 'restrictions');
+                                }}
+                              >
+                                Restrictions
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1057,7 +1093,8 @@ export const RatePlansGrid = ({
                   )}
 
                   {/* Restrictions Rows */}
-                  {selectedOption.get(`${ratePlan.ratePlanId}-${room.roomId}`) === 'restrictions' && (
+                  {!hideRestrictions &&
+                    selectedOption.get(`${ratePlan.ratePlanId}-${room.roomId}`) === 'restrictions' && (
                     <>
                       {/* Minimum Length of Stay Row */}
                       <div

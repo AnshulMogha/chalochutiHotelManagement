@@ -95,6 +95,7 @@ interface RoomTypesGridProps {
   onOpenLinkRatePlans?: (ctx: OpenLinkRatePlansContext) => void;
   calendarIsLinkEnable?: boolean;
   hotelId?: string | null;
+  showCommonRestrictions?: boolean;
 }
 
 export const RoomTypesGrid = ({
@@ -120,15 +121,45 @@ export const RoomTypesGrid = ({
   onOpenLinkRatePlans,
   calendarIsLinkEnable,
   hotelId = null,
+  showCommonRestrictions = false,
 }: RoomTypesGridProps) => {
   // Track local input values as strings: key = `${roomId}-${dateStr}`
   const [localValues, setLocalValues] = useState<Map<string, string>>(new Map());
+  const [commonRestrictionLocalValues, setCommonRestrictionLocalValues] = useState<
+    Map<string, string>
+  >(new Map());
   
   const dates = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => addDays(baseDate, i));
   }, [baseDate]);
 
   const today = startOfToday();
+  const firstRoom = rooms[0] ?? null;
+  const firstRoomRateData = firstRoom ? rateRoomsByRoomId[firstRoom.roomId] : undefined;
+  const firstRoomFirstRatePlan = firstRoomRateData?.ratePlans?.[0];
+
+  const getCommonRatePlanDay = (dateStr: string) => {
+    return firstRoomFirstRatePlan?.days.find((day) => day.date === dateStr);
+  };
+
+  const getCommonRestrictionValue = (
+    dateStr: string,
+    field: "minStay" | "maxStay",
+  ): number | null => {
+    const inventoryDay = firstRoom?.days.find((day) => day.date === dateStr);
+    return inventoryDay?.[field] ?? null;
+  };
+
+  const getCommonBooleanRestrictionValue = (
+    dateStr: string,
+    field: "cta" | "ctd",
+  ): boolean | null => {
+    const inventoryDay = firstRoom?.days.find((day) => day.date === dateStr) as
+      | ({ cta?: boolean; ctd?: boolean } & Record<string, unknown>)
+      | undefined;
+    const value = inventoryDay?.[field];
+    return typeof value === "boolean" ? value : null;
+  };
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-visible shadow-md bg-white">
@@ -166,6 +197,329 @@ export const RoomTypesGrid = ({
           );
         })}
       </div>
+
+      {/* Common Restrictions (based on first room) */}
+      {showCommonRestrictions && (
+        <>
+          <div
+            className="grid border-t border-b border-slate-200 bg-blue-50/50 hover:bg-blue-50/70 transition-colors duration-150"
+            style={{ gridTemplateColumns: `280px repeat(${dates.length}, 1fr)` }}
+          >
+            <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-300 bg-blue-100/50">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-50 text-amber-600">
+                <span className="text-xs font-bold">M</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-slate-900">
+                  Minimum Length of Stay
+                </span>
+              </div>
+            </div>
+
+            {dates.map((date, i) => {
+              const isSelected = isSameDay(date, activeDate);
+              const dateStr = format(date, "yyyy-MM-dd");
+              const minStay = getCommonRestrictionValue(dateStr, "minStay");
+              const dayData = getCommonRatePlanDay(dateStr);
+
+              const cellKey = `${dateStr}-common-minStay`;
+              const localValue = commonRestrictionLocalValues.get(cellKey);
+              const displayValue =
+                localValue !== undefined
+                  ? localValue
+                  : minStay !== null && minStay !== undefined
+                    ? minStay.toString()
+                    : "";
+
+              const isThisCellEdited =
+                activeRateEdit?.roomId === firstRoom?.roomId &&
+                activeRateEdit?.ratePlanId === firstRoomFirstRatePlan?.ratePlanId &&
+                activeRateEdit?.date === dateStr;
+              const canEdit =
+                Boolean(firstRoom && firstRoomFirstRatePlan) &&
+                isSelected &&
+                (!isLocked || isThisCellEdited);
+
+              return (
+                <div
+                  key={i}
+                  className={`
+                    border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
+                    transition-colors duration-150
+                    ${isSelected ? getSelectedColumnBg(date) : ""}
+                  `}
+                >
+                  <input
+                    type="number"
+                    value={displayValue}
+                    readOnly={!canEdit}
+                    onChange={(e) => {
+                      if (!canEdit || !firstRoom || !firstRoomFirstRatePlan) return;
+                      const inputValue =
+                        e.target.value === "" ? null : Number(e.target.value);
+                      onRatePlanUpdate(
+                        firstRoomFirstRatePlan.ratePlanId,
+                        firstRoom.roomId,
+                        dateStr,
+                        dayData?.baseRate ?? 0,
+                        dayData?.singleOccupancyRate ?? null,
+                        dayData?.extraAdultCharge ?? 0,
+                        dayData?.paidChildCharge ?? 0,
+                        inputValue ?? undefined,
+                        dayData?.maxStay ?? undefined,
+                        dayData?.cutoffTime ?? undefined,
+                      );
+                      setCommonRestrictionLocalValues((prev) => {
+                        const next = new Map(prev);
+                        next.set(cellKey, e.target.value);
+                        return next;
+                      });
+                    }}
+                    onBlur={() => {
+                      if (!isSelected) return;
+                      setCommonRestrictionLocalValues((prev) => {
+                        const next = new Map(prev);
+                        next.delete(cellKey);
+                        return next;
+                      });
+                    }}
+                    className={`
+                      w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
+                      tabular-nums
+                      ${canEdit
+                        ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
+                        : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"}
+                      ${minStay !== null && minStay !== undefined && canEdit ? "text-emerald-700" : ""}
+                      ${(minStay === null || minStay === undefined) && canEdit ? "text-rose-600" : ""}
+                      focus:outline-none
+                    `}
+                    placeholder={canEdit ? "0" : "—"}
+                    min="0"
+                  />
+                  <div className="flex flex-col items-center mt-2.5 gap-0.5">
+                    <span
+                      className={`text-[10px] font-medium uppercase tracking-wide ${
+                        minStay !== null && minStay !== undefined
+                          ? "text-emerald-600"
+                          : "text-rose-500"
+                      }`}
+                    >
+                      {minStay !== null && minStay !== undefined
+                        ? `${minStay} Set`
+                        : "Not Set"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div
+            className="grid border-t border-slate-300 bg-blue-50/50 hover:bg-blue-50/70 transition-colors duration-150"
+            style={{ gridTemplateColumns: `280px repeat(${dates.length}, 1fr)` }}
+          >
+            <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-300 bg-blue-100/50">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-50 text-purple-600">
+                <span className="text-xs font-bold">M</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-slate-900">
+                  Maximum Length of Stay
+                </span>
+              </div>
+            </div>
+
+            {dates.map((date, i) => {
+              const isSelected = isSameDay(date, activeDate);
+              const dateStr = format(date, "yyyy-MM-dd");
+              const maxStay = getCommonRestrictionValue(dateStr, "maxStay");
+              const dayData = getCommonRatePlanDay(dateStr);
+
+              const cellKey = `${dateStr}-common-maxStay`;
+              const localValue = commonRestrictionLocalValues.get(cellKey);
+              const displayValue =
+                localValue !== undefined
+                  ? localValue
+                  : maxStay !== null && maxStay !== undefined
+                    ? maxStay.toString()
+                    : "";
+
+              const isThisCellEdited =
+                activeRateEdit?.roomId === firstRoom?.roomId &&
+                activeRateEdit?.ratePlanId === firstRoomFirstRatePlan?.ratePlanId &&
+                activeRateEdit?.date === dateStr;
+              const canEdit =
+                Boolean(firstRoom && firstRoomFirstRatePlan) &&
+                isSelected &&
+                (!isLocked || isThisCellEdited);
+
+              return (
+                <div
+                  key={i}
+                  className={`
+                    border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
+                    transition-colors duration-150
+                    ${isSelected ? getSelectedColumnBg(date) : ""}
+                  `}
+                >
+                  <input
+                    type="number"
+                    value={displayValue}
+                    readOnly={!canEdit}
+                    onChange={(e) => {
+                      if (!canEdit || !firstRoom || !firstRoomFirstRatePlan) return;
+                      const inputValue =
+                        e.target.value === "" ? null : Number(e.target.value);
+                      onRatePlanUpdate(
+                        firstRoomFirstRatePlan.ratePlanId,
+                        firstRoom.roomId,
+                        dateStr,
+                        dayData?.baseRate ?? 0,
+                        dayData?.singleOccupancyRate ?? null,
+                        dayData?.extraAdultCharge ?? 0,
+                        dayData?.paidChildCharge ?? 0,
+                        dayData?.minStay ?? undefined,
+                        inputValue ?? undefined,
+                        dayData?.cutoffTime ?? undefined,
+                      );
+                      setCommonRestrictionLocalValues((prev) => {
+                        const next = new Map(prev);
+                        next.set(cellKey, e.target.value);
+                        return next;
+                      });
+                    }}
+                    onBlur={() => {
+                      if (!isSelected) return;
+                      setCommonRestrictionLocalValues((prev) => {
+                        const next = new Map(prev);
+                        next.delete(cellKey);
+                        return next;
+                      });
+                    }}
+                    className={`
+                      w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
+                      tabular-nums
+                      ${canEdit
+                        ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
+                        : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"}
+                      ${maxStay !== null && maxStay !== undefined && canEdit ? "text-emerald-700" : ""}
+                      ${(maxStay === null || maxStay === undefined) && canEdit ? "text-rose-600" : ""}
+                      focus:outline-none
+                    `}
+                    placeholder={canEdit ? "0" : "—"}
+                    min="0"
+                  />
+                  <div className="flex flex-col items-center mt-2.5 gap-0.5">
+                    <span
+                      className={`text-[10px] font-medium uppercase tracking-wide ${
+                        maxStay !== null && maxStay !== undefined
+                          ? "text-emerald-600"
+                          : "text-rose-500"
+                      }`}
+                    >
+                      {maxStay !== null && maxStay !== undefined
+                        ? `${maxStay} Set`
+                        : "Not Set"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Cutoff Time row intentionally kept commented until inventory list API returns this field. */}
+          {/*
+          <div className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150">
+            ...
+          </div>
+          */}
+
+          {/* CTA Row */}
+          <div
+            className="grid border-t border-slate-300 bg-blue-50/50 hover:bg-blue-50/70 transition-colors duration-150"
+            style={{ gridTemplateColumns: `280px repeat(${dates.length}, 1fr)` }}
+          >
+            <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-300 bg-blue-100/50">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-cyan-50 text-cyan-600">
+                <span className="text-xs font-bold">C</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-slate-900">
+                  Closed to Arrival (CTA)
+                </span>
+              </div>
+            </div>
+
+            {dates.map((date, i) => {
+              const isSelected = isSameDay(date, activeDate);
+              const dateStr = format(date, "yyyy-MM-dd");
+              const ctaValue = getCommonBooleanRestrictionValue(dateStr, "cta");
+              const yesNoText =
+                ctaValue === null ? "-" : ctaValue ? "Yes" : "No";
+
+              return (
+                <div
+                  key={i}
+                  className={`
+                    border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
+                    transition-colors duration-150
+                    ${isSelected ? getSelectedColumnBg(date) : ""}
+                  `}
+                >
+                  <div className="w-20 h-11 border rounded-lg font-semibold text-sm text-center flex items-center justify-center bg-white border-slate-300 text-slate-700">
+                    {yesNoText}
+                  </div>
+                  <div className="mt-2.5 h-[14px]" aria-hidden="true" />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* CTD Row */}
+          <div
+            className="grid border-t border-slate-300 bg-blue-50/50 hover:bg-blue-50/70 transition-colors duration-150"
+            style={{ gridTemplateColumns: `280px repeat(${dates.length}, 1fr)` }}
+          >
+            <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-300 bg-blue-100/50">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-teal-50 text-teal-600">
+                <span className="text-xs font-bold">C</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-slate-900">
+                  Closed to Departure (CTD)
+                </span>
+              </div>
+            </div>
+
+            {dates.map((date, i) => {
+              const isSelected = isSameDay(date, activeDate);
+              const dateStr = format(date, "yyyy-MM-dd");
+              const ctdValue = getCommonBooleanRestrictionValue(dateStr, "ctd");
+              const yesNoText =
+                ctdValue === null ? "-" : ctdValue ? "Yes" : "No";
+
+              return (
+                <div
+                  key={i}
+                  className={`
+                    border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
+                    transition-colors duration-150
+                    ${isSelected ? getSelectedColumnBg(date) : ""}
+                  `}
+                >
+                  <div className="w-20 h-11 border rounded-lg font-semibold text-sm text-center flex items-center justify-center bg-white border-slate-300 text-slate-700">
+                    {yesNoText}
+                  </div>
+                  <div className="mt-2.5 h-[14px]" aria-hidden="true" />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Explicit divider between common restrictions and room rows */}
+          <div className="w-full border-b border-slate-300" />
+        </>
+      )}
 
       {/* Room Rows */}
       {rooms.map((room, roomIndex) => {
@@ -444,6 +798,7 @@ export const RoomTypesGrid = ({
                 calendarIsLinkEnable={calendarIsLinkEnable}
                 hotelId={hotelId}
                 inventoryDaysByDate={inventoryDaysByDate}
+                hideRestrictions
               />
             ) : (
               <div className="px-6 py-4 text-sm font-medium text-slate-500">

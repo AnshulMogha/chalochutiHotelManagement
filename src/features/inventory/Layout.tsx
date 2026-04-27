@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLocation, useSearchParams, useNavigate } from "react-router";
 import { ROUTES } from "@/constants";
 import { startOfToday, addDays, format } from "date-fns";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Eye, EyeOff } from "lucide-react";
 import { DateSelector } from "./inventoryComponents/DateSelector";
 import { NavigationTabs } from "./inventoryComponents/NavigationTabs";
 import { RoomTypesGrid } from "./inventoryComponents/RoomTypesGrid";
@@ -89,6 +89,7 @@ export default function Layout() {
   const [baseDate, setBaseDate] = useState(today);
   const [activeDate, setActiveDate] = useState(today);
   const [isBulkUpdateDropdownOpen, setIsBulkUpdateDropdownOpen] = useState(false);
+  const [showCommonRestrictions, setShowCommonRestrictions] = useState(false);
   const [isLinkRatePlansOpen, setIsLinkRatePlansOpen] = useState(false);
   const [linkSheetApiError, setLinkSheetApiError] = useState<string | null>(
     null,
@@ -958,6 +959,22 @@ export default function Layout() {
                 channelSegmentLabel={activeSegmentLabel}
                 rightAction={
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowCommonRestrictions((prev) => !prev)
+                      }
+                      className="px-6 py-2.5 text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-sm whitespace-nowrap inline-flex items-center gap-2"
+                    >
+                      {showCommonRestrictions ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                      {showCommonRestrictions
+                        ? "Hide Restriction"
+                        : "View Restriction"}
+                    </button>
                     <DropdownMenu
                       open={isBulkUpdateDropdownOpen}
                       onOpenChange={setIsBulkUpdateDropdownOpen}
@@ -1061,6 +1078,7 @@ export default function Layout() {
                   onOpenLinkRatePlans={openLinkRatePlansFromGrid}
                   calendarIsLinkEnable={ratesCalendarIsLinkEnable}
                   hotelId={hotelId}
+                  showCommonRestrictions={showCommonRestrictions}
                 />
               </div>
             ) : (

@@ -272,7 +272,6 @@ export default function BulkUpdateRestrictionsPage() {
                 </div>
               </div>
 
-              {/*
               <div className="flex-1 space-y-3">
                 <label className="text-sm font-semibold text-gray-900">
                   Arrival Restrictions
@@ -332,7 +331,6 @@ export default function BulkUpdateRestrictionsPage() {
                   </label>
                 </div>
               </div>
-              */}
             </div>
 
             {/* Length of stay */}
