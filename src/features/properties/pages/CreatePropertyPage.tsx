@@ -354,6 +354,10 @@ function Container() {
         }));
         return;
       }
+      if (data.rooms) {
+        showToast(data.rooms, "error");
+        return;
+      }
       const message =
         data.propertyName ||
         apiError?.message ||
