@@ -244,6 +244,11 @@ function Container() {
     },
 
     async () => {
+      const rooms = await propertyService.getAllRooms(draftId!);
+      if (!rooms || rooms.length === 0) {
+        showToast("Please add at least one room before proceeding.", "error");
+        return false;
+      }
       await propertyService.mediaOnboarding(false, draftId!);
       return true;
     },

@@ -293,4 +293,24 @@ export const propertyService = {
     });
     return response.data;
   },
+  updateOnboardingDocument: async (
+    hotelId: string,
+    documentId: string | number,
+    data: Omit<UploadOnboardingDocumentRequest, "draft">,
+  ): Promise<OnboardingDocument> => {
+    const formData = new FormData();
+    formData.append("file", data.file);
+    formData.append("docType", data.docType);
+
+    const response = await apiClient.put<ApiSuccessResponse<OnboardingDocument>>(
+      API_ENDPOINTS.HOTELS.UPDATE_ONBOARDING_DOCUMENT(hotelId, documentId),
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data;
+  },
 };

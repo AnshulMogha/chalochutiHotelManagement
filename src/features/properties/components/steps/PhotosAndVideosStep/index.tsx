@@ -21,6 +21,10 @@ export function PhotosAndVideosStep() {
   const [expandedRooms, setExpandedRooms] = useState<string[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [duplicateUploadError, setDuplicateUploadError] = useState<{
+    message: string;
+    files: Array<{ name: string; sizeMb: string }>;
+  } | null>(null);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [inventory, setInventory] = useState<MediaFile[]>([]);
   const [roomMedia, setRoomMedia] = useState<RoomMediaFile[]>([]);
@@ -191,6 +195,27 @@ export function PhotosAndVideosStep() {
       setIsUploading(true);
       // Upload files using hotel-specific endpoint
       const uploadResponses = await propertyService.uploadHotelMedia(hotelId, validFiles);
+
+      const duplicateUploads = uploadResponses.filter((item) => item.duplicate);
+      if (duplicateUploads.length > 0) {
+        const duplicateFiles = uploadResponses
+          .map((item, index) => ({ item, file: validFiles[index] }))
+          .filter(({ item, file }) => item.duplicate && !!file)
+          .map(({ file }) => ({
+            name: file.name,
+            sizeMb: (file.size / (1024 * 1024)).toFixed(2),
+          }));
+
+        setDuplicateUploadError(
+          {
+            message:
+              duplicateUploads.length === 1
+                ? "Duplicate image detected. This file already exists."
+                : `${duplicateUploads.length} duplicate images detected. These files already exist.`,
+            files: duplicateFiles,
+          },
+        );
+      }
       
       // Add uploaded media directly to inventory (without tags initially)
       const newMediaItems: MediaFile[] = uploadResponses.map((media) => ({
@@ -673,6 +698,44 @@ export function PhotosAndVideosStep() {
         onFilesSelect={handleFilesSelect}
         isUploading={isUploading}
       />
+
+      {duplicateUploadError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-red-100">
+            <div className="px-6 py-4 border-b border-gray-200 bg-red-50 rounded-t-2xl">
+              <h3 className="text-base font-semibold text-red-700">
+                Duplicate Image Detected
+              </h3>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm text-gray-700">{duplicateUploadError.message}</p>
+              {duplicateUploadError.files.length > 0 && (
+                <div className="mt-3 rounded-lg border border-red-100 bg-red-50/60 p-3">
+                  <p className="text-xs font-semibold text-red-700 mb-2">
+                    Duplicate files
+                  </p>
+                  <ul className="space-y-1.5 text-xs text-gray-700">
+                    {duplicateUploadError.files.map((file, index) => (
+                      <li key={`${file.name}-${index}`} className="truncate">
+                        {index + 1}. {file.name} ({file.sizeMb} MB)
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+              <button
+                type="button"
+                className="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+                onClick={() => setDuplicateUploadError(null)}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {mediaForTagAssignment && (
         <SingleMediaTagModal

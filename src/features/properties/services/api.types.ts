@@ -256,6 +256,7 @@ export interface UploadMediaResponse {
   mediaId: number;
   fileUrl: string;
   fileType: "IMAGE" | "VIDEO";
+  duplicate?: boolean;
 }
 export interface AssignMediaRequest {
   entityType: string;

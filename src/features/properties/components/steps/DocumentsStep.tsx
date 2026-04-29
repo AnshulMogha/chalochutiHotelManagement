@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useOutletContext } from "react-router";
 import { propertyService } from "../../services/propertyService";
-import { adminService } from "@/features/admin/services/adminService";
 import type {
   OnboardingDocument,
   OnboardingDocumentType,
@@ -206,18 +205,19 @@ export function DocumentsStep() {
         editingDocument?.id ??
         editingDocument?.documentId ??
         editingDocument?.docId;
-      if (editingDocument && editingDocumentId == null) {
-        setValidationError("Unable to edit this document: document ID is missing.");
-        setUploading(false);
-        return;
-      }
-      if (editingDocumentId != null) {
-        await adminService.updateDocument(
-          hotelId,
-          editingDocumentId,
-          selectedFile,
-          selectedDocType as OnboardingDocumentType
-        );
+
+      if (editingDocument) {
+        if (editingDocumentId == null) {
+          setValidationError(
+            "Unable to edit this document: document ID is missing.",
+          );
+          setUploading(false);
+          return;
+        }
+        await propertyService.updateOnboardingDocument(hotelId, editingDocumentId, {
+          file: selectedFile,
+          docType: selectedDocType as OnboardingDocumentType,
+        });
       } else {
         await propertyService.uploadOnboardingDocument(hotelId, {
           file: selectedFile,
@@ -666,9 +666,6 @@ export function DocumentsStep() {
                 <span className="text-gray-600">
                   Uploaded: <span className="font-medium text-gray-900">{formatDate(selectedDocument.uploadedAt)}</span>
                 </span>
-                {selectedDocument.status && (
-                  <StatusBadge status={selectedDocument.status} />
-                )}
               </div>
             </div>
           </div>
