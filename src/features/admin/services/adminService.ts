@@ -1764,6 +1764,26 @@ export const adminService = {
     );
     return response.data;
   },
+  updateDocument: async (
+    hotelId: string,
+    documentId: string | number,
+    file: File,
+    docType: DocumentType
+  ): Promise<Document> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("docType", docType);
+    const response = await apiClient.put<ApiSuccessResponse<Document>>(
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_DOCUMENT(hotelId, documentId),
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    return response.data;
+  },
   // Document Review APIs (Super Admin)
   getPendingDocuments: async (): Promise<Document[]> => {
     const response = await apiClient.get<ApiSuccessResponse<Document[]>>(

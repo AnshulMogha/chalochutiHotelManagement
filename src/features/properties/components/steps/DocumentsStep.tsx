@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useOutletContext } from "react-router";
 import { propertyService } from "../../services/propertyService";
+import { adminService } from "@/features/admin/services/adminService";
 import type {
   OnboardingDocument,
   OnboardingDocumentType,
@@ -14,6 +15,7 @@ import {
   ExternalLink,
   Loader2,
   X,
+  Edit,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -115,14 +117,19 @@ export function DocumentsStep() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedDocType, setSelectedDocType] = useState<OnboardingDocumentType | "">("");
   const [dragActive, setDragActive] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [showViewerModal, setShowViewerModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<OnboardingDocument | null>(null);
+  const [editingDocument, setEditingDocument] = useState<OnboardingDocument | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadedDocTypes = new Set(documents.map((doc) => doc.docType));
   const availableDocTypes = DOCUMENT_TYPES.filter(
     (type) => !uploadedDocTypes.has(type.value)
   );
+  const uploadDocTypeOptions = editingDocument
+    ? DOCUMENT_TYPES.filter((type) => type.value === editingDocument.docType)
+    : availableDocTypes;
 
   useEffect(() => {
     if (!hotelId) {
@@ -189,21 +196,41 @@ export function DocumentsStep() {
 
   const handleUpload = async (asDraft: boolean) => {
     if (!hotelId || !selectedFile || !selectedDocType) return;
-    if (uploadedDocTypes.has(selectedDocType)) {
+    if (!editingDocument && uploadedDocTypes.has(selectedDocType)) {
       setValidationError("This document type is already uploaded.");
       return;
     }
     setUploading(true);
     try {
-      await propertyService.uploadOnboardingDocument(hotelId, {
-        file: selectedFile,
-        docType: selectedDocType as OnboardingDocumentType,
-        draft: asDraft,
-      });
+      const editingDocumentId =
+        editingDocument?.id ??
+        editingDocument?.documentId ??
+        editingDocument?.docId;
+      if (editingDocument && editingDocumentId == null) {
+        setValidationError("Unable to edit this document: document ID is missing.");
+        setUploading(false);
+        return;
+      }
+      if (editingDocumentId != null) {
+        await adminService.updateDocument(
+          hotelId,
+          editingDocumentId,
+          selectedFile,
+          selectedDocType as OnboardingDocumentType
+        );
+      } else {
+        await propertyService.uploadOnboardingDocument(hotelId, {
+          file: selectedFile,
+          docType: selectedDocType as OnboardingDocumentType,
+          draft: asDraft,
+        });
+      }
       const list = await propertyService.getOnboardingDocuments(hotelId);
       setDocuments(Array.isArray(list) ? list : []);
       setSelectedFile(null);
       setSelectedDocType("");
+      setEditingDocument(null);
+      setIsFormOpen(false);
       setValidationError(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (error) {
@@ -215,6 +242,8 @@ export function DocumentsStep() {
 
   const documentUrl = (doc: OnboardingDocument) =>
     doc.documentUrl ?? doc.fileUrl ?? "";
+  const getDocumentId = (doc: OnboardingDocument) =>
+    doc.id ?? doc.documentId ?? doc.docId;
 
   if (loading) {
     return (
@@ -230,134 +259,40 @@ export function DocumentsStep() {
       {/* Header */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="bg-linear-to-br from-slate-50 to-blue-50/50 px-6 py-6 border-b border-gray-100">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-              <FileCheck2 className="h-6 w-6" />
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                <FileCheck2 className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Documents</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Upload GST, PAN, cancelled cheque, bank statement, agreement or other documents. One file at a time; save as draft, then continue to the next step when done.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Documents</h2>
-              <p className="mt-1 text-sm text-gray-600">
-                Upload GST, PAN, cancelled cheque, bank statement, agreement or other documents. One file at a time; save as draft, then continue to the next step when done.
-              </p>
-            </div>
+            {!readOnly && (
+              <Button
+                type="button"
+                variant="primary"
+                className="shrink-0 gap-2"
+                onClick={() => {
+                  setEditingDocument(null);
+                  setSelectedFile(null);
+                  setSelectedDocType("");
+                  setValidationError(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                  setIsFormOpen(true);
+                }}
+              >
+                <Upload className="h-4 w-4" />
+                Upload New Document
+              </Button>
+            )}
           </div>
         </div>
 
         {/* Upload card – hidden in view/read-only mode */}
-        {!readOnly && (
-          <div className="p-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <Upload className="h-4 w-4 text-gray-500" />
-              Upload a document
-            </h3>
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              className={cn(
-                "rounded-xl border-2 border-dashed transition-colors",
-                dragActive ? "border-blue-400 bg-blue-50/50" : "border-gray-200 bg-gray-50/50 hover:border-gray-300 hover:bg-gray-50"
-              )}
-            >
-              <div className="p-6 grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-x-4 gap-y-4 sm:gap-y-3">
-                <div className="grid grid-rows-[auto_minmax(40px,1fr)] gap-1.5">
-                  <label className="text-sm font-medium text-gray-700">
-                    Document type <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={selectedDocType}
-                    onChange={(e) =>
-                      setSelectedDocType(e.target.value as OnboardingDocumentType)
-                    }
-                    disabled={availableDocTypes.length === 0}
-                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="">
-                      {availableDocTypes.length === 0
-                        ? "All document types already uploaded"
-                        : "Select document type"}
-                    </option>
-                    {availableDocTypes.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="grid grid-rows-[auto_minmax(40px,1fr)] gap-1.5">
-                  <label className="text-sm font-medium text-gray-700">
-                    File <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                    id="doc-file-upload"
-                    accept=".pdf,.doc,.docx"
-                  />
-                  <label
-                    htmlFor="doc-file-upload"
-                    className={cn(
-                      "flex min-h-[40px] cursor-pointer items-center gap-3 rounded-lg border bg-white px-4 py-2.5 transition-colors",
-                      selectedFile
-                        ? "border-blue-200 bg-blue-50/30 text-blue-800"
-                        : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
-                    )}
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100">
-                      <FileText className="h-4 w-4 text-gray-500" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium text-gray-900">
-                        {selectedFile ? selectedFile.name : "Choose file or drag here"}
-                      </span>
-                      {selectedFile && (
-                        <span className="text-xs text-gray-500">
-                          {formatFileSize(selectedFile.size)}
-                        </span>
-                      )}
-                    </div>
-                    <Upload className="h-4 w-4 shrink-0 text-gray-400" />
-                  </label>
-                </div>
-                <div className="grid grid-rows-[auto_minmax(40px,1fr)] gap-1.5 sm:flex sm:flex-col sm:justify-center">
-                  <span className="hidden text-sm font-medium text-gray-700 sm:block sm:invisible">
-                    Action
-                  </span>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    onClick={() => handleUpload(true)}
-                    disabled={uploading || !selectedFile || !selectedDocType}
-                    className="h-[40px] shrink-0 gap-2 px-4"
-                  >
-                    {uploading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Uploading…
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4" />
-                        Save as draft
-                      </>
-                    )}
-                  </Button>
-                </div>
-                {validationError && (
-                  <div className="sm:col-span-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                    {validationError}
-                  </div>
-                )}
-                <div className="sm:col-span-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                  <span className="text-red-600">*</span> Allowed document formats: pdf, doc, docx.
-                  <span className="ml-1 text-red-600">*</span> Max file size: 5 MB.
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Uploaded list */}
@@ -380,14 +315,14 @@ export function DocumentsStep() {
               </div>
               <p className="text-sm font-medium text-gray-700">No documents yet</p>
               <p className="mt-1 text-sm text-gray-500 text-center max-w-xs">
-                Select a document type and file above, then click Save as draft to add your first document.
+                Click <span className="font-semibold">Upload New Document</span> to add your first document.
               </p>
             </div>
           ) : (
             <ul className="space-y-3">
               {documents.map((doc) => (
                 <li
-                  key={doc.id ?? doc.docType}
+                  key={getDocumentId(doc) ?? doc.docType}
                   className="flex flex-wrap items-center gap-4 rounded-xl border border-gray-200 bg-gray-50/30 px-4 py-3 hover:bg-gray-50/50 transition-colors"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white border border-gray-200 text-blue-600">
@@ -405,7 +340,31 @@ export function DocumentsStep() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    {doc.status && <StatusBadge status={doc.status} />}
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const docId = getDocumentId(doc);
+                          if (docId == null) {
+                            setValidationError(
+                              "Unable to edit this document: document ID is missing."
+                            );
+                            return;
+                          }
+                          setEditingDocument(doc);
+                          setSelectedDocType(doc.docType);
+                          setSelectedFile(null);
+                          setValidationError(null);
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                          setIsFormOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        title="Edit"
+                      >
+                        <Edit className="h-4 w-4" />
+                        Edit
+                      </button>
+                    )}
                     {documentUrl(doc) && (
                       <button
                         type="button"
@@ -426,6 +385,163 @@ export function DocumentsStep() {
           )}
         </div>
       </div>
+
+      {!readOnly && isFormOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => {
+            setIsFormOpen(false);
+            setEditingDocument(null);
+            setSelectedFile(null);
+            setSelectedDocType("");
+            setValidationError(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <Upload className="h-4 w-4 text-gray-500" />
+                {editingDocument ? "Edit document" : "Upload a document"}
+              </h3>
+              <button
+                type="button"
+                className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"
+                onClick={() => {
+                  setIsFormOpen(false);
+                  setEditingDocument(null);
+                  setSelectedFile(null);
+                  setSelectedDocType("");
+                  setValidationError(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-6">
+              {editingDocument && (
+                <div className="mb-3 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+                  Edit mode is active. Choose a replacement file and click <span className="font-semibold">Update document</span>.
+                </div>
+              )}
+              <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                className={cn(
+                  "rounded-xl border-2 border-dashed transition-colors",
+                  dragActive ? "border-blue-400 bg-blue-50/50" : "border-gray-200 bg-gray-50/50 hover:border-gray-300 hover:bg-gray-50"
+                )}
+              >
+                <div className="p-6 grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-x-4 gap-y-4 sm:gap-y-3">
+                  <div className="grid grid-rows-[auto_minmax(40px,1fr)] gap-1.5">
+                    <label className="text-sm font-medium text-gray-700">
+                      Document type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedDocType}
+                      onChange={(e) =>
+                        setSelectedDocType(e.target.value as OnboardingDocumentType)
+                      }
+                      disabled={uploadDocTypeOptions.length === 0 || !!editingDocument}
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="">
+                        {uploadDocTypeOptions.length === 0
+                          ? "All document types already uploaded"
+                          : "Select document type"}
+                      </option>
+                      {uploadDocTypeOptions.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-rows-[auto_minmax(40px,1fr)] gap-1.5">
+                    <label className="text-sm font-medium text-gray-700">
+                      File <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      id="doc-file-upload"
+                      accept=".pdf,.doc,.docx"
+                    />
+                    <label
+                      htmlFor="doc-file-upload"
+                      className={cn(
+                        "flex min-h-[40px] cursor-pointer items-center gap-3 rounded-lg border bg-white px-4 py-2.5 transition-colors",
+                        selectedFile
+                          ? "border-blue-200 bg-blue-50/30 text-blue-800"
+                          : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+                      )}
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100">
+                        <FileText className="h-4 w-4 text-gray-500" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-gray-900">
+                          {selectedFile
+                            ? selectedFile.name
+                            : editingDocument
+                              ? "Choose replacement file"
+                              : "Choose file or drag here"}
+                        </span>
+                        {selectedFile && (
+                          <span className="text-xs text-gray-500">
+                            {formatFileSize(selectedFile.size)}
+                          </span>
+                        )}
+                      </div>
+                      <Upload className="h-4 w-4 shrink-0 text-gray-400" />
+                    </label>
+                  </div>
+                  <div className="grid grid-rows-[auto_minmax(40px,1fr)] gap-1.5 sm:flex sm:flex-col sm:justify-center">
+                    <span className="hidden text-sm font-medium text-gray-700 sm:block sm:invisible">
+                      Action
+                    </span>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={() => handleUpload(true)}
+                      disabled={uploading || !selectedFile || !selectedDocType}
+                      className="h-[40px] shrink-0 gap-2 px-4"
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {editingDocument ? "Updating…" : "Uploading…"}
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          {editingDocument ? "Update document" : "Save as draft"}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {validationError && (
+                    <div className="sm:col-span-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                      {validationError}
+                    </div>
+                  )}
+                  <div className="sm:col-span-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                    <span className="text-red-600">*</span> Allowed document formats: pdf, doc, docx.
+                    <span className="ml-1 text-red-600">*</span> Max file size: 5 MB.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Document viewer popup */}
       {showViewerModal && selectedDocument && (() => {

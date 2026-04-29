@@ -411,9 +411,10 @@ export function PoliciesStep() {
     "allowMaleOnlyGroups",
   ] as (keyof typeof policiesData)[]);
 
-  const identityProofsCount = countRules([
-    "acceptableIdentityProofs",
-  ] as (keyof typeof policiesData)[]);
+  const identityProofsCount = Math.min(
+    (policiesData.acceptableIdentityProofs || []).length,
+    IDENTITY_PROOFS.length
+  );
 
   const propertyRestrictionsCount = countRules([
     "smokingAllowed",
@@ -617,6 +618,35 @@ export function PoliciesStep() {
                 Select acceptable identity proofs
               </p>
               <div className="space-y-2">
+                {(() => {
+                  const currentProofs = policiesData.acceptableIdentityProofs || [];
+                  const allIdentityProofValues = IDENTITY_PROOFS.map(
+                    (proof) => proof.value
+                  );
+                  const isAllSelected = allIdentityProofValues.every((value) =>
+                    currentProofs.includes(value)
+                  );
+
+                  return (
+                    <label className="flex items-center gap-2 cursor-pointer pb-2 mb-1 border-b border-gray-100">
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        onChange={(e) => {
+                          handleUpdatePolicy(
+                            "acceptableIdentityProofs",
+                            e.target.checked ? allIdentityProofValues : []
+                          );
+                        }}
+                        disabled={!!readOnly}
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-semibold text-gray-800">
+                        Select All
+                      </span>
+                    </label>
+                  );
+                })()}
                 {IDENTITY_PROOFS.map((proof) => {
                   const currentProofs =
                     policiesData.acceptableIdentityProofs || [];

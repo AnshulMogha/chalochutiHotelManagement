@@ -202,7 +202,6 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
   }
 
   const availableDocTypes = getAvailableDocTypes();
-
   return (
     <>
       <Toast

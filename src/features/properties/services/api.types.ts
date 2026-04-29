@@ -290,6 +290,8 @@ export type OnboardingDocumentType =
 
 export interface OnboardingDocument {
   id?: number;
+  documentId?: number;
+  docId?: number;
   hotelId?: string;
   docType: OnboardingDocumentType;
   fileUrl?: string;

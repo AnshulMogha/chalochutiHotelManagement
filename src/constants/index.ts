@@ -296,6 +296,8 @@ export const API_ENDPOINTS = {
       `/hotel/${hotelId}/promotions/${promotionId}/status`,
     GET_DOCUMENTS: (hotelId: string) => `/hotel/${hotelId}/documents`,
     UPLOAD_DOCUMENT: (hotelId: string) => `/hotel/${hotelId}/document/upload`,
+    UPDATE_DOCUMENT: (hotelId: string, documentId: string | number) =>
+      `/hotel/${hotelId}/document/${documentId}`,
     GET_TEAM_MEMBERS: (hotelId: string) => `/hotel/${hotelId}/users`,
     CREATE_TEAM_MEMBER: (hotelId: string) => `/hotel/${hotelId}/users`,
     ASSIGN_HOTEL_TO_USER: (hotelId: string, userId: string | number) =>

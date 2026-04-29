@@ -340,6 +340,15 @@ function Container() {
     } catch (error: any) {
       const apiError = error as ApiFailureResponse<Record<string, string>>;
       const data = apiError?.data || {};
+      if (data.gstin) {
+        setErrors((prev) => ({
+          ...prev,
+          financeAndLegalInfo: {
+            gstin: data.gstin,
+          },
+        }));
+        return;
+      }
       const message =
         data.propertyName ||
         apiError?.message ||
