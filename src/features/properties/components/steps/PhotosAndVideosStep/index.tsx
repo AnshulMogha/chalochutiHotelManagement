@@ -495,7 +495,20 @@ export function PhotosAndVideosStep() {
           readOnly={!!readOnly}
           inventory={inventory}
           onUploadClick={() => setShowUploadModal(true)}
-          onRemove={undefined}
+          onRemove={async (mediaId: string) => {
+            if (readOnly) return;
+            if (!hotelId) return;
+            const id = parseInt(mediaId, 10);
+            if (isNaN(id)) return;
+            try {
+              await propertyService.deattachMedia(id, "HOTEL", hotelId);
+              setInventory((prev) =>
+                prev.filter((item) => item.mediaId.toString() !== mediaId),
+              );
+            } catch (error) {
+              console.error("Error deleting media from inventory:", error);
+            }
+          }}
           onAssignTags={(mediaId) => {
             const mediaItem = inventory.find((item) => item.mediaId === mediaId);
             if (mediaItem) {
@@ -509,6 +522,7 @@ export function PhotosAndVideosStep() {
               });
             }
           }}
+          showDelete={!readOnly}
         />
       )}
 

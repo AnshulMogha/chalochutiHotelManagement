@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Tag, Trash2, X } from "lucide-react";
+import { Eye, Play, Tag, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MediaFile } from "./types";
 
@@ -88,15 +88,25 @@ export function MediaItem({
         
         {/* Always visible Assign Tag button */}
         {onAssignTags && (
-          <button
-            type="button"
-            onClick={() => onAssignTags(item.mediaId)}
-            className="absolute bottom-2 right-2 bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-md font-medium flex items-center gap-1.5 shadow-lg transition-colors z-10"
-            title="Assign Tags"
-          >
-            <Tag className="w-3.5 h-3.5" />
-            <span>Tag</span>
-          </button>
+          <div className="absolute bottom-2 right-2 flex items-center gap-2 z-10">
+            <button
+              type="button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="bg-white/95 hover:bg-white text-gray-800 p-2 rounded-md shadow-lg transition-colors border border-gray-200"
+              title={item.type === "VIDEO" ? "Preview video" : "Preview image"}
+            >
+              <Eye className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onAssignTags(item.mediaId)}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-md font-medium flex items-center gap-1.5 shadow-lg transition-colors"
+              title="Assign Tags"
+            >
+              <Tag className="w-3.5 h-3.5" />
+              <span>Tag</span>
+            </button>
+          </div>
         )}
         
         {item.type === "VIDEO" && (

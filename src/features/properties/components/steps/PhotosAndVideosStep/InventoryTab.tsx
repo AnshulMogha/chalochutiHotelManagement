@@ -9,6 +9,7 @@ interface InventoryTabProps {
   onUploadClick: () => void;
   onRemove?: (id: string) => void;
   onAssignTags?: (mediaId: number) => void;
+  showDelete?: boolean;
 }
 
 export function InventoryTab({
@@ -17,6 +18,7 @@ export function InventoryTab({
   onUploadClick,
   onRemove,
   onAssignTags,
+  showDelete = false,
 }: InventoryTabProps) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
@@ -70,7 +72,7 @@ export function InventoryTab({
             media={inventory}
             onRemove={onRemove}
             onAssignTags={onAssignTags}
-            showDelete={false}
+            showDelete={showDelete}
             tagColor="blue"
           />
         )}
