@@ -112,6 +112,7 @@ function buildSleepingArrangement(sa: RoomStateType["sleepingArrangement"]) {
       maxChildren: sa.maxChildren,
       maxOccupancy: sa.maxOccupancy,
       extraBedAllowed: sa.canAccommodateExtraBed,
+      numberOfExtraBeds: sa.numberOfExtraBeds,
       alternateArrangement: sa.hasAlternateArrangement,
     },
     beds: [...standardBeds, ...alternateBeds],
@@ -300,10 +301,10 @@ function transformPoliciesToRules(policiesInfo: PoliciesInfo): PolicyRule[] {
     });
   }
 
-  // Cancellation Policy
+  // Cancellation Policy (non_refundable maps to -1; must still be sent)
   if (policiesInfo.cancellationPolicy) {
     const hours = mapCancellationPolicyToHours(policiesInfo.cancellationPolicy);
-    if (hours !== null && hours >= 0) {
+    if (hours !== null) {
       rules.push({
         category: "CANCELLATION",
         ruleCode: "FREE_CANCEL_BEFORE_HOURS",

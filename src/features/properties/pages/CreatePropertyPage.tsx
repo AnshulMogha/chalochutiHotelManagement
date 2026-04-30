@@ -151,7 +151,11 @@ function Container() {
     reviewTab === "pending" ||
     (reviewTab === null && !!draftId && isReviewActor && !isFinalReviewStatus);
   const showApproveRejectActions =
-    !!draftId && isPendingReviewContext && onFinanceStep && isReviewActor;
+    !!draftId &&
+    isPendingReviewContext &&
+    onFinanceStep &&
+    isReviewActor &&
+    !isSuperAdmin;
 
   // ✅ NEW: derive allowedStep from server step
   const allowedStep = ongoingStep

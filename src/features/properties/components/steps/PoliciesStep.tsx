@@ -278,9 +278,10 @@ export function PoliciesStep() {
           checkoutTime:
             toString(getRuleValue(rules, "CHECKIN_CHECKOUT", "CHECKOUT_TIME")) ||
             "12:00",
-          cancellationPolicy: nonRefundable
-            ? "non_refundable"
-            : mapCancellationHoursToPolicy(freeCancelHours),
+          cancellationPolicy:
+            nonRefundable || freeCancelHours === -1
+              ? "non_refundable"
+              : mapCancellationHoursToPolicy(freeCancelHours),
           has24HourCheckin: toBoolean(
             getRuleValue(rules, "CHECKIN_CHECKOUT", "TWENTY_FOUR_HOUR_CHECKIN"),
           ),

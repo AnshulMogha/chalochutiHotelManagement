@@ -98,7 +98,7 @@ function transformRoomResponseToState(
             numberOfBeds: bed.numberOfBeds,
           })) || [],
       canAccommodateExtraBed: response.occupancy?.extraBedAllowed ?? false,
-      numberOfExtraBeds: response.occupancy?.maxOccupancy ?? 0,
+      numberOfExtraBeds: response.occupancy?.numberOfExtraBeds ?? 0,
       hasAlternateArrangement:
         response.occupancy?.alternateArrangement ?? false,
       alternateBeds:

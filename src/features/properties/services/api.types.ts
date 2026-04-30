@@ -59,6 +59,7 @@ export interface SubmitRoomDetailsRequest {
     maxChildren: number;
     maxOccupancy: number;
     extraBedAllowed: boolean;
+    numberOfExtraBeds?: number;
     alternateArrangement: boolean;
   };
   beds?: {
@@ -218,6 +219,7 @@ export interface GetRoomDetailsResponse {
       maxChildren: number;
       maxOccupancy: number;
       extraBedAllowed: boolean;
+      numberOfExtraBeds?: number;
       alternateArrangement: boolean;
     };
     beds:

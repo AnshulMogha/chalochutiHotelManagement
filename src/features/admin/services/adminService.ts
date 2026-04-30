@@ -674,6 +674,7 @@ export interface HotelRoomDetailsRequest {
     maxChildren: number;
     maxOccupancy: number;
     extraBedAllowed: boolean;
+    numberOfExtraBeds?: number;
     alternateArrangement: boolean;
   };
   beds: {
@@ -707,6 +708,7 @@ export interface HotelRoomDetailsResponse {
     maxChildren: number;
     maxOccupancy: number;
     extraBedAllowed: boolean;
+    numberOfExtraBeds?: number;
     alternateArrangement: boolean;
   };
   beds: {

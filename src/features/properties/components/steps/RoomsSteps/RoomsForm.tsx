@@ -68,6 +68,104 @@ export function RoomsForm({
     mode === "CREATE" ? undefined : editingRoomKey
   );
 
+  const inferStepFromRoomDetails = (response: Awaited<
+    ReturnType<typeof propertyService.getRoomDetails>
+  >) => {
+    const hasRoomDetails = !!response.data.roomDetails;
+    const hasSleepingArrangement =
+      !!response.data.occupancy &&
+      Array.isArray(response.data.beds) &&
+      response.data.beds.length > 0;
+    const hasBathroom = !!response.data.bathroom;
+    const hasMealPlan = !!response.data.pricing && !!response.data.inventory;
+    const hasAmenities =
+      Array.isArray(response.data.amenities) && response.data.amenities.length > 0;
+
+    if (!hasRoomDetails) return 0;
+    if (!hasSleepingArrangement) return 1;
+    if (!hasBathroom) return 2;
+    if (!hasMealPlan) return 3;
+    if (!hasAmenities) return 4;
+    return 4;
+  };
+
+  const hydrateRoomFromKey = async (key: string) => {
+    const response = await propertyService.getRoomDetails(hotelId!, key);
+    const amenities = Array.isArray(response.data.amenities)
+      ? response.data.amenities
+      : [];
+    const selectedAmenities = amenities.reduce<
+      Record<string, string[]>
+    >((acc, item) => {
+      if (!acc[item.categoryCode]) {
+        acc[item.categoryCode] = [];
+      }
+      acc[item.categoryCode].push(item.amenityCode);
+      return acc;
+    }, {} as Record<string, string[]>);
+
+    setRoomDetailsState(
+      setRoomDetails({
+        roomDetails: {
+          roomName: response.data.roomDetails?.roomName || "",
+          roomType: response.data.roomDetails?.roomType || "",
+          roomView: response.data.roomDetails?.roomView || "",
+          roomSize: response.data.roomDetails?.roomSize || 0,
+          roomSizeUnit: response.data.roomDetails?.roomSizeUnit || "SQFT",
+          totalRooms: response.data.roomDetails?.totalRooms || 0,
+          numberOfBathrooms: response.data.bathroom?.numberOfBathrooms || 1,
+          description: response.data.roomDetails?.description || "",
+        },
+        sleepingArrangement: {
+          standardBeds:
+            response.data.beds
+              ?.filter((bed) => bed.standard)
+              .map((bed) => ({
+                bedType: bed.bedType,
+                numberOfBeds: bed.numberOfBeds,
+              })) || [],
+          canAccommodateExtraBed:
+            response.data.occupancy?.extraBedAllowed || false,
+          numberOfExtraBeds: response.data.occupancy?.numberOfExtraBeds ?? 0,
+          hasAlternateArrangement:
+            response.data.occupancy?.alternateArrangement || false,
+          alternateBeds:
+            response.data.beds
+              ?.filter((bed) => !bed.standard)
+              .map((bed) => ({
+                bedType: bed.bedType,
+                numberOfBeds: bed.numberOfBeds,
+              })) || [],
+          baseAdults: response.data.occupancy?.baseAdults || 0,
+          maxAdults: response.data.occupancy?.maxAdults || 0,
+          baseChildren: response.data.occupancy?.baseChildren || 0,
+          maxChildren: response.data.occupancy?.maxChildren || 0,
+          maxOccupancy: response.data.occupancy?.maxOccupancy || 0,
+        },
+        bathroomDetails: {
+          numberOfBathrooms: response.data.bathroom?.numberOfBathrooms || 0,
+        },
+        mealPlanDetails: {
+          mealPlan: response.data.pricing?.mealPlan || "",
+          baseRate: response.data.pricing?.baseRate || 0,
+          singleOccupancyRate: response.data.pricing?.singleOccupancyRate || 0,
+          extraAdultCharge: response.data.pricing?.extraAdultCharge || 0,
+          paidChildCharge: response.data.pricing?.paidChildCharge || 0,
+          startDate: response.data.inventory?.startDate || "",
+          endDate: response.data.inventory?.endDate || "",
+        },
+        roomAmenities: {
+          availableAmenities: [],
+          selectedAmenities: selectedAmenities,
+        },
+      })
+    );
+    setRoomKey(response.data.roomKey || key);
+    const stepToResume = inferStepFromRoomDetails(response);
+    setCurrentStep(stepToResume);
+    setOngoingStep(stepToResume);
+  };
+
   // Load room amenities master list for the Room Amenities step.
   useEffect(() => {
     const fetchAvailableRoomAmenities = async () => {
@@ -87,85 +185,22 @@ export function RoomsForm({
   }, [setRoomDetailsState]);
 
   useEffect(() => {
-    async function fetchRoomDetails() {
-      const response = await propertyService.getRoomDetails(
-        hotelId!,
-        editingRoomKey!
-      );
-      const selectedAmenities = response.data.amenities.reduce<
-        Record<string, string[]>
-      >((acc, item) => {
-        if (!acc[item.categoryCode]) {
-          acc[item.categoryCode] = [];
+    async function loadRoomFormData() {
+      if (!hotelId) return;
+      if (editingRoomKey) {
+        await hydrateRoomFromKey(editingRoomKey);
+        return;
+      }
+      if (mode === "CREATE") {
+        const rooms = await propertyService.getAllRooms(hotelId);
+        const existingDraftRoom = rooms.find((room) => room.draft);
+        if (existingDraftRoom?.data?.roomKey) {
+          await hydrateRoomFromKey(existingDraftRoom.data.roomKey);
         }
-        acc[item.categoryCode].push(item.amenityCode);
-        return acc;
-      }, {} as Record<string, string[]>);
-      console.log(selectedAmenities);
-      setRoomDetailsState(
-        setRoomDetails({
-          roomDetails: {
-            roomName: response.data.roomDetails?.roomName || "",
-            roomType: response.data.roomDetails?.roomType || "",
-            roomView: response.data.roomDetails?.roomView || "",
-            roomSize: response.data.roomDetails?.roomSize || 0,
-            roomSizeUnit: response.data.roomDetails?.roomSizeUnit || "SQFT",
-            totalRooms: response.data.roomDetails?.totalRooms || 0,
-            numberOfBathrooms: response.data.bathroom?.numberOfBathrooms || 1,
-            description: response.data.roomDetails?.description || "",
-          },
-          sleepingArrangement: {
-            standardBeds:
-              response.data.beds
-                ?.filter((bed) => bed.standard)
-                .map((bed) => ({
-                  bedType: bed.bedType,
-                  numberOfBeds: bed.numberOfBeds,
-                })) || [],
-            canAccommodateExtraBed:
-              response.data.occupancy?.extraBedAllowed || false,
-            numberOfExtraBeds: response.data.occupancy?.maxOccupancy || 0,
-            hasAlternateArrangement:
-              response.data.occupancy?.alternateArrangement || false,
-            alternateBeds:
-              response.data.beds
-                ?.filter((bed) => !bed.standard)
-                .map((bed) => ({
-                  bedType: bed.bedType,
-                  numberOfBeds: bed.numberOfBeds,
-                })) || [],
-            baseAdults: response.data.occupancy?.baseAdults || 0,
-            maxAdults: response.data.occupancy?.maxAdults || 0,
-            baseChildren: response.data.occupancy?.baseChildren || 0,
-            maxChildren: response.data.occupancy?.maxChildren || 0,
-            maxOccupancy: response.data.occupancy?.maxOccupancy || 0,
-          },
-          bathroomDetails: {
-            numberOfBathrooms: response.data.bathroom?.numberOfBathrooms || 0,
-          },
-          mealPlanDetails: {
-            mealPlan: response.data.pricing?.mealPlan || "",
-            baseRate: response.data.pricing?.baseRate || 0,
-            singleOccupancyRate:
-              response.data.pricing?.singleOccupancyRate || 0,
-            extraAdultCharge: response.data.pricing?.extraAdultCharge || 0,
-            paidChildCharge: response.data.pricing?.paidChildCharge || 0,
-
-            startDate: response.data.inventory?.startDate || "",
-            endDate: response.data.inventory?.endDate || "",
-          },
-          roomAmenities: {
-            availableAmenities: [],
-            selectedAmenities: selectedAmenities,
-          },
-        })
-      );
-
+      }
     }
-    if (editingRoomKey && hotelId) {
-      fetchRoomDetails();
-    }
-  }, [editingRoomKey, hotelId, setRoomDetailsState]);
+    loadRoomFormData();
+  }, [editingRoomKey, hotelId, mode]);
 
   const resetFieldError = <S extends keyof roomStepErrors, F extends string>(
     step: S,
@@ -256,6 +291,18 @@ export function RoomsForm({
     },
     // STEP 4 — Room Amenities
     async () => {
+      // Re-validate meal plan/pricing on final submit as users can jump
+      // between steps via tabs and change values after step 4 initially passed.
+      const mealPlanErrors = mealPlanValidator(roomDetailsState.mealPlanDetails);
+      if (mealPlanErrors) {
+        setErrors((prev) => ({
+          ...prev,
+          mealPlanDetails: mealPlanErrors,
+        }));
+        setCurrentStep(3);
+        return false;
+      }
+
       const stepErrors = amenitiesValidator(roomDetailsState.roomAmenities);
       if (stepErrors) {
         setErrors((prev) => ({

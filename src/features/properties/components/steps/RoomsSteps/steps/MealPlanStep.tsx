@@ -105,7 +105,6 @@ export function MealPlanStep({
           label=""
           error={errors.mealPlanDetails?.mealPlan}
           value={mealPlanDetails.mealPlan}
-          
           onChange={(e) => handleMealPlanChange(e.target.value)}
           options={mealPlanOptions}
         />
@@ -123,6 +122,7 @@ export function MealPlanStep({
               label: "Base Rate for 2 adults",
               description: "Enter the standard room rate for 2 adults.",
               placeholder: "Enter base rate",
+              min: 1,
               onChange: handleBaseRateChange,
               error: errors.mealPlanDetails?.baseRate,
             },
@@ -131,6 +131,7 @@ export function MealPlanStep({
               label: "Single Occupancy Rate",
               description: "Rate for single adult occupancy.",
               placeholder: "Enter single occupancy rate",
+              min: 1,
               onChange: handleSingleOccupancyRateChange,
               error: errors.mealPlanDetails?.singleOccupancyRate,
             },
@@ -140,6 +141,7 @@ export function MealPlanStep({
               description:
                 "Additional charge for each adult guest aged 18 years or older.",
               placeholder: "Enter extra adult charge",
+              min: 0,
               onChange: handleExtraAdultChargeChange,
               error: errors.mealPlanDetails?.extraAdultCharge,
             },
@@ -148,6 +150,7 @@ export function MealPlanStep({
               label: "Paid Child Charge",
               description: "Charge per child aged 7 to 17 years.",
               placeholder: "Enter charge for child",
+              min: 0,
               onChange: handlePaidChildChargeChange,
               error: errors.mealPlanDetails?.paidChildCharge,
             },
@@ -164,11 +167,12 @@ export function MealPlanStep({
                 <Input
                   type="number"
                   value={
-                    mealPlanDetails[item.key as keyof typeof mealPlanDetails] ||
+                    mealPlanDetails[item.key as keyof typeof mealPlanDetails] ??
                     ""
                   }
                   onChange={(e) => item.onChange(e.target.value)}
                   placeholder={item.placeholder}
+                  min={item.min}
                   className="pl-8"
                   error={item.error}
                 />

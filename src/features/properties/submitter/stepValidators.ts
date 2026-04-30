@@ -15,6 +15,7 @@ import locationInfoSchema from "../validator/loacationInfo.schema";
 import roomDetailsSchema from "../validator/roomStepValidators/roomDetails.schema";
 import { roomCapacityOptions } from "../components/steps/RoomsSteps/constants/roomBedsOptions";
 import mealPlanDetailsSchema from "../validator/roomStepValidators/mealPlanDetailsSchema";
+import { financeAndLegalSchema } from "../validator/financeAndLegal.schema";
 
 const basicInfoValidator = (basicInfo: BasicInfo) => {
   const result = basicInfoSchema.safeParse(basicInfo);
@@ -73,16 +74,11 @@ const policiesValidator = (policiesInfo: PoliciesInfo) => {
 };
 
 const financeAndLegalValidator = (financeAndLegalInfo: FinanceAndLegalInfo) => {
-  const errors: Record<string, string> = {};
-
-  // GSTIN validation: 15 characters, alphanumeric
-  // const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-  
-  if (!financeAndLegalInfo.gstin || financeAndLegalInfo.gstin.trim() === "") {
-    errors.gstin = "GSTIN is required";
-  } 
-
-  return Object.keys(errors).length > 0 ? errors : null;
+  const result = financeAndLegalSchema.safeParse(financeAndLegalInfo);
+  if (!result.success) {
+    return mapZodErrorsFlat(result.error);
+  }
+  return null;
 };
 
 export { basicInfoValidator, locationValidator, amenitiesValidator, policiesValidator, financeAndLegalValidator };
