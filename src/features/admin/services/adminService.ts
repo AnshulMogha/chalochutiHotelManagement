@@ -1602,13 +1602,32 @@ export const adminService = {
     );
     return response.data;
   },
-  uploadHotelMedia: async (hotelId: string, files: File[]): Promise<{ imageId: number; imageUrl: string }[]> => {
+  uploadHotelMedia: async (
+    hotelId: string,
+    files: File[]
+  ): Promise<
+    {
+      imageId: number;
+      imageUrl: string;
+      fileType?: "IMAGE" | "VIDEO";
+      duplicate?: boolean;
+    }[]
+  > => {
     const formData = new FormData();
     // Append all files with the parameter name "files"
     files.forEach((file) => {
       formData.append("files", file);
     });
-    const response = await apiClient.post<ApiSuccessResponse<{ imageId: number; imageUrl: string }[]>>(
+    const response = await apiClient.post<
+      ApiSuccessResponse<
+        {
+          imageId: number;
+          imageUrl: string;
+          fileType?: "IMAGE" | "VIDEO";
+          duplicate?: boolean;
+        }[]
+      >
+    >(
       API_ENDPOINTS.HOTEL_ADMIN.UPLOAD_HOTEL_MEDIA(hotelId),
       formData,
       {
@@ -1623,13 +1642,27 @@ export const adminService = {
     hotelId: string,
     roomKey: string,
     files: File[]
-  ): Promise<{ imageId: number; imageUrl: string }[]> => {
+  ): Promise<
+    {
+      imageId: number;
+      imageUrl: string;
+      fileType?: "IMAGE" | "VIDEO";
+      duplicate?: boolean;
+    }[]
+  > => {
     const formData = new FormData();
     files.forEach((file) => {
       formData.append("files", file);
     });
     const response = await apiClient.post<
-      ApiSuccessResponse<{ imageId: number; imageUrl: string }[]>
+      ApiSuccessResponse<
+        {
+          imageId: number;
+          imageUrl: string;
+          fileType?: "IMAGE" | "VIDEO";
+          duplicate?: boolean;
+        }[]
+      >
     >(
       API_ENDPOINTS.HOTEL_ADMIN.UPLOAD_ROOM_MEDIA(hotelId, roomKey),
       formData,

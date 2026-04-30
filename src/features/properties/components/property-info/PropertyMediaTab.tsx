@@ -39,6 +39,10 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
   const [roomMediaMap, setRoomMediaMap] = useState<Record<string, MediaFile[]>>({});
   const [expandedRooms, setExpandedRooms] = useState<Set<string>>(new Set());
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [duplicateUploadError, setDuplicateUploadError] = useState<{
+    message: string;
+    files: Array<{ name: string; sizeMb: string }>;
+  } | null>(null);
   const [uploadRoomKey, setUploadRoomKey] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showTagModal, setShowTagModal] = useState(false);
@@ -99,6 +103,17 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
       console.error("Error fetching room media:", error);
       showToast("Failed to load room media", "error");
     }
+  };
+
+  const resolveRoomByIdentifier = (identifier: string) =>
+    rooms.find((r) => r.roomKey === identifier || r.roomId === identifier);
+
+  const refreshRoomMediaByIdentifier = async (identifier: string) => {
+    const room = resolveRoomByIdentifier(identifier);
+    if (room) {
+      await fetchRoomMedia(room.roomId);
+    }
+    return room;
   };
 
   useEffect(() => {
@@ -188,19 +203,58 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
         responses = await adminService.uploadHotelMedia(hotelId, validFiles);
       }
 
+      const duplicateUploads = responses.filter((item) => item.duplicate);
+      if (duplicateUploads.length > 0) {
+        const duplicateFiles = responses
+          .map((item, index) => ({ item, file: validFiles[index] }))
+          .filter(({ item, file }) => item.duplicate && !!file)
+          .map(({ file }) => ({
+            name: file.name,
+            sizeMb: (file.size / (1024 * 1024)).toFixed(2),
+          }));
+
+        setDuplicateUploadError({
+          message:
+            duplicateUploads.length === 1
+              ? "Duplicate image detected. This file already exists."
+              : `${duplicateUploads.length} duplicate images detected. These files already exist.`,
+          files: duplicateFiles,
+        });
+      }
+
       showToast(`${responses.length} media file(s) uploaded successfully`, "success");
       setShowUploadModal(false);
-      
-      // Refresh media
-      await fetchHotelMedia();
+
+      // Immediate UI sync for room uploads (avoid waiting for refetch/refresh)
       if (uploadRoomKey) {
-        const room = rooms.find(
-          (r) => r.roomKey === uploadRoomKey || r.roomId === uploadRoomKey
-        );
+        const room = resolveRoomByIdentifier(uploadRoomKey);
         if (room) {
-          await fetchRoomMedia(room.roomId);
+          const optimisticItems: MediaFile[] = responses.map((res, index) => ({
+            imageId: res.imageId,
+            imageUrl: res.imageUrl,
+            thumbnailUrl: res.imageUrl,
+            category: null,
+            sortOrder: Date.now() + index,
+            roomId: room.roomId,
+            roomKey: room.roomKey ?? uploadRoomKey,
+            roomName: room.roomName,
+            cover: false,
+          }));
+          setRoomMediaMap((prev) => {
+            const existing = prev[room.roomId] || [];
+            const existingIds = new Set(existing.map((item) => item.imageId));
+            const merged = [
+              ...existing,
+              ...optimisticItems.filter((item) => !existingIds.has(item.imageId)),
+            ];
+            return { ...prev, [room.roomId]: merged };
+          });
         }
       }
+      
+      // Always refresh server state after upload so room section updates without page refresh.
+      await fetchHotelMedia();
+      if (uploadRoomKey) await refreshRoomMediaByIdentifier(uploadRoomKey);
     } catch (error: any) {
       console.error("Error uploading media:", error);
       const message =
@@ -279,16 +333,36 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
     }
   };
 
-  const handleAssignToRoom = async (imageId: number, roomKey: string) => {
+  const handleAssignToRoom = async (imageId: number, roomIdentifier: string) => {
     try {
       setIsProcessing(true);
       // PUT /hotel/{hotelId}/media/{imageId}/assign-room
-      await adminService.assignMediaToRoom(hotelId, imageId, { roomKey });
+      await adminService.assignMediaToRoom(hotelId, imageId, { roomKey: roomIdentifier });
       showToast("Media assigned to room successfully", "success");
-      // Find roomId from roomKey to refresh room media
-      const room = rooms.find(r => r.roomKey === roomKey);
+      // Resolve room by either roomKey or roomId, then refresh that room's media.
+      const room = resolveRoomByIdentifier(roomIdentifier);
       if (room) {
-        await fetchRoomMedia(room.roomId);
+        // Immediate UI sync so assignment is visible without page refresh
+        const source = hotelMedia.find((m) => m.imageId === imageId);
+        if (source) {
+          setRoomMediaMap((prev) => {
+            const existing = prev[room.roomId] || [];
+            if (existing.some((item) => item.imageId === imageId)) return prev;
+            return {
+              ...prev,
+              [room.roomId]: [
+                ...existing,
+                {
+                  ...source,
+                  roomId: room.roomId,
+                  roomKey: room.roomKey ?? roomIdentifier,
+                  roomName: room.roomName,
+                },
+              ],
+            };
+          });
+        }
+        await refreshRoomMediaByIdentifier(roomIdentifier);
       }
       await fetchHotelMedia();
     } catch (error) {
@@ -897,6 +971,44 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
           isUploading={isUploading}
           fileInputRef={fileInputRef}
         />
+      )}
+
+      {duplicateUploadError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-red-100">
+            <div className="px-6 py-4 border-b border-gray-200 bg-red-50 rounded-t-2xl">
+              <h3 className="text-base font-semibold text-red-700">
+                Duplicate Image Detected
+              </h3>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm text-gray-700">{duplicateUploadError.message}</p>
+              {duplicateUploadError.files.length > 0 && (
+                <div className="mt-3 rounded-lg border border-red-100 bg-red-50/60 p-3">
+                  <p className="text-xs font-semibold text-red-700 mb-2">
+                    Duplicate files
+                  </p>
+                  <ul className="space-y-1.5 text-xs text-gray-700">
+                    {duplicateUploadError.files.map((file, index) => (
+                      <li key={`${file.name}-${index}`} className="truncate">
+                        {index + 1}. {file.name} ({file.sizeMb} MB)
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+              <button
+                type="button"
+                className="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+                onClick={() => setDuplicateUploadError(null)}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Assign to Room Modal */}
