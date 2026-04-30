@@ -299,23 +299,25 @@ export default function BulkUpdateRatesPage() {
   };
 
   const getPaidChildRateLabel = (): string => {
-    // If no valid policy, use default static label
+    const baseLabel = "Paid Child Rate";
+
+    // Show age range only when valid policy values are available.
     if (!childPolicy?.childrenAllowed) {
-      return "Paid Child Rate (6 - 13 years)"; // Default static label
+      return baseLabel;
     }
     const freeMaxAge = childPolicy.freeStayMaxAge;
     const paidMaxAge = childPolicy.paidStayMaxAge;
     
     // Validate age values before using them
     if (typeof freeMaxAge !== 'number' || typeof paidMaxAge !== 'number') {
-      return "Paid Child Rate (6 - 13 years)"; // Fallback to default
+      return baseLabel;
     }
     if (isNaN(freeMaxAge) || isNaN(paidMaxAge)) {
-      return "Paid Child Rate (6 - 13 years)"; // Fallback to default
+      return baseLabel;
     }
     
     const minAge = freeMaxAge + 1;
-    return `Paid Child Rate (${minAge} – ${paidMaxAge} years)`;
+    return `${baseLabel} (${minAge} – ${paidMaxAge} years)`;
   };
 
   const getExtraAdultChargeLabel = (): string => {

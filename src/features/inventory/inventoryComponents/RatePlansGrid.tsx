@@ -179,25 +179,27 @@ export const RatePlansGrid = ({
 }: RatePlansGridProps) => {
   const navigate = useNavigate();
 
-  // Helper function to generate dynamic paid child charge label
+  // Helper function to generate paid child charge label.
+  // Age range is appended only when a valid child policy exists.
   const getPaidChildChargeLabel = (): string => {
-    // If no valid policy, use default static label
+    const baseLabel = "Paid Child Charge";
+
     if (!childPolicy?.childrenAllowed) {
-      return "Paid Child Charge (6 - 12 years)"; // Default static label
+      return baseLabel;
     }
     const freeMaxAge = childPolicy.freeStayMaxAge;
     const paidMaxAge = childPolicy.paidStayMaxAge;
 
     // Validate age values before using them
     if (typeof freeMaxAge !== 'number' || typeof paidMaxAge !== 'number') {
-      return "Paid Child Charge (6 - 12 years)"; // Fallback to default
+      return baseLabel;
     }
     if (isNaN(freeMaxAge) || isNaN(paidMaxAge)) {
-      return "Paid Child Charge (6 - 12 years)"; // Fallback to default
+      return baseLabel;
     }
 
     const minAge = freeMaxAge + 1;
-    return `Paid Child Charge (${minAge} – ${paidMaxAge} years)`;
+    return `${baseLabel} (${minAge} – ${paidMaxAge} years)`;
   };
   // Accordion state: only one room expanded at a time
   const [expandedRoomId, setExpandedRoomId] = useState<number | null>(null);
@@ -545,12 +547,9 @@ export const RatePlansGrid = ({
                       <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600">
                         <Users className="w-4 h-4" />
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-slate-900">
+                      <div>
+                        <span className="text-md font-semibold text-slate-900">
                           Base Rate
-                        </span>
-                        <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">
-                          Double Occupancy
                         </span>
                       </div>
                     </div>
@@ -664,12 +663,9 @@ export const RatePlansGrid = ({
                         <div className="flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-500">
                           <User className="w-4 h-4" />
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-semibold text-slate-900">
+                        <div>
+                          <span className="text-md font-semibold text-slate-900">
                             Single Adult Rate
-                          </span>
-                          <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">
-                            Single Occupancy
                           </span>
                         </div>
                       </div>
