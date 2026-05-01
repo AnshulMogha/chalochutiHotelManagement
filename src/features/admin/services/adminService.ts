@@ -345,24 +345,33 @@ export interface UpdateHotelAddressRequest {
 
 export interface CancellationPolicyPayload {
   policyName: string;
-  freeCancellationTillHours: number;
-  noShowPenalty: string;
+  noShowPenaltyType: "NONE" | "PERCENTAGE" | "FIXED";
+  noShowPenaltyValue?: number | null;
+  slabs: {
+    fromHours: number;
+    toHours: number;
+    penaltyType: "PERCENTAGE" | "FIXED";
+    penaltyValue: number;
+  }[];
 }
 
 export interface CancellationPolicySlab {
-  id: number;
+  id?: number;
   fromHours: number;
   toHours: number;
-  refundPercent: number;
-  penaltyAmount: number | null;
+  penaltyValue?: number | null;
+  refundPercent?: number;
+  penaltyAmount?: number | null;
   penaltyType: string | null;
-  active: boolean;
+  active?: boolean;
 }
 
 export interface CancellationPolicy {
   id: number;
   hotelId: string;
   policyName: string;
+  noShowPenaltyType?: "NONE" | "PERCENTAGE" | "FIXED";
+  noShowPenaltyValue?: number | null;
   version: number;
   isLatest: boolean;
   status: string;

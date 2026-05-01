@@ -13,7 +13,19 @@ import {
   type PaymentRule,
   type PaymentRulePayload,
 } from "@/features/admin/services/adminService";
-import { AlertCircle, Loader2, Plus, FileText } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CalendarClock,
+  Eye,
+  FileText,
+  Loader2,
+  Pencil,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  UserCircle2,
+} from "lucide-react";
 
 interface PolicyAndRulesTabProps {
   hotelId: string;
@@ -79,51 +91,28 @@ const ID_PROOF_OPTIONS = [
   { value: "DRIVING_LICENSE", label: "Driving License" },
 ];
 
-const PREDEFINED_CANCELLATION_POLICIES: Array<{
-  label: string;
-  policyName: string;
-  freeCancellationTillHours: number;
-  noShowPenalty: "NONE" | "FIRST_NIGHT_COST" | "FULL_STAY_COST";
-  recommended?: boolean;
-}> = [
-  {
-    label: "Free Cancellation till check-in",
-    policyName: "Free Cancellation till check-in",
-    freeCancellationTillHours: 0,
-    noShowPenalty: "NONE",
-    recommended: true,
-  },
-  {
-    label: "Free Cancellation till 24 hours before check-in",
-    policyName: "Free Cancellation till 24 hours before check-in",
-    freeCancellationTillHours: 24,
-    noShowPenalty: "NONE",
-  },
-  {
-    label: "Free Cancellation till 48 hours before check-in",
-    policyName: "Free Cancellation till 48 hours before check-in",
-    freeCancellationTillHours: 48,
-    noShowPenalty: "NONE",
-  },
-  {
-    label: "Free Cancellation till 72 hours before check-in",
-    policyName: "Free Cancellation till 72 hours before check-in",
-    freeCancellationTillHours: 72,
-    noShowPenalty: "NONE",
-  },
-  {
-    label: "Free Cancellation till 7 days before check-in",
-    policyName: "Free Cancellation till 7 days before check-in",
-    freeCancellationTillHours: 168,
-    noShowPenalty: "NONE",
-  },
-  {
-    label: "Non-Refundable",
-    policyName: "Non-Refundable",
-    freeCancellationTillHours: 0,
-    noShowPenalty: "FULL_STAY_COST",
-  },
-];
+type SlabPenaltyType = "PERCENTAGE" | "FIXED";
+type NoShowPenaltyType = "NONE" | "PERCENTAGE" | "FIXED";
+
+interface CancellationSlabForm {
+  fromHours: number;
+  toHours: number;
+  penaltyType: SlabPenaltyType;
+  penaltyValue: number;
+}
+
+interface CancellationFormErrors {
+  policyName?: string;
+  noShowPenaltyValue?: string;
+  slabs?: string;
+}
+
+interface RuleDraftErrors {
+  fromHours?: string;
+  toHours?: string;
+  penaltyValue?: string;
+  overlap?: string;
+}
 
 const toBoolean = (value: unknown, fallback = false) => {
   if (typeof value === "boolean") return value;
@@ -267,16 +256,34 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
   const [cancellationForm, setCancellationForm] =
     useState<CancellationPolicyPayload>({
       policyName: "",
-      freeCancellationTillHours: 0,
-      noShowPenalty: "NONE",
+      noShowPenaltyType: "NONE",
+      noShowPenaltyValue: null,
+      slabs: [],
     });
   const [cancellationLoading, setCancellationLoading] = useState(false);
   const [cancellationSaving, setCancellationSaving] = useState(false);
+  const [cancellationViewLoading, setCancellationViewLoading] = useState(false);
+  const [viewingCancellationPolicy, setViewingCancellationPolicy] =
+    useState<CancellationPolicy | null>(null);
   const cancellationNameInputRef = useRef<HTMLInputElement | null>(null);
   const [isCancellationModalOpen, setIsCancellationModalOpen] =
     useState(false);
-  const [addingPredefinedLabel, setAddingPredefinedLabel] = useState<string | null>(null);
-  const [showCustomCancellationForm, setShowCustomCancellationForm] = useState(false);
+  const [ruleDraft, setRuleDraft] = useState<{
+    fromHours: NumericInput;
+    toHours: NumericInput;
+    penaltyType: SlabPenaltyType;
+    penaltyValue: NumericInput;
+  }>({
+    fromHours: "",
+    toHours: "",
+    penaltyType: "PERCENTAGE",
+    penaltyValue: "",
+  });
+  const [ruleDraftErrors, setRuleDraftErrors] = useState<RuleDraftErrors>({});
+  const [cancellationErrors, setCancellationErrors] =
+    useState<CancellationFormErrors>({});
+  const [showRuleBuilder, setShowRuleBuilder] = useState(false);
+  const [editingRuleIndex, setEditingRuleIndex] = useState<number | null>(null);
   const [childPolicy, setChildPolicy] = useState<{
     childrenAllowed: boolean;
     freeStayMaxAge: number;
@@ -307,10 +314,37 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     effectiveTo: "",
   });
 
-  const NO_SHOW_LABELS: Record<string, string> = {
+  const NO_SHOW_LABELS: Record<NoShowPenaltyType, string> = {
     NONE: "None",
-    FIRST_NIGHT_COST: "First night cost",
-    FULL_STAY_COST: "Full stay cost",
+    PERCENTAGE: "Percentage",
+    FIXED: "Fixed",
+  };
+
+  const SLAB_TYPE_LABELS: Record<SlabPenaltyType, string> = {
+    PERCENTAGE: "Percentage",
+    FIXED: "Fixed Amount",
+  };
+
+  const normalizeNoShowType = (rawType: string | undefined): NoShowPenaltyType => {
+    if (rawType === "NONE" || rawType === "PERCENTAGE" || rawType === "FIXED") {
+      return rawType;
+    }
+    if (
+      rawType === "FIRST_NIGHT" ||
+      rawType === "FULL_STAY" ||
+      rawType === "FIRST_NIGHT_COST" ||
+      rawType === "FULL_STAY_COST"
+    ) {
+      return "FIXED";
+    }
+    return "NONE";
+  };
+
+  const getNoShowBadgeClass = (type: NoShowPenaltyType) => {
+    if (type === "PERCENTAGE") return "bg-amber-100 text-amber-800";
+    if (type === "FIXED") return "bg-fuchsia-100 text-fuchsia-800";
+    if (type === "NONE") return "bg-gray-100 text-gray-700";
+    return "bg-gray-100 text-gray-700";
   };
 
   const parseNumberInput = (value: string): NumericInput => {
@@ -366,6 +400,43 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     loadPaymentRules();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hotelId]);
+
+  useEffect(() => {
+    // Prevent stale cancellation form/view state when switching hotels
+    setIsCancellationModalOpen(false);
+    setSelectedCancellationId(null);
+    setViewingCancellationPolicy(null);
+    setCancellationViewLoading(false);
+    setShowRuleBuilder(false);
+    setEditingRuleIndex(null);
+    setRuleDraftErrors({});
+    setCancellationErrors({});
+    setCancellationForm({
+      policyName: "",
+      noShowPenaltyType: "NONE",
+      noShowPenaltyValue: null,
+      slabs: [],
+    });
+    setRuleDraft({
+      fromHours: "",
+      toHours: "",
+      penaltyType: "PERCENTAGE",
+      penaltyValue: "",
+    });
+  }, [hotelId]);
+
+  useEffect(() => {
+    if (activeTab !== "cancellation") {
+      setIsCancellationModalOpen(false);
+      setSelectedCancellationId(null);
+      setShowRuleBuilder(false);
+      setEditingRuleIndex(null);
+      setRuleDraftErrors({});
+      setCancellationErrors({});
+      setViewingCancellationPolicy(null);
+      setCancellationViewLoading(false);
+    }
+  }, [activeTab]);
 
   const updateField = <K extends keyof PolicyFormState>(
     key: K,
@@ -570,20 +641,50 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
         hotelId,
         policyId
       );
+      const rawNoShowType = detail.noShowPenaltyType as string | undefined;
+      const mappedNoShowType: NoShowPenaltyType = normalizeNoShowType(rawNoShowType);
+
+      const normalizedSlabs: CancellationSlabForm[] = (detail.slabs || [])
+        .filter((slab) => slab.toHours > slab.fromHours)
+        .map((slab) => {
+          const isFixedByAmount =
+            slab.penaltyType === "FIXED" ||
+            (typeof slab.penaltyAmount === "number" &&
+              slab.penaltyAmount > 0 &&
+              slab.penaltyType !== "PERCENTAGE");
+          const penaltyType: SlabPenaltyType = isFixedByAmount
+            ? "FIXED"
+            : "PERCENTAGE";
+          const fallbackPercent =
+            typeof slab.refundPercent === "number"
+              ? Math.max(0, Math.min(100, 100 - slab.refundPercent))
+              : 0;
+          const penaltyValue =
+            typeof slab.penaltyValue === "number"
+              ? slab.penaltyValue
+              : penaltyType === "FIXED"
+              ? slab.penaltyAmount ?? 0
+              : fallbackPercent;
+          return {
+            fromHours: slab.fromHours,
+            toHours: slab.toHours,
+            penaltyType,
+            penaltyValue,
+          };
+        });
+
       setCancellationForm({
         policyName: detail.policyName,
-        // Backend derives slabs from this simple payload; for editing,
-        // approximate free-cancel hours from the 100% refund slab and
-        // no-show penalty from a 0/0 hours slab.
-        freeCancellationTillHours:
-          detail.slabs.find(
-            (s) => s.refundPercent === 100 && s.penaltyType === null
-          )?.fromHours ?? 0,
-        noShowPenalty:
-          detail.slabs.find(
-            (s) => s.fromHours === 0 && s.toHours === 0 && s.penaltyType
-          )?.penaltyType ?? "NONE",
+        noShowPenaltyType: mappedNoShowType,
+        noShowPenaltyValue:
+          mappedNoShowType === "PERCENTAGE" || mappedNoShowType === "FIXED"
+            ? Number(detail.noShowPenaltyValue ?? 0)
+            : null,
+        slabs: normalizedSlabs,
       });
+      setCancellationErrors({});
+      setRuleDraftErrors({});
+      setShowRuleBuilder(false);
       setSelectedCancellationId(policyId);
       setIsCancellationModalOpen(true);
       if (cancellationNameInputRef.current) {
@@ -597,47 +698,208 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     }
   };
 
+  const loadCancellationView = async (policyId: number) => {
+    if (!hotelId) return;
+    setCancellationViewLoading(true);
+    try {
+      const detail = await adminService.getCancellationPolicy(hotelId, policyId);
+      setViewingCancellationPolicy(detail);
+    } catch (error) {
+      console.error("Error loading cancellation policy for view:", error);
+      showToast("Failed to load policy details", "error");
+    } finally {
+      setCancellationViewLoading(false);
+    }
+  };
+
   const resetCancellationForm = () => {
     setCancellationForm({
       policyName: "",
-      freeCancellationTillHours: 0,
-      noShowPenalty: "NONE",
+      noShowPenaltyType: "NONE",
+      noShowPenaltyValue: null,
+      slabs: [],
     });
+    setRuleDraft({
+      fromHours: "",
+      toHours: "",
+      penaltyType: "PERCENTAGE",
+      penaltyValue: "",
+    });
+    setRuleDraftErrors({});
+    setCancellationErrors({});
     setSelectedCancellationId(null);
-    setShowCustomCancellationForm(false);
+    setShowRuleBuilder(false);
+    setEditingRuleIndex(null);
     setIsCancellationModalOpen(true);
     if (cancellationNameInputRef.current) {
       cancellationNameInputRef.current.focus();
     }
   };
 
-  const openCustomCancellationForm = () => {
-    setShowCustomCancellationForm(true);
-    setTimeout(() => cancellationNameInputRef.current?.focus(), 100);
-  };
-
   const closeCancellationModal = () => {
     setIsCancellationModalOpen(false);
-    setShowCustomCancellationForm(false);
     setSelectedCancellationId(null);
+    setRuleDraftErrors({});
+    setCancellationErrors({});
+    setShowRuleBuilder(false);
+    setEditingRuleIndex(null);
+  };
+
+  const validateRuleDraft = (
+    draft = ruleDraft,
+    ignoreIndex: number | null = editingRuleIndex
+  ): RuleDraftErrors => {
+    const errors: RuleDraftErrors = {};
+    const from = draft.fromHours === "" ? NaN : Number(draft.fromHours);
+    const to = draft.toHours === "" ? NaN : Number(draft.toHours);
+    const value = draft.penaltyValue === "" ? NaN : Number(draft.penaltyValue);
+
+    if (Number.isNaN(from) || from < 0) {
+      errors.fromHours = "From hours must be 0 or greater";
+    }
+    if (Number.isNaN(to) || to < 0) {
+      errors.toHours = "To hours must be 0 or greater";
+    }
+    if (!Number.isNaN(from) && !Number.isNaN(to) && from >= to) {
+      errors.toHours = "From must be less than To";
+    }
+    if (Number.isNaN(value) || value < 0) {
+      errors.penaltyValue = "Penalty value must be 0 or greater";
+    } else if (draft.penaltyType === "PERCENTAGE" && value > 100) {
+      errors.penaltyValue = "Penalty value cannot be more than 100%";
+    }
+
+    if (!errors.fromHours && !errors.toHours) {
+      const hasOverlap = cancellationForm.slabs.some(
+        (slab, index) =>
+          index !== ignoreIndex && from < slab.toHours && to > slab.fromHours
+      );
+      if (hasOverlap) {
+        errors.overlap = "Overlapping range found with an existing slab";
+      }
+    }
+    return errors;
+  };
+
+  const saveRule = () => {
+    const errors = validateRuleDraft();
+    setRuleDraftErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    const nextSlab: CancellationSlabForm = {
+      fromHours: Number(ruleDraft.fromHours),
+      toHours: Number(ruleDraft.toHours),
+      penaltyType: ruleDraft.penaltyType,
+      penaltyValue: Number(ruleDraft.penaltyValue),
+    };
+    setCancellationForm((prev) => {
+      if (editingRuleIndex === null) {
+        return {
+          ...prev,
+          slabs: [...prev.slabs, nextSlab],
+        };
+      }
+      return {
+        ...prev,
+        slabs: prev.slabs.map((slab, index) =>
+          index === editingRuleIndex ? nextSlab : slab
+        ),
+      };
+    });
+    setRuleDraft({
+      fromHours: "",
+      toHours: "",
+      penaltyType: "PERCENTAGE",
+      penaltyValue: "",
+    });
+    setEditingRuleIndex(null);
+    setRuleDraftErrors({});
+    setShowRuleBuilder(false);
+  };
+
+  const startEditRule = (index: number) => {
+    const slab = cancellationForm.slabs[index];
+    if (!slab) return;
+    setRuleDraft({
+      fromHours: slab.fromHours,
+      toHours: slab.toHours,
+      penaltyType: slab.penaltyType,
+      penaltyValue: slab.penaltyValue,
+    });
+    setEditingRuleIndex(index);
+    setRuleDraftErrors({});
+    setShowRuleBuilder(true);
+  };
+
+  const removeRule = (index: number) => {
+    setCancellationForm((prev) => ({
+      ...prev,
+      slabs: prev.slabs.filter((_, slabIndex) => slabIndex !== index),
+    }));
+    if (editingRuleIndex === index) {
+      setEditingRuleIndex(null);
+      setRuleDraft({
+        fromHours: "",
+        toHours: "",
+        penaltyType: "PERCENTAGE",
+        penaltyValue: "",
+      });
+      setRuleDraftErrors({});
+      setShowRuleBuilder(false);
+    }
+  };
+
+  const validateCancellationForm = () => {
+    const errors: CancellationFormErrors = {};
+    if (!cancellationForm.policyName.trim()) {
+      errors.policyName = "Policy name is required";
+    }
+    if (!cancellationForm.slabs.length) {
+      errors.slabs = "Add at least one cancellation rule";
+    }
+    if (
+      cancellationForm.noShowPenaltyType === "PERCENTAGE" ||
+      cancellationForm.noShowPenaltyType === "FIXED"
+    ) {
+      const value = Number(cancellationForm.noShowPenaltyValue);
+      if (Number.isNaN(value) || value < 0) {
+        errors.noShowPenaltyValue = "No-show value must be 0 or greater";
+      } else if (cancellationForm.noShowPenaltyType === "PERCENTAGE" && value > 100) {
+        errors.noShowPenaltyValue = "No-show percentage must be between 0 and 100";
+      }
+    }
+    setCancellationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const saveCancellation = async () => {
     if (!hotelId) return;
-    if (!cancellationForm.policyName) {
-      showToast("Policy name is required", "error");
-      return;
-    }
+    if (!validateCancellationForm()) return;
     setCancellationSaving(true);
     try {
+      const payload: CancellationPolicyPayload = {
+        policyName: cancellationForm.policyName.trim(),
+        noShowPenaltyType: cancellationForm.noShowPenaltyType,
+        noShowPenaltyValue:
+          cancellationForm.noShowPenaltyType === "PERCENTAGE" ||
+          cancellationForm.noShowPenaltyType === "FIXED"
+            ? Number(cancellationForm.noShowPenaltyValue ?? 0)
+            : null,
+        slabs: cancellationForm.slabs.map((slab) => ({
+          fromHours: slab.fromHours,
+          toHours: slab.toHours,
+          penaltyType: slab.penaltyType,
+          penaltyValue: slab.penaltyValue,
+        })),
+      };
       if (selectedCancellationId) {
         await adminService.updateCancellationPolicy(
           hotelId,
           selectedCancellationId,
-          cancellationForm
+          payload
         );
       } else {
-        await adminService.createCancellationPolicy(hotelId, cancellationForm);
+        await adminService.createCancellationPolicy(hotelId, payload);
       }
       showToast("Cancellation policy saved", "success");
       closeCancellationModal();
@@ -647,28 +909,6 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
       showToast("Failed to save cancellation policy", "error");
     } finally {
       setCancellationSaving(false);
-    }
-  };
-
-  const addPredefinedCancellation = async (
-    item: (typeof PREDEFINED_CANCELLATION_POLICIES)[number]
-  ) => {
-    if (!hotelId) return;
-    setAddingPredefinedLabel(item.label);
-    try {
-      await adminService.createCancellationPolicy(hotelId, {
-        policyName: item.policyName,
-        freeCancellationTillHours: item.freeCancellationTillHours,
-        noShowPenalty: item.noShowPenalty,
-      });
-      showToast(`"${item.policyName}" added`, "success");
-      closeCancellationModal();
-      await loadCancellationPolicies();
-    } catch (error) {
-      console.error("Error adding predefined cancellation policy:", error);
-      showToast("Failed to add cancellation policy", "error");
-    } finally {
-      setAddingPredefinedLabel(null);
     }
   };
 
@@ -833,13 +1073,6 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
               Manage check-in/check-out times, cancellation, child and meal policies for this hotel.
             </p>
           </div>
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-blue-500 hover:bg-blue-600 text-white"
-          >
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
         </div>
 
         <Tabs
@@ -1096,32 +1329,168 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                   This text will be shared with guests during booking and check-in.
                 </p>
               </div>
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="bg-blue-500 hover:bg-blue-600 text-white"
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
             </div>
           </TabsContent>
 
           <TabsContent value="cancellation">
-            <div className="mt-2 bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-6">
+            {viewingCancellationPolicy && !cancellationViewLoading ? (
+              <div className="mt-2 rounded-xl border border-cyan-100 bg-white shadow-sm overflow-hidden">
+                <div className="px-5 py-4 bg-linear-to-r from-cyan-50 to-indigo-50 border-b border-cyan-100 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-cyan-700" />
+                      Policy Details
+                    </h4>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      Clear view of selected cancellation configuration.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-cyan-200 text-cyan-700 hover:bg-cyan-50"
+                    onClick={() => setViewingCancellationPolicy(null)}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-1" />
+                    Back to Policies
+                  </Button>
+                </div>
+
+                <div className="p-5 space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-lg border border-gray-200 px-3 py-2 bg-slate-50/50">
+                      <p className="text-xs text-gray-500">Policy Name</p>
+                      <p className="font-medium text-gray-900 flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-indigo-600" />
+                        {viewingCancellationPolicy.policyName}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 px-3 py-2 bg-slate-50/50">
+                      <p className="text-xs text-gray-500">Status</p>
+                      <p className="font-medium text-emerald-700">
+                        {viewingCancellationPolicy.status}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 px-3 py-2 bg-slate-50/50">
+                      <p className="text-xs text-gray-500">Created By</p>
+                      <p className="font-medium text-gray-900 flex items-center gap-1.5">
+                        <UserCircle2 className="w-4 h-4 text-slate-600" />
+                        {viewingCancellationPolicy.createdByEmail || "-"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 px-3 py-2 bg-slate-50/50">
+                      <p className="text-xs text-gray-500">Created At</p>
+                      <p className="font-medium text-gray-900 flex items-center gap-1.5">
+                        <CalendarClock className="w-4 h-4 text-slate-600" />
+                        {new Date(viewingCancellationPolicy.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-cyan-100 overflow-hidden">
+                    <div className="grid grid-cols-4 bg-cyan-50 text-xs font-semibold text-cyan-900 px-4 py-2">
+                      <span>From (hrs)</span>
+                      <span>To (hrs)</span>
+                      <span>Penalty Type</span>
+                      <span>Value</span>
+                    </div>
+                    <div className="divide-y divide-gray-200">
+                      {[...(viewingCancellationPolicy.slabs || [])]
+                        .sort((a, b) => b.fromHours - a.fromHours)
+                        .map((slab) => (
+                          <div
+                            key={slab.id ?? `${slab.fromHours}-${slab.toHours}-${slab.penaltyType}-${slab.penaltyValue}`}
+                            className="grid grid-cols-4 items-center px-4 py-2 text-sm"
+                          >
+                            <span>{slab.fromHours}</span>
+                            <span>{slab.toHours}</span>
+                            <span>
+                              <span
+                                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  slab.penaltyType === "PERCENTAGE"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-fuchsia-100 text-fuchsia-800"
+                                }`}
+                              >
+                                {slab.penaltyType === "PERCENTAGE"
+                                  ? "Percentage"
+                                  : "Fixed"}
+                              </span>
+                            </span>
+                            <span>
+                              {slab.penaltyType === "PERCENTAGE"
+                                ? `${Number(slab.penaltyValue ?? 0)}%`
+                                : `Rs ${Number(slab.penaltyValue ?? 0)}`}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
+                    <p className="text-sm font-semibold text-emerald-900 mb-2">
+                      Cancellation Summary
+                    </p>
+                    <div className="space-y-1">
+                      {[...(viewingCancellationPolicy.slabs || [])]
+                        .sort((a, b) => b.fromHours - a.fromHours)
+                        .map((slab) => (
+                          <p
+                            key={`summary-${slab.id ?? `${slab.fromHours}-${slab.toHours}`}`}
+                            className="text-sm text-emerald-900"
+                          >
+                            {slab.fromHours === 0
+                              ? `< ${slab.toHours} hrs`
+                              : slab.toHours >= 9999
+                              ? `> ${slab.fromHours} hrs`
+                              : `${slab.fromHours}-${slab.toHours} hrs`}{" "}
+                            -{" "}
+                            {slab.penaltyType === "PERCENTAGE"
+                              ? `${Number(slab.penaltyValue ?? 0)}% charge`
+                              : `Rs ${Number(slab.penaltyValue ?? 0)} charge`}
+                          </p>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : !isCancellationModalOpen ? (
+              <div className="mt-2 rounded-xl border border-indigo-100 bg-linear-to-b from-indigo-50/40 to-white shadow-sm p-6 space-y-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-            Cancellation Policy
-          </h3>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-indigo-600" />
+                    Cancellation Policy
+                  </h3>
                   <p className="text-sm text-gray-600">
                     Manage multiple cancellation policies for the hotel.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={resetCancellationForm}>
+                  <Button
+                    variant="outline"
+                    className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                    onClick={resetCancellationForm}
+                  >
                     + New Policy
                   </Button>
                 </div>
               </div>
 
-              <div className="space-y-4 border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-          <div>
-                  <div className="grid grid-cols-4 bg-slate-50 text-xs font-semibold text-slate-700 px-4 py-2">
+              <div className="space-y-4 border border-indigo-100 rounded-xl overflow-hidden shadow-sm bg-white">
+                <div>
+                  <div className="grid grid-cols-4 bg-indigo-50 text-xs font-semibold text-indigo-900 px-4 py-2">
                     <span>Name</span>
-                    <span className="text-center">Free Cancel (hrs)</span>
+                    <span className="text-center">Rules</span>
                     <span className="text-center">No-show Penalty</span>
                     <span className="text-right">Action</span>
                   </div>
@@ -1145,41 +1514,47 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                       {cancellationList.map((item) => (
                         <div
                           key={item.id}
-                          className="grid grid-cols-4 items-center px-4 py-3 text-sm hover:bg-slate-50 transition"
+                          className="grid grid-cols-4 items-center px-4 py-3 text-sm hover:bg-indigo-50/40 transition"
                         >
-                          <span className="truncate font-medium text-gray-900">
+                          <span className="truncate font-medium text-gray-900 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
                             {item.policyName}
                           </span>
                           <span className="text-center text-gray-700">
-                            {item.slabs.find(
-                              (s) =>
-                                s.refundPercent === 100 && s.penaltyType === null
-                            )?.fromHours ?? "-"}
+                            {item.slabs.filter((s) => s.toHours > s.fromHours).length}
                           </span>
                           <span className="text-center text-gray-700">
-                            {(() => {
-                              const slab = item.slabs.find(
-                                (s) =>
-                                  s.fromHours === 0 &&
-                                  s.toHours === 0 &&
-                                  s.penaltyType
-                              );
-                              return slab
-                                ? NO_SHOW_LABELS[slab.penaltyType || ""] ||
-                                    slab.penaltyType
-                                : "None";
-                            })()}
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getNoShowBadgeClass(
+                                normalizeNoShowType(item.noShowPenaltyType as string | undefined)
+                              )}`}
+                            >
+                              {NO_SHOW_LABELS[
+                                normalizeNoShowType(item.noShowPenaltyType as string | undefined)
+                              ] || "None"}
+                            </span>
                           </span>
                           <div className="text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                loadCancellationDetail(item.id)
-                              }
-                            >
-                              Edit
-                            </Button>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-cyan-200 text-cyan-700 hover:bg-cyan-50"
+                                onClick={() => loadCancellationView(item.id)}
+                              >
+                                <Eye className="w-4 h-4 mr-1" />
+                                View
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-violet-200 text-violet-700 hover:bg-violet-50"
+                                onClick={() => loadCancellationDetail(item.id)}
+                              >
+                                <Pencil className="w-4 h-4 mr-1" />
+                                Edit
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1187,31 +1562,39 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                   )}
                 </div>
               </div>
+
+              {cancellationViewLoading && (
+                <div className="p-4 rounded-lg border border-indigo-200 bg-indigo-50 text-sm text-indigo-700 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading policy details...
+                </div>
+              )}
             </div>
+            ) : null}
 
             {isCancellationModalOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-                <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col">
-                  <div className="flex items-center justify-between shrink-0 px-6 py-4 border-b border-gray-200 bg-gray-50/80">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {selectedCancellationId
-                        ? "Edit Cancellation Policy"
-                        : showCustomCancellationForm
-                        ? "Create Custom Policy"
-                        : "New Cancellation Policy"}
-                    </h3>
-                    <button
-                      type="button"
-                      className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-200 transition-colors"
-                      onClick={closeCancellationModal}
-                      aria-label="Close"
-                    >
-                      ✕
-                    </button>
-                  </div>
+              <div className="mt-2 rounded-xl border border-violet-100 bg-linear-to-b from-violet-50/40 to-white shadow-sm p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    {selectedCancellationId ? (
+                      <Pencil className="w-5 h-5 text-violet-700" />
+                    ) : (
+                      <Plus className="w-5 h-5 text-violet-700" />
+                    )}
+                    {selectedCancellationId
+                      ? "Edit Cancellation Policy"
+                      : "New Cancellation Policy"}
+                  </h3>
+                  <Button
+                    variant="outline"
+                    className="border-violet-200 text-violet-700 hover:bg-violet-50"
+                    onClick={closeCancellationModal}
+                  >
+                    Close
+                  </Button>
+                </div>
 
-                  <div className="flex-1 overflow-y-auto p-6">
-                    {selectedCancellationId || showCustomCancellationForm ? (
+                <div className="space-y-6">
                       <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1228,106 +1611,344 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                         }
                         placeholder="e.g. Standard 24 Hours Cancellation"
                           />
+                          {cancellationErrors.policyName && (
+                            <p className="mt-1 text-xs text-red-600">
+                              {cancellationErrors.policyName}
+                            </p>
+                          )}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
+                          <h4 className="text-sm font-semibold text-blue-900 flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4" />
+                            No-Show Policy
+                          </h4>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Free cancellation till (hours before check-in)
-                            </label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={cancellationForm.freeCancellationTillHours}
-                          onChange={(e) =>
-                            setCancellationForm((prev) => ({
-                              ...prev,
-                              freeCancellationTillHours: Number(e.target.value),
-                            }))
-                          }
-                          placeholder="e.g. 24"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              No-show penalty
+                              Penalty Type
                             </label>
                             <select
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                          value={cancellationForm.noShowPenalty}
-                          onChange={(e) =>
-                            setCancellationForm((prev) => ({
-                              ...prev,
-                              noShowPenalty: e.target.value,
-                            }))
-                          }
+                              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                              value={cancellationForm.noShowPenaltyType}
+                              onChange={(e) => {
+                                const type = e.target.value as NoShowPenaltyType;
+                                setCancellationForm((prev) => ({
+                                  ...prev,
+                                  noShowPenaltyType: type,
+                                  noShowPenaltyValue:
+                                    type === "PERCENTAGE" || type === "FIXED"
+                                      ? Number(prev.noShowPenaltyValue ?? 0)
+                                      : null,
+                                }));
+                              }}
                             >
                               <option value="NONE">None</option>
-                              <option value="FIRST_NIGHT_COST">First night cost</option>
-                              <option value="FULL_STAY_COST">Full stay cost</option>
+                              <option value="PERCENTAGE">Percentage</option>
+                              <option value="FIXED">Fixed</option>
                             </select>
                           </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-5">
-                        <p className="text-sm text-gray-600">
-                          Choose a predefined policy to add, or create your own custom policy.
-                        </p>
-                        <div className="space-y-2">
-                          {PREDEFINED_CANCELLATION_POLICIES.map((item) => (
-                            <button
-                              key={item.policyName}
-                              type="button"
-                              onClick={() => addPredefinedCancellation(item)}
-                              disabled={addingPredefinedLabel !== null}
-                              className="w-full flex items-center justify-between gap-4 rounded-xl border-2 border-gray-200 bg-white px-5 py-4 text-left transition-all hover:border-blue-300 hover:bg-blue-50/50 hover:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:bg-white"
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-10 h-10 shrink-0 rounded-lg bg-blue-100 flex items-center justify-center">
-                                  <FileText className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <span className="font-medium text-gray-900">
-                                  {item.label}
-                                </span>
-                                {item.recommended && (
-                                  <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                                    RECOMMENDED
-                                  </span>
-                                )}
-                              </div>
-                              {addingPredefinedLabel === item.label ? (
-                                <Loader2 className="w-5 h-5 shrink-0 animate-spin text-blue-600" />
-                              ) : (
-                                <span className="shrink-0 text-sm font-medium text-blue-600">Add</span>
+                          {(cancellationForm.noShowPenaltyType === "PERCENTAGE" ||
+                            cancellationForm.noShowPenaltyType === "FIXED") && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Value {cancellationForm.noShowPenaltyType === "PERCENTAGE" ? "(%)" : "(Rs)"}
+                              </label>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={
+                                  cancellationForm.noShowPenaltyType === "PERCENTAGE"
+                                    ? 100
+                                    : undefined
+                                }
+                                value={cancellationForm.noShowPenaltyValue ?? ""}
+                                onChange={(e) =>
+                                  setCancellationForm((prev) => ({
+                                    ...prev,
+                                    noShowPenaltyValue: parseNumberInput(e.target.value),
+                                  }))
+                                }
+                                placeholder="e.g. 100"
+                              />
+                              {cancellationErrors.noShowPenaltyValue && (
+                                <p className="mt-1 text-xs text-red-600">
+                                  {cancellationErrors.noShowPenaltyValue}
+                                </p>
                               )}
-                            </button>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={openCustomCancellationForm}
-                            className="w-full flex items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 px-5 py-4 text-left transition-all hover:border-blue-400 hover:bg-blue-50/30 hover:shadow-sm"
-                          >
-                            <div className="w-10 h-10 shrink-0 rounded-lg bg-gray-200 flex items-center justify-center">
-                              <Plus className="w-5 h-5 text-gray-600" />
                             </div>
-                            <span className="font-medium text-gray-700">Create custom policy</span>
-                            <span className="shrink-0 text-sm text-gray-500">Set your own rules</span>
-                          </button>
+                          )}
                         </div>
                       </div>
-                    )}
-                  </div>
+                      <div className="rounded-xl border border-indigo-100 bg-white p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-semibold text-indigo-900 flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            Cancellation Rules
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                            onClick={() => setShowRuleBuilder(true)}
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add Rule
+                          </Button>
+                        </div>
+                        <div className="border border-indigo-100 rounded-lg overflow-hidden">
+                          <div className="grid grid-cols-5 bg-indigo-50 text-xs font-semibold text-indigo-900 px-4 py-2">
+                            <span>From (hrs)</span>
+                            <span>To (hrs)</span>
+                            <span>Penalty Type</span>
+                            <span>Value</span>
+                            <span className="text-right">Action</span>
+                          </div>
+                          {cancellationForm.slabs.length === 0 ? (
+                            <div className="px-4 py-5 text-sm text-gray-500">
+                              No rules added yet.
+                            </div>
+                          ) : (
+                            <div className="divide-y divide-gray-200">
+                              {[...cancellationForm.slabs]
+                                .sort((a, b) => b.fromHours - a.fromHours)
+                                .map((slab) => {
+                                  const sourceIndex = cancellationForm.slabs.findIndex(
+                                    (item) =>
+                                      item.fromHours === slab.fromHours &&
+                                      item.toHours === slab.toHours &&
+                                      item.penaltyType === slab.penaltyType &&
+                                      item.penaltyValue === slab.penaltyValue
+                                  );
+                                  return (
+                                    <div
+                                      key={`${slab.fromHours}-${slab.toHours}-${slab.penaltyType}-${slab.penaltyValue}`}
+                                      className="grid grid-cols-5 items-center px-4 py-2 text-sm hover:bg-indigo-50/30"
+                                    >
+                                      <span>{slab.fromHours}</span>
+                                      <span>{slab.toHours}</span>
+                                      <span>{SLAB_TYPE_LABELS[slab.penaltyType]}</span>
+                                      <span>
+                                        {slab.penaltyType === "PERCENTAGE"
+                                          ? `${slab.penaltyValue}%`
+                                          : `Rs ${slab.penaltyValue}`}
+                                      </span>
+                                      <div className="text-right">
+                                        <div className="flex justify-end gap-2">
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => startEditRule(sourceIndex)}
+                                          >
+                                            Edit
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => removeRule(sourceIndex)}
+                                          >
+                                            Delete
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </div>
+                        {cancellationErrors.slabs && (
+                          <p className="text-xs text-red-600">{cancellationErrors.slabs}</p>
+                        )}
+                      </div>
 
-                  {(selectedCancellationId || showCustomCancellationForm) && (
-                    <div className="shrink-0 flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-200 bg-gray-50/50">
-                      <Button variant="outline" onClick={closeCancellationModal}>
-                        Cancel
-                      </Button>
-                      <Button onClick={saveCancellation} disabled={cancellationSaving}>
-                        {cancellationSaving ? "Saving..." : "Save Policy"}
-                      </Button>
-                    </div>
-                  )}
+                      {showRuleBuilder && (
+                        <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 space-y-4">
+                          <h4 className="text-sm font-semibold text-sky-900 flex items-center gap-2">
+                            <Plus className="w-4 h-4" />
+                            {editingRuleIndex === null
+                              ? "Add Cancellation Rule"
+                              : "Edit Cancellation Rule"}
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                From Hours
+                              </label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={ruleDraft.fromHours}
+                                onChange={(e) =>
+                                  setRuleDraft((prev) => ({
+                                    ...prev,
+                                    fromHours: parseNumberInput(e.target.value),
+                                  }))
+                                }
+                              />
+                              {ruleDraftErrors.fromHours && (
+                                <p className="mt-1 text-xs text-red-600">
+                                  {ruleDraftErrors.fromHours}
+                                </p>
+                              )}
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                To Hours
+                              </label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={ruleDraft.toHours}
+                                onChange={(e) =>
+                                  setRuleDraft((prev) => ({
+                                    ...prev,
+                                    toHours: parseNumberInput(e.target.value),
+                                  }))
+                                }
+                              />
+                              {ruleDraftErrors.toHours && (
+                                <p className="mt-1 text-xs text-red-600">
+                                  {ruleDraftErrors.toHours}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">
+                              Penalty Type
+                            </p>
+                            <div className="flex items-center gap-5">
+                              {(Object.keys(SLAB_TYPE_LABELS) as SlabPenaltyType[]).map(
+                                (type) => (
+                                  <label key={type} className="flex items-center gap-2 text-sm">
+                                    <input
+                                      type="radio"
+                                      checked={ruleDraft.penaltyType === type}
+                                      onChange={() =>
+                                        setRuleDraft((prev) => ({
+                                          ...prev,
+                                          penaltyType: type,
+                                        }))
+                                      }
+                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    {SLAB_TYPE_LABELS[type]}
+                                  </label>
+                                )
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Value {ruleDraft.penaltyType === "PERCENTAGE" ? "(%)" : "(Rs)"}
+                            </label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={ruleDraft.penaltyValue}
+                              onChange={(e) =>
+                                setRuleDraft((prev) => ({
+                                  ...prev,
+                                  penaltyValue: parseNumberInput(e.target.value),
+                                }))
+                              }
+                            />
+                            {ruleDraftErrors.penaltyValue && (
+                              <p className="mt-1 text-xs text-red-600">
+                                {ruleDraftErrors.penaltyValue}
+                              </p>
+                            )}
+                            {ruleDraftErrors.overlap && (
+                              <p className="mt-1 text-xs text-red-600">
+                                {ruleDraftErrors.overlap}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                setShowRuleBuilder(false);
+                                setEditingRuleIndex(null);
+                                setRuleDraft({
+                                  fromHours: "",
+                                  toHours: "",
+                                  penaltyType: "PERCENTAGE",
+                                  penaltyValue: "",
+                                });
+                                setRuleDraftErrors({});
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button type="button" onClick={saveRule}>
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-3">
+                        <h4 className="text-sm font-semibold text-emerald-900 flex items-center gap-2">
+                          <Sparkles className="w-4 h-4" />
+                          Cancellation Summary
+                        </h4>
+                        {cancellationForm.slabs.length === 0 ? (
+                          <div className="rounded-lg border border-emerald-200 bg-white/70 p-3 flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-emerald-900">
+                                Add rules to see live preview
+                              </p>
+                              <p className="text-xs text-emerald-800">
+                                Once you add cancellation slabs, summary lines will appear here.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {[...cancellationForm.slabs]
+                              .sort((a, b) => b.fromHours - a.fromHours)
+                              .map((slab) => (
+                                <p
+                                  key={`preview-${slab.fromHours}-${slab.toHours}-${slab.penaltyType}-${slab.penaltyValue}`}
+                                  className="text-sm text-emerald-900 rounded-md bg-white/75 border border-emerald-200 px-3 py-1.5"
+                                >
+                                  {slab.fromHours === 0
+                                    ? `< ${slab.toHours} hrs`
+                                    : slab.toHours >= 9999
+                                    ? `> ${slab.fromHours} hrs`
+                                    : `${slab.fromHours}-${slab.toHours} hrs`}{" "}
+                                  -{" "}
+                                  {slab.penaltyType === "PERCENTAGE"
+                                    ? `${slab.penaltyValue}% charge`
+                                    : `Rs ${slab.penaltyValue} charge`}
+                                </p>
+                              ))}
+                          </div>
+                        )}
+                        <div className="rounded-md bg-white/75 border border-emerald-200 px-3 py-2 flex items-center justify-between gap-2">
+                          <p className="text-sm text-emerald-900 font-medium">No-show</p>
+                          <span className="inline-flex rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-xs font-semibold">
+                            {cancellationForm.noShowPenaltyType === "PERCENTAGE"
+                              ? `${cancellationForm.noShowPenaltyValue ?? 0}% charge`
+                              : cancellationForm.noShowPenaltyType === "FIXED"
+                              ? `Rs ${cancellationForm.noShowPenaltyValue ?? 0} charge`
+                              : `${NO_SHOW_LABELS[cancellationForm.noShowPenaltyType]}`}
+                          </span>
+                        </div>
+                      </div>
+                  </div>
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
+                  <Button variant="outline" onClick={closeCancellationModal}>
+                    Cancel
+                  </Button>
+                  <Button onClick={saveCancellation} disabled={cancellationSaving}>
+                    {cancellationSaving ? "Saving..." : "Save Policy"}
+                  </Button>
                 </div>
               </div>
             )}
