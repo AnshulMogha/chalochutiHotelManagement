@@ -522,6 +522,15 @@ export default function BulkUpdateRatesPage() {
     });
   };
 
+  const parsePositiveRateInput = (rawValue: string): number | undefined => {
+    if (rawValue === "") {
+      return undefined;
+    }
+
+    const parsed = Number(rawValue);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  };
+
   const getFormValue = (
     roomUUID: string,
     ratePlanId: number,
@@ -1131,13 +1140,13 @@ export default function BulkUpdateRatesPage() {
                                             room.roomId,
                                             ratePlan.ratePlanId,
                                             "baseRate",
-                                            e.target.value === ""
-                                              ? undefined
-                                              : Number(e.target.value),
+                                            parsePositiveRateInput(
+                                              e.target.value,
+                                            ),
                                           )
                                         }
-                                        placeholder="₹ 0"
-                                        min="0"
+                                        placeholder="₹ 1"
+                                        min="1"
                                         disabled={isSubmitting}
                                         className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                       />
@@ -1182,13 +1191,13 @@ export default function BulkUpdateRatesPage() {
                                             room.roomId,
                                             ratePlan.ratePlanId,
                                             "singleOccupancyRate",
-                                            e.target.value === ""
-                                              ? undefined
-                                              : Number(e.target.value),
+                                            parsePositiveRateInput(
+                                              e.target.value,
+                                            ),
                                           )
                                         }
-                                        placeholder="₹ 0"
-                                        min="0"
+                                        placeholder="₹ 1"
+                                        min="1"
                                         disabled={isSubmitting}
                                         className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                       />
@@ -1207,6 +1216,57 @@ export default function BulkUpdateRatesPage() {
                                       Guest Charges
                                     </h5>
                                     <div className={`grid grid-cols-1 gap-6 ${shouldShowFreeChildRate() ? 'md:grid-cols-3' : shouldShowPaidChildRate() ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
+                                      {/* Extra Adult Charge */}
+                                      <div className="space-y-2.5">
+                                        <label className="block text-sm font-semibold text-slate-800">
+                                          {getExtraAdultChargeLabel()}
+                                        </label>
+                                        <input
+                                          type="number"
+                                          value={getFormValue(
+                                            room.roomId,
+                                            ratePlan.ratePlanId,
+                                            "extraAdultCharge",
+                                          )}
+                                          onChange={(e) =>
+                                            updateFormField(
+                                              room.roomId,
+                                              ratePlan.ratePlanId,
+                                              "extraAdultCharge",
+                                              parsePositiveRateInput(
+                                                e.target.value,
+                                              ),
+                                            )
+                                          }
+                                          placeholder="₹ 1"
+                                          min="1"
+                                          disabled={isSubmitting}
+                                          className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
+                                        />
+                                        <p className="text-xs text-slate-500 font-medium">
+                                          Leave blank to keep existing value
+                                        </p>
+                                        {showNettRate &&
+                                          getFormValue(
+                                            room.roomId,
+                                            ratePlan.ratePlanId,
+                                            "extraAdultCharge",
+                                          ) && (
+                                            <p className="text-xs text-blue-600 font-semibold">
+                                              Nett Rate: ₹
+                                              {calculateNettRate(
+                                                Number(
+                                                  getFormValue(
+                                                    room.roomId,
+                                                    ratePlan.ratePlanId,
+                                                    "extraAdultCharge",
+                                                  ),
+                                                ) || 0,
+                                              ).toFixed(2)}
+                                            </p>
+                                          )}
+                                      </div>
+
                                       {/* Free Child Rate - Conditionally rendered */}
                                       {shouldShowFreeChildRate() && (
                                         <div className="space-y-2.5">
@@ -1246,13 +1306,13 @@ export default function BulkUpdateRatesPage() {
                                               room.roomId,
                                               ratePlan.ratePlanId,
                                               "paidChildCharge",
-                                              e.target.value === ""
-                                                ? undefined
-                                                : Number(e.target.value),
+                                              parsePositiveRateInput(
+                                                e.target.value,
+                                              ),
                                             )
                                           }
-                                          placeholder="₹ 0"
-                                          min="0"
+                                          placeholder="₹ 1"
+                                          min="1"
                                           disabled={isSubmitting}
                                           className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                         />
@@ -1281,56 +1341,6 @@ export default function BulkUpdateRatesPage() {
                                         </div>
                                       )}
 
-                                      {/* Extra Adult Charge */}
-                                      <div className="space-y-2.5">
-                                        <label className="block text-sm font-semibold text-slate-800">
-                                          {getExtraAdultChargeLabel()}
-                                        </label>
-                                        <input
-                                          type="number"
-                                          value={getFormValue(
-                                            room.roomId,
-                                            ratePlan.ratePlanId,
-                                            "extraAdultCharge",
-                                          )}
-                                          onChange={(e) =>
-                                            updateFormField(
-                                              room.roomId,
-                                              ratePlan.ratePlanId,
-                                              "extraAdultCharge",
-                                              e.target.value === ""
-                                                ? undefined
-                                                : Number(e.target.value),
-                                            )
-                                          }
-                                          placeholder="₹ 0"
-                                          min="0"
-                                          disabled={isSubmitting}
-                                          className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
-                                        />
-                                        <p className="text-xs text-slate-500 font-medium">
-                                          Leave blank to keep existing value
-                                        </p>
-                                        {showNettRate &&
-                                          getFormValue(
-                                            room.roomId,
-                                            ratePlan.ratePlanId,
-                                            "extraAdultCharge",
-                                          ) && (
-                                            <p className="text-xs text-blue-600 font-semibold">
-                                              Nett Rate: ₹
-                                              {calculateNettRate(
-                                                Number(
-                                                  getFormValue(
-                                                    room.roomId,
-                                                    ratePlan.ratePlanId,
-                                                    "extraAdultCharge",
-                                                  ),
-                                                ) || 0,
-                                              ).toFixed(2)}
-                                            </p>
-                                          )}
-                                      </div>
                                     </div>
                                   </div>
                                 )}

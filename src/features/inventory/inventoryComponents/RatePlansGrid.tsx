@@ -201,6 +201,15 @@ export const RatePlansGrid = ({
     const minAge = freeMaxAge + 1;
     return `${baseLabel} (${minAge} – ${paidMaxAge} years)`;
   };
+
+  const parsePositiveRateInput = (rawValue: string): number | undefined => {
+    if (rawValue === "") {
+      return undefined;
+    }
+
+    const parsed = Number(rawValue);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  };
   // Accordion state: only one room expanded at a time
   const [expandedRoomId, setExpandedRoomId] = useState<number | null>(null);
   // Track local input values: key = `${ratePlanId}-${roomId}-${date}`
@@ -587,20 +596,28 @@ export const RatePlansGrid = ({
                           <input
                             type="number"
                             value={displayValue}
+                            min={1}
                             readOnly={!canEdit}
                             onChange={(e) => {
                               if (canEdit) {
-                                const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
+                                const inputValue = parsePositiveRateInput(e.target.value);
                                 const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
                                 const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
                                 const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
                                 const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
                                 const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
                                 const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
-                                onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, inputValue, singleOccupancyRate, extraAdultCharge, paidChildCharge, minStay, maxStay, cutoffTime);
+                                if (inputValue !== undefined) {
+                                  onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, inputValue, singleOccupancyRate, extraAdultCharge, paidChildCharge, minStay, maxStay, cutoffTime);
+                                }
                                 setLocalValues((prev) => {
                                   const next = new Map(prev);
-                                  next.set(cellKey, e.target.value);
+                                  const displayInput =
+                                    e.target.value === "" ||
+                                    inputValue !== undefined
+                                      ? e.target.value
+                                      : "";
+                                  next.set(cellKey, displayInput);
                                   return next;
                                 });
                               }
@@ -703,20 +720,28 @@ export const RatePlansGrid = ({
                             <input
                               type="number"
                               value={displayValue}
+                              min={1}
                               readOnly={!canEdit}
                               onChange={(e) => {
                                 if (canEdit) {
-                                  const inputValue = e.target.value === '' ? null : Number(e.target.value);
+                                  const inputValue = parsePositiveRateInput(e.target.value);
                                   const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
                                   const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
                                   const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
                                   const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
                                   const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
                                   const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
-                                  onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, inputValue ?? undefined, extraAdultCharge, paidChildCharge, minStay ?? undefined, maxStay ?? undefined, cutoffTime ?? undefined);
+                                  if (inputValue !== undefined) {
+                                    onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, inputValue, extraAdultCharge, paidChildCharge, minStay ?? undefined, maxStay ?? undefined, cutoffTime ?? undefined);
+                                  }
                                   setLocalValues((prev) => {
                                     const next = new Map(prev);
-                                    next.set(cellKey, e.target.value);
+                                    const displayInput =
+                                      e.target.value === "" ||
+                                      inputValue !== undefined
+                                        ? e.target.value
+                                        : "";
+                                    next.set(cellKey, displayInput);
                                     return next;
                                   });
                                 }
@@ -907,20 +932,28 @@ export const RatePlansGrid = ({
                               <input
                                 type="number"
                                 value={displayValue}
+                                min={1}
                                 readOnly={!canEdit}
                                 onChange={(e) => {
                                   if (canEdit) {
-                                    const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
+                                    const inputValue = parsePositiveRateInput(e.target.value);
                                     const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
                                     const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
                                     const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
                                     const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
                                     const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
                                     const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
-                                    onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, singleOccupancyRate ?? undefined, inputValue, paidChildCharge, minStay ?? undefined, maxStay ?? undefined, cutoffTime ?? undefined);
+                                    if (inputValue !== undefined) {
+                                      onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, singleOccupancyRate ?? undefined, inputValue, paidChildCharge, minStay ?? undefined, maxStay ?? undefined, cutoffTime ?? undefined);
+                                    }
                                     setLocalValues((prev) => {
                                       const next = new Map(prev);
-                                      next.set(cellKey, e.target.value);
+                                      const displayInput =
+                                        e.target.value === "" ||
+                                        inputValue !== undefined
+                                          ? e.target.value
+                                          : "";
+                                      next.set(cellKey, displayInput);
                                       return next;
                                     });
                                   }
@@ -949,7 +982,7 @@ export const RatePlansGrid = ({
                                   ${!extraAdultCharge && canEdit ? 'text-rose-600' : ''}
                                   focus:outline-none
                                 `}
-                                placeholder={canEdit ? '0' : '—'}
+                                placeholder={canEdit ? '1' : '—'}
                               />
 
                               <div className="flex flex-col items-center mt-2.5 gap-0.5">
@@ -1019,20 +1052,28 @@ export const RatePlansGrid = ({
                                 <input
                                   type="number"
                                   value={displayValue}
+                                  min={1}
                                   readOnly={!canEdit}
                                   onChange={(e) => {
                                     if (canEdit) {
-                                      const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
+                                      const inputValue = parsePositiveRateInput(e.target.value);
                                       const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
                                       const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
                                       const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
                                       const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
                                       const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
                                       const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
-                                      onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, singleOccupancyRate ?? undefined, extraAdultCharge, inputValue, minStay ?? undefined, maxStay ?? undefined, cutoffTime ?? undefined);
+                                      if (inputValue !== undefined) {
+                                        onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, singleOccupancyRate ?? undefined, extraAdultCharge, inputValue, minStay ?? undefined, maxStay ?? undefined, cutoffTime ?? undefined);
+                                      }
                                       setLocalValues((prev) => {
                                         const next = new Map(prev);
-                                        next.set(cellKey, e.target.value);
+                                        const displayInput =
+                                          e.target.value === "" ||
+                                          inputValue !== undefined
+                                            ? e.target.value
+                                            : "";
+                                        next.set(cellKey, displayInput);
                                         return next;
                                       });
                                     }
@@ -1061,7 +1102,7 @@ export const RatePlansGrid = ({
                                   ${!paidChildCharge && canEdit ? 'text-rose-600' : ''}
                                   focus:outline-none
                                 `}
-                                  placeholder={canEdit ? '0' : '—'}
+                                  placeholder={canEdit ? '1' : '—'}
                                 />
 
                                 <div className="flex flex-col items-center mt-2.5 gap-0.5">
