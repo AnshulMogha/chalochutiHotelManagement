@@ -150,6 +150,8 @@ const DocumentReviewPage = lazy(
 const TravelPartnersPage = lazy(
   () => import("../features/admin/pages/TravelPartnersPage"),
 );
+const AgentsListPage = lazy(() => import("../features/admin/pages/AgentsListPage"));
+const CreateAgentPage = lazy(() => import("../features/admin/pages/CreateAgentPage"));
 const PricingQuotePage = lazy(
   () => import("../features/pricing/pages/PricingQuotePage"),
 );
@@ -268,6 +270,18 @@ export const routes: RouteObject[] = [
       {
         path: "admin/travel-partners",
         element: <TravelPartnersPage />,
+      },
+      {
+        path: "agents/create",
+        element: <CreateAgentPage />,
+      },
+      {
+        path: "agents/:onboardingId/edit",
+        element: <CreateAgentPage />,
+      },
+      {
+        path: "agents",
+        element: <AgentsListPage />,
       },
       {
         path: "admin/hotels/review/:hotelId",

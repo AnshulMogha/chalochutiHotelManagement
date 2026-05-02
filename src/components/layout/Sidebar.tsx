@@ -3,6 +3,7 @@ import { ROUTES, hasAnyRole, ROLES } from "@/constants";
 import {
   isHotelBdRole,
   isReviewerPortalRole,
+  isSalesManagerRole,
   isZonalManagerSalesRole,
 } from "@/constants/roles";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,6 +29,7 @@ import {
   Sparkles,
   Percent,
   Handshake,
+  UserRoundCog,
   type LucideIcon,
 } from "lucide-react";
 
@@ -48,6 +50,7 @@ const getNavItems = (user: User | null): NavItem[] => {
   const items: NavItem[] = [];
   const isReviewer = isReviewerPortalRole(userRoles);
   const isZonalSales = isZonalManagerSalesRole(userRoles);
+  const isSalesManager = isSalesManagerRole(userRoles);
   const isSuperAdmin = hasAnyRole(userRoles, [ROLES.SUPER_ADMIN]);
   const dashboardPath = ROUTES.PROPERTIES.LIST;
   items.push({
@@ -60,6 +63,14 @@ const getNavItems = (user: User | null): NavItem[] => {
       label: "Travel Partners",
       path: ROUTES.ADMIN.TRAVEL_PARTNERS,
       icon: Handshake,
+    });
+    return items;
+  }
+  if (isSalesManager) {
+    items.push({
+      label: "Agents",
+      path: ROUTES.AGENTS.LIST,
+      icon: UserRoundCog,
     });
     return items;
   }

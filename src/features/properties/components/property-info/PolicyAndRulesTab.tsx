@@ -17,14 +17,17 @@ import {
   AlertCircle,
   ArrowLeft,
   CalendarClock,
+  CreditCard,
   Eye,
   FileText,
   Loader2,
   Pencil,
+  Percent,
   Plus,
   ShieldCheck,
   Sparkles,
   UserCircle2,
+  Wallet,
 } from "lucide-react";
 
 interface PolicyAndRulesTabProps {
@@ -307,11 +310,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     paymentType: "FULL_PREPAID",
     status: "ACTIVE",
     advancePercent: 100,
-    refundable: false,
-    refundBeforeHours: null,
     allowedModes: [],
-    effectiveFrom: "",
-    effectiveTo: "",
   });
 
   const NO_SHOW_LABELS: Record<NoShowPenaltyType, string> = {
@@ -998,11 +997,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
         paymentType: rule.paymentType,
         status: rule.status,
         advancePercent: rule.advancePercent,
-        refundable: rule.refundable,
-        refundBeforeHours: rule.refundBeforeHours,
         allowedModes: [...rule.allowedModes],
-        effectiveFrom: rule.effectiveFrom,
-        effectiveTo: rule.effectiveTo,
       });
     } else {
       setSelectedPaymentRule(null);
@@ -1010,11 +1005,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
         paymentType: "FULL_PREPAID",
         status: "ACTIVE",
         advancePercent: 100,
-        refundable: false,
-        refundBeforeHours: null,
         allowedModes: [],
-        effectiveFrom: "",
-        effectiveTo: "",
       });
     }
     setIsPaymentModalOpen(true);
@@ -1027,16 +1018,21 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
 
   const savePaymentRule = async () => {
     if (!hotelId) return;
-    if (!paymentForm.effectiveFrom || !paymentForm.effectiveTo) {
-      showToast("Effective dates are required", "error");
-      return;
-    }
     setPaymentSaving(true);
     try {
+      const payload: PaymentRulePayload = {
+        paymentType: paymentForm.paymentType,
+        status: paymentForm.status,
+        advancePercent: paymentForm.advancePercent,
+        allowedModes: paymentForm.allowedModes,
+      };
       if (selectedPaymentRule) {
-        await adminService.updatePaymentRule(hotelId, paymentForm);
+        await adminService.updatePaymentRule(hotelId, {
+          ...payload,
+          id: selectedPaymentRule.id,
+        });
       } else {
-        await adminService.createPaymentRule(hotelId, paymentForm);
+        await adminService.createPaymentRule(hotelId, payload);
       }
       showToast("Payment rule saved", "success");
       await loadPaymentRules();
@@ -2123,30 +2119,36 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
           </TabsContent>
 
           <TabsContent value="payment">
-            <div className="mt-2 bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-6">
+            <div className="mt-2 rounded-xl border border-teal-100 bg-linear-to-b from-teal-50/40 to-white shadow-sm p-6 space-y-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-teal-600" />
                     Payment Policy
                   </h3>
                   <p className="text-sm text-gray-600">
-                    Manage payment rules for the hotel.
+                    Manage how guests pay for this hotel.
                   </p>
                 </div>
                 {!paymentLoading && (
-                  <Button variant="outline" onClick={() => openPaymentModal()}>
-                    + New Payment Rule
+                  <Button
+                    variant="outline"
+                    className="border-teal-200 text-teal-800 hover:bg-teal-50"
+                    onClick={() => openPaymentModal()}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    New Payment Rule
                   </Button>
                 )}
               </div>
 
               {paymentLoading ? (
-                <div className="p-6 flex items-center gap-2 text-sm text-gray-600">
+                <div className="p-6 flex items-center gap-2 text-sm text-teal-800">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Loading payment rules...
                 </div>
               ) : paymentRules.length === 0 ? (
-                <div className="p-6 flex items-start gap-3 text-sm text-gray-600 border border-gray-200 rounded-lg">
+                <div className="p-6 flex items-start gap-3 text-sm text-gray-600 border border-teal-100 rounded-lg bg-white/80">
                   <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-gray-800">
@@ -2156,46 +2158,59 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                   </div>
                 </div>
               ) : (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-7 bg-slate-50 text-xs font-semibold text-slate-700 px-4 py-2">
+                <div className="border border-teal-100 rounded-xl overflow-hidden bg-white">
+                  <div className="grid grid-cols-5 bg-teal-50 text-xs font-semibold text-teal-900 px-4 py-2">
                     <span>Payment Type</span>
                     <span className="text-center">Advance %</span>
-                    <span className="text-center">Refundable</span>
-                    <span className="text-center">Refund Hours</span>
-                    <span className="text-center">Effective From</span>
-                    <span className="text-center">Effective To</span>
+                    <span className="text-center">Status</span>
+                    <span>Allowed Modes</span>
                     <span className="text-right">Action</span>
                   </div>
                   <div className="divide-y divide-gray-200">
                     {paymentRules.map((rule) => (
                       <div
                         key={rule.id}
-                        className="grid grid-cols-7 items-center px-4 py-3 text-sm hover:bg-slate-50 transition"
+                        className="grid grid-cols-5 items-center px-4 py-3 text-sm hover:bg-teal-50/40 transition"
                       >
-                        <span className="truncate font-medium text-gray-900">
+                        <span className="truncate font-medium text-gray-900 flex items-center gap-2">
+                          <Wallet className="w-4 h-4 text-teal-600 shrink-0" />
                           {rule.paymentType.replace(/_/g, " ")}
                         </span>
-                        <span className="text-center text-gray-700">
+                        <span className="text-center text-gray-700 font-medium">
                           {rule.advancePercent}%
                         </span>
-                        <span className="text-center text-gray-700">
-                          {rule.refundable ? "Yes" : "No"}
+                        <span className="text-center">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              rule.status === "ACTIVE"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-gray-100 text-gray-700"
+                            }`}
+                          >
+                            {rule.status}
+                          </span>
                         </span>
-                        <span className="text-center text-gray-700">
-                          {rule.refundBeforeHours ?? "-"}
-                        </span>
-                        <span className="text-center text-gray-700">
-                          {new Date(rule.effectiveFrom).toLocaleDateString()}
-                        </span>
-                        <span className="text-center text-gray-700">
-                          {new Date(rule.effectiveTo).toLocaleDateString()}
+                        <span className="text-gray-700 text-xs flex flex-wrap gap-1">
+                          {(rule.allowedModes?.length ? rule.allowedModes : []).map((mode) => (
+                            <span
+                              key={`${rule.id}-${mode}`}
+                              className="rounded-md bg-slate-100 px-1.5 py-0.5 text-slate-700"
+                            >
+                              {mode}
+                            </span>
+                          ))}
+                          {!rule.allowedModes?.length && (
+                            <span className="text-gray-400">—</span>
+                          )}
                         </span>
                         <div className="text-right">
                           <Button
                             variant="outline"
                             size="sm"
+                            className="border-teal-200 text-teal-800 hover:bg-teal-50"
                             onClick={() => openPaymentModal(rule)}
                           >
+                            <Pencil className="w-4 h-4 mr-1" />
                             Edit
                           </Button>
                         </div>
@@ -2207,65 +2222,69 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
             </div>
 
             {isPaymentModalOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-                <div className="w-full max-w-2xl rounded-xl bg-white shadow-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm px-4">
+                <div className="w-full max-w-lg rounded-2xl border border-teal-100 bg-white shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
+                  <div className="px-5 py-4 bg-linear-to-r from-teal-50 to-cyan-50 border-b border-teal-100 flex items-center justify-between shrink-0">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-teal-700" />
                       {selectedPaymentRule ? "Edit Payment Rule" : "New Payment Rule"}
                     </h3>
                     <button
                       type="button"
-                      className="text-gray-400 hover:text-gray-600"
+                      className="p-2 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-white/80 transition"
                       onClick={closePaymentModal}
+                      aria-label="Close"
                     >
                       ✕
                     </button>
                   </div>
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Payment Type
-                        </label>
-                        <select
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                          value={paymentForm.paymentType}
-                          onChange={(e) =>
-                            setPaymentForm((prev) => ({
-                              ...prev,
-                              paymentType: e.target.value as PaymentRulePayload["paymentType"],
-                            }))
-                          }
-                        >
-                          <option value="FULL_PREPAID">Full Prepaid</option>
-                          <option value="PARTIAL_PREPAID">Partial Prepaid</option>
-                          <option value="PAY_AT_HOTEL">Pay at Hotel</option>
-                        </select>
+                  <div className="p-5 space-y-5 overflow-y-auto flex-1">
+                    <div className="rounded-xl border border-teal-100 bg-teal-50/30 p-4 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
+                            <Wallet className="w-3.5 h-3.5 text-teal-600" />
+                            Payment Type
+                          </label>
+                          <select
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
+                            value={paymentForm.paymentType}
+                            onChange={(e) =>
+                              setPaymentForm((prev) => ({
+                                ...prev,
+                                paymentType: e.target.value as PaymentRulePayload["paymentType"],
+                              }))
+                            }
+                          >
+                            <option value="FULL_PREPAID">Full Prepaid</option>
+                            <option value="PARTIAL_PREPAID">Partial Prepaid</option>
+                            <option value="PAY_AT_HOTEL">Pay at Hotel</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
+                            <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
+                            Status
+                          </label>
+                          <select
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
+                            value={paymentForm.status}
+                            onChange={(e) =>
+                              setPaymentForm((prev) => ({
+                                ...prev,
+                                status: e.target.value as PaymentRulePayload["status"],
+                              }))
+                            }
+                          >
+                            <option value="ACTIVE">Active</option>
+                            <option value="INACTIVE">Inactive</option>
+                          </select>
+                        </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Status
-                        </label>
-                        <select
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                          value={paymentForm.status}
-                          onChange={(e) =>
-                            setPaymentForm((prev) => ({
-                              ...prev,
-                              status: e.target.value as PaymentRulePayload["status"],
-                            }))
-                          }
-                        >
-                          <option value="ACTIVE">Active</option>
-                          <option value="INACTIVE">Inactive</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Advance Percent
+                        <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
+                          <Percent className="w-3.5 h-3.5 text-teal-600" />
+                          Advance percent
                         </label>
                         <Input
                           type="number"
@@ -2281,126 +2300,59 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                           placeholder="e.g. 100"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Refund Before Hours
-                        </label>
-                        <Input
-                          type="number"
-                          min={0}
-                          disabled={!paymentForm.refundable}
-                          value={paymentForm.refundBeforeHours ?? ""}
-                          onChange={(e) =>
-                            setPaymentForm((prev) => ({
-                              ...prev,
-                              refundBeforeHours:
-                                e.target.value === "" ? null : Number(e.target.value),
-                            }))
-                          }
-                          placeholder="e.g. 24"
-                        />
-                      </div>
                     </div>
 
-                    <div>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={paymentForm.refundable}
-                          onChange={(e) =>
-                            setPaymentForm((prev) => ({
-                              ...prev,
-                              refundable: e.target.checked,
-                              refundBeforeHours: e.target.checked
-                                ? prev.refundBeforeHours
-                                : null,
-                            }))
-                          }
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
-                        />
-                        <span className="text-sm text-gray-700">Refundable</span>
-                      </label>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Allowed Payment Modes
-                      </label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {["UPI", "CARD", "NETBANKING", "WALLET", "CASH"].map(
-                          (mode) => {
-                            const isSelected = paymentForm.allowedModes.includes(mode);
-                            return (
-                              <label
-                                key={mode}
-                                className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50 transition cursor-pointer"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setPaymentForm((prev) => ({
-                                        ...prev,
-                                        allowedModes: [...prev.allowedModes, mode],
-                                      }));
-                                    } else {
-                                      setPaymentForm((prev) => ({
-                                        ...prev,
-                                        allowedModes: prev.allowedModes.filter(
-                                          (m) => m !== mode
-                                        ),
-                                      }));
-                                    }
-                                  }}
-                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="text-sm text-gray-700">{mode}</span>
-                              </label>
-                            );
-                          }
-                        )}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+                      <div className="flex items-center gap-2 text-sm font-medium text-gray-800 mb-2">
+                        <Sparkles className="w-4 h-4 text-teal-600" />
+                        Allowed payment modes
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Effective From
-                        </label>
-                        <Input
-                          type="date"
-                          value={paymentForm.effectiveFrom}
-                          onChange={(e) =>
-                            setPaymentForm((prev) => ({
-                              ...prev,
-                              effectiveFrom: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Effective To
-                        </label>
-                        <Input
-                          type="date"
-                          value={paymentForm.effectiveTo}
-                          onChange={(e) =>
-                            setPaymentForm((prev) => ({
-                              ...prev,
-                              effectiveTo: e.target.value,
-                            }))
-                          }
-                        />
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {["UPI", "CARD", "NETBANKING", "WALLET", "CASH"].map((mode) => {
+                          const isSelected = paymentForm.allowedModes.includes(mode);
+                          return (
+                            <label
+                              key={mode}
+                              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
+                                isSelected
+                                  ? "border-teal-400 bg-teal-50 text-teal-900"
+                                  : "border-gray-200 bg-white hover:border-teal-200 hover:bg-teal-50/40"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setPaymentForm((prev) => ({
+                                      ...prev,
+                                      allowedModes: [...prev.allowedModes, mode],
+                                    }));
+                                  } else {
+                                    setPaymentForm((prev) => ({
+                                      ...prev,
+                                      allowedModes: prev.allowedModes.filter((m) => m !== mode),
+                                    }));
+                                  }
+                                }}
+                                className="h-4 w-4 text-teal-600 focus:ring-teal-500 rounded"
+                              />
+                              {mode}
+                            </label>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center justify-end gap-2 pt-2">
+                  <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100 bg-gray-50/80 shrink-0">
                     <Button variant="outline" onClick={closePaymentModal}>
                       Cancel
                     </Button>
-                    <Button onClick={savePaymentRule} disabled={paymentSaving}>
+                    <Button
+                      onClick={savePaymentRule}
+                      disabled={paymentSaving}
+                      className="bg-teal-600 hover:bg-teal-700 text-white"
+                    >
                       {paymentSaving ? "Saving..." : "Save Rule"}
                     </Button>
                   </div>

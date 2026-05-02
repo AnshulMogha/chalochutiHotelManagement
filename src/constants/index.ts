@@ -19,6 +19,12 @@ export const ROUTES = {
   QC: {
     DASHBOARD: "/qc/dashboard",
   },
+  /** Sales manager: agent onboarding (list, create, edit resubmit). */
+  AGENTS: {
+    LIST: "/agents",
+    CREATE: "/agents/create",
+    EDIT: (onboardingId: string | number) => `/agents/${onboardingId}/edit`,
+  },
   ADMIN: {
     DASHBOARD: "/admin/dashboard",
     HOTEL_REVIEW: "/admin/hotels/review",
@@ -98,6 +104,16 @@ export const API_ENDPOINTS = {
     LOGOUT: "/auth/logout",
     ME: "/auth/me",
   },
+  /**
+   * Agent onboarding (sales pipeline): list + create share ROOT; detail + update use BY_ID.
+   * Paths are relative to API base (e.g. /api/v1/…).
+   */
+  TRAVEL_AGENT_ONBOARDING: {
+    /** GET list, POST create */
+    ROOT: "travel-agent/onboarding",
+    /** GET one, PUT full payload (e.g. resubmit after reject) */
+    BY_ID: (id: string | number) => `travel-agent/onboarding/${id}`,
+  },
   ADMIN: {
     GET_HOTELS_FOR_REVIEW: "/admin/hotels/review",
     GET_APPROVED_HOTELS: "/admin/hotels/review/approved",
@@ -159,11 +175,7 @@ export const API_ENDPOINTS = {
       `/admin/hotel/finance/documents/${docId}/approve`,
     REJECT_DOCUMENT: (docId: string | number) =>
       `/admin/hotel/finance/documents/${docId}/reject`,
-    // Travel agent onboarding
-    TRAVEL_AGENT_ONBOARDING_LIST: "travel-agent/onboarding",
-    TRAVEL_AGENT_ONBOARDING_BY_ID: (id: string | number) =>
-      `travel-agent/onboarding/${id}`,
-    // Admin-only actions include /admin after /api/v1
+    // Admin-only agent onboarding review (separate from GET/POST/PUT on TRAVEL_AGENT_ONBOARDING.*)
     TRAVEL_AGENT_ONBOARDING_APPROVE: (id: string | number) =>
       `admin/travel-agent/onboarding/${id}/approve`,
     TRAVEL_AGENT_ONBOARDING_REJECT: (id: string | number) =>

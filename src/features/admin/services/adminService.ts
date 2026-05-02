@@ -77,7 +77,7 @@ export interface RejectHotelRequest {
   remarks: string;
 }
 
-/** Travel agent onboarding (travel partner) – list item from GET /travel-agent/onboarding */
+/** Agent onboarding – list item from GET travel-agent/onboarding */
 export type TravelAgentOnboardingStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface TravelAgentOnboardingListItem {
@@ -107,7 +107,7 @@ export interface TravelAgentOnboardingListParams {
   status?: TravelAgentOnboardingStatus;
 }
 
-/** Full item from GET /travel-agent/onboarding/:id – pure API response, no wrapper */
+/** Full item from GET travel-agent/onboarding/:id */
 export interface TravelAgentOnboardingItem {
   id: number;
   title: string;
@@ -141,6 +141,26 @@ export interface ApproveTravelAgentOnboardingRequest {
 
 export interface RejectTravelAgentOnboardingRequest {
   remarks: string;
+}
+
+/** POST travel-agent/onboarding – create application */
+export interface TravelAgentOnboardingCreatePayload {
+  title: string;
+  fullName: string;
+  email: string;
+  agencyName: string;
+  panNumber: string;
+  panCardDocumentUrl: string;
+  gstNumber: string;
+  businessAddress: string;
+  city: string;
+  state: string;
+  pinCode: string;
+  accountHolderName: string;
+  accountNumber: string;
+  ifscCode: string;
+  bankName: string;
+  termsAccepted: boolean;
 }
 
 export interface User {
@@ -402,20 +422,24 @@ export interface ChildAgePolicyResponse extends ChildAgePolicyPayload {
   updatedAt?: string;
 }
 
+/** Body for create/update payment rules (minimal fields sent to API). */
 export interface PaymentRulePayload {
   paymentType: "FULL_PREPAID" | "PARTIAL_PREPAID" | "PAY_AT_HOTEL";
   status: "ACTIVE" | "INACTIVE";
   advancePercent: number;
-  refundable: boolean;
-  refundBeforeHours: number | null;
   allowedModes: string[];
-  effectiveFrom: string;
-  effectiveTo: string;
 }
+
+export type PaymentRuleUpdatePayload = PaymentRulePayload & { id: number };
 
 export interface PaymentRule extends PaymentRulePayload {
   id: number;
   hotelId: string;
+  /** Legacy fields; may still appear in list/detail responses until backend removes them. */
+  refundable?: boolean;
+  refundBeforeHours?: number | null;
+  effectiveFrom?: string;
+  effectiveTo?: string;
   createdBy?: number;
   createdByEmail?: string;
   updatedBy?: number;
@@ -435,7 +459,11 @@ export interface CreatePromotionPayload {
   discountAllUsers: number;
   discountLoggedUsers: number;
   extraLoggedDiscount?: number;
-  applicableDateType: "BOOKING_AND_STAY" | "BOOKING_ONLY" | "STAY_ONLY" | "STAY";
+  applicableDateType:
+    | "BOOKING_AND_STAY"
+    | "BOOKING_ONLY"
+    | "STAY_ONLY"
+    | "STAY";
   stayStartDate?: string;
   stayEndDate?: string;
   bookingStartDate?: string;
@@ -765,7 +793,7 @@ export interface ReorderMediaRequest {
   items: ReorderMediaItem[];
 }
 
-export type DocumentType = 
+export type DocumentType =
   | "GST_CERTIFICATE"
   | "PAN_CARD"
   | "CANCELLED_CHEQUE"
@@ -1008,61 +1036,61 @@ export const adminService = {
   },
   approveHotel: async (
     hotelId: string,
-    data: ApproveHotelRequest
+    data: ApproveHotelRequest,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.APPROVE_HOTEL(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   rejectHotel: async (
     hotelId: string,
-    data: RejectHotelRequest
+    data: RejectHotelRequest,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.REJECT_HOTEL(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   qcApproveHotel: async (
     hotelId: string,
-    data: ApproveHotelRequest
+    data: ApproveHotelRequest,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.QC_APPROVE_HOTEL(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   qcRejectHotel: async (
     hotelId: string,
-    data: RejectHotelRequest
+    data: RejectHotelRequest,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.QC_REJECT_HOTEL(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   zonalApproveHotel: async (
     hotelId: string,
-    data: ApproveHotelRequest
+    data: ApproveHotelRequest,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.ZONAL_APPROVE_HOTEL(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   zonalRejectHotel: async (
     hotelId: string,
-    data: RejectHotelRequest
+    data: RejectHotelRequest,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.ZONAL_REJECT_HOTEL(hotelId),
-      data
+      data,
     );
     return response.data;
   },
@@ -1070,7 +1098,7 @@ export const adminService = {
   getUsers: async (params?: GetUsersParams): Promise<UsersResponse> => {
     const response = await apiClient.get<ApiSuccessResponse<UsersResponse>>(
       API_ENDPOINTS.ADMIN.GET_USERS,
-      { params }
+      { params },
     );
     const payload = response.data;
     return {
@@ -1088,7 +1116,7 @@ export const adminService = {
   },
   getUserById: async (userId: string | number): Promise<User> => {
     const response = await apiClient.get<ApiSuccessResponse<User>>(
-      API_ENDPOINTS.ADMIN.GET_USER_BY_ID(userId)
+      API_ENDPOINTS.ADMIN.GET_USER_BY_ID(userId),
     );
     const user = response.data;
     return {
@@ -1111,13 +1139,13 @@ export const adminService = {
         lastName: data.lastName,
         phoneNumber: data.phoneNumber,
         stateIds: data.stateIds,
-      }
+      },
     );
     return response.data;
   },
   updateUser: async (
     userId: string | number,
-    data: UpdateUserRequest
+    data: UpdateUserRequest,
   ): Promise<User> => {
     const response = await apiClient.put<ApiSuccessResponse<User>>(
       API_ENDPOINTS.ADMIN.UPDATE_USER(userId),
@@ -1129,7 +1157,7 @@ export const adminService = {
         phoneNumber: data.phoneNumber,
         stateIds: data.stateIds,
         accountStatus: data.accountStatus,
-      }
+      },
     );
     return response.data;
   },
@@ -1161,7 +1189,9 @@ export const adminService = {
     userId: string | number,
   ): Promise<UserHotelAssignment[]> => {
     const response = await apiClient.get<
-      ApiSuccessResponse<UserHotelAssignment[] | { content: UserHotelAssignment[] }>
+      ApiSuccessResponse<
+        UserHotelAssignment[] | { content: UserHotelAssignment[] }
+      >
     >(API_ENDPOINTS.HOTEL_ADMIN.GET_USER_HOTEL_ASSIGNMENTS(userId));
     const payload = response.data;
     if (Array.isArray(payload)) return payload;
@@ -1177,7 +1207,7 @@ export const adminService = {
   },
   // Hotel Management
   getHotelBasicInfo: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<HotelBasicInfoResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<HotelBasicInfoResponse>
@@ -1186,28 +1216,26 @@ export const adminService = {
   },
   updateHotelProfile: async (
     hotelId: string,
-    data: UpdateHotelProfileRequest
+    data: UpdateHotelProfileRequest,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.UPDATE_HOTEL_PROFILE(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   updateHotelStatus: async (
     hotelId: string,
-    data: UpdateHotelStatusRequest
+    data: UpdateHotelStatusRequest,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.UPDATE_HOTEL_STATUS(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   // Hotel Contact Management
-  getHotelContact: async (
-    hotelId: string
-  ): Promise<HotelContactResponse> => {
+  getHotelContact: async (hotelId: string): Promise<HotelContactResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<HotelContactResponse>
     >(API_ENDPOINTS.ADMIN.GET_HOTEL_CONTACT(hotelId));
@@ -1215,18 +1243,16 @@ export const adminService = {
   },
   updateHotelContact: async (
     hotelId: string,
-    data: UpdateHotelContactRequest
+    data: UpdateHotelContactRequest,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.UPDATE_HOTEL_CONTACT(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   // Hotel Location Management
-  getHotelLocation: async (
-    hotelId: string
-  ): Promise<HotelLocationResponse> => {
+  getHotelLocation: async (hotelId: string): Promise<HotelLocationResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<HotelLocationResponse>
     >(API_ENDPOINTS.ADMIN.GET_HOTEL_LOCATION(hotelId));
@@ -1234,18 +1260,16 @@ export const adminService = {
   },
   updateHotelLocation: async (
     hotelId: string,
-    data: UpdateHotelLocationRequest
+    data: UpdateHotelLocationRequest,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.UPDATE_HOTEL_LOCATION(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   // Hotel Address Management
-  getHotelAddress: async (
-    hotelId: string
-  ): Promise<HotelAddressResponse> => {
+  getHotelAddress: async (hotelId: string): Promise<HotelAddressResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<HotelAddressResponse>
     >(API_ENDPOINTS.ADMIN.GET_HOTEL_ADDRESS(hotelId));
@@ -1253,17 +1277,17 @@ export const adminService = {
   },
   updateHotelAddress: async (
     hotelId: string,
-    data: UpdateHotelAddressRequest
+    data: UpdateHotelAddressRequest,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.UPDATE_HOTEL_ADDRESS(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   // Hotel Admin specific methods (without /admin prefix)
   getHotelAdminBasicInfo: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<HotelBasicInfoResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<HotelBasicInfoResponse>
@@ -1272,16 +1296,16 @@ export const adminService = {
   },
   updateHotelAdminProfile: async (
     hotelId: string,
-    data: UpdateHotelAdminProfileRequest
+    data: UpdateHotelAdminProfileRequest,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_HOTEL_PROFILE(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   getHotelAdminContact: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<HotelContactResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<HotelContactResponse>
@@ -1290,16 +1314,16 @@ export const adminService = {
   },
   updateHotelAdminContact: async (
     hotelId: string,
-    data: UpdateHotelAdminContactRequest
+    data: UpdateHotelAdminContactRequest,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_HOTEL_CONTACT(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   getHotelAdminLocation: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<HotelLocationResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<HotelLocationResponse>
@@ -1307,16 +1331,14 @@ export const adminService = {
     return response.data;
   },
   getHotelAdminAddress: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<HotelAddressResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<HotelAddressResponse>
     >(API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_ADDRESS(hotelId));
     return response.data;
   },
-  getHotelPolicies: async (
-    hotelId: string
-  ): Promise<HotelPoliciesResponse> => {
+  getHotelPolicies: async (hotelId: string): Promise<HotelPoliciesResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<HotelPoliciesResponse>
     >(API_ENDPOINTS.HOTEL_ADMIN.HOTEL_POLICIES(hotelId));
@@ -1324,26 +1346,26 @@ export const adminService = {
   },
   createHotelPolicies: async (
     hotelId: string,
-    data: UpdateHotelPoliciesRequest
+    data: UpdateHotelPoliciesRequest,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.HOTEL_POLICIES(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   updateHotelPolicies: async (
     hotelId: string,
-    data: UpdateHotelPoliciesRequest
+    data: UpdateHotelPoliciesRequest,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.HOTEL_POLICIES(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   getCancellationPolicies: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<CancellationPolicyListResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<CancellationPolicyListResponse>
@@ -1352,36 +1374,36 @@ export const adminService = {
   },
   getCancellationPolicy: async (
     hotelId: string,
-    policyId: number
+    policyId: number,
   ): Promise<CancellationPolicy> => {
-    const response = await apiClient.get<ApiSuccessResponse<CancellationPolicy>>(
-      API_ENDPOINTS.HOTEL_ADMIN.CANCELLATION_POLICY_DETAIL(hotelId, policyId)
-    );
+    const response = await apiClient.get<
+      ApiSuccessResponse<CancellationPolicy>
+    >(API_ENDPOINTS.HOTEL_ADMIN.CANCELLATION_POLICY_DETAIL(hotelId, policyId));
     return response.data;
   },
   createCancellationPolicy: async (
     hotelId: string,
-    data: CancellationPolicyPayload
+    data: CancellationPolicyPayload,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.CANCELLATION_POLICIES(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   updateCancellationPolicy: async (
     hotelId: string,
     policyId: number,
-    data: CancellationPolicyPayload
+    data: CancellationPolicyPayload,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.CANCELLATION_POLICY_DETAIL(hotelId, policyId),
-      data
+      data,
     );
     return response.data;
   },
   getChildAgePolicy: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<ChildAgePolicyResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<ChildAgePolicyResponse>
@@ -1390,27 +1412,27 @@ export const adminService = {
   },
   createChildAgePolicy: async (
     hotelId: string,
-    data: ChildAgePolicyPayload
+    data: ChildAgePolicyPayload,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.CHILD_AGE_POLICY(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   updateChildAgePolicy: async (
     hotelId: string,
-    data: ChildAgePolicyPayload
+    data: ChildAgePolicyPayload,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.CHILD_AGE_POLICY(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   // Payment Rules Management
   getPaymentRules: async (
-    hotelId: string
+    hotelId: string,
   ): Promise<PaymentRuleListResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<PaymentRuleListResponse>
@@ -1419,60 +1441,62 @@ export const adminService = {
   },
   createPaymentRule: async (
     hotelId: string,
-    data: PaymentRulePayload
+    data: PaymentRulePayload,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.PAYMENT_RULES(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   updatePaymentRule: async (
     hotelId: string,
-    data: PaymentRulePayload
+    data: PaymentRuleUpdatePayload,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.PAYMENT_RULES(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   // Promotions Management
   createPromotion: async (
     hotelId: string,
-    data: CreatePromotionPayload
+    data: CreatePromotionPayload,
   ): Promise<null> => {
     const response = await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.CREATE_PROMOTION(hotelId),
-      data
+      data,
     );
     return response.data;
   },
-  getPromotions: async (
-    hotelId: string
-  ): Promise<PromotionListResponse> => {
-    const response = await apiClient.get<ApiSuccessResponse<PromotionListItem[]>>(
-      API_ENDPOINTS.HOTEL_ADMIN.GET_PROMOTIONS(hotelId)
-    );
+  getPromotions: async (hotelId: string): Promise<PromotionListResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<PromotionListItem[]>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_PROMOTIONS(hotelId));
     // response.data is the data from ApiSuccessResponse
     // If it's an array, use it directly
     if (Array.isArray(response.data)) {
       return { data: response.data };
     }
     // If it's an object with a data property, extract it
-    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+    if (
+      response.data &&
+      typeof response.data === "object" &&
+      "data" in response.data
+    ) {
       return { data: (response.data as any).data || [] };
     }
     return { data: [] };
   },
   getPromotionEdit: async (
     hotelId: string,
-    promotionId: string
+    promotionId: string,
   ): Promise<PromotionEditResponse> => {
     // The API returns { data: { promotion: {...}, ... } } wrapped in ApiSuccessResponse
-    const response = await apiClient.get<ApiSuccessResponse<PromotionEditResponse["data"]>>(
-      API_ENDPOINTS.HOTEL_ADMIN.GET_PROMOTION_EDIT(hotelId, promotionId)
-    );
+    const response = await apiClient.get<
+      ApiSuccessResponse<PromotionEditResponse["data"]>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_PROMOTION_EDIT(hotelId, promotionId));
     // response.data is the PromotionEditResponse["data"] (the inner data object)
     // We need to wrap it in PromotionEditResponse format
     return { data: response.data };
@@ -1480,29 +1504,27 @@ export const adminService = {
   updatePromotionStatus: async (
     hotelId: string,
     promotionId: string,
-    data: UpdatePromotionStatusPayload
+    data: UpdatePromotionStatusPayload,
   ): Promise<null> => {
     const response = await apiClient.patch<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_PROMOTION_STATUS(hotelId, promotionId),
-      data
+      data,
     );
     return response.data;
   },
   updatePromotion: async (
     hotelId: string,
     promotionId: string,
-    data: UpdatePromotionPayload
+    data: UpdatePromotionPayload,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_PROMOTION_STATUS(hotelId, promotionId),
-      data
+      data,
     );
     return response.data;
   },
   // Hotel Rooms Management
-  getHotelAdminRooms: async (
-    hotelId: string
-  ): Promise<HotelRoomsResponse> => {
+  getHotelAdminRooms: async (hotelId: string): Promise<HotelRoomsResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<HotelRoomsResponse>
     >(API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_ROOMS(hotelId));
@@ -1511,17 +1533,17 @@ export const adminService = {
   updateRoomActiveStatus: async (
     hotelId: string,
     roomId: string,
-    data: UpdateRoomActiveStatusRequest
+    data: UpdateRoomActiveStatusRequest,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_ROOM_ACTIVE_STATUS(hotelId, roomId),
-      data
+      data,
     );
     return response.data;
   },
   getRoomRatePlans: async (
     hotelId: string,
-    roomId: string
+    roomId: string,
   ): Promise<RoomRatePlansResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<RoomRatePlansResponse>
@@ -1531,21 +1553,23 @@ export const adminService = {
   getRatePlanForEdit: async (
     hotelId: string,
     roomId: string,
-    ratePlanId: number
+    ratePlanId: number,
   ): Promise<RatePlanEditResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<RatePlanEditResponse>
-    >(API_ENDPOINTS.HOTEL_ADMIN.GET_RATE_PLAN_EDIT(hotelId, roomId, ratePlanId));
+    >(
+      API_ENDPOINTS.HOTEL_ADMIN.GET_RATE_PLAN_EDIT(hotelId, roomId, ratePlanId),
+    );
     return response.data;
   },
   createRatePlan: async (
     hotelId: string,
     roomId: string,
-    data: CreateRatePlanRequest
+    data: CreateRatePlanRequest,
   ): Promise<RatePlan> => {
     const response = await apiClient.post<ApiSuccessResponse<RatePlan>>(
       API_ENDPOINTS.HOTEL_ADMIN.CREATE_RATE_PLAN(hotelId, roomId),
-      data
+      data,
     );
     return response.data;
   },
@@ -1553,11 +1577,11 @@ export const adminService = {
     hotelId: string,
     roomId: string,
     ratePlanId: number,
-    data: UpdateRatePlanRequest
+    data: UpdateRatePlanRequest,
   ): Promise<RatePlan> => {
     const response = await apiClient.put<ApiSuccessResponse<RatePlan>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_RATE_PLAN(hotelId, roomId, ratePlanId),
-      data
+      data,
     );
     return response.data;
   },
@@ -1565,55 +1589,62 @@ export const adminService = {
     hotelId: string,
     roomId: string,
     ratePlanId: number,
-    data: UpdateRatePlanActiveStatusRequest
+    data: UpdateRatePlanActiveStatusRequest,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
-      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_RATE_PLAN_ACTIVE_STATUS(hotelId, roomId, ratePlanId),
-      data
+      API_ENDPOINTS.HOTEL_ADMIN.UPDATE_RATE_PLAN_ACTIVE_STATUS(
+        hotelId,
+        roomId,
+        ratePlanId,
+      ),
+      data,
     );
     return response.data;
   },
   // Hotel Room Create/Update
   createOrUpdateRoom: async (
     hotelId: string,
-    data: HotelRoomDetailsRequest
+    data: HotelRoomDetailsRequest,
   ): Promise<{ roomKey: string }> => {
     const response = data.roomKey
       ? await apiClient.put<ApiSuccessResponse<{ roomKey: string }>>(
           API_ENDPOINTS.HOTEL_ADMIN.CREATE_OR_UPDATE_ROOM(hotelId),
-          data
+          data,
         )
       : await apiClient.post<ApiSuccessResponse<{ roomKey: string }>>(
           API_ENDPOINTS.HOTEL_ADMIN.CREATE_OR_UPDATE_ROOM(hotelId),
-          data
+          data,
         );
     return response.data;
   },
   getRoomDetails: async (
     hotelId: string,
-    roomId: string
+    roomId: string,
   ): Promise<HotelRoomDetailsResponse> => {
-    const response = await apiClient.get<ApiSuccessResponse<HotelRoomDetailsResponse>>(
-      API_ENDPOINTS.HOTEL_ADMIN.GET_ROOM_DETAILS(hotelId, roomId)
-    );
+    const response = await apiClient.get<
+      ApiSuccessResponse<HotelRoomDetailsResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_ROOM_DETAILS(hotelId, roomId));
     return response.data;
   },
   // Media APIs
   getHotelMedia: async (hotelId: string): Promise<HotelMediaItem[]> => {
     const response = await apiClient.get<ApiSuccessResponse<HotelMediaItem[]>>(
-      API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_MEDIA(hotelId)
+      API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_MEDIA(hotelId),
     );
     return response.data;
   },
-  getRoomMedia: async (hotelId: string, roomId: string): Promise<HotelMediaItem[]> => {
+  getRoomMedia: async (
+    hotelId: string,
+    roomId: string,
+  ): Promise<HotelMediaItem[]> => {
     const response = await apiClient.get<ApiSuccessResponse<HotelMediaItem[]>>(
-      API_ENDPOINTS.HOTEL_ADMIN.GET_ROOM_MEDIA(hotelId, roomId)
+      API_ENDPOINTS.HOTEL_ADMIN.GET_ROOM_MEDIA(hotelId, roomId),
     );
     return response.data;
   },
   uploadHotelMedia: async (
     hotelId: string,
-    files: File[]
+    files: File[],
   ): Promise<
     {
       imageId: number;
@@ -1636,21 +1667,17 @@ export const adminService = {
           duplicate?: boolean;
         }[]
       >
-    >(
-      API_ENDPOINTS.HOTEL_ADMIN.UPLOAD_HOTEL_MEDIA(hotelId),
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
+    >(API_ENDPOINTS.HOTEL_ADMIN.UPLOAD_HOTEL_MEDIA(hotelId), formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
     return response.data;
   },
   uploadRoomMedia: async (
     hotelId: string,
     roomKey: string,
-    files: File[]
+    files: File[],
   ): Promise<
     {
       imageId: number;
@@ -1672,128 +1699,160 @@ export const adminService = {
           duplicate?: boolean;
         }[]
       >
-    >(
-      API_ENDPOINTS.HOTEL_ADMIN.UPLOAD_ROOM_MEDIA(hotelId, roomKey),
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
+    >(API_ENDPOINTS.HOTEL_ADMIN.UPLOAD_ROOM_MEDIA(hotelId, roomKey), formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
     return response.data;
   },
-  assignMediaTag: async (hotelId: string, imageId: number, data: AssignMediaTagRequest): Promise<null> => {
+  assignMediaTag: async (
+    hotelId: string,
+    imageId: number,
+    data: AssignMediaTagRequest,
+  ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.ASSIGN_MEDIA_TAG(hotelId, imageId),
-      data
+      data,
     );
     return response.data;
   },
-  assignMediaTagBulk: async (hotelId: string, data: AssignMediaTagBulkRequest): Promise<null> => {
+  assignMediaTagBulk: async (
+    hotelId: string,
+    data: AssignMediaTagBulkRequest,
+  ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.ASSIGN_MEDIA_TAG_BULK(hotelId),
-      data
+      data,
     );
     return response.data;
   },
-  assignMediaToRoom: async (hotelId: string, imageId: number, data: AssignMediaToRoomRequest): Promise<null> => {
+  assignMediaToRoom: async (
+    hotelId: string,
+    imageId: number,
+    data: AssignMediaToRoomRequest,
+  ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.ASSIGN_MEDIA_TO_ROOM(hotelId, imageId),
-      data
+      data,
     );
     return response.data;
   },
-  assignMediaToHotel: async (hotelId: string, imageId: number): Promise<null> => {
+  assignMediaToHotel: async (
+    hotelId: string,
+    imageId: number,
+  ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
-      API_ENDPOINTS.HOTEL_ADMIN.ASSIGN_MEDIA_TO_HOTEL(hotelId, imageId)
+      API_ENDPOINTS.HOTEL_ADMIN.ASSIGN_MEDIA_TO_HOTEL(hotelId, imageId),
     );
     return response.data;
   },
   detachMedia: async (hotelId: string, imageId: number): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
-      API_ENDPOINTS.HOTEL_ADMIN.DETACH_MEDIA(hotelId, imageId)
+      API_ENDPOINTS.HOTEL_ADMIN.DETACH_MEDIA(hotelId, imageId),
     );
     return response.data;
   },
-  reorderMedia: async (hotelId: string, data: ReorderMediaRequest): Promise<null> => {
+  reorderMedia: async (
+    hotelId: string,
+    data: ReorderMediaRequest,
+  ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.REORDER_MEDIA(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   setMediaCover: async (hotelId: string, mediaId: number): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
-      API_ENDPOINTS.HOTEL_ADMIN.SET_MEDIA_COVER(hotelId, mediaId)
+      API_ENDPOINTS.HOTEL_ADMIN.SET_MEDIA_COVER(hotelId, mediaId),
     );
     return response.data;
   },
   // Finance APIs
   getHotelFinance: async (hotelId: string): Promise<FinanceResponse> => {
     const response = await apiClient.get<ApiSuccessResponse<FinanceResponse>>(
-      API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_FINANCE(hotelId)
+      API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_FINANCE(hotelId),
     );
     return response.data;
   },
-  updateHotelFinance: async (hotelId: string, data: FinanceData): Promise<null> => {
+  updateHotelFinance: async (
+    hotelId: string,
+    data: FinanceData,
+  ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_HOTEL_FINANCE(hotelId),
-      data
+      data,
     );
     return response.data;
   },
-  getHotelFoodServices: async (hotelId: string): Promise<FoodServicesResponse> => {
-    const response = await apiClient.get<ApiSuccessResponse<FoodServicesResponse>>(
-      API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_FOOD_SERVICES(hotelId)
-    );
+  getHotelFoodServices: async (
+    hotelId: string,
+  ): Promise<FoodServicesResponse> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<FoodServicesResponse>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_FOOD_SERVICES(hotelId));
     return response.data;
   },
   updateHotelFoodServices: async (
     hotelId: string,
-    data: FoodServicesResponse
+    data: FoodServicesResponse,
   ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_HOTEL_FOOD_SERVICES(hotelId),
-      data
+      data,
     );
     return response.data;
   },
   // Amenities APIs
   getHotelAmenities: async (hotelId: string): Promise<AmenitiesResponse> => {
     const response = await apiClient.get<ApiSuccessResponse<AmenitiesResponse>>(
-      API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_AMENITIES(hotelId)
+      API_ENDPOINTS.HOTEL_ADMIN.GET_HOTEL_AMENITIES(hotelId),
     );
     return response.data;
   },
-  getRoomAmenities: async (hotelId: string, roomId: string): Promise<AmenitiesResponse> => {
+  getRoomAmenities: async (
+    hotelId: string,
+    roomId: string,
+  ): Promise<AmenitiesResponse> => {
     const response = await apiClient.get<ApiSuccessResponse<AmenitiesResponse>>(
-      API_ENDPOINTS.HOTEL_ADMIN.GET_ROOM_AMENITIES(hotelId, roomId)
+      API_ENDPOINTS.HOTEL_ADMIN.GET_ROOM_AMENITIES(hotelId, roomId),
     );
     return response.data;
   },
-  updateHotelAmenities: async (hotelId: string, data: UpdateAmenitiesRequest): Promise<null> => {
+  updateHotelAmenities: async (
+    hotelId: string,
+    data: UpdateAmenitiesRequest,
+  ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_HOTEL_AMENITIES(hotelId),
-      data
+      data,
     );
     return response.data;
   },
-  updateRoomAmenities: async (hotelId: string, roomId: string, data: UpdateAmenitiesRequest): Promise<null> => {
+  updateRoomAmenities: async (
+    hotelId: string,
+    roomId: string,
+    data: UpdateAmenitiesRequest,
+  ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_ROOM_AMENITIES(hotelId, roomId),
-      data
+      data,
     );
     return response.data;
   },
   // Document APIs
   getDocuments: async (hotelId: string): Promise<Document[]> => {
     const response = await apiClient.get<ApiSuccessResponse<Document[]>>(
-      API_ENDPOINTS.HOTEL_ADMIN.GET_DOCUMENTS(hotelId)
+      API_ENDPOINTS.HOTEL_ADMIN.GET_DOCUMENTS(hotelId),
     );
     return response.data;
   },
-  uploadDocument: async (hotelId: string, file: File, docType: DocumentType): Promise<Document> => {
+  uploadDocument: async (
+    hotelId: string,
+    file: File,
+    docType: DocumentType,
+  ): Promise<Document> => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("docType", docType);
@@ -1804,7 +1863,7 @@ export const adminService = {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-      }
+      },
     );
     return response.data;
   },
@@ -1812,7 +1871,7 @@ export const adminService = {
     hotelId: string,
     documentId: string | number,
     file: File,
-    docType: DocumentType
+    docType: DocumentType,
   ): Promise<Document> => {
     const formData = new FormData();
     formData.append("file", file);
@@ -1824,71 +1883,93 @@ export const adminService = {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-      }
+      },
     );
     return response.data;
   },
   // Document Review APIs (Super Admin)
   getPendingDocuments: async (): Promise<Document[]> => {
     const response = await apiClient.get<ApiSuccessResponse<Document[]>>(
-      API_ENDPOINTS.ADMIN.GET_PENDING_DOCUMENTS
+      API_ENDPOINTS.ADMIN.GET_PENDING_DOCUMENTS,
     );
     return response.data;
   },
   getHotelDocuments: async (hotelId: string): Promise<Document[]> => {
     const response = await apiClient.get<ApiSuccessResponse<Document[]>>(
-      API_ENDPOINTS.ADMIN.GET_HOTEL_DOCUMENTS(hotelId)
+      API_ENDPOINTS.ADMIN.GET_HOTEL_DOCUMENTS(hotelId),
     );
     return response.data;
   },
-  approveDocument: async (docId: string | number, remarks: string): Promise<null> => {
+  approveDocument: async (
+    docId: string | number,
+    remarks: string,
+  ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.ADMIN.APPROVE_DOCUMENT(docId),
-      { remarks }
+      { remarks },
     );
     return response.data;
   },
-  rejectDocument: async (docId: string | number, remarks: string): Promise<null> => {
+  rejectDocument: async (
+    docId: string | number,
+    remarks: string,
+  ): Promise<null> => {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
-      `${API_ENDPOINTS.ADMIN.REJECT_DOCUMENT(docId)}?remarks=${encodeURIComponent(remarks)}`
+      `${API_ENDPOINTS.ADMIN.REJECT_DOCUMENT(docId)}?remarks=${encodeURIComponent(remarks)}`,
     );
     return response.data;
   },
 
-  // Travel agent onboarding (travel partners) – API now wraps responses in ApiSuccessResponse
+  // Agent onboarding – list/detail/create/update (TRAVEL_AGENT_ONBOARDING.*)
   getTravelAgentOnboardingList: async (
-    params?: TravelAgentOnboardingListParams
+    params?: TravelAgentOnboardingListParams,
   ): Promise<TravelAgentOnboardingListResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<TravelAgentOnboardingListResponse>
-    >(API_ENDPOINTS.ADMIN.TRAVEL_AGENT_ONBOARDING_LIST, { params });
+    >(API_ENDPOINTS.TRAVEL_AGENT_ONBOARDING.ROOT, { params });
     return response.data;
   },
+  createTravelAgentOnboarding: async (
+    data: TravelAgentOnboardingCreatePayload,
+  ): Promise<void> => {
+    await apiClient.post<ApiSuccessResponse<unknown>>(
+      API_ENDPOINTS.TRAVEL_AGENT_ONBOARDING.ROOT,
+      data,
+    );
+  },
+  updateTravelAgentOnboarding: async (
+    id: string | number,
+    data: TravelAgentOnboardingCreatePayload,
+  ): Promise<void> => {
+    await apiClient.put<ApiSuccessResponse<unknown>>(
+      API_ENDPOINTS.TRAVEL_AGENT_ONBOARDING.BY_ID(id),
+      data,
+    );
+  },
   getTravelAgentOnboardingById: async (
-    id: string | number
+    id: string | number,
   ): Promise<TravelAgentOnboardingItem> => {
     const response = await apiClient.get<
       ApiSuccessResponse<TravelAgentOnboardingItem>
-    >(API_ENDPOINTS.ADMIN.TRAVEL_AGENT_ONBOARDING_BY_ID(id));
+    >(API_ENDPOINTS.TRAVEL_AGENT_ONBOARDING.BY_ID(id));
     return response.data;
   },
   approveTravelAgentOnboarding: async (
     id: string | number,
-    data: ApproveTravelAgentOnboardingRequest
+    data: ApproveTravelAgentOnboardingRequest,
   ): Promise<void> => {
     await apiClient.post(
       API_ENDPOINTS.ADMIN.TRAVEL_AGENT_ONBOARDING_APPROVE(id),
-      data
+      data,
     );
   },
   rejectTravelAgentOnboarding: async (
     id: string | number,
-    data: RejectTravelAgentOnboardingRequest
+    data: RejectTravelAgentOnboardingRequest,
   ): Promise<void> => {
     await apiClient.post(
       API_ENDPOINTS.ADMIN.TRAVEL_AGENT_ONBOARDING_REJECT(id),
-      data
+      data,
     );
   },
 };
-
