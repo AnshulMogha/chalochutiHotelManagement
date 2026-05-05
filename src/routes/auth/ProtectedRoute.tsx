@@ -14,7 +14,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const ACCESS_DENIED_ROLES = [
     "PACKAGE_CREATOR",
     "PACKAGE_BD",
-    "SALES_MANAGER",
     "TRANSPORT_BD",
   ];
   const isBlockedPortalRole = !!user?.roles?.some((role) =>

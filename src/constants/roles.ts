@@ -180,3 +180,8 @@ export function isZonalManagerSalesRole(
 ): boolean {
   return !!userRoles?.includes("ZONAL_MANAGER_SALES");
 }
+
+/** Sales manager: onboard travel agents and view agent pipeline. */
+export function isSalesManagerRole(userRoles: string[] | undefined): boolean {
+  return !!userRoles?.includes("SALES_MANAGER");
+}

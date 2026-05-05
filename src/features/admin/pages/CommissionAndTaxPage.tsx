@@ -8,7 +8,10 @@ import {
   type ServiceFee,
   type CreateServiceFeeRequest,
 } from "../services/commissionTaxService";
-import { adminService, type ApprovedHotelItem } from "../services/adminService";
+import {
+  adminService,
+  type ApprovedHotelItem,
+} from "../services/adminService";
 import { Button, Input, Select, LoadingSpinner, Card, CardHeader, CardTitle, CardContent, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { 
@@ -35,7 +38,7 @@ import {
 const COMMISSION_SCOPE_OPTIONS = [
   { value: "GLOBAL", label: "Global" },
   { value: "HOTEL", label: "Hotel" },
-  { value: "CITY", label: "City" },
+  // { value: "CITY", label: "City" }, // Temporarily disabled
   { value: "CHANNEL", label: "Channel" },
 ];
 
@@ -64,6 +67,11 @@ const SERVICE_FEE_CALCULATION_OPTIONS = [
 const CUSTOMER_TYPE_OPTIONS = [
   { value: "B2C", label: "B2C" },
   { value: "B2B", label: "B2B" },
+];
+
+const CHANNEL_OPTIONS = [
+  { value: "B2B", label: "B2B" },
+  { value: "B2C", label: "B2C" },
 ];
 
 // Indian States - using full state name as value
@@ -152,9 +160,9 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
     setApiError(null);
   }, [mode, commission, isOpen]);
 
-  // Fetch hotels when scope is changed to HOTEL
+  // Fetch scope masters when scope changes
   useEffect(() => {
-    const fetchHotels = async () => {
+    const fetchScopeMasters = async () => {
       if (formData.scope === "HOTEL") {
         try {
           setIsLoadingHotels(true);
@@ -172,7 +180,7 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
     };
 
     if (isOpen) {
-      fetchHotels();
+      fetchScopeMasters();
     }
   }, [formData.scope, isOpen]);
 
@@ -325,9 +333,21 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
                   }
                   disabled={isLoadingHotels}
                 />
+              ) : formData.scope === "CHANNEL" ? (
+                <Select
+                  label="Channel Name"
+                  value={formData.scopeValue || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, scopeValue: e.target.value || null })
+                  }
+                  error={errors.scopeValue}
+                  required
+                  icon={<Radio className="w-4 h-4 text-gray-400" />}
+                  options={CHANNEL_OPTIONS}
+                />
               ) : (
                 <Input
-                  label={`${formData.scope === "CITY" ? "City" : "Channel"} ID/Name`}
+                  label="Scope Value"
                   value={formData.scopeValue || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, scopeValue: e.target.value || null })
@@ -335,11 +355,7 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
                   error={errors.scopeValue}
                   required
                   icon={
-                    formData.scope === "CITY" ? (
-                      <MapPin className="w-4 h-4 text-gray-400" />
-                    ) : (
-                      <Radio className="w-4 h-4 text-gray-400" />
-                    )
+                    <Radio className="w-4 h-4 text-gray-400" />
                   }
                 />
               )}

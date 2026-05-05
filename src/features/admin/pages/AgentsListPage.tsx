@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router";
 import { Button } from "@/components/ui";
-import { ApproveRejectModal } from "../components/ApproveRejectModal";
+import { ROUTES } from "@/constants";
 import { adminService } from "../services/adminService";
 import type {
   TravelAgentOnboardingListItem,
   TravelAgentOnboardingItem,
 } from "../services/adminService";
 import {
-  Handshake,
+  UserRoundCog,
   Eye,
   X,
   User,
@@ -18,46 +19,21 @@ import {
   CheckCircle,
   XCircle,
   Mail,
-  Phone,
   MapPin,
   Hash,
   CalendarDays,
   MessageSquare,
   IdCard,
   Briefcase,
+  Plus,
+  Pencil,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { TravelPartnerStatus } from "./TravelPartnersPage";
+import type { TravelPartner } from "./TravelPartnersPage";
 
-export type TravelPartnerStatus = "PENDING" | "APPROVED" | "REJECTED";
-
-export interface TravelPartner {
-  id: string;
-  status: TravelPartnerStatus;
-  appliedAt: string;
-  // From list API: fullName -> name, agencyName -> agencyNumber, createdAt -> appliedAt
-  title: string;
-  name: string;
-  email: string;
-  phone?: string;
-  agencyNumber: string;
-  panNumber?: string;
-  panCardFileUrl?: string;
-  gstNumber?: string;
-  businessAddress?: string;
-  city?: string;
-  state?: string;
-  pincode?: string;
-  accountHolderName?: string;
-  accountNumber?: string;
-  ifsc?: string;
-  bankName?: string;
-  reviewedAt?: string;
-  remarks?: string;
-}
-
-function mapListItemToPartner(
-  item: TravelAgentOnboardingListItem,
-): TravelPartner {
+function mapListItemToPartner(item: TravelAgentOnboardingListItem): TravelPartner {
   return {
     id: String(item.id),
     status: item.status,
@@ -69,10 +45,7 @@ function mapListItemToPartner(
   };
 }
 
-/** Maps get-by-id API response (TravelAgentOnboardingItem) to UI TravelPartner */
-function mapOnboardingToPartner(
-  item: TravelAgentOnboardingItem,
-): TravelPartner {
+function mapOnboardingToPartner(item: TravelAgentOnboardingItem): TravelPartner {
   return {
     id: String(item.id),
     status: item.status,
@@ -131,15 +104,12 @@ function formatDate(iso: string) {
   });
 }
 
-export default function TravelPartnersPage() {
+export default function AgentsListPage() {
   const [partners, setPartners] = useState<TravelPartner[]>([]);
   const [activeTab, setActiveTab] = useState<TravelPartnerStatus>("PENDING");
-  const [selectedPartner, setSelectedPartner] = useState<TravelPartner | null>(
-    null,
-  );
-  const [showApproveModal, setShowApproveModal] = useState(false);
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedPartner, setSelectedPartner] = useState<TravelPartner | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [detailStep, setDetailStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -150,9 +120,7 @@ export default function TravelPartnersPage() {
   const [totalElements, setTotalElements] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
-  const [statusTotals, setStatusTotals] = useState<
-    Record<TravelPartnerStatus, number>
-  >({
+  const [statusTotals, setStatusTotals] = useState<Record<TravelPartnerStatus, number>>({
     PENDING: 0,
     APPROVED: 0,
     REJECTED: 0,
@@ -172,15 +140,12 @@ export default function TravelPartnersPage() {
       setTotalElements(response.totalElements);
       setHasNext(response.hasNext);
       setHasPrevious(response.hasPrevious);
-      setStatusTotals((prev) => ({
-        ...prev,
-        [activeTab]: response.totalElements,
-      }));
+      setStatusTotals((prev) => ({ ...prev, [activeTab]: response.totalElements }));
     } catch (err) {
       const message =
         err && typeof err === "object" && "message" in err
           ? String((err as { message: string }).message)
-          : "Failed to load travel partners";
+          : "Failed to load agents";
       setListError(message);
       setPartners([]);
       setTotalPages(0);
@@ -196,70 +161,56 @@ export default function TravelPartnersPage() {
     fetchPartners();
   }, [fetchPartners]);
 
-  const filtered = partners;
+  const closeDetailModal = useCallback(() => {
+    setDetailModalOpen(false);
+    setSelectedPartner(null);
+    setDetailError(null);
+    setDetailLoading(false);
+    setDetailStep(1);
+  }, []);
 
   const openPartnerDetail = useCallback(async (partner: TravelPartner) => {
-    setSelectedPartner(partner);
+    setDetailModalOpen(true);
+    setSelectedPartner(null);
+    setDetailError(null);
     setDetailStep(1);
     setDetailLoading(true);
     try {
       const item = await adminService.getTravelAgentOnboardingById(partner.id);
       setSelectedPartner(mapOnboardingToPartner(item));
-    } catch {
-      // Keep showing list item if fetch by id fails
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Failed to load agent details.";
+      setDetailError(message);
     } finally {
       setDetailLoading(false);
     }
   }, []);
 
-  const handleApprove = async (remarks: string) => {
-    if (!selectedPartner) return;
-    setIsProcessing(true);
-    try {
-      await adminService.approveTravelAgentOnboarding(selectedPartner.id, {
-        remarks,
-      });
-      await fetchPartners();
-      setShowApproveModal(false);
-      setSelectedPartner(null);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleReject = async (remarks: string) => {
-    if (!selectedPartner) return;
-    setIsProcessing(true);
-    try {
-      await adminService.rejectTravelAgentOnboarding(selectedPartner.id, {
-        remarks,
-      });
-      await fetchPartners();
-      setShowRejectModal(false);
-      setSelectedPartner(null);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50/50">
+    <div className="min-h-screen bg-linear-to-b from-slate-50 to-emerald-50/30">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#2f3d95] text-white">
-              <Handshake className="h-6 w-6" />
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-emerald-600 to-teal-700 text-white shadow-lg shadow-emerald-600/25">
+              <UserRoundCog className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Travel Partners
-              </h1>
+              <h1 className="text-2xl font-bold text-gray-900">Agents</h1>
               <p className="text-sm text-gray-500">
-                Review and approve travel partner applications
+                Travel agents you onboard and their approval status
               </p>
             </div>
           </div>
+          <Link
+            to={ROUTES.AGENTS.CREATE}
+            className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-base font-medium text-white shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+          >
+            <Plus className="h-4 w-4" />
+            Add agent
+          </Link>
         </div>
 
         {listError && (
@@ -269,14 +220,11 @@ export default function TravelPartnersPage() {
         )}
 
         {loading && (
-          <div className="mb-6 py-12 text-center text-gray-500 text-sm">
-            Loading travel partners…
-          </div>
+          <div className="mb-6 py-12 text-center text-gray-500 text-sm">Loading agents…</div>
         )}
 
-        {/* Tabs */}
         <div className="mb-6 bg-white rounded-t-xl border border-b-0 border-gray-200 shadow-sm">
-          <nav className="flex gap-0" aria-label="Tabs">
+          <nav className="flex gap-0 overflow-x-auto" aria-label="Status tabs">
             {(["PENDING", "APPROVED", "REJECTED"] as const).map((tabId) => {
               const config = TAB_CONFIG[tabId];
               const Icon = config.icon;
@@ -284,12 +232,13 @@ export default function TravelPartnersPage() {
               return (
                 <button
                   key={tabId}
+                  type="button"
                   onClick={() => {
                     setActiveTab(tabId);
                     setCurrentPage(0);
                   }}
                   className={cn(
-                    "flex items-center gap-2 px-5 py-3.5 text-sm font-medium rounded-t-lg border-b-2 transition-all",
+                    "flex items-center gap-2 px-5 py-3.5 text-sm font-medium rounded-t-lg border-b-2 transition-all shrink-0",
                     isActive
                       ? config.activeClass
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50",
@@ -300,9 +249,7 @@ export default function TravelPartnersPage() {
                   <span
                     className={cn(
                       "ml-1 py-0.5 px-2 rounded-full text-xs font-semibold",
-                      isActive
-                        ? config.badgeClass
-                        : "bg-gray-200 text-gray-600",
+                      isActive ? config.badgeClass : "bg-gray-200 text-gray-600",
                     )}
                   >
                     {statusTotals[tabId]}
@@ -313,9 +260,8 @@ export default function TravelPartnersPage() {
           </nav>
         </div>
 
-        {/* List */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          {filtered.length === 0 ? (
+          {partners.length === 0 && !loading ? (
             (() => {
               const config = TAB_CONFIG[activeTab];
               const Icon = config.icon;
@@ -330,13 +276,22 @@ export default function TravelPartnersPage() {
                     <Icon className="h-7 w-7" />
                   </div>
                   <p className="mt-4 text-sm font-medium text-gray-700">
-                    No {activeTab.toLowerCase()} partners
+                    No {activeTab.toLowerCase()} agents
                   </p>
                   <p className="mt-1 text-sm text-gray-500">
                     {activeTab === "PENDING"
-                      ? "New applications will appear here."
-                      : `No ${activeTab.toLowerCase()} applications yet.`}
+                      ? "Use Add agent to submit a new onboarding."
+                      : `No ${activeTab.toLowerCase()} applications in this view.`}
                   </p>
+                  {activeTab === "PENDING" && (
+                    <Link
+                      to={ROUTES.AGENTS.CREATE}
+                      className="mt-6 inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add agent
+                    </Link>
+                  )}
                 </div>
               );
             })()
@@ -357,12 +312,12 @@ export default function TravelPartnersPage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       <span className="inline-flex items-center gap-1.5">
-                        <IdCard className="h-3.5 w-3.5" /> Agency No.
+                        <Building2 className="h-3.5 w-3.5" /> Agency
                       </span>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       <span className="inline-flex items-center gap-1.5">
-                        <CalendarDays className="h-3.5 w-3.5" /> Applied
+                        <CalendarDays className="h-3.5 w-3.5" /> Submitted
                       </span>
                     </th>
                     {activeTab !== "PENDING" && (
@@ -373,21 +328,21 @@ export default function TravelPartnersPage() {
                       </th>
                     )}
                     <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1.5 justify-end w-full">
                         <Eye className="h-3.5 w-3.5" /> Action
                       </span>
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filtered.map((partner) => (
+                  {partners.map((partner) => (
                     <tr
                       key={partner.id}
                       className={cn(
                         "hover:bg-gray-50/80 transition-colors",
-                        activeTab === "PENDING" && "hover:bg-amber-100/60",
-                        activeTab === "APPROVED" && "hover:bg-emerald-100/60",
-                        activeTab === "REJECTED" && "hover:bg-rose-100/60",
+                        activeTab === "PENDING" && "hover:bg-amber-50/80",
+                        activeTab === "APPROVED" && "hover:bg-emerald-50/80",
+                        activeTab === "REJECTED" && "hover:bg-rose-50/80",
                       )}
                     >
                       <td className="px-6 py-4">
@@ -396,12 +351,8 @@ export default function TravelPartnersPage() {
                           {partner.name}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {partner.email}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {partner.agencyNumber}
-                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{partner.email}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{partner.agencyNumber}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {formatDate(partner.appliedAt)}
                       </td>
@@ -411,15 +362,26 @@ export default function TravelPartnersPage() {
                         </td>
                       )}
                       <td className="px-6 py-4 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5 border-gray-300 hover:border-[#2f3d95] hover:bg-[#2f3d95]/5 hover:text-[#2f3d95]"
-                          onClick={() => openPartnerDetail(partner)}
-                        >
-                          <Eye className="h-4 w-4" />
-                          View
-                        </Button>
+                        <div className="flex justify-end gap-2 flex-wrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 border-gray-300 hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-800"
+                            onClick={() => openPartnerDetail(partner)}
+                          >
+                            <Eye className="h-4 w-4" />
+                            View
+                          </Button>
+                          {partner.status === "REJECTED" && (
+                            <Link
+                              to={ROUTES.AGENTS.EDIT(partner.id)}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-medium text-rose-900 hover:bg-rose-100 hover:border-rose-300"
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Update
+                            </Link>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -431,23 +393,19 @@ export default function TravelPartnersPage() {
 
         <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="text-sm text-gray-600">
-            Showing page {totalPages === 0 ? 0 : currentPage + 1} of{" "}
-            {totalPages} ({totalElements} total)
+            Showing page {totalPages === 0 ? 0 : currentPage + 1} of {totalPages} ({totalElements}{" "}
+            total)
           </div>
           <div className="flex items-center gap-2">
-            <label
-              className="text-sm text-gray-600"
-              htmlFor="travel-partner-page-size"
-            >
+            <label className="text-sm text-gray-600" htmlFor="agents-page-size">
               Rows:
             </label>
             <select
-              id="travel-partner-page-size"
+              id="agents-page-size"
               className="h-9 rounded-md border border-gray-300 px-2 text-sm"
               value={pageSize}
               onChange={(e) => {
-                const nextSize = Number(e.target.value);
-                setPageSize(nextSize);
+                setPageSize(Number(e.target.value));
                 setCurrentPage(0);
               }}
             >
@@ -459,7 +417,7 @@ export default function TravelPartnersPage() {
               variant="outline"
               size="sm"
               disabled={!hasPrevious || loading}
-              onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
             >
               Previous
             </Button>
@@ -467,7 +425,7 @@ export default function TravelPartnersPage() {
               variant="outline"
               size="sm"
               disabled={!hasNext || loading}
-              onClick={() => setCurrentPage((prev) => prev + 1)}
+              onClick={() => setCurrentPage((p) => p + 1)}
             >
               Next
             </Button>
@@ -475,11 +433,10 @@ export default function TravelPartnersPage() {
         </div>
       </div>
 
-      {/* Detail Modal */}
-      {selectedPartner && (
+      {detailModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={() => setSelectedPartner(null)}
+          onClick={closeDetailModal}
         >
           <div
             className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
@@ -488,97 +445,138 @@ export default function TravelPartnersPage() {
             <div
               className={cn(
                 "flex items-center justify-between px-6 py-4 border-b shrink-0 border-l-4",
-                selectedPartner.status === "PENDING" &&
+                detailLoading && "bg-gray-50 border-l-gray-400 border-gray-200",
+                !detailLoading &&
+                  detailError &&
+                  "bg-rose-50 border-l-rose-600 border-gray-200",
+                !detailLoading &&
+                  !detailError &&
+                  selectedPartner?.status === "PENDING" &&
                   "bg-amber-100 border-l-amber-600 border-gray-200",
-                selectedPartner.status === "APPROVED" &&
+                !detailLoading &&
+                  !detailError &&
+                  selectedPartner?.status === "APPROVED" &&
                   "bg-emerald-100 border-l-emerald-700 border-gray-200",
-                selectedPartner.status === "REJECTED" &&
+                !detailLoading &&
+                  !detailError &&
+                  selectedPartner?.status === "REJECTED" &&
                   "bg-rose-100 border-l-rose-700 border-gray-200",
               )}
             >
-              <div className="flex items-center gap-3">
-                <div
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-xl",
-                    selectedPartner.status === "PENDING" &&
-                      "bg-amber-200 text-amber-800",
-                    selectedPartner.status === "APPROVED" &&
-                      "bg-emerald-200 text-emerald-800",
-                    selectedPartner.status === "REJECTED" &&
-                      "bg-rose-200 text-rose-800",
-                  )}
-                >
-                  <User className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    {selectedPartner.title ? `${selectedPartner.title} ` : ""}
-                    {selectedPartner.name}
-                  </h2>
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1 mt-0.5 text-xs font-medium rounded-full px-2 py-0.5",
-                      TAB_CONFIG[selectedPartner.status].badgeClass,
-                    )}
-                  >
-                    {(() => {
-                      const Icon = TAB_CONFIG[selectedPartner.status].icon;
-                      return (
-                        <>
-                          <Icon className="h-3 w-3" />
-                          {TAB_CONFIG[selectedPartner.status].label}
-                        </>
-                      );
-                    })()}
-                  </span>
-                </div>
+              <div className="flex items-center gap-3 min-w-0">
+                {detailLoading && (
+                  <>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-200 text-gray-700">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">Agent details</h2>
+                      <p className="text-xs text-gray-500 mt-0.5">Loading full application from server…</p>
+                    </div>
+                  </>
+                )}
+                {!detailLoading && detailError && (
+                  <>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-200 text-rose-800">
+                      <XCircle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">Could not load details</h2>
+                      <p className="text-xs text-rose-700 mt-0.5">Check your connection or try again.</p>
+                    </div>
+                  </>
+                )}
+                {!detailLoading && !detailError && selectedPartner && (
+                  <>
+                    <div
+                      className={cn(
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                        selectedPartner.status === "PENDING" && "bg-amber-200 text-amber-800",
+                        selectedPartner.status === "APPROVED" && "bg-emerald-200 text-emerald-800",
+                        selectedPartner.status === "REJECTED" && "bg-rose-200 text-rose-800",
+                      )}
+                    >
+                      <User className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-lg font-semibold text-gray-900 truncate">
+                        {selectedPartner.title ? `${selectedPartner.title} ` : ""}
+                        {selectedPartner.name}
+                      </h2>
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 mt-0.5 text-xs font-medium rounded-full px-2 py-0.5",
+                          TAB_CONFIG[selectedPartner.status].badgeClass,
+                        )}
+                      >
+                        {(() => {
+                          const Icon = TAB_CONFIG[selectedPartner.status].icon;
+                          return (
+                            <>
+                              <Icon className="h-3 w-3" />
+                              {TAB_CONFIG[selectedPartner.status].label}
+                            </>
+                          );
+                        })()}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedPartner(null)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={closeDetailModal}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
                 aria-label="Close"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Step indicators */}
-            <div className="flex border-b border-gray-200 px-6 bg-gray-50/50">
-              <button
-                type="button"
-                onClick={() => setDetailStep(1)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors",
-                  detailStep === 1
-                    ? "border-blue-600 text-blue-700 bg-white"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-white/50",
-                )}
-              >
-                <User className="h-4 w-4" />
-                Step 1 – Personal & PAN
-              </button>
-              <button
-                type="button"
-                onClick={() => setDetailStep(2)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors",
-                  detailStep === 2
-                    ? "border-indigo-600 text-indigo-700 bg-white"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-white/50",
-                )}
-              >
-                <Building2 className="h-4 w-4" />
-                Step 2 – Business & Bank
-              </button>
-            </div>
+            {!detailLoading && !detailError && selectedPartner && (
+              <div className="flex border-b border-gray-200 px-6 bg-gray-50/50">
+                <button
+                  type="button"
+                  onClick={() => setDetailStep(1)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors",
+                    detailStep === 1
+                      ? "border-blue-600 text-blue-700 bg-white"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-white/50",
+                  )}
+                >
+                  <User className="h-4 w-4" />
+                  Personal & PAN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDetailStep(2)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors",
+                    detailStep === 2
+                      ? "border-indigo-600 text-indigo-700 bg-white"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-white/50",
+                  )}
+                >
+                  <Building2 className="h-4 w-4" />
+                  Business & bank
+                </button>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-6">
-              {detailLoading ? (
-                <div className="py-12 text-center text-gray-500 text-sm">
-                  Loading details…
+              {detailLoading && (
+                <div className="py-16 flex flex-col items-center justify-center gap-3 text-gray-600">
+                  <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
+                  <p className="text-sm font-medium">Fetching full application…</p>
                 </div>
-              ) : (
+              )}
+              {!detailLoading && detailError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-4 text-sm text-rose-900">
+                  {detailError}
+                </div>
+              )}
+              {!detailLoading && !detailError && selectedPartner && (
                 <>
                   {detailStep === 1 && (
                     <div className="space-y-6">
@@ -593,9 +591,7 @@ export default function TravelPartnersPage() {
                               <Hash className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
                               <div>
                                 <dt className="text-gray-500">Title</dt>
-                                <dd className="font-medium text-gray-900">
-                                  {selectedPartner.title}
-                                </dd>
+                                <dd className="font-medium text-gray-900">{selectedPartner.title}</dd>
                               </div>
                             </div>
                           ) : null}
@@ -603,9 +599,7 @@ export default function TravelPartnersPage() {
                             <User className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
                             <div>
                               <dt className="text-gray-500">Name</dt>
-                              <dd className="font-medium text-gray-900">
-                                {selectedPartner.name ?? "—"}
-                              </dd>
+                              <dd className="font-medium text-gray-900">{selectedPartner.name ?? "—"}</dd>
                             </div>
                           </div>
                           <div className="sm:col-span-2 flex items-start gap-2">
@@ -617,51 +611,40 @@ export default function TravelPartnersPage() {
                               </dd>
                             </div>
                           </div>
-                          <div className="flex items-start gap-2">
-                            <Phone className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-                            <div>
-                              <dt className="text-gray-500">Phone</dt>
-                              <dd className="font-medium text-gray-900">
-                                {selectedPartner.phone ?? "—"}
-                              </dd>
-                            </div>
-                          </div>
                         </dl>
                       </section>
                       <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
                         <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-3">
                           <FileText className="h-4 w-4 text-slate-600" />
-                          PAN details
+                          PAN & agency
                         </h3>
                         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
-                          <div className="flex items-start gap-2">
-                            <IdCard className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
+                          <div className="sm:col-span-2 flex items-start gap-2">
+                            <Building2 className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
                             <div>
-                              <dt className="text-gray-500">Agency number</dt>
+                              <dt className="text-gray-500">Agency name</dt>
                               <dd className="font-medium text-gray-900">
                                 {selectedPartner.agencyNumber ?? "—"}
                               </dd>
                             </div>
                           </div>
                           <div className="flex items-start gap-2">
-                            <Hash className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
+                            <IdCard className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
                             <div>
                               <dt className="text-gray-500">PAN number</dt>
-                              <dd className="font-medium text-gray-900">
-                                {selectedPartner.panNumber ?? "—"}
-                              </dd>
+                              <dd className="font-medium text-gray-900">{selectedPartner.panNumber ?? "—"}</dd>
                             </div>
                           </div>
                         </dl>
                         {selectedPartner.panCardFileUrl ? (
                           <div>
                             <dt className="text-gray-500 text-sm mb-2 flex items-center gap-1.5">
-                              <FileText className="h-3.5 w-3.5" /> PAN card
+                              <FileText className="h-3.5 w-3.5" /> PAN document
                             </dt>
                             <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
                               <img
                                 src={selectedPartner.panCardFileUrl}
-                                alt="PAN card"
+                                alt="PAN"
                                 className="w-full max-h-64 object-contain"
                               />
                             </div>
@@ -682,17 +665,13 @@ export default function TravelPartnersPage() {
                             <Hash className="h-4 w-4 text-teal-500 mt-0.5 shrink-0" />
                             <div>
                               <dt className="text-gray-500">GST number</dt>
-                              <dd className="font-medium text-gray-900">
-                                {selectedPartner.gstNumber ?? "—"}
-                              </dd>
+                              <dd className="font-medium text-gray-900">{selectedPartner.gstNumber ?? "—"}</dd>
                             </div>
                           </div>
                           <div className="sm:col-span-2 flex items-start gap-2">
                             <MapPin className="h-4 w-4 text-teal-500 mt-0.5 shrink-0" />
                             <div>
-                              <dt className="text-gray-500">
-                                Business address
-                              </dt>
+                              <dt className="text-gray-500">Business address</dt>
                               <dd className="font-medium text-gray-900">
                                 {selectedPartner.businessAddress ?? "—"}
                               </dd>
@@ -702,27 +681,21 @@ export default function TravelPartnersPage() {
                             <MapPin className="h-4 w-4 text-teal-500 mt-0.5 shrink-0" />
                             <div>
                               <dt className="text-gray-500">City</dt>
-                              <dd className="font-medium text-gray-900">
-                                {selectedPartner.city ?? "—"}
-                              </dd>
+                              <dd className="font-medium text-gray-900">{selectedPartner.city ?? "—"}</dd>
                             </div>
                           </div>
                           <div className="flex items-start gap-2">
                             <MapPin className="h-4 w-4 text-teal-500 mt-0.5 shrink-0" />
                             <div>
                               <dt className="text-gray-500">State</dt>
-                              <dd className="font-medium text-gray-900">
-                                {selectedPartner.state ?? "—"}
-                              </dd>
+                              <dd className="font-medium text-gray-900">{selectedPartner.state ?? "—"}</dd>
                             </div>
                           </div>
                           <div className="flex items-start gap-2">
                             <Hash className="h-4 w-4 text-teal-500 mt-0.5 shrink-0" />
                             <div>
-                              <dt className="text-gray-500">Pincode</dt>
-                              <dd className="font-medium text-gray-900">
-                                {selectedPartner.pincode ?? "—"}
-                              </dd>
+                              <dt className="text-gray-500">PIN code</dt>
+                              <dd className="font-medium text-gray-900">{selectedPartner.pincode ?? "—"}</dd>
                             </div>
                           </div>
                         </dl>
@@ -736,9 +709,7 @@ export default function TravelPartnersPage() {
                           <div className="sm:col-span-2 flex items-start gap-2">
                             <User className="h-4 w-4 text-indigo-500 mt-0.5 shrink-0" />
                             <div>
-                              <dt className="text-gray-500">
-                                Account holder name
-                              </dt>
+                              <dt className="text-gray-500">Account holder</dt>
                               <dd className="font-medium text-gray-900">
                                 {selectedPartner.accountHolderName ?? "—"}
                               </dd>
@@ -748,27 +719,21 @@ export default function TravelPartnersPage() {
                             <Hash className="h-4 w-4 text-indigo-500 mt-0.5 shrink-0" />
                             <div>
                               <dt className="text-gray-500">Account number</dt>
-                              <dd className="font-medium text-gray-900">
-                                {selectedPartner.accountNumber ?? "—"}
-                              </dd>
+                              <dd className="font-medium text-gray-900">{selectedPartner.accountNumber ?? "—"}</dd>
                             </div>
                           </div>
                           <div className="flex items-start gap-2">
                             <Hash className="h-4 w-4 text-indigo-500 mt-0.5 shrink-0" />
                             <div>
                               <dt className="text-gray-500">IFSC</dt>
-                              <dd className="font-medium text-gray-900">
-                                {selectedPartner.ifsc ?? "—"}
-                              </dd>
+                              <dd className="font-medium text-gray-900">{selectedPartner.ifsc ?? "—"}</dd>
                             </div>
                           </div>
                           <div className="sm:col-span-2 flex items-start gap-2">
                             <Landmark className="h-4 w-4 text-indigo-500 mt-0.5 shrink-0" />
                             <div>
                               <dt className="text-gray-500">Bank name</dt>
-                              <dd className="font-medium text-gray-900">
-                                {selectedPartner.bankName ?? "—"}
-                              </dd>
+                              <dd className="font-medium text-gray-900">{selectedPartner.bankName ?? "—"}</dd>
                             </div>
                           </div>
                         </dl>
@@ -779,62 +744,24 @@ export default function TravelPartnersPage() {
               )}
             </div>
 
-            {selectedPartner.status === "PENDING" && (
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50 shrink-0">
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedPartner(null)}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50 shrink-0">
+              {selectedPartner?.status === "REJECTED" && (
+                <Link
+                  to={ROUTES.AGENTS.EDIT(selectedPartner.id)}
+                  onClick={closeDetailModal}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-900 hover:bg-rose-100"
                 >
-                  Close
-                </Button>
-                <Button
-                  variant="danger"
-                  onClick={() => setShowRejectModal(true)}
-                  className="gap-2 bg-rose-700 hover:bg-rose-800 text-white border-0"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Reject
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={() => setShowApproveModal(true)}
-                  className="gap-2 bg-emerald-700 hover:bg-emerald-800 text-white border-0"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Approve
-                </Button>
-              </div>
-            )}
-            {selectedPartner.status !== "PENDING" && (
-              <div className="flex items-center justify-end px-6 py-4 border-t border-gray-200 bg-gray-50 shrink-0">
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedPartner(null)}
-                >
-                  Close
-                </Button>
-              </div>
-            )}
+                  <Pencil className="h-4 w-4" />
+                  Update application
+                </Link>
+              )}
+              <Button variant="outline" onClick={closeDetailModal}>
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}
-
-      <ApproveRejectModal
-        isOpen={showApproveModal}
-        onClose={() => setShowApproveModal(false)}
-        onConfirm={handleApprove}
-        type="approve"
-        isLoading={isProcessing}
-        title="Approve Partner"
-      />
-      <ApproveRejectModal
-        isOpen={showRejectModal}
-        onClose={() => setShowRejectModal(false)}
-        onConfirm={handleReject}
-        type="reject"
-        isLoading={isProcessing}
-        title="Reject Partner"
-      />
     </div>
   );
 }

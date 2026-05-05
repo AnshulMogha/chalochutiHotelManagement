@@ -9,7 +9,7 @@ import {
   type PromotionListItem,
 } from "@/features/admin/services/adminService";
 import { useToast } from "@/components/ui/Toast";
-import { Percent, Clock, Bird, Calendar, Loader2, Crown } from "lucide-react";
+import { Percent, Clock, Bird, Calendar, Loader2, Crown, Eye } from "lucide-react";
 
 interface PromotionType {
   id: string;
@@ -385,6 +385,9 @@ export default function PromotionsPage() {
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
                         Last Modified
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
@@ -479,6 +482,22 @@ export default function PromotionsPage() {
                               promotion.lastModified,
                             ).toLocaleDateString()}
                           </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="inline-flex items-center gap-1.5"
+                            onClick={() => {
+                              const url = hotelId
+                                ? `/promotions/edit/${promotion.id}?hotelId=${hotelId}&mode=view`
+                                : `/promotions/edit/${promotion.id}?mode=view`;
+                              navigate(url);
+                            }}
+                          >
+                            <Eye className="w-4 h-4" />
+                            View
+                          </Button>
                         </td>
                       </tr>
                     ))}

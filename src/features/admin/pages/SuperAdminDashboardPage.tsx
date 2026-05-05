@@ -3,7 +3,11 @@ import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { canViewModule } from "@/lib/permissions";
 import { hasAnyRole, ROLES } from "@/constants";
-import { isReviewerPortalRole, isZonalManagerSalesRole } from "@/constants/roles";
+import {
+  isReviewerPortalRole,
+  isSalesManagerRole,
+  isZonalManagerSalesRole,
+} from "@/constants/roles";
 import {
   BarChart3,
   BookOpen,
@@ -16,6 +20,7 @@ import {
   Info,
   LayoutDashboard,
   Megaphone,
+  UserRoundCog,
   Users,
 } from "lucide-react";
 
@@ -59,6 +64,14 @@ const DASHBOARD_LINKS = [
     icon: Handshake,
     color: "from-cyan-500 to-sky-600",
     key: "TRAVEL_PARTNERS",
+  },
+  {
+    title: "Agents",
+    description: "Onboard travel agents and track their applications.",
+    path: ROUTES.AGENTS.LIST,
+    icon: UserRoundCog,
+    color: "from-emerald-500 to-teal-600",
+    key: "AGENTS",
   },
   {
     title: "My Properties",
@@ -165,10 +178,12 @@ export default function SuperAdminDashboardPage() {
   const isReviewer = isReviewerPortalRole(userRoles);
   const isOnboardingReviewer = !!userRoles?.includes("ONBOARDING_REVIEWER");
   const isZonalSales = isZonalManagerSalesRole(userRoles);
+  const isSalesManager = isSalesManagerRole(userRoles);
 
   const visibleCards = DASHBOARD_LINKS.filter((item) => {
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin) return item.key !== "AGENTS";
     if (isZonalSales) return item.key === "TRAVEL_PARTNERS";
+    if (isSalesManager) return item.key === "AGENTS";
     if (isReviewer) return item.key === "HOTEL_REVIEW";
     if (isOnboardingReviewer) {
       return item.key === "HOTEL_REVIEW" || item.key === "DOCUMENT_REVIEW";
@@ -181,6 +196,7 @@ export default function SuperAdminDashboardPage() {
         "COMMISSION_TAX",
         "DOCUMENT_REVIEW",
         "TRAVEL_PARTNERS",
+        "AGENTS",
       ].includes(item.key)
     ) {
       return false;
