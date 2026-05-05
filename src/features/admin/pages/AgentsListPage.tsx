@@ -104,6 +104,12 @@ function formatDate(iso: string) {
   });
 }
 
+function isPdfDocument(url?: string) {
+  if (!url) return false;
+  const cleanUrl = url.split("?")[0].toLowerCase();
+  return cleanUrl.endsWith(".pdf");
+}
+
 export default function AgentsListPage() {
   const [partners, setPartners] = useState<TravelPartner[]>([]);
   const [activeTab, setActiveTab] = useState<TravelPartnerStatus>("PENDING");
@@ -641,13 +647,24 @@ export default function AgentsListPage() {
                             <dt className="text-gray-500 text-sm mb-2 flex items-center gap-1.5">
                               <FileText className="h-3.5 w-3.5" /> PAN document
                             </dt>
-                            <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
-                              <img
-                                src={selectedPartner.panCardFileUrl}
-                                alt="PAN"
-                                className="w-full max-h-64 object-contain"
-                              />
-                            </div>
+                            {isPdfDocument(selectedPartner.panCardFileUrl) ? (
+                              <a
+                                href={selectedPartner.panCardFileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
+                              >
+                                View document
+                              </a>
+                            ) : (
+                              <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
+                                <img
+                                  src={selectedPartner.panCardFileUrl}
+                                  alt="PAN"
+                                  className="w-full max-h-64 object-contain"
+                                />
+                              </div>
+                            )}
                           </div>
                         ) : null}
                       </section>
