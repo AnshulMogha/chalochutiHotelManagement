@@ -202,14 +202,40 @@ export default function BulkUpdateInventoryPage() {
         );
         if (cancelled) return;
 
+        const normalizedName = (value?: string | null) =>
+          value?.toLowerCase().trim() ?? "";
+
+        // Build a one-to-one pool of inventory room IDs per normalized room name.
+        // This prevents duplicate room names from being mapped to the same ID.
+        const inventoryIdsByName = new Map<string, number[]>();
+        for (const inventoryRoom of calendarRooms) {
+          const key = normalizedName(inventoryRoom.roomName);
+          const existing = inventoryIdsByName.get(key) ?? [];
+          existing.push(inventoryRoom.roomId);
+          inventoryIdsByName.set(key, existing);
+        }
+
         const next: Record<string, number> = {};
-        for (const hr of rooms) {
-          const key = hr.roomName.toLowerCase().trim();
-          const inv = calendarRooms.find(
-            (r) => r.roomName.toLowerCase().trim() === key,
-          );
-          if (inv) {
-            next[hr.roomId] = inv.roomId;
+        const sortedRoomsForMapping = [...rooms].sort((firstRoom, secondRoom) => {
+          const firstRoomTypeCode = (firstRoom as { room_type_code?: string | null })
+            .room_type_code;
+          const secondRoomTypeCode = (
+            secondRoom as { room_type_code?: string | null }
+          ).room_type_code;
+          const orderDiff =
+            getRoomTypeOrder(firstRoomTypeCode, firstRoom.roomName) -
+            getRoomTypeOrder(secondRoomTypeCode, secondRoom.roomName);
+          if (orderDiff !== 0) return orderDiff;
+          return firstRoom.roomName.localeCompare(secondRoom.roomName);
+        });
+
+        for (const hotelRoom of sortedRoomsForMapping) {
+          const key = normalizedName(hotelRoom.roomName);
+          const idPool = inventoryIdsByName.get(key);
+          const nextInventoryRoomId = idPool?.shift();
+
+          if (nextInventoryRoomId != null) {
+            next[hotelRoom.roomId] = nextInventoryRoomId;
           }
         }
         setUuidToNumeric(next);
