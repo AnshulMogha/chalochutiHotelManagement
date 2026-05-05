@@ -257,6 +257,14 @@ export interface StateMasterItem {
   active: boolean;
 }
 
+export interface CityMasterItem {
+  id: number;
+  name: string;
+  stateId?: number;
+  stateName?: string;
+  active?: boolean;
+}
+
 export interface HotelBasicInfoResponse {
   hotelId: string;
   hotelCode: string;
@@ -887,6 +895,12 @@ export const adminService = {
   getStates: async (): Promise<StateMasterItem[]> => {
     const response = await apiClient.get<ApiSuccessResponse<StateMasterItem[]>>(
       API_ENDPOINTS.ADMIN.GET_STATES,
+    );
+    return response.data || [];
+  },
+  getCities: async (): Promise<CityMasterItem[]> => {
+    const response = await apiClient.get<ApiSuccessResponse<CityMasterItem[]>>(
+      API_ENDPOINTS.ADMIN.GET_CITIES,
     );
     return response.data || [];
   },

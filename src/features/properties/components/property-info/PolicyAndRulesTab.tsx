@@ -313,6 +313,11 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     allowedModes: [],
   });
 
+  const visiblePaymentModes =
+    paymentForm.paymentType === "FULL_PREPAID"
+      ? ["UPI", "CARD", "NETBANKING", "WALLET"]
+      : ["UPI", "CARD", "NETBANKING", "WALLET", "CASH"];
+
   const NO_SHOW_LABELS: Record<NoShowPenaltyType, string> = {
     NONE: "None",
     PERCENTAGE: "Percentage",
@@ -993,11 +998,21 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
   const openPaymentModal = (rule?: PaymentRule) => {
     if (rule) {
       setSelectedPaymentRule(rule);
+      const normalizedAdvancePercent =
+        rule.paymentType === "FULL_PREPAID"
+          ? 100
+          : rule.paymentType === "PAY_AT_HOTEL"
+            ? 0
+            : rule.advancePercent;
+      const normalizedModes =
+        rule.paymentType === "FULL_PREPAID"
+          ? (rule.allowedModes || []).filter((mode) => mode !== "CASH")
+          : [...(rule.allowedModes || [])];
       setPaymentForm({
         paymentType: rule.paymentType,
         status: rule.status,
-        advancePercent: rule.advancePercent,
-        allowedModes: [...rule.allowedModes],
+        advancePercent: normalizedAdvancePercent,
+        allowedModes: normalizedModes,
       });
     } else {
       setSelectedPaymentRule(null);
@@ -1020,11 +1035,21 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     if (!hotelId) return;
     setPaymentSaving(true);
     try {
+      const normalizedAdvancePercent =
+        paymentForm.paymentType === "FULL_PREPAID"
+          ? 100
+          : paymentForm.paymentType === "PAY_AT_HOTEL"
+            ? 0
+            : paymentForm.advancePercent;
+      const normalizedModes =
+        paymentForm.paymentType === "FULL_PREPAID"
+          ? paymentForm.allowedModes.filter((mode) => mode !== "CASH")
+          : paymentForm.allowedModes;
       const payload: PaymentRulePayload = {
         paymentType: paymentForm.paymentType,
         status: paymentForm.status,
-        advancePercent: paymentForm.advancePercent,
-        allowedModes: paymentForm.allowedModes,
+        advancePercent: normalizedAdvancePercent,
+        allowedModes: normalizedModes,
       };
       if (selectedPaymentRule) {
         await adminService.updatePaymentRule(hotelId, {
@@ -2250,14 +2275,28 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
                             value={paymentForm.paymentType}
                             onChange={(e) =>
-                              setPaymentForm((prev) => ({
-                                ...prev,
-                                paymentType: e.target.value as PaymentRulePayload["paymentType"],
-                              }))
+                              setPaymentForm((prev) => {
+                                const nextType = e.target.value as PaymentRulePayload["paymentType"];
+                                const nextAdvance =
+                                  nextType === "FULL_PREPAID"
+                                    ? 100
+                                    : nextType === "PAY_AT_HOTEL"
+                                      ? 0
+                                      : prev.advancePercent;
+                                const nextModes =
+                                  nextType === "FULL_PREPAID"
+                                    ? prev.allowedModes.filter((mode) => mode !== "CASH")
+                                    : prev.allowedModes;
+                                return {
+                                  ...prev,
+                                  paymentType: nextType,
+                                  advancePercent: nextAdvance,
+                                  allowedModes: nextModes,
+                                };
+                              })
                             }
                           >
                             <option value="FULL_PREPAID">Full Prepaid</option>
-                            <option value="PARTIAL_PREPAID">Partial Prepaid</option>
                             <option value="PAY_AT_HOTEL">Pay at Hotel</option>
                           </select>
                         </div>
@@ -2281,6 +2320,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                           </select>
                         </div>
                       </div>
+                      {paymentForm.paymentType === "PARTIAL_PREPAID" && (
                       <div>
                         <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1">
                           <Percent className="w-3.5 h-3.5 text-teal-600" />
@@ -2300,6 +2340,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                           placeholder="e.g. 100"
                         />
                       </div>
+                      )}
                     </div>
 
                     <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
@@ -2308,7 +2349,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                         Allowed payment modes
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {["UPI", "CARD", "NETBANKING", "WALLET", "CASH"].map((mode) => {
+                        {visiblePaymentModes.map((mode) => {
                           const isSelected = paymentForm.allowedModes.includes(mode);
                           return (
                             <label

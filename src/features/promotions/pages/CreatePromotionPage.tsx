@@ -133,10 +133,6 @@ export default function CreatePromotionPage() {
   const [applyAllRoomsAndRateplans, setApplyAllRoomsAndRateplans] = useState<
     "yes" | "no"
   >("yes");
-  const [nonRefundableOption, setNonRefundableOption] = useState<"yes" | "no">(
-    "no",
-  );
-  const [payAtHotelOption, setPayAtHotelOption] = useState<"yes" | "no">("yes");
   const [rooms, setRooms] = useState<HotelRoom[]>([]);
   const [ratePlansData, setRatePlansData] = useState<
     Record<string, RatePlan[]>
@@ -435,8 +431,6 @@ export default function CreatePromotionPage() {
           : wantBlackoutDates && blackoutDates.length > 0
             ? blackoutDates
             : undefined,
-        nonRefundable: isMyPartner ? false : formData.nonRefundable,
-        payAtHotel: isMyPartner ? true : formData.payAtHotel,
         applyAllRooms: isMyPartner ? true : applyAllRoomsAndRateplans === "yes",
         applyAllRateplans: isMyPartner
           ? true
@@ -451,7 +445,11 @@ export default function CreatePromotionPage() {
           : applyAllRoomsAndRateplans === "no"
             ? Array.from(selectedRatePlanIds).map(Number)
             : undefined,
-        applyChannel: isMyPartner ? "MY_PARTNER" : formData.applyChannel,
+        applyChannel: isMyPartner
+          ? "MY_PARTNER"
+          : formData.applyChannel === "BUNDLED_RATES"
+            ? "PACKAGE"
+            : formData.applyChannel,
         contractsJson: isMyPartner
           ? []
           : formData.applyChannel === "B2C"
@@ -1385,44 +1383,6 @@ export default function CreatePromotionPage() {
                             <input
                               type="radio"
                               name="applyChannel"
-                              value="MY_BIZ"
-                              checked={formData.applyChannel === "MY_BIZ"}
-                              onChange={(e) => {
-                                handleInputChange(
-                                  "applyChannel",
-                                  e.target.value,
-                                );
-                                handleInputChange("contractsJson", []);
-                              }}
-                              className="w-4 h-4 text-blue-600"
-                            />
-                            <span className="text-sm text-gray-700">
-                              My Biz
-                            </span>
-                          </label>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="applyChannel"
-                              value="MY_PARTNER"
-                              checked={formData.applyChannel === "MY_PARTNER"}
-                              onChange={(e) => {
-                                handleInputChange(
-                                  "applyChannel",
-                                  e.target.value,
-                                );
-                                handleInputChange("contractsJson", []);
-                              }}
-                              className="w-4 h-4 text-blue-600"
-                            />
-                            <span className="text-sm text-gray-700">
-                              My Partner
-                            </span>
-                          </label>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="applyChannel"
                               value="B2B"
                               checked={formData.applyChannel === "B2B"}
                               onChange={(e) => {
@@ -1538,63 +1498,6 @@ export default function CreatePromotionPage() {
                         )}
                       </div>
 
-                      {/* Non-refundable */}
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-3">
-                          Do you want to make this non-refundable?
-                        </label>
-                        <div className="flex gap-4">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="nonRefundable"
-                              checked={nonRefundableOption === "yes"}
-                              onChange={() => setNonRefundableOption("yes")}
-                              className="w-4 h-4 text-blue-600"
-                            />
-                            <span className="text-sm text-gray-700">Yes</span>
-                          </label>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="nonRefundable"
-                              checked={nonRefundableOption === "no"}
-                              onChange={() => setNonRefundableOption("no")}
-                              className="w-4 h-4 text-blue-600"
-                            />
-                            <span className="text-sm text-gray-700">No</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      {/* Pay at hotel */}
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-3">
-                          Do you want to enable pay at hotel?
-                        </label>
-                        <div className="flex gap-4">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="payAtHotel"
-                              checked={payAtHotelOption === "yes"}
-                              onChange={() => setPayAtHotelOption("yes")}
-                              className="w-4 h-4 text-blue-600"
-                            />
-                            <span className="text-sm text-gray-700">Yes</span>
-                          </label>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="payAtHotel"
-                              checked={payAtHotelOption === "no"}
-                              onChange={() => setPayAtHotelOption("no")}
-                              className="w-4 h-4 text-blue-600"
-                            />
-                            <span className="text-sm text-gray-700">No</span>
-                          </label>
-                        </div>
-                      </div>
                     </div>
                   )}
                 </SectionCard>

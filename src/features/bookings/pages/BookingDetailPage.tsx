@@ -40,7 +40,10 @@ function formatDate(value: string | undefined): string {
   }
 }
 
-function formatCurrency(amount: number | undefined | null, currency = "INR"): string {
+function formatCurrency(
+  amount: number | undefined | null,
+  currency = "INR",
+): string {
   if (amount === undefined || amount === null) return "—";
   if (Number.isNaN(amount)) return "—";
   return new Intl.NumberFormat("en-IN", {
@@ -54,9 +57,12 @@ function formatCurrency(amount: number | undefined | null, currency = "INR"): st
 function getPaymentStatusStyle(status: string | undefined): string {
   if (!status) return "bg-gray-100 text-gray-700 border-gray-200";
   const s = status.toUpperCase();
-  if (s.includes("PAID") || s.includes("CONFIRMED")) return "bg-emerald-100 text-emerald-800 border-emerald-200";
-  if (s.includes("PENDING")) return "bg-amber-100 text-amber-800 border-amber-200";
-  if (s.includes("FAILED") || s.includes("CANCELLED")) return "bg-red-100 text-red-800 border-red-200";
+  if (s.includes("PAID") || s.includes("CONFIRMED"))
+    return "bg-emerald-100 text-emerald-800 border-emerald-200";
+  if (s.includes("PENDING"))
+    return "bg-amber-100 text-amber-800 border-amber-200";
+  if (s.includes("FAILED") || s.includes("CANCELLED"))
+    return "bg-red-100 text-red-800 border-red-200";
   return "bg-gray-100 text-gray-700 border-gray-200";
 }
 
@@ -89,7 +95,9 @@ function DetailCard({
     <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
       <div className={`px-5 py-4 border-b border-gray-100 ${iconBg}`}>
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconColor}`}>
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconColor}`}
+          >
             <Icon className="w-5 h-5" />
           </div>
           <h2 className="text-base font-semibold text-gray-900">{title}</h2>
@@ -100,11 +108,21 @@ function DetailCard({
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-3 border-b border-gray-50 last:border-0">
-      <dt className="text-sm font-medium text-gray-500 min-w-[160px] shrink-0">{label}</dt>
-      <dd className="text-sm font-medium text-gray-900 wrap-break-word">{value ?? "—"}</dd>
+      <dt className="text-sm font-medium text-gray-500 min-w-[160px] shrink-0">
+        {label}
+      </dt>
+      <dd className="text-sm font-medium text-gray-900 wrap-break-word">
+        {value ?? "—"}
+      </dd>
     </div>
   );
 }
@@ -171,7 +189,9 @@ export default function BookingDetailPage() {
   }, [id, hotelId]);
 
   const backToBookings = () => {
-    const to = hotelId ? `${ROUTES.BOOKINGS.LIST}?hotelId=${hotelId}` : ROUTES.BOOKINGS.LIST;
+    const to = hotelId
+      ? `${ROUTES.BOOKINGS.LIST}?hotelId=${hotelId}`
+      : ROUTES.BOOKINGS.LIST;
     navigate(to);
   };
 
@@ -179,7 +199,9 @@ export default function BookingDetailPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
-          <p className="text-gray-600">Please select a hotel from the top bar to view booking details.</p>
+          <p className="text-gray-600">
+            Please select a hotel from the top bar to view booking details.
+          </p>
           <button
             type="button"
             onClick={() => navigate(ROUTES.BOOKINGS.LIST)}
@@ -197,7 +219,9 @@ export default function BookingDetailPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col items-center justify-center py-24">
           <Loader2 className="w-10 h-10 text-[#2f3d95] animate-spin mb-4" />
-          <p className="text-sm font-medium text-gray-600">Loading booking details...</p>
+          <p className="text-sm font-medium text-gray-600">
+            Loading booking details...
+          </p>
         </div>
       </div>
     );
@@ -224,13 +248,23 @@ export default function BookingDetailPage() {
 
   const rateBreakup = booking.rateBreakup;
   const hotelPricingComputation =
-    booking.hotelPricingComputation || booking.hotel_pricing_computation || null;
+    booking.hotelPricingComputation ||
+    booking.hotel_pricing_computation ||
+    null;
   const isPackageRate =
     String(hotelPricingComputation || "").toUpperCase() === "PACKAGE_RATE";
+  const isCancelledBooking = String(booking.paymentStatus || "")
+    .toUpperCase()
+    .includes("CANCELLED");
 
   return (
     <>
-      <Toast message={toast.message} type={toast.type} isVisible={toast.isVisible} onClose={hideToast} />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <button
@@ -249,7 +283,9 @@ export default function BookingDetailPage() {
               <Hash className="w-7 h-7 text-[#2f3d95]" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{booking.bookingId}</h1>
+              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+                {booking.bookingId}
+              </h1>
               <p className="text-sm text-gray-500 mt-0.5">
                 {booking.bookedVia} · Booked {booking.bookedOn}
               </p>
@@ -266,7 +302,7 @@ export default function BookingDetailPage() {
             </button>
             <span
               className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold border ${getPaymentStatusStyle(
-                booking.paymentStatus
+                booking.paymentStatus,
               )}`}
             >
               {booking.paymentStatus}
@@ -286,7 +322,7 @@ export default function BookingDetailPage() {
                 </p>
                 <span
                   className={`mt-1 inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold border ${getPricingComputationStyle(
-                    hotelPricingComputation
+                    hotelPricingComputation,
                   )}`}
                 >
                   {hotelPricingComputation}
@@ -312,7 +348,13 @@ export default function BookingDetailPage() {
                   <span className="inline-flex items-start gap-2">
                     <MapPin className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
                     <span>
-                      {[booking.hotelAddress, booking.hotelLocality, booking.hotelCity].filter(Boolean).join(", ") || "—"}
+                      {[
+                        booking.hotelAddress,
+                        booking.hotelLocality,
+                        booking.hotelCity,
+                      ]
+                        .filter(Boolean)
+                        .join(", ") || "—"}
                     </span>
                   </span>
                 }
@@ -403,7 +445,9 @@ export default function BookingDetailPage() {
                     key={idx}
                     className="p-3 rounded-xl bg-gray-50 border border-gray-100"
                   >
-                    <div className="font-medium text-gray-900">{room.roomName}</div>
+                    <div className="font-medium text-gray-900">
+                      {room.roomName}
+                    </div>
                     <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-gray-600">
                       <span className="inline-flex items-center gap-1">
                         <Utensils className="w-3.5 h-3.5 text-amber-500" />
@@ -416,7 +460,9 @@ export default function BookingDetailPage() {
               ) : (
                 <p className="text-sm text-gray-500">—</p>
               )}
-              <p className="text-xs text-gray-500 pt-1">Total rooms: {booking.totalRooms ?? "—"}</p>
+              <p className="text-xs text-gray-500 pt-1">
+                Total rooms: {booking.totalRooms ?? "—"}
+              </p>
             </div>
           </DetailCard>
 
@@ -433,15 +479,24 @@ export default function BookingDetailPage() {
               </div>
               <RateRow
                 label="1. Room charges"
-                value={formatCurrency(rateBreakup?.roomCharges, rateBreakup?.currency)}
+                value={formatCurrency(
+                  rateBreakup?.roomCharges,
+                  rateBreakup?.currency,
+                )}
               />
               <RateRow
                 label="2. Extra adult / child charges"
-                value={formatCurrency(rateBreakup?.extraAdultChildCharges, rateBreakup?.currency)}
+                value={formatCurrency(
+                  rateBreakup?.extraAdultChildCharges,
+                  rateBreakup?.currency,
+                )}
               />
               <RateRow
                 label="3. Property taxes"
-                value={formatCurrency(rateBreakup?.propertyTaxes, rateBreakup?.currency)}
+                value={formatCurrency(
+                  rateBreakup?.propertyTaxes,
+                  rateBreakup?.currency,
+                )}
               />
               {!isPackageRate && (
                 <RateRow
@@ -450,11 +505,11 @@ export default function BookingDetailPage() {
                     rateBreakup?.serviceChargePercent
                       ? `${formatCurrency(
                           rateBreakup?.serviceChargeAmount,
-                          rateBreakup?.currency
+                          rateBreakup?.currency,
                         )} `
                       : formatCurrency(
                           rateBreakup?.serviceChargeAmount,
-                          rateBreakup?.currency
+                          rateBreakup?.currency,
                         )
                   }
                 />
@@ -465,7 +520,10 @@ export default function BookingDetailPage() {
                     ? "(A) Property gross charges (1+2+3)"
                     : "(A) Property gross charges (1+2+3+4)"
                 }
-                value={formatCurrency(rateBreakup?.hotelGrossCharges, rateBreakup?.currency)}
+                value={formatCurrency(
+                  rateBreakup?.hotelGrossCharges,
+                  rateBreakup?.currency,
+                )}
                 highlight
               />
 
@@ -476,15 +534,24 @@ export default function BookingDetailPage() {
                   </div>
                   <RateRow
                     label="5. OTA commission"
-                    value={formatCurrency(rateBreakup?.commissionAmount, rateBreakup?.currency)}
+                    value={formatCurrency(
+                      rateBreakup?.commissionAmount,
+                      rateBreakup?.currency,
+                    )}
                   />
                   <RateRow
                     label="6. GST on commission"
-                    value={formatCurrency(rateBreakup?.commissionGst, rateBreakup?.currency)}
+                    value={formatCurrency(
+                      rateBreakup?.commissionGst,
+                      rateBreakup?.currency,
+                    )}
                   />
                   <RateRow
                     label="(B) Commission including GST (5+6)"
-                    value={formatCurrency(rateBreakup?.commissionTotal, rateBreakup?.currency)}
+                    value={formatCurrency(
+                      rateBreakup?.commissionTotal,
+                      rateBreakup?.currency,
+                    )}
                     highlight
                   />
                 </>
@@ -497,15 +564,24 @@ export default function BookingDetailPage() {
                   </div>
                   <RateRow
                     label="7. TCS @ 0.5%"
-                    value={formatCurrency(rateBreakup?.tcsAmount, rateBreakup?.currency)}
+                    value={formatCurrency(
+                      rateBreakup?.tcsAmount,
+                      rateBreakup?.currency,
+                    )}
                   />
                   <RateRow
                     label="8. TDS @ 0.1%"
-                    value={formatCurrency(rateBreakup?.tdsAmount, rateBreakup?.currency)}
+                    value={formatCurrency(
+                      rateBreakup?.tdsAmount,
+                      rateBreakup?.currency,
+                    )}
                   />
                   <RateRow
                     label="(C) Tax deduction (7+8)"
-                    value={formatCurrency(rateBreakup?.taxDeductions, rateBreakup?.currency)}
+                    value={formatCurrency(
+                      rateBreakup?.taxDeductions,
+                      rateBreakup?.currency,
+                    )}
                     highlight
                   />
                 </>
@@ -519,7 +595,10 @@ export default function BookingDetailPage() {
                       : "Payable to property (A - B - C)"}
                   </div>
                   <div className="text-base sm:text-lg font-extrabold text-sky-900 tabular-nums">
-                    {formatCurrency(rateBreakup?.payableToHotel, rateBreakup?.currency)}
+                    {formatCurrency(
+                      rateBreakup?.payableToHotel,
+                      rateBreakup?.currency,
+                    )}
                   </div>
                 </div>
               </div>
@@ -544,7 +623,10 @@ export default function BookingDetailPage() {
                   </span>
                 }
               />
-              <DetailRow label="Payment type" value={booking.paymentType || "—"} />
+              <DetailRow
+                label="Payment type"
+                value={booking.paymentType || "—"}
+              />
               <DetailRow
                 label="Cancellation policy"
                 value={
@@ -569,6 +651,40 @@ export default function BookingDetailPage() {
             </dl>
           </DetailCard>
 
+          {/* Additional info for cancelled bookings */}
+          {isCancelledBooking && (
+            <DetailCard
+              icon={Receipt}
+              iconBg="bg-rose-50"
+              iconColor="bg-rose-100 text-rose-600"
+              title="Additional info"
+            >
+              <dl className="divide-y divide-gray-50">
+                <DetailRow
+                  label="Cancellation date-time"
+                  value={
+                    booking.cancellationDatetime ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-gray-400" />
+                        {booking.cancellationDatetime}
+                      </span>
+                    ) : (
+                      "—"
+                    )
+                  }
+                />
+                <DetailRow
+                  label="Cancelled amount"
+                  value={formatCurrency(booking.cancelAmount, rateBreakup?.currency)}
+                />
+                <DetailRow
+                  label="Refund amount"
+                  value={formatCurrency(booking.refundAmount, rateBreakup?.currency)}
+                />
+              </dl>
+            </DetailCard>
+          )}
+
           {/* Notes - full width if present */}
           {(booking.specialRequestByGuest || booking.internalNote) && (
             <div className="lg:col-span-2">
@@ -580,10 +696,16 @@ export default function BookingDetailPage() {
               >
                 <dl className="divide-y divide-gray-50">
                   {booking.specialRequestByGuest && (
-                    <DetailRow label="Special request by guest" value={booking.specialRequestByGuest} />
+                    <DetailRow
+                      label="Special request by guest"
+                      value={booking.specialRequestByGuest}
+                    />
                   )}
                   {booking.internalNote && (
-                    <DetailRow label="Internal note" value={booking.internalNote} />
+                    <DetailRow
+                      label="Internal note"
+                      value={booking.internalNote}
+                    />
                   )}
                 </dl>
               </DetailCard>

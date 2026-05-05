@@ -71,6 +71,9 @@ export interface BookingDetail {
   paymentType: string | null;
   cancellationPolicy: string | null;
   totalAmount: number;
+  cancellationDatetime?: string | null;
+  cancelAmount?: number | null;
+  refundAmount?: number | null;
   hotelPricingComputation?: "RETAIL_RATE" | "PACKAGE_RATE" | string | null;
   hotel_pricing_computation?: "RETAIL_RATE" | "PACKAGE_RATE" | string | null;
 }
@@ -96,8 +99,17 @@ export interface BookingListParams {
 }
 
 export const bookingService = {
-  getBookingList: async (params: BookingListParams): Promise<BookingListResponse> => {
-    const { hotelId, guestName, bookingId, checkInDate, page = 0, size = 10 } = params;
+  getBookingList: async (
+    params: BookingListParams,
+  ): Promise<BookingListResponse> => {
+    const {
+      hotelId,
+      guestName,
+      bookingId,
+      checkInDate,
+      page = 0,
+      size = 10,
+    } = params;
     const search = new URLSearchParams();
     search.set("hotelId", hotelId);
     if (guestName != null && guestName.trim() !== "") {
@@ -111,9 +123,9 @@ export const bookingService = {
     }
     search.set("page", String(page));
     search.set("size", String(size));
-    const response = await apiClient.get<ApiSuccessResponse<BookingListResponse>>(
-      `${API_ENDPOINTS.REPORTS.BOOKING_LIST}?${search.toString()}`
-    );
+    const response = await apiClient.get<
+      ApiSuccessResponse<BookingListResponse>
+    >(`${API_ENDPOINTS.REPORTS.BOOKING_LIST}?${search.toString()}`);
     const payload = response.data;
     if (!payload || !Array.isArray(payload.data)) {
       return {
@@ -128,9 +140,13 @@ export const bookingService = {
     return payload;
   },
 
-  getBookingDetail: async (hotelId: string, bookingId: string): Promise<BookingDetail> => {
+  getBookingDetail: async (
+    hotelId: string,
+    bookingId: string,
+  ): Promise<BookingDetail> => {
     const url = `${API_ENDPOINTS.REPORTS.BOOKING_DETAIL(bookingId)}?hotelId=${encodeURIComponent(hotelId)}`;
-    const response = await apiClient.get<ApiSuccessResponse<BookingDetail>>(url);
+    const response =
+      await apiClient.get<ApiSuccessResponse<BookingDetail>>(url);
     const data = response.data;
     if (!data) {
       throw new Error("Booking not found");
@@ -138,9 +154,7 @@ export const bookingService = {
     return {
       ...data,
       hotelPricingComputation:
-        data.hotelPricingComputation ??
-        data.hotel_pricing_computation ??
-        null,
+        data.hotelPricingComputation ?? data.hotel_pricing_computation ?? null,
     };
   },
 

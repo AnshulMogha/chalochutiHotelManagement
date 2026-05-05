@@ -30,6 +30,7 @@ export default function EditPromotionPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const hotelId = searchParams.get("hotelId");
+  const isViewMode = searchParams.get("mode") === "view";
   const { toast, showToast, hideToast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -317,6 +318,7 @@ export default function EditPromotionPage() {
   };
 
   const handleSubmit = async () => {
+    if (isViewMode) return;
     if (!hotelId || !promotionId) {
       showToast("Hotel ID and Promotion ID are required", "error");
       return;
@@ -486,15 +488,17 @@ export default function EditPromotionPage() {
           <ArrowLeft className="w-4 h-4" />
           Back
         </button>
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+        <div className="bg-linear-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Edit Promotion
+            {isViewMode ? "View Promotion" : "Edit Promotion"}
           </h1>
           <p className="text-gray-600 text-base">{promotion.promotionName}</p>
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div
+        className={`space-y-6 ${isViewMode ? "pointer-events-none select-none opacity-95" : ""}`}
+      >
         {/* Basic Promotion - Offer Type */}
         {type === "basic" && (
           <Card variant="outlined" className="p-6 shadow-sm">
@@ -974,7 +978,7 @@ export default function EditPromotionPage() {
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="px-4 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-sm font-medium rounded-lg transition-colors"
+              className="pointer-events-auto px-4 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 text-sm font-medium rounded-lg transition-colors"
             >
               {showAdvanced ? "− Hide Settings" : "+ Show Settings"}
             </button>
@@ -1429,22 +1433,24 @@ export default function EditPromotionPage() {
             onClick={() => navigate("/promotions")}
             className="px-6 py-3 text-gray-700 hover:text-gray-900 font-medium hover:bg-gray-100 rounded-lg transition-colors"
           >
-            Cancel
+            {isViewMode ? "Back" : "Cancel"}
           </button>
-          <Button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Updating Promotion...
-              </>
-            ) : (
-              "Update Promotion"
-            )}
-          </Button>
+          {!isViewMode && (
+            <Button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Updating Promotion...
+                </>
+              ) : (
+                "Update Promotion"
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>

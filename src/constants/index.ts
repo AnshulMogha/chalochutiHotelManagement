@@ -153,6 +153,7 @@ export const API_ENDPOINTS = {
     CREATE_USER: "/admin/users",
     UPDATE_USER: (userId: string | number) => `/admin/users/${userId}`,
     GET_STATES: "/masters/states",
+    GET_CITIES: "/masters/cities",
     // Commission APIs
     CREATE_COMMISSION: "/admin/commission",
     GET_COMMISSIONS: "/admin/commission/list",
