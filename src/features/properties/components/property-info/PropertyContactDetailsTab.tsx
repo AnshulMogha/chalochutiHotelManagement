@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
-import { Phone, Smartphone, Mail, Globe, PhoneCall } from "lucide-react";
+import { Phone, Smartphone, Mail, Globe, PhoneCall, User } from "lucide-react";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { adminService } from "@/features/admin/services/adminService";
 import { useAuth } from "@/hooks";
@@ -16,7 +16,7 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
   const { user } = useAuth();
   const isSuperAdminUser = isSuperAdmin(user?.roles);
   /** Super Admin uses admin contact APIs; hotel roles use /hotel/.../contact. */
-  const useHotelAdminContactApi = !isSuperAdminUser;
+  const useAdminContactApi = isSuperAdminUser;
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [contactData, setContactData] = useState<any>(null);
@@ -28,6 +28,10 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
     websiteList: "",
     emailList: "",
     customerCareNumber: "",
+    ownerEmail: "",
+    ownerFirstname: "",
+    ownerLastname: "",
+    ownerPhone: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast, showToast, hideToast } = useToast();
@@ -36,9 +40,9 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const data = useHotelAdminContactApi
-          ? await adminService.getHotelAdminContact(hotelId)
-          : await adminService.getHotelContact(hotelId);
+        const data = useAdminContactApi
+          ? await adminService.getHotelContact(hotelId)
+          : await adminService.getHotelAdminContact(hotelId);
         if (data) {
           setContactData(data);
           setFormData({
@@ -49,6 +53,10 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
             websiteList: data.websiteList || "",
             emailList: data.emailList || "",
             customerCareNumber: data.customerCareNumber || "",
+            ownerEmail: data.ownerEmail || "",
+            ownerFirstname: data.ownerFirstname || "",
+            ownerLastname: data.ownerLastname || "",
+            ownerPhone: data.ownerPhone || "",
           });
         }
       } catch (error) {
@@ -63,7 +71,7 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hotelId, useHotelAdminContactApi]);
+  }, [hotelId, useAdminContactApi]);
 
   const validatePhoneNumber = (phone: string): boolean => {
     // Remove spaces and dashes, check if it's exactly 10 digits
@@ -79,7 +87,7 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
   };
 
   const validatePhoneList = (phoneList: string): boolean => {
-    if (!phoneList.trim()) return false;
+    if (!phoneList.trim()) return true;
     const phones = phoneList.split(",").map((p) => p.trim());
     return phones.every((phone) => validatePhoneWithDashes(phone));
   };
@@ -92,7 +100,7 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
   };
 
   const validateCustomerCareList = (numberList: string): boolean => {
-    if (!numberList.trim()) return false;
+    if (!numberList.trim()) return true;
     const numbers = numberList.split(",").map((n) => n.trim());
     return numbers.every((number) => validateCustomerCareNumber(number));
   };
@@ -119,15 +127,11 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
       newErrors.hotelEmail = "Please enter a valid email address";
     }
 
-    if (!formData.phoneList.trim()) {
-      newErrors.phoneList = "Phone list is required";
-    } else if (!validatePhoneList(formData.phoneList)) {
+    if (formData.phoneList.trim() && !validatePhoneList(formData.phoneList)) {
       newErrors.phoneList = "All phone numbers must have at least 10 digits (dashes allowed, comma-separated)";
     }
 
-    if (!formData.websiteList.trim()) {
-      newErrors.websiteList = "Website list is required";
-    } else {
+    if (formData.websiteList.trim()) {
       // Validate comma-separated URLs
       const websites = formData.websiteList.split(",").map((w) => w.trim());
       const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i;
@@ -137,9 +141,7 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
       }
     }
 
-    if (!formData.emailList.trim()) {
-      newErrors.emailList = "Email list is required";
-    } else {
+    if (formData.emailList.trim()) {
       // Validate comma-separated emails
       const emails = formData.emailList.split(",").map((e) => e.trim());
       const invalidEmails = emails.filter((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
@@ -180,8 +182,8 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
 
     setIsSaving(true);
     try {
-      if (useHotelAdminContactApi) {
-        await adminService.updateHotelAdminContact(hotelId, {
+      if (useAdminContactApi) {
+        await adminService.updateHotelContact(hotelId, {
           hotelPhone: formData.hotelPhone,
           hotelMobile: formData.hotelMobile,
           hotelEmail: formData.hotelEmail,
@@ -189,14 +191,18 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
           websiteList: formData.websiteList,
           emailList: formData.emailList,
           customerCareNumber: formData.customerCareNumber,
+          ownerEmail: formData.ownerEmail || null,
+          ownerFirstname: formData.ownerFirstname || null,
+          ownerLastname: formData.ownerLastname || null,
+          ownerPhone: formData.ownerPhone || null,
         });
         // Refresh data after update
-        const data = await adminService.getHotelAdminContact(hotelId);
+        const data = await adminService.getHotelContact(hotelId);
         if (data) {
           setContactData(data);
         }
       } else {
-        await adminService.updateHotelContact(hotelId, {
+        await adminService.updateHotelAdminContact(hotelId, {
           hotelPhone: formData.hotelPhone,
           hotelMobile: formData.hotelMobile,
           hotelEmail: formData.hotelEmail,
@@ -299,7 +305,7 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
           <div className="space-y-6">
             <div>
               <Label htmlFor="phoneList">
-                Phone List <span className="text-red-500">*</span>
+                Phone List
               </Label>
               <Input
                 id="phoneList"
@@ -308,7 +314,6 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
                 onChange={(e) => handleChange("phoneList", e.target.value.replace(/[^\d,-]/g, ""))}
                 error={errors.phoneList}
                 icon={<Phone className="w-4 h-4 text-green-500" />}
-                required
               />
               {!errors.phoneList && (
                 <p className="text-xs text-gray-500 mt-1">
@@ -319,7 +324,7 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
 
             <div>
               <Label htmlFor="websiteList">
-                Website List <span className="text-red-500">*</span>
+                Website List
               </Label>
               <Input
                 id="websiteList"
@@ -328,7 +333,6 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
                 error={errors.websiteList}
                 icon={<Globe className="w-4 h-4 text-cyan-500" />}
                 placeholder="www.example.com"
-                required
               />
               {!errors.websiteList && (
                 <p className="text-xs text-gray-500 mt-1">
@@ -339,7 +343,7 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
 
             <div>
               <Label htmlFor="emailList">
-                Email List <span className="text-red-500">*</span>
+                Email List
               </Label>
               <Input
                 id="emailList"
@@ -349,13 +353,71 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
                 error={errors.emailList}
                 icon={<Mail className="w-4 h-4 text-blue-500" />}
                 placeholder="email1@example.com, email2@example.com"
-                required
               />
               {!errors.emailList && (
                 <p className="text-xs text-gray-500 mt-1">
                   Separate two emails with comma ','
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Owner Contact Information */}
+        <div className="mt-8">
+          <div className="rounded-lg border border-gray-200 p-4 bg-gray-50/50">
+            <div className="flex items-center gap-2 mb-3">
+              <User className="w-4 h-4 text-indigo-600" />
+              <h3 className="text-sm font-semibold text-gray-900">Owner Contact</h3>
+            </div>
+            {!isSuperAdminUser && (
+              <p className="text-xs text-gray-500 mb-3">
+                View only. Only Super Admin can edit owner details.
+              </p>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="ownerFirstname">Owner First Name</Label>
+                <Input
+                  id="ownerFirstname"
+                  value={formData.ownerFirstname}
+                  onChange={(e) => handleChange("ownerFirstname", e.target.value)}
+                  disabled={!isSuperAdminUser || isSaving}
+                />
+              </div>
+              <div>
+                <Label htmlFor="ownerLastname">Owner Last Name</Label>
+                <Input
+                  id="ownerLastname"
+                  value={formData.ownerLastname}
+                  onChange={(e) => handleChange("ownerLastname", e.target.value)}
+                  disabled={!isSuperAdminUser || isSaving}
+                />
+              </div>
+              <div>
+                <Label htmlFor="ownerEmail">Owner Email</Label>
+                <Input
+                  id="ownerEmail"
+                  type="email"
+                  value={formData.ownerEmail}
+                  onChange={(e) => handleChange("ownerEmail", e.target.value)}
+                  icon={<Mail className="w-4 h-4 text-blue-500" />}
+                  disabled={!isSuperAdminUser || isSaving}
+                />
+              </div>
+              <div>
+                <Label htmlFor="ownerPhone">Owner Phone</Label>
+                <Input
+                  id="ownerPhone"
+                  type="tel"
+                  value={formData.ownerPhone}
+                  onChange={(e) =>
+                    handleChange("ownerPhone", e.target.value.replace(/[^\d-]/g, ""))
+                  }
+                  icon={<Phone className="w-4 h-4 text-green-500" />}
+                  disabled={!isSuperAdminUser || isSaving}
+                />
+              </div>
             </div>
           </div>
         </div>

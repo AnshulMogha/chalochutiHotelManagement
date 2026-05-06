@@ -309,6 +309,10 @@ export interface HotelContactResponse {
   websiteList: string;
   emailList: string;
   customerCareNumber: string;
+  ownerEmail?: string | null;
+  ownerFirstname?: string | null;
+  ownerLastname?: string | null;
+  ownerPhone?: string | null;
   createdBy: number;
   createdByEmail: string;
   updatedBy: number;
@@ -325,6 +329,10 @@ export interface UpdateHotelContactRequest {
   websiteList: string;
   emailList: string;
   customerCareNumber: string;
+  ownerEmail?: string | null;
+  ownerFirstname?: string | null;
+  ownerLastname?: string | null;
+  ownerPhone?: string | null;
 }
 
 export interface HotelLocationResponse {
@@ -632,6 +640,10 @@ export interface UpdateHotelAdminContactRequest {
   websiteList: string;
   emailList: string;
   customerCareNumber: string;
+  ownerEmail?: string | null;
+  ownerFirstname?: string | null;
+  ownerLastname?: string | null;
+  ownerPhone?: string | null;
 }
 
 export interface HotelRoom {
