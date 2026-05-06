@@ -3,15 +3,12 @@ import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { adminService, type PromotionListItem } from "@/features/admin/services/adminService";
-import { useToast } from "@/components/ui/Toast";
 import {
-  Building2,
-  Info,
-  Loader2,
-  Crown,
-  ArrowLeft,
-} from "lucide-react";
+  adminService,
+  type PromotionListItem,
+} from "@/features/admin/services/adminService";
+import { useToast } from "@/components/ui/Toast";
+import { Building2, Info, Loader2, Crown, ArrowLeft } from "lucide-react";
 
 interface SpecialAudienceType {
   id: string;
@@ -72,17 +69,19 @@ export default function SpecialAudiencePromotionsPage() {
 
   const getPromotionDiscount = (type: string) => {
     // Find the promotion for this audience type
-    const promo = promotions.find((p) => 
-      p.promotionType.toLowerCase().includes(type.toLowerCase()) ||
-      p.promotionName.toLowerCase().includes(type.toLowerCase())
+    const promo = promotions.find(
+      (p) =>
+        p.promotionType.toLowerCase().includes(type.toLowerCase()) ||
+        p.promotionName.toLowerCase().includes(type.toLowerCase()),
     );
     return promo ? promo.discountAllUsers : defaultDiscount;
   };
 
   const hasPromotion = (type: string) => {
-    return promotions.some((p) => 
-      p.promotionType.toLowerCase().includes(type.toLowerCase()) ||
-      p.promotionName.toLowerCase().includes(type.toLowerCase())
+    return promotions.some(
+      (p) =>
+        p.promotionType.toLowerCase().includes(type.toLowerCase()) ||
+        p.promotionName.toLowerCase().includes(type.toLowerCase()),
     );
   };
 
@@ -100,7 +99,9 @@ export default function SpecialAudiencePromotionsPage() {
           <div className="p-2 bg-blue-100 rounded-lg">
             <Crown className="w-6 h-6 text-blue-600" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Special Audience Promotions (Tier 2)</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Special Audience Promotions (Tier 2)
+          </h1>
         </div>
       </div>
 
@@ -122,7 +123,9 @@ export default function SpecialAudiencePromotionsPage() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4 flex-1">
-                    <div className={`p-3 ${audience.iconBg || "bg-blue-50"} rounded-xl ${audience.iconColor || "text-blue-600"}`}>
+                    <div
+                      className={`p-3 ${audience.iconBg || "bg-blue-50"} rounded-xl ${audience.iconColor || "text-blue-600"}`}
+                    >
                       {audience.icon}
                     </div>
                     <div className="flex-1">
@@ -171,4 +174,3 @@ export default function SpecialAudiencePromotionsPage() {
     </div>
   );
 }
-

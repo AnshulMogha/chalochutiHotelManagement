@@ -282,6 +282,9 @@ export default function EditPromotionPage() {
           new Set(data.data.rateplanIds.map((id) => id.toString())),
         );
       }
+      if (isViewMode) {
+        setShowAdvanced(true);
+      }
     } catch (error: any) {
       console.error("Error loading promotion:", error);
       const errorMessage =
@@ -463,6 +466,18 @@ export default function EditPromotionPage() {
 
   const promotion = editData.data.promotion;
   const type = promotion.promotionType.toLowerCase().replace(/_/g, "-");
+  const audienceType =
+    (promotion as { audienceType?: string | null }).audienceType || "";
+  const isSpecialAudiencePromotion = Boolean(
+    audienceType,
+  );
+  const isMyPartnerSpecialPromotion = audienceType === "MYPARTNER";
+  const getBookablePeriodLabel = (period?: string) => {
+    if (period === "SAME_DAY") return "Same day";
+    if (period === "ONE_DAY") return "1 day before check-in";
+    if (period === "TWO_DAYS") return "2 days before check-in";
+    return "-";
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -499,8 +514,8 @@ export default function EditPromotionPage() {
       <div
         className={`space-y-6 ${isViewMode ? "pointer-events-none select-none opacity-95" : ""}`}
       >
-        {/* Basic Promotion - Offer Type */}
-        {type === "basic" && (
+        {/* Basic Promotion - Offer Type (not shown for special-audience view) */}
+        {type === "basic" && (!isViewMode || !isSpecialAudiencePromotion) && (
           <Card variant="outlined" className="p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -532,8 +547,127 @@ export default function EditPromotionPage() {
           </Card>
         )}
 
+        {/* Type specific details in view mode */}
+        {isViewMode && type === "last-minute" && (
+          <Card variant="outlined" className="p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <Clock className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Last Minute Rules
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Booking window as configured while creation
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700">
+              Bookable period:{" "}
+              <span className="font-semibold">
+                {getBookablePeriodLabel(formData.bookablePeriod)}
+              </span>
+            </p>
+          </Card>
+        )}
+
+        {isViewMode && type === "early-bird" && (
+          <Card variant="outlined" className="p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <Bird className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Early Bird Rules
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Advance booking requirement
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700">
+              Advance days:{" "}
+              <span className="font-semibold">{formData.advanceDays ?? 0}</span>
+            </p>
+          </Card>
+        )}
+
+        {isViewMode && type === "long-stay" && (
+          <Card variant="outlined" className="p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <CalendarDays className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Long Stay Rules
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Stay criteria configured for this promotion
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2 text-sm text-gray-700">
+              <p>
+                Minimum stay nights:{" "}
+                <span className="font-semibold">
+                  {formData.minimumStayDays ?? 0}
+                </span>
+              </p>
+              <p>
+                Offer mode:{" "}
+                <span className="font-semibold">
+                  {formData.offerFreeNights ? "Free night" : "Discount"}
+                </span>
+              </p>
+              {formData.offerFreeNights && (
+                <p>
+                  Free nights:{" "}
+                  <span className="font-semibold">
+                    {formData.freeNightsCount ?? 0}
+                  </span>
+                </p>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {isViewMode && isSpecialAudiencePromotion && (
+          <Card variant="outlined" className="p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Tag className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Special Audience Details
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Audience and channel configured while creation
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <p className="text-gray-700">
+                Audience type:{" "}
+                <span className="font-semibold">
+                  {(promotion as { audienceType?: string | null }).audienceType ||
+                    "-"}
+                </span>
+              </p>
+              <p className="text-gray-700">
+                Apply channel:{" "}
+                <span className="font-semibold">{formData.applyChannel}</span>
+              </p>
+            </div>
+          </Card>
+        )}
+
         {/* Set Discount Percentage/Amount */}
-        {(!formData.offerFreeNights || type !== "long-stay") && (
+        {(!formData.offerFreeNights || type !== "long-stay") &&
+          (!isViewMode || !isMyPartnerSpecialPromotion) && (
           <Card variant="outlined" className="p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-purple-100 rounded-lg">
@@ -674,8 +808,41 @@ export default function EditPromotionPage() {
           </Card>
         )}
 
+        {/* MyPartner view-only summary (aligned with create form) */}
+        {isViewMode && isMyPartnerSpecialPromotion && (
+          <Card variant="outlined" className="p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Percent className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Offer Value
+                </h3>
+                <p className="text-sm text-gray-500">
+                  MyPartner promotion configured values
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <p className="text-gray-700">
+                Audience type: <span className="font-semibold">{audienceType}</span>
+              </p>
+              <p className="text-gray-700">
+                Apply channel:{" "}
+                <span className="font-semibold">{formData.applyChannel}</span>
+              </p>
+              <p className="text-gray-700">
+                Discount:{" "}
+                <span className="font-semibold">{formData.discountAllUsers}%</span>
+              </p>
+            </div>
+          </Card>
+        )}
+
         {/* Promotion Validity */}
-        <Card variant="outlined" className="p-6 shadow-sm">
+        {!isViewMode || !isMyPartnerSpecialPromotion ? (
+          <Card variant="outlined" className="p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-indigo-100 rounded-lg">
               <Calendar className="w-5 h-5 text-indigo-600" />
@@ -899,7 +1066,48 @@ export default function EditPromotionPage() {
               </div>
             )}
           </div>
-        </Card>
+          </Card>
+        ) : (
+          <Card variant="outlined" className="p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <Calendar className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Promotion Dates
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Date range configured in MyPartner create form
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <p className="text-gray-700">
+                Stay start date:{" "}
+                <span className="font-semibold">
+                  {formData.stayStartDate || "-"}
+                </span>
+              </p>
+              <p className="text-gray-700">
+                Stay end date:{" "}
+                <span className="font-semibold">{formData.stayEndDate || "-"}</span>
+              </p>
+              <p className="text-gray-700">
+                Booking start date:{" "}
+                <span className="font-semibold">
+                  {formData.bookingStartDate || "-"}
+                </span>
+              </p>
+              <p className="text-gray-700">
+                Booking end date:{" "}
+                <span className="font-semibold">
+                  {formData.bookingEndDate || "-"}
+                </span>
+              </p>
+            </div>
+          </Card>
+        )}
 
         {/* Promotion Name */}
         <Card variant="outlined" className="p-6 shadow-sm">
@@ -959,7 +1167,8 @@ export default function EditPromotionPage() {
         </Card>
 
         {/* Advanced Settings */}
-        <Card variant="outlined" className="p-6 shadow-sm">
+        {!isViewMode || !isMyPartnerSpecialPromotion ? (
+          <Card variant="outlined" className="p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gray-100 rounded-lg">
@@ -1235,34 +1444,6 @@ export default function EditPromotionPage() {
                     <input
                       type="radio"
                       name="applyChannel"
-                      value="MY_BIZ"
-                      checked={formData.applyChannel === "MY_BIZ"}
-                      onChange={(e) => {
-                        handleInputChange("applyChannel", e.target.value);
-                        handleInputChange("contractsJson", []);
-                      }}
-                      className="w-4 h-4 text-blue-600"
-                    />
-                    <span className="text-sm text-gray-700">My Biz</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="applyChannel"
-                      value="MY_PARTNER"
-                      checked={formData.applyChannel === "MY_PARTNER"}
-                      onChange={(e) => {
-                        handleInputChange("applyChannel", e.target.value);
-                        handleInputChange("contractsJson", []);
-                      }}
-                      className="w-4 h-4 text-blue-600"
-                    />
-                    <span className="text-sm text-gray-700">My Partner</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="applyChannel"
                       value="B2B"
                       checked={formData.applyChannel === "B2B"}
                       onChange={(e) => {
@@ -1365,66 +1546,119 @@ export default function EditPromotionPage() {
                 )}
               </div>
 
-              {/* Non-refundable */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Do you want to make it non-refundable?
-                </label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="nonRefundable"
-                      checked={formData.nonRefundable === true}
-                      onChange={() => handleInputChange("nonRefundable", true)}
-                      className="w-4 h-4 text-blue-600"
-                    />
-                    <span className="text-sm text-gray-700">Yes</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="nonRefundable"
-                      checked={formData.nonRefundable === false}
-                      onChange={() => handleInputChange("nonRefundable", false)}
-                      className="w-4 h-4 text-blue-600"
-                    />
-                    <span className="text-sm text-gray-700">No</span>
-                  </label>
-                </div>
-              </div>
+              {!isViewMode && (
+                <>
+                  {/* Non-refundable */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      Do you want to make it non-refundable?
+                    </label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="nonRefundable"
+                          checked={formData.nonRefundable === true}
+                          onChange={() =>
+                            handleInputChange("nonRefundable", true)
+                          }
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">Yes</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="nonRefundable"
+                          checked={formData.nonRefundable === false}
+                          onChange={() =>
+                            handleInputChange("nonRefundable", false)
+                          }
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">No</span>
+                      </label>
+                    </div>
+                  </div>
 
-              {/* Pay at hotel */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Do you want to pay at hotel?
-                </label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="payAtHotel"
-                      checked={formData.payAtHotel === true}
-                      onChange={() => handleInputChange("payAtHotel", true)}
-                      className="w-4 h-4 text-blue-600"
-                    />
-                    <span className="text-sm text-gray-700">Yes</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="payAtHotel"
-                      checked={formData.payAtHotel === false}
-                      onChange={() => handleInputChange("payAtHotel", false)}
-                      className="w-4 h-4 text-blue-600"
-                    />
-                    <span className="text-sm text-gray-700">No</span>
-                  </label>
-                </div>
-              </div>
+                  {/* Pay at hotel */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      Do you want to pay at hotel?
+                    </label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="payAtHotel"
+                          checked={formData.payAtHotel === true}
+                          onChange={() => handleInputChange("payAtHotel", true)}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">Yes</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="payAtHotel"
+                          checked={formData.payAtHotel === false}
+                          onChange={() =>
+                            handleInputChange("payAtHotel", false)
+                          }
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">No</span>
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
-        </Card>
+          </Card>
+        ) : (
+          <Card variant="outlined" className="p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <Settings className="w-5 h-5 text-gray-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Advanced Settings
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Blackout dates configured in MyPartner create form
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2 text-sm text-gray-700">
+              <p>
+                Blackout enabled:{" "}
+                <span className="font-semibold">
+                  {wantBlackoutDates ? "Yes" : "No"}
+                </span>
+              </p>
+              {wantBlackoutDates && blackoutDates.length > 0 && (
+                <p>
+                  Selected blackout dates:{" "}
+                  <span className="font-semibold">{blackoutDates.length}</span>
+                </p>
+              )}
+              {wantBlackoutDates && blackoutDates.length > 0 && (
+                <div className="pt-2 flex flex-wrap gap-2">
+                  {blackoutDates.map((date) => (
+                    <span
+                      key={date}
+                      className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 border border-blue-200"
+                    >
+                      {date}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Action Buttons */}
         <div className="flex items-center justify-between pt-8 pb-4 border-t border-gray-200">

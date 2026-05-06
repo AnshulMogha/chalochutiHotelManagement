@@ -65,6 +65,9 @@ export default function PromotionsPage() {
   const [searchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState(tabFromUrl || "my-promotions");
+  const [myPromotionsSubTab, setMyPromotionsSubTab] = useState<
+    "all" | "draft" | "active" | "paused" | "expired"
+  >("all");
   const [loading, setLoading] = useState(false);
   const [promotions, setPromotions] = useState<PromotionListItem[]>([]);
   const navigate = useNavigate();
@@ -217,6 +220,26 @@ export default function PromotionsPage() {
   };
 
   const activeCount = promotions.filter((p) => p.status === "ACTIVE").length;
+  const draftCount = promotions.filter((p) => p.status === "DRAFT").length;
+  const liveCount = promotions.filter((p) => p.status === "ACTIVE").length;
+  const pausedCount = promotions.filter((p) => p.status === "PAUSED").length;
+  const expiredCount = promotions.filter((p) => p.status === "EXPIRED").length;
+  const subTabStatusMap: Record<
+    "draft" | "active" | "paused" | "expired",
+    PromotionListItem["status"]
+  > = {
+    draft: "DRAFT",
+    active: "ACTIVE",
+    paused: "PAUSED",
+    expired: "EXPIRED",
+  };
+  const filteredPromotions =
+    myPromotionsSubTab === "all"
+      ? promotions
+      : promotions.filter(
+          (promotion) =>
+            promotion.status === subTabStatusMap[myPromotionsSubTab],
+        );
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -347,20 +370,56 @@ export default function PromotionsPage() {
         </TabsContent>
 
         <TabsContent value="my-promotions" className="mt-2">
+          <div className="mb-4">
+            <Tabs
+              value={myPromotionsSubTab}
+              onValueChange={(value) =>
+                setMyPromotionsSubTab(
+                  value as "all" | "draft" | "active" | "paused" | "expired",
+                )
+              }
+              className="w-fit"
+            >
+              <TabsList className="bg-white border border-gray-200">
+                <TabsTrigger value="all" className="text-sm">
+                  All ({promotions.length})
+                </TabsTrigger>
+                <TabsTrigger value="draft" className="text-sm">
+                  Draft ({draftCount})
+                </TabsTrigger>
+                <TabsTrigger value="active" className="text-sm">
+                  Active ({liveCount})
+                </TabsTrigger>
+                <TabsTrigger value="paused" className="text-sm">
+                  Paused ({pausedCount})
+                </TabsTrigger>
+                <TabsTrigger value="expired" className="text-sm">
+                  Expired ({expiredCount})
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
           <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
             {loading ? (
               <div className="flex items-center justify-center min-h-[400px]">
                 <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
               </div>
-            ) : promotions.length === 0 ? (
+            ) : filteredPromotions.length === 0 ? (
               <div className="text-center py-12 px-6">
-                <p className="text-gray-500 mb-4">No promotions found</p>
-                <Button
-                  onClick={() => setActiveTab("create")}
-                  variant="outline"
-                >
-                  Create Your First Promotion
-                </Button>
+                <p className="text-gray-500 mb-4">
+                  {myPromotionsSubTab === "all"
+                    ? "No promotions found"
+                    : `No ${myPromotionsSubTab} promotions found`}
+                </p>
+                {myPromotionsSubTab === "all" && (
+                  <Button
+                    onClick={() => setActiveTab("create")}
+                    variant="outline"
+                  >
+                    Create Your First Promotion
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -391,7 +450,7 @@ export default function PromotionsPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {promotions.map((promotion) => (
+                    {filteredPromotions.map((promotion) => (
                       <tr
                         key={promotion.id}
                         className="hover:bg-blue-50/60 transition-colors"

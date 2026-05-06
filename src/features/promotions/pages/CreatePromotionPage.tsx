@@ -81,12 +81,14 @@ function SectionCard({
   subtitle,
   children,
   accent = "blue",
+  className,
 }: {
   step: number;
   title: string;
   subtitle?: string;
   children: React.ReactNode;
   accent?: "blue" | "purple" | "green" | "orange" | "pink";
+  className?: string;
 }) {
   const colors: Record<string, string> = {
     blue: "bg-blue-600",
@@ -96,7 +98,9 @@ function SectionCard({
     pink: "bg-pink-500",
   };
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div
+      className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-visible ${className ?? ""}`}
+    >
       <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center gap-4">
         <span
           className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white text-sm font-bold ${colors[accent]}`}
@@ -145,6 +149,12 @@ export default function CreatePromotionPage() {
   );
   const [loadingRooms, setLoadingRooms] = useState(false);
   const fetchingRoomsRef = useRef(false);
+  const [myPartnerAudienceType, setMyPartnerAudienceType] = useState<
+    "MEMBER" | "HOLIDAY_FLIGHT" | "MOBILE" | "MYBIZ" | "INTERNATIONAL" | "MYPARTNER"
+  >("MYPARTNER");
+  const [myPartnerApplyChannel, setMyPartnerApplyChannel] = useState<
+    "B2C" | "B2B" | "MYBIZ" | "PARTNER" | "PACKAGE"
+  >("PARTNER");
 
   const promotionConfig = type
     ? PROMOTION_TYPES[type as keyof typeof PROMOTION_TYPES]
@@ -387,7 +397,9 @@ export default function CreatePromotionPage() {
           ? 0
           : extraLoggedDiscounts.reduce((sum, val) => sum + val, 0),
         audienceType:
-          isSpecialAudience && promotionConfig?.audienceType
+          isMyPartner
+            ? myPartnerAudienceType
+            : isSpecialAudience && promotionConfig?.audienceType
             ? promotionConfig.audienceType
             : undefined,
         applicableDateType: isMyPartner
@@ -446,7 +458,7 @@ export default function CreatePromotionPage() {
             ? Array.from(selectedRatePlanIds).map(Number)
             : undefined,
         applyChannel: isMyPartner
-          ? "MY_PARTNER"
+          ? myPartnerApplyChannel
           : formData.applyChannel === "BUNDLED_RATES"
             ? "PACKAGE"
             : formData.applyChannel,
@@ -582,12 +594,23 @@ export default function CreatePromotionPage() {
           {/* Left — Form sections */}
           <div className="flex-1 min-w-0 space-y-5">
             {/* Promotion Name — always first */}
-            <SectionCard step={1} title="Promotion Name" subtitle="Give this promotion a recognisable name" accent="pink">
+            <SectionCard
+              step={1}
+              title="Promotion Name"
+              subtitle="Give this promotion a recognisable name"
+              accent="pink"
+            >
               <Input
                 type="text"
                 value={formData.promotionName}
-                onChange={(e) => handleInputChange("promotionName", e.target.value)}
-                placeholder={isMyPartner ? "e.g. MyPartner-10%" : "e.g., Basic-10%, Last Minute-53%-2 Days"}
+                onChange={(e) =>
+                  handleInputChange("promotionName", e.target.value)
+                }
+                placeholder={
+                  isMyPartner
+                    ? "e.g. MyPartner-10%"
+                    : "e.g., Basic-10%, Last Minute-53%-2 Days"
+                }
                 required
                 className="text-sm py-2.5 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
               />
@@ -604,30 +627,101 @@ export default function CreatePromotionPage() {
                   accent="blue"
                 >
                   <label className="block text-xs font-medium text-gray-500 mb-2">
+                    Audience Type
+                  </label>
+                  <select
+                    value={myPartnerAudienceType}
+                    onChange={(e) =>
+                      setMyPartnerAudienceType(
+                        e.target.value as
+                          | "MEMBER"
+                          | "HOLIDAY_FLIGHT"
+                          | "MOBILE"
+                          | "MYBIZ"
+                          | "INTERNATIONAL"
+                          | "MYPARTNER",
+                      )
+                    }
+                    className="w-full max-w-xs mb-4 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                  >
+                    <option value="MEMBER">Member</option>
+                    <option value="HOLIDAY_FLIGHT">Holiday + Flight</option>
+                    <option value="MOBILE">Mobile</option>
+                    <option value="MYBIZ">MyBiz</option>
+                    <option value="INTERNATIONAL">International</option>
+                    <option value="MYPARTNER">MyPartner</option>
+                  </select>
+
+                  <label className="block text-xs font-medium text-gray-500 mb-2">
+                    Apply Channel
+                  </label>
+                  <select
+                    value={myPartnerApplyChannel}
+                    onChange={(e) =>
+                      setMyPartnerApplyChannel(
+                        e.target.value as
+                          | "B2C"
+                          | "B2B"
+                          | "MYBIZ"
+                          | "PARTNER"
+                          | "PACKAGE",
+                      )
+                    }
+                    className="w-full max-w-xs mb-4 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+                  >
+                    <option value="B2C">B2C</option>
+                    <option value="B2B">B2B</option>
+                    <option value="MYBIZ">MYBIZ</option>
+                    <option value="PARTNER">PARTNER</option>
+                    <option value="PACKAGE">PACKAGE</option>
+                  </select>
+
+                  <label className="block text-xs font-medium text-gray-500 mb-2">
                     Enter offer value
                   </label>
                   <div className="flex items-center gap-2 max-w-xs">
                     <button
                       type="button"
-                      onClick={() => handleInputChange("discountAllUsers", Math.max(0, formData.discountAllUsers - 1))}
+                      onClick={() =>
+                        handleInputChange(
+                          "discountAllUsers",
+                          Math.max(0, formData.discountAllUsers - 1),
+                        )
+                      }
                       className="w-8 h-8 rounded-lg border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-100 font-bold shrink-0"
-                    >−</button>
+                    >
+                      −
+                    </button>
                     <div className="relative flex-1">
                       <input
                         type="number"
                         min={0}
                         max={100}
                         value={formData.discountAllUsers}
-                        onChange={(e) => handleInputChange("discountAllUsers", Number(e.target.value))}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "discountAllUsers",
+                            Number(e.target.value),
+                          )
+                        }
                         className="w-full text-center text-lg font-bold py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-400 pr-6"
                       />
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                        %
+                      </span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleInputChange("discountAllUsers", Math.min(100, formData.discountAllUsers + 1))}
+                      onClick={() =>
+                        handleInputChange(
+                          "discountAllUsers",
+                          Math.min(100, formData.discountAllUsers + 1),
+                        )
+                      }
                       className="w-8 h-8 rounded-lg border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-100 font-bold shrink-0"
-                    >+</button>
+                    >
+                      +
+                    </button>
                   </div>
                   <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                     <p className="text-sm text-green-700">
@@ -732,13 +826,17 @@ export default function CreatePromotionPage() {
                     </div>
                   )}
                 </SectionCard>
-
               </>
             ) : (
               <>
                 {/* Basic: offer type toggle + discounts — merged step 2 */}
                 {type === "basic" && (
-                  <SectionCard step={2} title="Configure Discount" subtitle="Choose type and set discount values" accent="blue">
+                  <SectionCard
+                    step={2}
+                    title="Configure Discount"
+                    subtitle="Choose type and set discount values"
+                    accent="blue"
+                  >
                     <div className="flex gap-2 mb-4">
                       {(["PERCENTAGE", "FIXED"] as const).map((opt) => (
                         <button
@@ -757,25 +855,115 @@ export default function CreatePromotionPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                        <p className="text-xs font-medium text-gray-500 mb-2">All users</p>
+                        <p className="text-xs font-medium text-gray-500 mb-2">
+                          All users
+                        </p>
                         <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => handleInputChange("discountAllUsers", Math.max(0, formData.discountAllUsers - (formData.offerType === "FIXED" ? 10 : 1)))} className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0">−</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountAllUsers",
+                                Math.max(
+                                  0,
+                                  formData.discountAllUsers -
+                                    (formData.offerType === "FIXED" ? 10 : 1),
+                                ),
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0"
+                          >
+                            −
+                          </button>
                           <div className="relative flex-1">
-                            <input type="number" min={0} max={formData.offerType === "FIXED" ? undefined : 100} value={formData.discountAllUsers} onChange={(e) => handleInputChange("discountAllUsers", Number(e.target.value))} className="w-full text-center text-sm font-bold py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-400 pr-5" />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">{formData.offerType === "FIXED" ? "₹" : "%"}</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={
+                                formData.offerType === "FIXED" ? undefined : 100
+                              }
+                              value={formData.discountAllUsers}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "discountAllUsers",
+                                  Number(e.target.value),
+                                )
+                              }
+                              className="w-full text-center text-sm font-bold py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-400 pr-5"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                              {formData.offerType === "FIXED" ? "₹" : "%"}
+                            </span>
                           </div>
-                          <button type="button" onClick={() => handleInputChange("discountAllUsers", formData.discountAllUsers + (formData.offerType === "FIXED" ? 10 : 1))} className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0">+</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountAllUsers",
+                                formData.discountAllUsers +
+                                  (formData.offerType === "FIXED" ? 10 : 1),
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0"
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                       <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
-                        <p className="text-xs font-medium text-blue-600 mb-2">Logged-in users</p>
+                        <p className="text-xs font-medium text-blue-600 mb-2">
+                          Logged-in users
+                        </p>
                         <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => handleInputChange("discountLoggedUsers", Math.max(0, formData.discountLoggedUsers - (formData.offerType === "FIXED" ? 10 : 1)))} className="w-7 h-7 rounded-md border border-blue-200 flex items-center justify-center text-blue-600 hover:bg-blue-100 text-sm font-bold shrink-0">−</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountLoggedUsers",
+                                Math.max(
+                                  0,
+                                  formData.discountLoggedUsers -
+                                    (formData.offerType === "FIXED" ? 10 : 1),
+                                ),
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-blue-200 flex items-center justify-center text-blue-600 hover:bg-blue-100 text-sm font-bold shrink-0"
+                          >
+                            −
+                          </button>
                           <div className="relative flex-1">
-                            <input type="number" min={0} max={formData.offerType === "FIXED" ? undefined : 100} value={formData.discountLoggedUsers} onChange={(e) => handleInputChange("discountLoggedUsers", Number(e.target.value))} className="w-full text-center text-sm font-bold py-1.5 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-400 bg-white pr-5" />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-400">{formData.offerType === "FIXED" ? "₹" : "%"}</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={
+                                formData.offerType === "FIXED" ? undefined : 100
+                              }
+                              value={formData.discountLoggedUsers}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "discountLoggedUsers",
+                                  Number(e.target.value),
+                                )
+                              }
+                              className="w-full text-center text-sm font-bold py-1.5 border border-blue-200 rounded-lg focus:outline-none focus:border-blue-400 bg-white pr-5"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-400">
+                              {formData.offerType === "FIXED" ? "₹" : "%"}
+                            </span>
                           </div>
-                          <button type="button" onClick={() => handleInputChange("discountLoggedUsers", formData.discountLoggedUsers + (formData.offerType === "FIXED" ? 10 : 1))} className="w-7 h-7 rounded-md border border-blue-200 flex items-center justify-center text-blue-600 hover:bg-blue-100 text-sm font-bold shrink-0">+</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountLoggedUsers",
+                                formData.discountLoggedUsers +
+                                  (formData.offerType === "FIXED" ? 10 : 1),
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-blue-200 flex items-center justify-center text-blue-600 hover:bg-blue-100 text-sm font-bold shrink-0"
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -783,14 +971,46 @@ export default function CreatePromotionPage() {
                       <div className="mt-3 space-y-2">
                         {extraLoggedDiscounts.map((discount, index) => (
                           <div key={index} className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400 w-20 shrink-0">Extra tier {index + 1}</span>
+                            <span className="text-xs text-gray-400 w-20 shrink-0">
+                              Extra tier {index + 1}
+                            </span>
                             <div className="flex items-center gap-1 flex-1">
-                              <button type="button" onClick={() => handleRemoveExtraDiscount(index)} className="w-7 h-7 rounded-md border border-red-200 flex items-center justify-center text-red-500 hover:bg-red-50 text-sm font-bold shrink-0">−</button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveExtraDiscount(index)}
+                                className="w-7 h-7 rounded-md border border-red-200 flex items-center justify-center text-red-500 hover:bg-red-50 text-sm font-bold shrink-0"
+                              >
+                                −
+                              </button>
                               <div className="relative flex-1">
-                                <input type="number" min={0} max={formData.offerType === "FIXED" ? undefined : 100} value={discount} onChange={(e) => handleExtraDiscountChange(index, Number(e.target.value))} className="w-full text-center text-sm font-bold py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-400 pr-5" />
-                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">{formData.offerType === "FIXED" ? "₹" : "%"}</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={
+                                    formData.offerType === "FIXED"
+                                      ? undefined
+                                      : 100
+                                  }
+                                  value={discount}
+                                  onChange={(e) =>
+                                    handleExtraDiscountChange(
+                                      index,
+                                      Number(e.target.value),
+                                    )
+                                  }
+                                  className="w-full text-center text-sm font-bold py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-400 pr-5"
+                                />
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                                  {formData.offerType === "FIXED" ? "₹" : "%"}
+                                </span>
                               </div>
-                              <button type="button" onClick={() => handleAddExtraDiscount()} className="w-7 h-7 rounded-md border border-green-200 flex items-center justify-center text-green-600 hover:bg-green-50 text-sm font-bold shrink-0">+</button>
+                              <button
+                                type="button"
+                                onClick={() => handleAddExtraDiscount()}
+                                className="w-7 h-7 rounded-md border border-green-200 flex items-center justify-center text-green-600 hover:bg-green-50 text-sm font-bold shrink-0"
+                              >
+                                +
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -801,48 +1021,179 @@ export default function CreatePromotionPage() {
 
                 {/* Long Stay: offer type toggle + discount or free nights — merged step 2 */}
                 {type === "long-stay" && (
-                  <SectionCard step={2} title="Configure Offer" subtitle="Choose offer type and set values" accent="orange">
+                  <SectionCard
+                    step={2}
+                    title="Configure Offer"
+                    subtitle="Choose offer type and set values"
+                    accent="orange"
+                  >
                     <div className="flex gap-2 mb-4">
-                      <button type="button" onClick={() => handleInputChange("offerFreeNights", false)} className={`flex-1 py-2 text-sm font-semibold rounded-lg border transition-all ${!formData.offerFreeNights ? "bg-orange-500 text-white border-orange-500 shadow-sm" : "bg-white text-gray-600 border-gray-300 hover:border-orange-300 hover:bg-orange-50"}`}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleInputChange("offerFreeNights", false)
+                        }
+                        className={`flex-1 py-2 text-sm font-semibold rounded-lg border transition-all ${!formData.offerFreeNights ? "bg-orange-500 text-white border-orange-500 shadow-sm" : "bg-white text-gray-600 border-gray-300 hover:border-orange-300 hover:bg-orange-50"}`}
+                      >
                         Offer Discount
                       </button>
-                      <button type="button" onClick={() => handleInputChange("offerFreeNights", true)} className={`flex-1 py-2 text-sm font-semibold rounded-lg border transition-all ${formData.offerFreeNights ? "bg-orange-500 text-white border-orange-500 shadow-sm" : "bg-white text-gray-600 border-gray-300 hover:border-orange-300 hover:bg-orange-50"}`}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleInputChange("offerFreeNights", true)
+                        }
+                        className={`flex-1 py-2 text-sm font-semibold rounded-lg border transition-all ${formData.offerFreeNights ? "bg-orange-500 text-white border-orange-500 shadow-sm" : "bg-white text-gray-600 border-gray-300 hover:border-orange-300 hover:bg-orange-50"}`}
+                      >
                         Free Nights
                       </button>
                     </div>
                     {!formData.offerFreeNights && (
                       <div className="grid grid-cols-2 gap-3">
                         <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                          <p className="text-xs font-medium text-gray-500 mb-2">All users</p>
+                          <p className="text-xs font-medium text-gray-500 mb-2">
+                            All users
+                          </p>
                           <div className="flex items-center gap-1">
-                            <button type="button" onClick={() => handleInputChange("discountAllUsers", Math.max(0, formData.discountAllUsers - 1))} className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0">−</button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleInputChange(
+                                  "discountAllUsers",
+                                  Math.max(0, formData.discountAllUsers - 1),
+                                )
+                              }
+                              className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0"
+                            >
+                              −
+                            </button>
                             <div className="relative flex-1">
-                              <input type="number" min={0} max={100} value={formData.discountAllUsers} onChange={(e) => handleInputChange("discountAllUsers", Number(e.target.value))} className="w-full text-center text-sm font-bold py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-400 pr-5" />
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={formData.discountAllUsers}
+                                onChange={(e) =>
+                                  handleInputChange(
+                                    "discountAllUsers",
+                                    Number(e.target.value),
+                                  )
+                                }
+                                className="w-full text-center text-sm font-bold py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-400 pr-5"
+                              />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                                %
+                              </span>
                             </div>
-                            <button type="button" onClick={() => handleInputChange("discountAllUsers", formData.discountAllUsers + 1)} className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0">+</button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleInputChange(
+                                  "discountAllUsers",
+                                  formData.discountAllUsers + 1,
+                                )
+                              }
+                              className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0"
+                            >
+                              +
+                            </button>
                           </div>
                         </div>
                         <div className="bg-orange-50 rounded-xl p-3 border border-orange-200">
-                          <p className="text-xs font-medium text-orange-600 mb-2">Logged-in users</p>
+                          <p className="text-xs font-medium text-orange-600 mb-2">
+                            Logged-in users
+                          </p>
                           <div className="flex items-center gap-1">
-                            <button type="button" onClick={() => handleInputChange("discountLoggedUsers", Math.max(0, formData.discountLoggedUsers - 1))} className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold shrink-0">−</button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleInputChange(
+                                  "discountLoggedUsers",
+                                  Math.max(0, formData.discountLoggedUsers - 1),
+                                )
+                              }
+                              className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold shrink-0"
+                            >
+                              −
+                            </button>
                             <div className="relative flex-1">
-                              <input type="number" min={0} max={100} value={formData.discountLoggedUsers} onChange={(e) => handleInputChange("discountLoggedUsers", Number(e.target.value))} className="w-full text-center text-sm font-bold py-1.5 border border-orange-200 rounded-lg focus:outline-none focus:border-orange-400 bg-white pr-5" />
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-orange-400">%</span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={formData.discountLoggedUsers}
+                                onChange={(e) =>
+                                  handleInputChange(
+                                    "discountLoggedUsers",
+                                    Number(e.target.value),
+                                  )
+                                }
+                                className="w-full text-center text-sm font-bold py-1.5 border border-orange-200 rounded-lg focus:outline-none focus:border-orange-400 bg-white pr-5"
+                              />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-orange-400">
+                                %
+                              </span>
                             </div>
-                            <button type="button" onClick={() => handleInputChange("discountLoggedUsers", formData.discountLoggedUsers + 1)} className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold shrink-0">+</button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleInputChange(
+                                  "discountLoggedUsers",
+                                  formData.discountLoggedUsers + 1,
+                                )
+                              }
+                              className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold shrink-0"
+                            >
+                              +
+                            </button>
                           </div>
                         </div>
                       </div>
                     )}
                     {formData.offerFreeNights && (
                       <div className="flex items-center gap-3 bg-orange-50 rounded-xl p-3 border border-orange-200">
-                        <p className="text-xs font-medium text-orange-600 flex-1">Number of free nights</p>
+                        <p className="text-xs font-medium text-orange-600 flex-1">
+                          Number of free nights
+                        </p>
                         <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => handleInputChange("freeNightsCount", Math.max(1, (formData.freeNightsCount || 1) - 1))} className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold">−</button>
-                          <input type="number" min={1} value={formData.freeNightsCount || 1} onChange={(e) => handleInputChange("freeNightsCount", Number(e.target.value))} className="w-16 text-center text-sm font-bold py-1.5 border border-orange-200 rounded-lg focus:outline-none focus:border-orange-400 bg-white" />
-                          <button type="button" onClick={() => handleInputChange("freeNightsCount", (formData.freeNightsCount || 1) + 1)} className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold">+</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "freeNightsCount",
+                                Math.max(
+                                  1,
+                                  (formData.freeNightsCount || 1) - 1,
+                                ),
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min={1}
+                            value={formData.freeNightsCount || 1}
+                            onChange={(e) =>
+                              handleInputChange(
+                                "freeNightsCount",
+                                Number(e.target.value),
+                              )
+                            }
+                            className="w-16 text-center text-sm font-bold py-1.5 border border-orange-200 rounded-lg focus:outline-none focus:border-orange-400 bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "freeNightsCount",
+                                (formData.freeNightsCount || 1) + 1,
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold"
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                     )}
@@ -851,42 +1202,132 @@ export default function CreatePromotionPage() {
 
                 {/* Last Minute: discount + bookable period — merged step 2 */}
                 {type === "last-minute" && (
-                  <SectionCard step={2} title="Discount & Booking Window" subtitle="Set discount and when bookings qualify" accent="purple">
+                  <SectionCard
+                    step={2}
+                    title="Discount & Booking Window"
+                    subtitle="Set discount and when bookings qualify"
+                    accent="purple"
+                  >
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                        <p className="text-xs font-medium text-gray-500 mb-2">All users</p>
+                        <p className="text-xs font-medium text-gray-500 mb-2">
+                          All users
+                        </p>
                         <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => handleInputChange("discountAllUsers", Math.max(0, formData.discountAllUsers - 1))} className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0">−</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountAllUsers",
+                                Math.max(0, formData.discountAllUsers - 1),
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0"
+                          >
+                            −
+                          </button>
                           <div className="relative flex-1">
-                            <input type="number" min={0} max={100} value={formData.discountAllUsers} onChange={(e) => handleInputChange("discountAllUsers", Number(e.target.value))} className="w-full text-center text-sm font-bold py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-400 pr-5" />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={formData.discountAllUsers}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "discountAllUsers",
+                                  Number(e.target.value),
+                                )
+                              }
+                              className="w-full text-center text-sm font-bold py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-400 pr-5"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                              %
+                            </span>
                           </div>
-                          <button type="button" onClick={() => handleInputChange("discountAllUsers", formData.discountAllUsers + 1)} className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0">+</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountAllUsers",
+                                formData.discountAllUsers + 1,
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0"
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                       <div className="bg-purple-50 rounded-xl p-3 border border-purple-200">
-                        <p className="text-xs font-medium text-purple-600 mb-2">Logged-in users</p>
+                        <p className="text-xs font-medium text-purple-600 mb-2">
+                          Logged-in users
+                        </p>
                         <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => handleInputChange("discountLoggedUsers", Math.max(0, formData.discountLoggedUsers - 1))} className="w-7 h-7 rounded-md border border-purple-200 flex items-center justify-center text-purple-600 hover:bg-purple-100 text-sm font-bold shrink-0">−</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountLoggedUsers",
+                                Math.max(0, formData.discountLoggedUsers - 1),
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-purple-200 flex items-center justify-center text-purple-600 hover:bg-purple-100 text-sm font-bold shrink-0"
+                          >
+                            −
+                          </button>
                           <div className="relative flex-1">
-                            <input type="number" min={0} max={100} value={formData.discountLoggedUsers} onChange={(e) => handleInputChange("discountLoggedUsers", Number(e.target.value))} className="w-full text-center text-sm font-bold py-1.5 border border-purple-200 rounded-lg focus:outline-none focus:border-purple-400 bg-white pr-5" />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-purple-400">%</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={formData.discountLoggedUsers}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "discountLoggedUsers",
+                                  Number(e.target.value),
+                                )
+                              }
+                              className="w-full text-center text-sm font-bold py-1.5 border border-purple-200 rounded-lg focus:outline-none focus:border-purple-400 bg-white pr-5"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-purple-400">
+                              %
+                            </span>
                           </div>
-                          <button type="button" onClick={() => handleInputChange("discountLoggedUsers", formData.discountLoggedUsers + 1)} className="w-7 h-7 rounded-md border border-purple-200 flex items-center justify-center text-purple-600 hover:bg-purple-100 text-sm font-bold shrink-0">+</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountLoggedUsers",
+                                formData.discountLoggedUsers + 1,
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-purple-200 flex items-center justify-center text-purple-600 hover:bg-purple-100 text-sm font-bold shrink-0"
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                     </div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Bookable Window</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      Bookable Window
+                    </p>
                     <div className="flex gap-2">
-                      {([
-                        { value: "SAME_DAY", label: "Same day" },
-                        { value: "ONE_DAY", label: "1 day before" },
-                        { value: "TWO_DAYS", label: "2 days before" },
-                      ] as const).map((option) => (
+                      {(
+                        [
+                          { value: "SAME_DAY", label: "Same day" },
+                          { value: "ONE_DAY", label: "1 day before" },
+                          { value: "TWO_DAYS", label: "2 days before" },
+                        ] as const
+                      ).map((option) => (
                         <button
                           key={option.value}
                           type="button"
-                          onClick={() => handleInputChange("bookablePeriod", option.value as any)}
+                          onClick={() =>
+                            handleInputChange(
+                              "bookablePeriod",
+                              option.value as any,
+                            )
+                          }
                           className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all ${
                             formData.bookablePeriod === option.value
                               ? "bg-purple-600 text-white border-purple-600 shadow-sm"
@@ -902,32 +1343,115 @@ export default function CreatePromotionPage() {
 
                 {/* Early Bird: discount + advance days — merged step 2 */}
                 {type === "early-bird" && (
-                  <SectionCard step={2} title="Discount & Advance Booking" subtitle="Set discount and minimum booking lead time" accent="green">
+                  <SectionCard
+                    step={2}
+                    title="Discount & Advance Booking"
+                    subtitle="Set discount and minimum booking lead time"
+                    accent="green"
+                  >
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                        <p className="text-xs font-medium text-gray-500 mb-2">All users</p>
+                        <p className="text-xs font-medium text-gray-500 mb-2">
+                          All users
+                        </p>
                         <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => handleInputChange("discountAllUsers", Math.max(0, formData.discountAllUsers - 1))} className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0">−</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountAllUsers",
+                                Math.max(0, formData.discountAllUsers - 1),
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0"
+                          >
+                            −
+                          </button>
                           <div className="relative flex-1">
-                            <input type="number" min={0} max={100} value={formData.discountAllUsers} onChange={(e) => handleInputChange("discountAllUsers", Number(e.target.value))} className="w-full text-center text-sm font-bold py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-green-400 pr-5" />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={formData.discountAllUsers}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "discountAllUsers",
+                                  Number(e.target.value),
+                                )
+                              }
+                              className="w-full text-center text-sm font-bold py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-green-400 pr-5"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                              %
+                            </span>
                           </div>
-                          <button type="button" onClick={() => handleInputChange("discountAllUsers", formData.discountAllUsers + 1)} className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0">+</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountAllUsers",
+                                formData.discountAllUsers + 1,
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0"
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                       <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-200">
-                        <p className="text-xs font-medium text-emerald-600 mb-2">Logged-in users</p>
+                        <p className="text-xs font-medium text-emerald-600 mb-2">
+                          Logged-in users
+                        </p>
                         <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => handleInputChange("discountLoggedUsers", Math.max(0, formData.discountLoggedUsers - 1))} className="w-7 h-7 rounded-md border border-emerald-200 flex items-center justify-center text-emerald-600 hover:bg-emerald-100 text-sm font-bold shrink-0">−</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountLoggedUsers",
+                                Math.max(0, formData.discountLoggedUsers - 1),
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-emerald-200 flex items-center justify-center text-emerald-600 hover:bg-emerald-100 text-sm font-bold shrink-0"
+                          >
+                            −
+                          </button>
                           <div className="relative flex-1">
-                            <input type="number" min={0} max={100} value={formData.discountLoggedUsers} onChange={(e) => handleInputChange("discountLoggedUsers", Number(e.target.value))} className="w-full text-center text-sm font-bold py-1.5 border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-400 bg-white pr-5" />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-emerald-400">%</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={formData.discountLoggedUsers}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "discountLoggedUsers",
+                                  Number(e.target.value),
+                                )
+                              }
+                              className="w-full text-center text-sm font-bold py-1.5 border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-400 bg-white pr-5"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-emerald-400">
+                              %
+                            </span>
                           </div>
-                          <button type="button" onClick={() => handleInputChange("discountLoggedUsers", formData.discountLoggedUsers + 1)} className="w-7 h-7 rounded-md border border-emerald-200 flex items-center justify-center text-emerald-600 hover:bg-emerald-100 text-sm font-bold shrink-0">+</button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountLoggedUsers",
+                                formData.discountLoggedUsers + 1,
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-emerald-200 flex items-center justify-center text-emerald-600 hover:bg-emerald-100 text-sm font-bold shrink-0"
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                     </div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Advance booking required</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      Advance booking required
+                    </p>
                     <div className="flex gap-2 flex-wrap">
                       {[5, 7, 14, 21, 30].map((days) => (
                         <button
@@ -947,7 +1471,6 @@ export default function CreatePromotionPage() {
                   </SectionCard>
                 )}
 
-
                 {/* Minimum Stay - Long Stay */}
                 {type === "long-stay" && (
                   <SectionCard
@@ -961,7 +1484,9 @@ export default function CreatePromotionPage() {
                         <button
                           key={days}
                           type="button"
-                          onClick={() => handleInputChange("minimumStayDays", days)}
+                          onClick={() =>
+                            handleInputChange("minimumStayDays", days)
+                          }
                           className={`relative px-4 py-2 text-sm font-semibold rounded-lg border transition-all ${
                             formData.minimumStayDays === days
                               ? "bg-orange-500 text-white border-orange-500 shadow-sm"
@@ -970,7 +1495,9 @@ export default function CreatePromotionPage() {
                         >
                           {days}+ nights
                           {days === 3 && (
-                            <span className="ml-1 text-[10px] opacity-80">★</span>
+                            <span className="ml-1 text-[10px] opacity-80">
+                              ★
+                            </span>
                           )}
                         </button>
                       ))}
@@ -993,14 +1520,18 @@ export default function CreatePromotionPage() {
                 >
                   {/* Applicable Date Type — compact pill toggle */}
                   <div className="flex gap-2 mb-4">
-                    {([
-                      { value: "STAY", label: "Stay Date only" },
-                      { value: "BOOKING_AND_STAY", label: "Booking + Stay" },
-                    ] as const).map((opt) => (
+                    {(
+                      [
+                        { value: "STAY", label: "Stay Date only" },
+                        { value: "BOOKING_AND_STAY", label: "Booking + Stay" },
+                      ] as const
+                    ).map((opt) => (
                       <button
                         key={opt.value}
                         type="button"
-                        onClick={() => handleInputChange("applicableDateType", opt.value)}
+                        onClick={() =>
+                          handleInputChange("applicableDateType", opt.value)
+                        }
                         className={`flex-1 py-2 text-sm font-semibold rounded-lg border transition-all ${
                           formData.applicableDateType === opt.value
                             ? "bg-blue-600 text-white border-blue-600 shadow-sm"
@@ -1016,13 +1547,31 @@ export default function CreatePromotionPage() {
                     {/* Stay Date row */}
                     <div className="rounded-xl border border-gray-200 overflow-hidden">
                       <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">
-                        <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Stay Date</span>
+                        <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                          Stay Date
+                        </span>
                         <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                          <span className="text-[10px] text-gray-400">No end</span>
+                          <span className="text-[10px] text-gray-400">
+                            No end
+                          </span>
                           <div className="relative">
-                            <input type="checkbox" checked={formData.noEndDateStay} onChange={(e) => handleInputChange("noEndDateStay", e.target.checked)} className="sr-only" />
-                            <div className={`w-7 h-3.5 rounded-full transition-colors duration-200 ${formData.noEndDateStay ? "bg-blue-500" : "bg-gray-300"}`}>
-                              <div className={`w-2.5 h-2.5 bg-white rounded-full shadow mt-0.5 transition-transform duration-200 ${formData.noEndDateStay ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                            <input
+                              type="checkbox"
+                              checked={formData.noEndDateStay}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "noEndDateStay",
+                                  e.target.checked,
+                                )
+                              }
+                              className="sr-only"
+                            />
+                            <div
+                              className={`w-7 h-3.5 rounded-full transition-colors duration-200 ${formData.noEndDateStay ? "bg-blue-500" : "bg-gray-300"}`}
+                            >
+                              <div
+                                className={`w-2.5 h-2.5 bg-white rounded-full shadow mt-0.5 transition-transform duration-200 ${formData.noEndDateStay ? "translate-x-3.5" : "translate-x-0.5"}`}
+                              />
                             </div>
                           </div>
                         </label>
@@ -1030,15 +1579,33 @@ export default function CreatePromotionPage() {
                       <div className="flex items-center gap-2 px-3 py-2.5">
                         <div className="flex-1">
                           <p className="text-[10px] text-gray-400 mb-1">From</p>
-                          <input type="date" value={formData.stayStartDate || today} onChange={(e) => handleInputChange("stayStartDate", e.target.value)} min={today} className="w-full text-xs font-medium text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 cursor-pointer" />
+                          <input
+                            type="date"
+                            value={formData.stayStartDate || today}
+                            onChange={(e) =>
+                              handleInputChange("stayStartDate", e.target.value)
+                            }
+                            min={today}
+                            className="w-full text-xs font-medium text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 cursor-pointer"
+                          />
                         </div>
                         <span className="text-gray-300 text-sm mt-4">→</span>
                         <div className="flex-1">
                           <p className="text-[10px] text-gray-400 mb-1">To</p>
                           {formData.noEndDateStay ? (
-                            <div className="border border-dashed border-blue-200 bg-blue-50 rounded-lg px-2.5 py-1.5 text-[10px] text-blue-500 font-medium">Open-ended</div>
+                            <div className="border border-dashed border-blue-200 bg-blue-50 rounded-lg px-2.5 py-1.5 text-[10px] text-blue-500 font-medium">
+                              Open-ended
+                            </div>
                           ) : (
-                            <input type="date" value={formData.stayEndDate || ""} onChange={(e) => handleInputChange("stayEndDate", e.target.value)} min={formData.stayStartDate || today} className="w-full text-xs font-medium text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 cursor-pointer" />
+                            <input
+                              type="date"
+                              value={formData.stayEndDate || ""}
+                              onChange={(e) =>
+                                handleInputChange("stayEndDate", e.target.value)
+                              }
+                              min={formData.stayStartDate || today}
+                              className="w-full text-xs font-medium text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 cursor-pointer"
+                            />
                           )}
                         </div>
                       </div>
@@ -1048,29 +1615,73 @@ export default function CreatePromotionPage() {
                     {formData.applicableDateType === "BOOKING_AND_STAY" && (
                       <div className="rounded-xl border border-gray-200 overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">
-                          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Booking Date</span>
+                          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                            Booking Date
+                          </span>
                           <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                            <span className="text-[10px] text-gray-400">No end</span>
+                            <span className="text-[10px] text-gray-400">
+                              No end
+                            </span>
                             <div className="relative">
-                              <input type="checkbox" checked={formData.noEndDateBooking} onChange={(e) => handleInputChange("noEndDateBooking", e.target.checked)} className="sr-only" />
-                              <div className={`w-7 h-3.5 rounded-full transition-colors duration-200 ${formData.noEndDateBooking ? "bg-blue-500" : "bg-gray-300"}`}>
-                                <div className={`w-2.5 h-2.5 bg-white rounded-full shadow mt-0.5 transition-transform duration-200 ${formData.noEndDateBooking ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                              <input
+                                type="checkbox"
+                                checked={formData.noEndDateBooking}
+                                onChange={(e) =>
+                                  handleInputChange(
+                                    "noEndDateBooking",
+                                    e.target.checked,
+                                  )
+                                }
+                                className="sr-only"
+                              />
+                              <div
+                                className={`w-7 h-3.5 rounded-full transition-colors duration-200 ${formData.noEndDateBooking ? "bg-blue-500" : "bg-gray-300"}`}
+                              >
+                                <div
+                                  className={`w-2.5 h-2.5 bg-white rounded-full shadow mt-0.5 transition-transform duration-200 ${formData.noEndDateBooking ? "translate-x-3.5" : "translate-x-0.5"}`}
+                                />
                               </div>
                             </div>
                           </label>
                         </div>
                         <div className="flex items-center gap-2 px-3 py-2.5">
                           <div className="flex-1">
-                            <p className="text-[10px] text-gray-400 mb-1">From</p>
-                            <input type="date" value={formData.bookingStartDate || today} onChange={(e) => handleInputChange("bookingStartDate", e.target.value)} min={today} className="w-full text-xs font-medium text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 cursor-pointer" />
+                            <p className="text-[10px] text-gray-400 mb-1">
+                              From
+                            </p>
+                            <input
+                              type="date"
+                              value={formData.bookingStartDate || today}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "bookingStartDate",
+                                  e.target.value,
+                                )
+                              }
+                              min={today}
+                              className="w-full text-xs font-medium text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 cursor-pointer"
+                            />
                           </div>
                           <span className="text-gray-300 text-sm mt-4">→</span>
                           <div className="flex-1">
                             <p className="text-[10px] text-gray-400 mb-1">To</p>
                             {formData.noEndDateBooking ? (
-                              <div className="border border-dashed border-blue-200 bg-blue-50 rounded-lg px-2.5 py-1.5 text-[10px] text-blue-500 font-medium">Open-ended</div>
+                              <div className="border border-dashed border-blue-200 bg-blue-50 rounded-lg px-2.5 py-1.5 text-[10px] text-blue-500 font-medium">
+                                Open-ended
+                              </div>
                             ) : (
-                              <input type="date" value={formData.bookingEndDate || ""} onChange={(e) => handleInputChange("bookingEndDate", e.target.value)} min={formData.bookingStartDate || today} className="w-full text-xs font-medium text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 cursor-pointer" />
+                              <input
+                                type="date"
+                                value={formData.bookingEndDate || ""}
+                                onChange={(e) =>
+                                  handleInputChange(
+                                    "bookingEndDate",
+                                    e.target.value,
+                                  )
+                                }
+                                min={formData.bookingStartDate || today}
+                                className="w-full text-xs font-medium text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 cursor-pointer"
+                              />
                             )}
                           </div>
                         </div>
@@ -1497,7 +2108,6 @@ export default function CreatePromotionPage() {
                           </div>
                         )}
                       </div>
-
                     </div>
                   )}
                 </SectionCard>
