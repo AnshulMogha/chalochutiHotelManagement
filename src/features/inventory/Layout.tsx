@@ -129,7 +129,6 @@ export default function Layout() {
   const getCustomerTypeFromTab = (tabId: string): string => {
     const tabToCustomerType: Record<string, string> = {
       'b2c': 'RETAIL',
-      'mybiz': 'CORPORATE',
       'b2b': 'AGENT',
       'bundle': 'PACKAGE',
     };
@@ -414,7 +413,7 @@ export default function Layout() {
     fetchInventory();
   }, [hotelId, fromDate, toDate, activeSidebarSection]);
 
-  // Room inventory: load rates calendar for the selected segment (B2C / MYBIZZ / B2B) so
+  // Room inventory: load rates calendar for the selected segment (B2C / B2B / Bundle) so
   // expanded rows and saves use the correct customerType — tab change refetches rates.
   useEffect(() => {
     if (!hotelId || activeSidebarSection !== "room-types") return;
@@ -958,7 +957,7 @@ export default function Layout() {
                 onActiveDateChange={setActiveDate}
                 channelSegmentLabel={activeSegmentLabel}
                 rightAction={
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={() =>
@@ -1010,7 +1009,6 @@ export default function Layout() {
                               const contractTypeByTab: Record<string, string> = {
                                 b2c: "B2C",
                                 b2b: "B2B",
-                                mybiz: "MYBIZZ",
                                 bundle: "BUNDLE",
                               };
                               const contractType =

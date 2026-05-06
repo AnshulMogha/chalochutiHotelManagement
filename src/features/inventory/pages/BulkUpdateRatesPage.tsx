@@ -153,8 +153,6 @@ export default function BulkUpdateRatesPage() {
     const aliases: Record<string, string> = {
       B2C: "B2C",
       B2B: "B2B",
-      MYBIZ: "MYBIZZ",
-      MYBIZZ: "MYBIZZ",
       BUNDLE: "BUNDLE",
     };
     return aliases[normalized] || "B2C";
@@ -193,7 +191,7 @@ export default function BulkUpdateRatesPage() {
   const [selectedWeekDays, setSelectedWeekDays] =
     useState<string[]>(ALL_WEEK_DAYS);
 
-  // Customer type - UI value (B2C, B2B, MYBIZZ, BUNDLE)
+  // Customer type - UI value (B2C, B2B, BUNDLE)
   const [customerTypeUI, setCustomerTypeUI] = useState(() =>
     normalizeContractTypeParam(contractTypeParam),
   );
@@ -203,9 +201,6 @@ export default function BulkUpdateRatesPage() {
     const uiToApi: Record<string, string> = {
       B2C: "RETAIL",
       B2B: "AGENT",
-      MYBIZZ: "CORPORATE",
-      // Backward-compat (in case older saved values exist)
-      MYBIZ: "CORPORATE",
       BUNDLE: "PACKAGE",
     };
     return uiToApi[uiValue] || "RETAIL";
@@ -784,7 +779,6 @@ export default function BulkUpdateRatesPage() {
                   >
                     <option value="B2C">B2C</option>
                     <option value="B2B">B2B</option>
-                    <option value="MYBIZZ">MYBIZZ</option>
                     <option value="BUNDLE">BUNDLE</option>
                   </select>
                 </div>
@@ -1047,11 +1041,11 @@ export default function BulkUpdateRatesPage() {
                   </div>
                   {isExpanded ? (
                     <ChevronUp
-                      className={`w-5 h-5 flex-shrink-0 transition-transform ${isExpanded ? "text-white" : "text-slate-600"}`}
+                      className={`w-5 h-5 shrink-0 transition-transform ${isExpanded ? "text-white" : "text-slate-600"}`}
                     />
                   ) : (
                     <ChevronDown
-                      className={`w-5 h-5 flex-shrink-0 transition-transform ${isExpanded ? "text-white" : "text-slate-600"}`}
+                      className={`w-5 h-5 shrink-0 transition-transform ${isExpanded ? "text-white" : "text-slate-600"}`}
                     />
                   )}
                 </button>
@@ -1107,7 +1101,7 @@ export default function BulkUpdateRatesPage() {
                                 {/* Warning Banner */}
                                 <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-lg">
                                   <div className="flex items-start gap-3">
-                                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                                     <p className="text-sm text-amber-800 leading-relaxed font-medium">
                                       If you have not set rates for any
                                       occupancy yet, we will pick the next

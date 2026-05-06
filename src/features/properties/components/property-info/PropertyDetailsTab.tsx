@@ -314,17 +314,19 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
               />
             </div>
 
-            <div className="md:col-span-2">
-              <Label>Hotel Status</Label>
-              <Toggle
-                checked={statusData.status === "LIVE"}
-                onChange={handleToggleChange}
-                label="Status"
-                checkedLabel="LIVE"
-                uncheckedLabel="NOT LIVE"
-                disabled={isSavingStatus || !canEditPropertyDetails}
-              />
-            </div>
+            {isSuperAdminUser && (
+              <div className="md:col-span-2">
+                <Label>Hotel Status</Label>
+                <Toggle
+                  checked={statusData.status === "LIVE"}
+                  onChange={handleToggleChange}
+                  label="Status"
+                  checkedLabel="LIVE"
+                  uncheckedLabel="NOT LIVE"
+                  disabled={isSavingStatus || !canEditPropertyDetails}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end mt-8">
@@ -390,14 +392,16 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
         </div>
       )}
       </div>
-      <StatusRemarkModal
-        isOpen={isStatusModalOpen}
-        onClose={() => setIsStatusModalOpen(false)}
-        onConfirm={handleStatusUpdate}
-        currentRemark={statusData.reason}
-        status={pendingStatus}
-        isLoading={isSavingStatus}
-      />
+      {isSuperAdminUser && (
+        <StatusRemarkModal
+          isOpen={isStatusModalOpen}
+          onClose={() => setIsStatusModalOpen(false)}
+          onConfirm={handleStatusUpdate}
+          currentRemark={statusData.reason}
+          status={pendingStatus}
+          isLoading={isSavingStatus}
+        />
+      )}
       <Toast
         message={toast.message}
         type={toast.type}

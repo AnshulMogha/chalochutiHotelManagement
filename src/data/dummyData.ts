@@ -6,7 +6,6 @@ import type { InventoryRoom, RoomType, TabOption } from '@/types';
 // Navigation tabs
 export const TAB_OPTIONS: TabOption[] = [
   { id: 'b2c', label: 'B2C' },
-  { id: 'mybiz', label: 'MYBIZZ' },
   { id: 'b2b', label: 'B2B' },
   { id: 'bundle', label: 'Bundle' },
 ];
