@@ -29,6 +29,7 @@ import {
 import type { GridColDef } from "@mui/x-data-grid";
 import { Box } from "@mui/material";
 import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
+import { Toast, useToast } from "@/components/ui/Toast";
 
 // Mock data - replace with actual API calls
 
@@ -103,6 +104,7 @@ const formatDate = (dateString?: string) => {
 export default function MyPropertiesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast, showToast, hideToast } = useToast();
 
   const [activeHotels, setActiveHotels] = useState<HotelList[]>([]);
   const [inProcessHotels, setInProcessHotels] = useState<HotelList[]>([]);
@@ -117,10 +119,34 @@ export default function MyPropertiesPage() {
 
   const canOnboard = canOnboardHotel(user?.roles);
 
+  const getApiErrorMessage = (error: unknown, fallback: string) => {
+    const err = error as {
+      message?: string;
+      response?: { data?: { message?: string } };
+      data?: { message?: string };
+    };
+    return (
+      err?.response?.data?.message ||
+      err?.data?.message ||
+      err?.message ||
+      fallback
+    );
+  };
+
   const handleAddProperty = async () => {
     if (!canOnboard) return;
-    const response = await propertyService.generateDraftHotel();
-    navigate(`${ROUTES.PROPERTIES.CREATE}?draftId=${response.hotelId}`);
+    try {
+      const response = await propertyService.generateDraftHotel();
+      navigate(`${ROUTES.PROPERTIES.CREATE}?draftId=${response.hotelId}`);
+    } catch (error) {
+      showToast(
+        getApiErrorMessage(
+          error,
+          "Failed to create draft property. Please try again.",
+        ),
+        "error",
+      );
+    }
   };
 
   useEffect(() => {
@@ -644,6 +670,12 @@ export default function MyPropertiesPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
       {/* Header with Add Button */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
