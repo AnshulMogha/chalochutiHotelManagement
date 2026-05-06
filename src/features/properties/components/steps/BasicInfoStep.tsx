@@ -105,13 +105,15 @@ const errors = errorsFromContext.basicInfo ;
     }
   };
   const handleMobileNumberChange = (value: string) => {
-    setFormDataState(changeMobileNumber(value));
+    const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
+    setFormDataState(changeMobileNumber(digitsOnly));
     if (errors?.mobileNumber) {
       resetFieldError("basicInfo", "mobileNumber");
     }
   };
   const handleLandlineNumberChange = (value: string) => {
-    setFormDataState(changeLandlineNumber(value));
+    const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
+    setFormDataState(changeLandlineNumber(digitsOnly));
     if (errors?.landlineNumber) {
       resetFieldError("basicInfo", "landlineNumber");
     }
@@ -135,7 +137,8 @@ const errors = errorsFromContext.basicInfo ;
     }
   };
   const handleOwnerPhoneNumberChange = (value: string) => {
-    setFormDataState(changeOwnerPhoneNumber(value));
+    const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
+    setFormDataState(changeOwnerPhoneNumber(digitsOnly));
     if (errors?.ownerPhoneNumber) {
       resetFieldError("basicInfo", "ownerPhoneNumber");
     }

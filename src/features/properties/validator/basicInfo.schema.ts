@@ -7,6 +7,13 @@ const basicInfoSchema = z
       .min(1, { message: "Property name is required" })
       .min(5, {
         message: "Property name must be at least 5 characters",
+      })
+      .max(120, {
+        message: "Property name must be at most 120 characters",
+      })
+      .regex(/^[A-Za-z0-9 ]+$/, {
+        message:
+          "Property name can contain only letters, numbers, and spaces",
       }),
 
     starRating: z
@@ -28,6 +35,7 @@ const basicInfoSchema = z
     mobileNumber: z
       .string({ required_error: "Mobile number is required", invalid_type_error: "Mobile number is required" })
       .min(1, { message: "Mobile number is required" })
+      .regex(/^\d+$/, { message: "Mobile number must contain digits only" })
       .length(10, { message: "Mobile number must be exactly 10 digits" }),
 
     landlineNumber: z
@@ -44,15 +52,30 @@ const basicInfoSchema = z
 
     ownerFirstName: z
       .string({ required_error: "Owner first name is required", invalid_type_error: "Owner first name is required" })
-      .min(1, { message: "Owner first name is required" }),
+      .min(1, { message: "Owner first name is required" })
+      .min(2, { message: "Owner first name must be at least 2 characters" })
+      .max(50, { message: "Owner first name must be at most 50 characters" })
+      .regex(/^[A-Za-z ]+$/, {
+        message:
+          "Owner first name can contain only letters and spaces",
+      }),
 
     ownerLastName: z
       .string({ required_error: "Owner last name is required", invalid_type_error: "Owner last name is required" })
-      .min(1, { message: "Owner last name is required" }),
+      .min(1, { message: "Owner last name is required" })
+      .min(2, { message: "Owner last name must be at least 2 characters" })
+      .max(50, { message: "Owner last name must be at most 50 characters" })
+      .regex(/^[A-Za-z ]+$/, {
+        message:
+          "Owner last name can contain only letters and spaces",
+      }),
 
     ownerPhoneNumber: z
       .string({ required_error: "Owner phone number is required", invalid_type_error: "Owner phone number is required" })
       .min(1, { message: "Owner phone number is required" })
+      .regex(/^\d+$/, {
+        message: "Owner phone number must contain digits only",
+      })
       .length(10, { message: "Owner phone number must be exactly 10 digits" }),
   });
 
