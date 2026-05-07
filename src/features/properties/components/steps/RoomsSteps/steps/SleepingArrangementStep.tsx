@@ -44,9 +44,10 @@ export function SleepingArrangementStep({
   const { roomDetailsState, setRoomDetailsState } = useFormContext();
   const { sleepingArrangement } = roomDetailsState;
 
-  // Tracks whether the user (or server-loaded data) has explicitly set an
-  // occupancy value. Once true for a field, the auto-calc effect below will
-  // not override it when bed counts change.
+  // Tracks whether the user has explicitly set an occupancy value (either by
+  // interacting with the field in this session, or by saving a custom value
+  // that diverges from the auto-calc baseline). Once true for a field, the
+  // auto-calc effect below will not override it when bed counts change.
   const userModifiedRef = useRef<Record<OccupancyField, boolean>>({
     baseAdults: false,
     maxAdults: false,
@@ -54,24 +55,12 @@ export function SleepingArrangementStep({
     maxChildren: false,
     maxOccupancy: false,
   });
-  const didInitFromExistingRef = useRef(false);
-
-  // On the first render, if any occupancy values are already non-zero (e.g.
-  // when editing an existing room loaded from the API), treat them as
-  // user-provided so the auto-calc effect preserves them.
-  if (!didInitFromExistingRef.current) {
-    didInitFromExistingRef.current = true;
-    if (sleepingArrangement.baseAdults > 0)
-      userModifiedRef.current.baseAdults = true;
-    if (sleepingArrangement.maxAdults > 0)
-      userModifiedRef.current.maxAdults = true;
-    if (sleepingArrangement.baseChildren > 0)
-      userModifiedRef.current.baseChildren = true;
-    if (sleepingArrangement.maxChildren > 0)
-      userModifiedRef.current.maxChildren = true;
-    if (sleepingArrangement.maxOccupancy > 0)
-      userModifiedRef.current.maxOccupancy = true;
-  }
+  // The first time the auto-calc effect sees a usable bed configuration
+  // (totalMaxOccupancy > 0) we compare existing occupancy values against the
+  // calculated baseline. Anything that diverges is treated as a deliberate
+  // override and marked as user-modified. This handles both async server
+  // hydration and step-navigation remounts without blocking defaults.
+  const didCompareToCalcRef = useRef(false);
 
   const markUserModified = (field: OccupancyField) => {
     userModifiedRef.current[field] = true;
@@ -347,8 +336,9 @@ export function SleepingArrangementStep({
     setRoomDetailsState(setMaxOccupancy(sleepingArrangement.maxOccupancy + 1));
   };
 
-  // Auto-suggest occupancy values when beds change. User-modified fields
-  // (tracked via userModifiedRef) are preserved and never overridden.
+  // Auto-suggest occupancy values when beds change. Fields the user has
+  // explicitly customized (manually edited, or already saved as a value that
+  // diverges from the auto-calc baseline) are preserved and never overridden.
   useEffect(() => {
     // Calculate capacity from standard beds
     let totalMaxOccupancy = 0;
@@ -377,6 +367,42 @@ export function SleepingArrangementStep({
     // Max children: max occupancy - 1 (at least 1 adult required)
     const calculatedMaxChildren =
       totalMaxOccupancy > 0 ? Math.max(0, totalMaxOccupancy - 1) : 0;
+
+    // First time we have a real bed configuration, compare existing values
+    // against the calculated baseline. Anything that already diverges is
+    // treated as a deliberate override (user-set or server-set custom).
+    if (!didCompareToCalcRef.current && totalMaxOccupancy > 0) {
+      didCompareToCalcRef.current = true;
+      if (
+        sleepingArrangement.maxOccupancy > 0 &&
+        sleepingArrangement.maxOccupancy !== totalMaxOccupancy
+      ) {
+        userModifiedRef.current.maxOccupancy = true;
+      }
+      if (
+        sleepingArrangement.maxAdults > 0 &&
+        sleepingArrangement.maxAdults !== totalMaxAdults
+      ) {
+        userModifiedRef.current.maxAdults = true;
+      }
+      if (
+        sleepingArrangement.maxChildren > 0 &&
+        sleepingArrangement.maxChildren !== calculatedMaxChildren
+      ) {
+        userModifiedRef.current.maxChildren = true;
+      }
+      // baseAdults default is 1 when beds exist; treat any other positive
+      // value as a deliberate override.
+      if (
+        sleepingArrangement.baseAdults > 0 &&
+        sleepingArrangement.baseAdults !== 1
+      ) {
+        userModifiedRef.current.baseAdults = true;
+      }
+      if (sleepingArrangement.baseChildren > 0) {
+        userModifiedRef.current.baseChildren = true;
+      }
+    }
 
     if (totalMaxOccupancy > 0) {
       if (
