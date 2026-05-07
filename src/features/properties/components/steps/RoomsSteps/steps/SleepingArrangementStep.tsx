@@ -1,5 +1,5 @@
 import { Input, Select } from "@/components/ui";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { bedTypeOptions, roomCapacityOptions } from "../constants";
 import { Minus, Plus, X } from "lucide-react";
 import { useFormContext } from "@/features/properties/context/useFormContext";
@@ -27,6 +27,13 @@ import {
   setStandardBedsType,
 } from "@/features/properties/state/actionCreators";
 
+type OccupancyField =
+  | "baseAdults"
+  | "maxAdults"
+  | "baseChildren"
+  | "maxChildren"
+  | "maxOccupancy";
+
 export function SleepingArrangementStep({
   errors,
   resetFieldError,
@@ -36,6 +43,39 @@ export function SleepingArrangementStep({
 }) {
   const { roomDetailsState, setRoomDetailsState } = useFormContext();
   const { sleepingArrangement } = roomDetailsState;
+
+  // Tracks whether the user (or server-loaded data) has explicitly set an
+  // occupancy value. Once true for a field, the auto-calc effect below will
+  // not override it when bed counts change.
+  const userModifiedRef = useRef<Record<OccupancyField, boolean>>({
+    baseAdults: false,
+    maxAdults: false,
+    baseChildren: false,
+    maxChildren: false,
+    maxOccupancy: false,
+  });
+  const didInitFromExistingRef = useRef(false);
+
+  // On the first render, if any occupancy values are already non-zero (e.g.
+  // when editing an existing room loaded from the API), treat them as
+  // user-provided so the auto-calc effect preserves them.
+  if (!didInitFromExistingRef.current) {
+    didInitFromExistingRef.current = true;
+    if (sleepingArrangement.baseAdults > 0)
+      userModifiedRef.current.baseAdults = true;
+    if (sleepingArrangement.maxAdults > 0)
+      userModifiedRef.current.maxAdults = true;
+    if (sleepingArrangement.baseChildren > 0)
+      userModifiedRef.current.baseChildren = true;
+    if (sleepingArrangement.maxChildren > 0)
+      userModifiedRef.current.maxChildren = true;
+    if (sleepingArrangement.maxOccupancy > 0)
+      userModifiedRef.current.maxOccupancy = true;
+  }
+
+  const markUserModified = (field: OccupancyField) => {
+    userModifiedRef.current[field] = true;
+  };
   const handleBedTypeChange = (bedType: string, index: number) => {
     if (
       errors.sleepingArrangement?.standardBeds &&
@@ -182,6 +222,7 @@ export function SleepingArrangementStep({
       resetFieldError("sleepingArrangement", "baseAdults");
     }
     if (baseAdults >= 0) {
+      markUserModified("baseAdults");
       setRoomDetailsState(setBaseAdults(baseAdults));
     }
   };
@@ -190,6 +231,7 @@ export function SleepingArrangementStep({
       resetFieldError("sleepingArrangement", "maxAdults");
     }
     if (maxAdults >= 0) {
+      markUserModified("maxAdults");
       setRoomDetailsState(setMaxAdults(maxAdults));
     }
   };
@@ -198,6 +240,7 @@ export function SleepingArrangementStep({
       resetFieldError("sleepingArrangement", "baseChildren");
     }
     if (baseChildren >= 0) {
+      markUserModified("baseChildren");
       setRoomDetailsState(setBaseChildren(baseChildren));
     }
   };
@@ -206,6 +249,7 @@ export function SleepingArrangementStep({
       resetFieldError("sleepingArrangement", "maxChildren");
     }
     if (maxChildren >= 0) {
+      markUserModified("maxChildren");
       setRoomDetailsState(setMaxChildren(maxChildren));
     }
   };
@@ -214,6 +258,7 @@ export function SleepingArrangementStep({
       resetFieldError("sleepingArrangement", "maxOccupancy");
     }
     if (maxOccupancy >= 0) {
+      markUserModified("maxOccupancy");
       setRoomDetailsState(setMaxOccupancy(maxOccupancy));
     }
   };
@@ -222,6 +267,7 @@ export function SleepingArrangementStep({
       resetFieldError("sleepingArrangement", "baseAdults");
     }
     if (sleepingArrangement.baseAdults > 0) {
+      markUserModified("baseAdults");
       setRoomDetailsState(setBaseAdults(sleepingArrangement.baseAdults - 1));
     }
   };
@@ -229,6 +275,7 @@ export function SleepingArrangementStep({
     if (errors.sleepingArrangement?.baseAdults) {
       resetFieldError("sleepingArrangement", "baseAdults");
     }
+    markUserModified("baseAdults");
     setRoomDetailsState(setBaseAdults(sleepingArrangement.baseAdults + 1));
   };
   const handleDecrementMaxAdults = () => {
@@ -236,6 +283,7 @@ export function SleepingArrangementStep({
       resetFieldError("sleepingArrangement", "maxAdults");
     }
     if (sleepingArrangement.maxAdults > 0) {
+      markUserModified("maxAdults");
       setRoomDetailsState(setMaxAdults(sleepingArrangement.maxAdults - 1));
     }
   };
@@ -243,6 +291,7 @@ export function SleepingArrangementStep({
     if (errors.sleepingArrangement?.maxAdults) {
       resetFieldError("sleepingArrangement", "maxAdults");
     }
+    markUserModified("maxAdults");
     setRoomDetailsState(setMaxAdults(sleepingArrangement.maxAdults + 1));
   };
   const handleDecrementBaseChildren = () => {
@@ -250,6 +299,7 @@ export function SleepingArrangementStep({
       resetFieldError("sleepingArrangement", "baseChildren");
     }
     if (sleepingArrangement.baseChildren > 0) {
+      markUserModified("baseChildren");
       setRoomDetailsState(
         setBaseChildren(sleepingArrangement.baseChildren - 1)
       );
@@ -259,6 +309,7 @@ export function SleepingArrangementStep({
     if (errors.sleepingArrangement?.baseChildren) {
       resetFieldError("sleepingArrangement", "baseChildren");
     }
+    markUserModified("baseChildren");
     setRoomDetailsState(setBaseChildren(sleepingArrangement.baseChildren + 1));
   };
   const handleDecrementMaxChildren = () => {
@@ -266,6 +317,7 @@ export function SleepingArrangementStep({
       resetFieldError("sleepingArrangement", "maxChildren");
     }
     if (sleepingArrangement.maxChildren > 0) {
+      markUserModified("maxChildren");
       setRoomDetailsState(setMaxChildren(sleepingArrangement.maxChildren - 1));
     }
   };
@@ -273,6 +325,7 @@ export function SleepingArrangementStep({
     if (errors.sleepingArrangement?.maxChildren) {
       resetFieldError("sleepingArrangement", "maxChildren");
     }
+    markUserModified("maxChildren");
     setRoomDetailsState(setMaxChildren(sleepingArrangement.maxChildren + 1));
   };
   const handleDecrementMaxOccupancy = () => {
@@ -280,6 +333,7 @@ export function SleepingArrangementStep({
       resetFieldError("sleepingArrangement", "maxOccupancy");
     }
     if (sleepingArrangement.maxOccupancy > 0) {
+      markUserModified("maxOccupancy");
       setRoomDetailsState(
         setMaxOccupancy(sleepingArrangement.maxOccupancy - 1)
       );
@@ -289,10 +343,12 @@ export function SleepingArrangementStep({
     if (errors.sleepingArrangement?.maxOccupancy) {
       resetFieldError("sleepingArrangement", "maxOccupancy");
     }
+    markUserModified("maxOccupancy");
     setRoomDetailsState(setMaxOccupancy(sleepingArrangement.maxOccupancy + 1));
   };
 
-  // Auto-calculate occupancy when beds change
+  // Auto-suggest occupancy values when beds change. User-modified fields
+  // (tracked via userModifiedRef) are preserved and never overridden.
   useEffect(() => {
     // Calculate capacity from standard beds
     let totalMaxOccupancy = 0;
@@ -300,7 +356,8 @@ export function SleepingArrangementStep({
 
     sleepingArrangement.standardBeds.forEach((bed) => {
       if (bed.bedType && bed.numberOfBeds > 0) {
-        const capacity = roomCapacityOptions[bed.bedType as keyof typeof roomCapacityOptions];
+        const capacity =
+          roomCapacityOptions[bed.bedType as keyof typeof roomCapacityOptions];
         if (capacity) {
           totalMaxOccupancy += capacity.maxOccupancy * bed.numberOfBeds;
           totalMaxAdults += capacity.maxAdults * bed.numberOfBeds;
@@ -308,50 +365,48 @@ export function SleepingArrangementStep({
       }
     });
 
-    // Add extra bed capacity if enabled
-    if (sleepingArrangement.canAccommodateExtraBed && sleepingArrangement.numberOfExtraBeds > 0) {
-      // Each extra bed is a single bed (1 person capacity)
+    // Add extra bed capacity if enabled (each extra bed = 1 person)
+    if (
+      sleepingArrangement.canAccommodateExtraBed &&
+      sleepingArrangement.numberOfExtraBeds > 0
+    ) {
       totalMaxOccupancy += sleepingArrangement.numberOfExtraBeds;
       totalMaxAdults += sleepingArrangement.numberOfExtraBeds;
     }
 
-    // Calculate max children: max occupancy - 1 (at least 1 adult required)
-    const calculatedMaxChildren = totalMaxOccupancy > 0 ? Math.max(0, totalMaxOccupancy - 1) : 0;
+    // Max children: max occupancy - 1 (at least 1 adult required)
+    const calculatedMaxChildren =
+      totalMaxOccupancy > 0 ? Math.max(0, totalMaxOccupancy - 1) : 0;
 
-    // Update occupancy values only if they differ to avoid infinite loops
     if (totalMaxOccupancy > 0) {
-      if (sleepingArrangement.maxOccupancy !== totalMaxOccupancy) {
+      if (
+        !userModifiedRef.current.maxOccupancy &&
+        sleepingArrangement.maxOccupancy !== totalMaxOccupancy
+      ) {
         setRoomDetailsState(setMaxOccupancy(totalMaxOccupancy));
       }
-      if (sleepingArrangement.maxAdults !== totalMaxAdults) {
+      if (
+        !userModifiedRef.current.maxAdults &&
+        sleepingArrangement.maxAdults !== totalMaxAdults
+      ) {
         setRoomDetailsState(setMaxAdults(totalMaxAdults));
       }
-      if (sleepingArrangement.maxChildren !== calculatedMaxChildren) {
+      if (
+        !userModifiedRef.current.maxChildren &&
+        sleepingArrangement.maxChildren !== calculatedMaxChildren
+      ) {
         setRoomDetailsState(setMaxChildren(calculatedMaxChildren));
       }
-      // Preserve API/user-provided base occupancy values.
-      // Only initialize defaults for brand-new rows where values are still zero.
-      if (sleepingArrangement.baseAdults === 0) {
+      if (
+        !userModifiedRef.current.baseAdults &&
+        sleepingArrangement.baseAdults === 0
+      ) {
         setRoomDetailsState(setBaseAdults(1));
       }
-    } else {
-      // Reset to 0 if no beds
-      if (sleepingArrangement.maxOccupancy !== 0) {
-        setRoomDetailsState(setMaxOccupancy(0));
-      }
-      if (sleepingArrangement.maxAdults !== 0) {
-        setRoomDetailsState(setMaxAdults(0));
-      }
-      if (sleepingArrangement.maxChildren !== 0) {
-        setRoomDetailsState(setMaxChildren(0));
-      }
-      if (sleepingArrangement.baseAdults !== 0) {
-        setRoomDetailsState(setBaseAdults(0));
-      }
-      if (sleepingArrangement.baseChildren !== 0) {
-        setRoomDetailsState(setBaseChildren(0));
-      }
     }
+    // When totalMaxOccupancy === 0 we intentionally do NOT zero out the
+    // occupancy fields. This avoids wiping user-entered or server-loaded
+    // values just because beds were temporarily cleared during edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     JSON.stringify(sleepingArrangement.standardBeds),
