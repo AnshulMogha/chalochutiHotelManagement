@@ -408,10 +408,6 @@ export default function EditPromotionPage() {
           minDaysBeforeCheckin: formData.advanceDays,
         }),
         ...(formData.promotionType === "LONG_STAY" && {
-          offerFreeNights: formData.offerFreeNights,
-          freeNightsCount: formData.offerFreeNights
-            ? formData.freeNightsCount
-            : undefined,
           minStayNights: formData.minimumStayDays,
         }),
       };
@@ -629,20 +625,6 @@ export default function EditPromotionPage() {
                   {formData.minimumStayDays ?? 0}
                 </span>
               </p>
-              <p>
-                Offer mode:{" "}
-                <span className="font-semibold">
-                  {formData.offerFreeNights ? "Free night" : "Discount"}
-                </span>
-              </p>
-              {formData.offerFreeNights && (
-                <p>
-                  Free nights:{" "}
-                  <span className="font-semibold">
-                    {formData.freeNightsCount ?? 0}
-                  </span>
-                </p>
-              )}
             </div>
           </Card>
         )}
@@ -679,8 +661,7 @@ export default function EditPromotionPage() {
         )}
 
         {/* Set Discount Percentage/Amount */}
-        {(!formData.offerFreeNights || type !== "long-stay") &&
-          (!isViewMode || !isMyPartnerSpecialPromotion) && (
+        {!isViewMode || !isMyPartnerSpecialPromotion ? (
             <Card variant="outlined" className="p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-purple-100 rounded-lg">
@@ -819,7 +800,7 @@ export default function EditPromotionPage() {
                 </div>
               </div>
             </Card>
-          )}
+          ) : null}
 
         {/* MyPartner view-only summary (aligned with create form) */}
         {isViewMode && isMyPartnerSpecialPromotion && (

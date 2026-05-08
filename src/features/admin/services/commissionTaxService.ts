@@ -184,6 +184,11 @@ export const commissionTaxService = {
     );
     return response.data;
   },
+  deactivateCommission: async (id: string | number): Promise<void> => {
+    await apiClient.delete<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.ADMIN.GET_COMMISSION_BY_ID(id),
+    );
+  },
   // Tax APIs
   createTax: async (data: CreateTaxRequest): Promise<Tax> => {
     const response = await apiClient.post<ApiSuccessResponse<Tax>>(

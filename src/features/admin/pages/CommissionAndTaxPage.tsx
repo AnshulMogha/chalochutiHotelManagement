@@ -1091,6 +1091,12 @@ export default function CommissionAndTaxPage() {
   const [showTaxModal, setShowTaxModal] = useState(false);
   const [editingTax, setEditingTax] = useState<Tax | null>(null);
   const [showServiceFeeModal, setShowServiceFeeModal] = useState(false);
+  const [showDeactivateCommissionModal, setShowDeactivateCommissionModal] =
+    useState(false);
+  const [deactivatingCommission, setDeactivatingCommission] = useState(false);
+  const [commissionToDeactivate, setCommissionToDeactivate] = useState<
+    string | null
+  >(null);
   const [commissionSearch, setCommissionSearch] = useState("");
   const [taxSearch, setTaxSearch] = useState("");
   const [taxStateFilter, setTaxStateFilter] = useState<string>("");
@@ -1231,6 +1237,22 @@ export default function CommissionAndTaxPage() {
       await fetchCommissions(commissionPage, commissionPageSize);
     } catch (error) {
       throw error;
+    }
+  };
+
+  const handleDeactivateCommission = async () => {
+    if (!commissionToDeactivate) return;
+    setDeactivatingCommission(true);
+    try {
+      await commissionTaxService.deactivateCommission(commissionToDeactivate);
+      await fetchCommissions(commissionPage, commissionPageSize);
+      setShowDeactivateCommissionModal(false);
+      setCommissionToDeactivate(null);
+    } catch (error) {
+      console.error("Error deactivating commission:", error);
+      setError("Failed to deactivate commission");
+    } finally {
+      setDeactivatingCommission(false);
     }
   };
 
@@ -1377,6 +1399,9 @@ export default function CommissionAndTaxPage() {
                           <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                             Status
                           </th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -1463,6 +1488,20 @@ export default function CommissionAndTaxPage() {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <StatusBadge active={commission.active} />
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={!commission.active}
+                                  onClick={() => {
+                                    setCommissionToDeactivate(commission.id);
+                                    setShowDeactivateCommissionModal(true);
+                                  }}
+                                  className="text-rose-700 border-rose-300 hover:bg-rose-50 disabled:opacity-50"
+                                >
+                                  Deactivate
+                                </Button>
                               </td>
                             </tr>
                           );
@@ -1832,6 +1871,45 @@ export default function CommissionAndTaxPage() {
         onClose={() => setShowServiceFeeModal(false)}
         onSubmit={handleCreateServiceFee}
       />
+
+      {showDeactivateCommissionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Deactivate Commission
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Are you sure you want to deactivate this commission?
+              </p>
+            </div>
+            <div className="px-6 py-4 flex items-center justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (deactivatingCommission) return;
+                  setShowDeactivateCommissionModal(false);
+                  setCommissionToDeactivate(null);
+                }}
+                disabled={deactivatingCommission}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleDeactivateCommission}
+                disabled={deactivatingCommission}
+                isLoading={deactivatingCommission}
+                className="bg-rose-700 hover:bg-rose-800 text-white border-0"
+              >
+                Deactivate
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

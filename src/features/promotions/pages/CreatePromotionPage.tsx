@@ -482,10 +482,6 @@ export default function CreatePromotionPage() {
           minDaysBeforeCheckin: formData.advanceDays,
         }),
         ...(type === "long-stay" && {
-          offerFreeNights: formData.offerFreeNights,
-          freeNightsCount: formData.offerFreeNights
-            ? formData.freeNightsCount
-            : undefined,
           minStayNights: formData.minimumStayDays,
         }),
       };
@@ -1028,36 +1024,15 @@ export default function CreatePromotionPage() {
                   </SectionCard>
                 )}
 
-                {/* Long Stay: offer type toggle + discount or free nights — merged step 2 */}
+                {/* Long Stay: discount configuration */}
                 {type === "long-stay" && (
                   <SectionCard
                     step={2}
                     title="Configure Offer"
-                    subtitle="Choose offer type and set values"
+                    subtitle="Set discount values"
                     accent="orange"
                   >
-                    <div className="flex gap-2 mb-4">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleInputChange("offerFreeNights", false)
-                        }
-                        className={`flex-1 py-2 text-sm font-semibold rounded-lg border transition-all ${!formData.offerFreeNights ? "bg-orange-500 text-white border-orange-500 shadow-sm" : "bg-white text-gray-600 border-gray-300 hover:border-orange-300 hover:bg-orange-50"}`}
-                      >
-                        Offer Discount
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleInputChange("offerFreeNights", true)
-                        }
-                        className={`flex-1 py-2 text-sm font-semibold rounded-lg border transition-all ${formData.offerFreeNights ? "bg-orange-500 text-white border-orange-500 shadow-sm" : "bg-white text-gray-600 border-gray-300 hover:border-orange-300 hover:bg-orange-50"}`}
-                      >
-                        Free Nights
-                      </button>
-                    </div>
-                    {!formData.offerFreeNights && (
-                      <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                         <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
                           <p className="text-xs font-medium text-gray-500 mb-2">
                             All users
@@ -1157,55 +1132,6 @@ export default function CreatePromotionPage() {
                           </div>
                         </div>
                       </div>
-                    )}
-                    {formData.offerFreeNights && (
-                      <div className="flex items-center gap-3 bg-orange-50 rounded-xl p-3 border border-orange-200">
-                        <p className="text-xs font-medium text-orange-600 flex-1">
-                          Number of free nights
-                        </p>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleInputChange(
-                                "freeNightsCount",
-                                Math.max(
-                                  1,
-                                  (formData.freeNightsCount || 1) - 1,
-                                ),
-                              )
-                            }
-                            className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold"
-                          >
-                            −
-                          </button>
-                          <input
-                            type="number"
-                            min={1}
-                            value={formData.freeNightsCount || 1}
-                            onChange={(e) =>
-                              handleInputChange(
-                                "freeNightsCount",
-                                Number(e.target.value),
-                              )
-                            }
-                            className="w-16 text-center text-sm font-bold py-1.5 border border-orange-200 rounded-lg focus:outline-none focus:border-orange-400 bg-white"
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleInputChange(
-                                "freeNightsCount",
-                                (formData.freeNightsCount || 1) + 1,
-                              )
-                            }
-                            className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </SectionCard>
                 )}
 
