@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format, addDays } from "date-fns";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MultiDatePickerProps {
@@ -53,8 +53,9 @@ export function MultiDatePicker({
           type="button"
           onClick={handleAddDate}
           disabled={!selectedDateInput}
-          className="px-3 py-2 text-sm font-medium rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-green-600 bg-green-600 text-white hover:bg-green-700 hover:border-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
+          <Plus className="w-4 h-4" />
           Add
         </button>
       </div>
@@ -91,7 +92,9 @@ export function MultiDatePicker({
                 <button
                   type="button"
                   onClick={() =>
-                    onChange(selectedDates.filter((selected) => selected !== date))
+                    onChange(
+                      selectedDates.filter((selected) => selected !== date),
+                    )
                   }
                   className="hover:text-blue-900"
                 >
@@ -105,4 +108,3 @@ export function MultiDatePicker({
     </div>
   );
 }
-

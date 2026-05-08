@@ -497,12 +497,15 @@ export interface CreatePromotionPayload {
   promotionName: string;
   // Last Minute specific
   bookablePeriod?: "SAME_DAY" | "ONE_DAY" | "TWO_DAYS";
+  minDaysBeforeCheckin?: number;
   // Early Bird specific
   advanceDays?: number;
+  maxDaysBeforeCheckin?: number;
   // Long Stay specific
   offerFreeNights?: boolean;
   freeNightsCount?: number;
   minimumStayDays?: number;
+  minStayNights?: number;
   roomIds?: string[];
   rateplanIds?: string[];
   audienceType?: string;

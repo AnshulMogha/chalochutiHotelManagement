@@ -150,7 +150,12 @@ export default function CreatePromotionPage() {
   const [loadingRooms, setLoadingRooms] = useState(false);
   const fetchingRoomsRef = useRef(false);
   const [myPartnerAudienceType, setMyPartnerAudienceType] = useState<
-    "MEMBER" | "HOLIDAY_FLIGHT" | "MOBILE" | "MYBIZ" | "INTERNATIONAL" | "MYPARTNER"
+    | "MEMBER"
+    | "HOLIDAY_FLIGHT"
+    | "MOBILE"
+    | "MYBIZ"
+    | "INTERNATIONAL"
+    | "MYPARTNER"
   >("MYPARTNER");
   const [myPartnerApplyChannel, setMyPartnerApplyChannel] = useState<
     "B2C" | "B2B" | "MYBIZ" | "PARTNER" | "PACKAGE"
@@ -388,6 +393,13 @@ export default function CreatePromotionPage() {
 
     setSaving(true);
     try {
+      const minDaysBeforeCheckinForLastMinute =
+        formData.bookablePeriod === "SAME_DAY"
+          ? 0
+          : formData.bookablePeriod === "ONE_DAY"
+            ? 1
+            : 2;
+
       const payload: CreatePromotionPayload = {
         promotionType: formData.promotionType,
         offerType: isMyPartner ? "PERCENTAGE" : formData.offerType,
@@ -396,10 +408,9 @@ export default function CreatePromotionPage() {
         extraLoggedDiscount: isMyPartner
           ? 0
           : extraLoggedDiscounts.reduce((sum, val) => sum + val, 0),
-        audienceType:
-          isMyPartner
-            ? myPartnerAudienceType
-            : isSpecialAudience && promotionConfig?.audienceType
+        audienceType: isMyPartner
+          ? myPartnerAudienceType
+          : isSpecialAudience && promotionConfig?.audienceType
             ? promotionConfig.audienceType
             : undefined,
         applicableDateType: isMyPartner
@@ -469,15 +480,17 @@ export default function CreatePromotionPage() {
             : [],
         promotionName: formData.promotionName,
         ...(type === "last-minute" && {
-          bookablePeriod: formData.bookablePeriod,
+          minDaysBeforeCheckin: minDaysBeforeCheckinForLastMinute,
         }),
-        ...(type === "early-bird" && { advanceDays: formData.advanceDays }),
+        ...(type === "early-bird" && {
+          maxDaysBeforeCheckin: formData.advanceDays,
+        }),
         ...(type === "long-stay" && {
           offerFreeNights: formData.offerFreeNights,
           freeNightsCount: formData.offerFreeNights
             ? formData.freeNightsCount
             : undefined,
-          minimumStayDays: formData.minimumStayDays,
+          minStayNights: formData.minimumStayDays,
         }),
       };
 
@@ -1840,29 +1853,39 @@ export default function CreatePromotionPage() {
                                               onChange={(e) => {
                                                 const newSelectedRatePlanIds =
                                                   new Set(selectedRatePlanIds);
+                                                const newSelectedRoomIds =
+                                                  new Set(selectedRoomIds);
+                                                const currentRatePlanId =
+                                                  ratePlan.ratePlanId.toString();
                                                 if (e.target.checked) {
                                                   newSelectedRatePlanIds.add(
-                                                    ratePlan.ratePlanId.toString(),
+                                                    currentRatePlanId,
                                                   );
                                                 } else {
                                                   newSelectedRatePlanIds.delete(
-                                                    ratePlan.ratePlanId.toString(),
+                                                    currentRatePlanId,
                                                   );
-                                                  // If deselecting a rate plan, also deselect the room
-                                                  if (isRoomSelected) {
-                                                    setSelectedRoomIds(
-                                                      (prev) => {
-                                                        const newSet = new Set(
-                                                          prev,
-                                                        );
-                                                        newSet.delete(
-                                                          room.roomId,
-                                                        );
-                                                        return newSet;
-                                                      },
-                                                    );
-                                                  }
                                                 }
+
+                                                const hasAnySelectedRatePlan =
+                                                  roomRatePlans.some((rp) =>
+                                                    newSelectedRatePlanIds.has(
+                                                      rp.ratePlanId.toString(),
+                                                    ),
+                                                  );
+                                                if (hasAnySelectedRatePlan) {
+                                                  newSelectedRoomIds.add(
+                                                    room.roomId,
+                                                  );
+                                                } else {
+                                                  newSelectedRoomIds.delete(
+                                                    room.roomId,
+                                                  );
+                                                }
+
+                                                setSelectedRoomIds(
+                                                  newSelectedRoomIds,
+                                                );
                                                 setSelectedRatePlanIds(
                                                   newSelectedRatePlanIds,
                                                 );
@@ -1896,12 +1919,7 @@ export default function CreatePromotionPage() {
                               type="radio"
                               name="wantBlackoutDates"
                               checked={wantBlackoutDates === true}
-                              onChange={() => {
-                                setWantBlackoutDates(true);
-                                if (blackoutDates.length === 0) {
-                                  setBlackoutDates([today]);
-                                }
-                              }}
+                              onChange={() => setWantBlackoutDates(true)}
                               className="w-4 h-4 text-blue-600"
                             />
                             <span className="text-sm text-gray-700">Yes</span>
