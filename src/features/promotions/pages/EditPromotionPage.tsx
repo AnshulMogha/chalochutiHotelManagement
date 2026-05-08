@@ -219,7 +219,7 @@ export default function EditPromotionPage() {
         setWantBlackoutDates(false);
       }
 
-      const minDaysBeforeCheckin = promo.minDaysBeforeCheckin;
+      const maxDaysBeforeCheckin = promo.maxDaysBeforeCheckin;
 
       setFormData({
         promotionType: promo.promotionType as any,
@@ -247,20 +247,20 @@ export default function EditPromotionPage() {
             : [],
         promotionName: promo.promotionName,
         bookablePeriod:
-          minDaysBeforeCheckin === 0
+          maxDaysBeforeCheckin === 0
             ? "SAME_DAY"
-            : minDaysBeforeCheckin === 1
+            : maxDaysBeforeCheckin === 1
               ? "ONE_DAY"
-              : minDaysBeforeCheckin === 2
+              : maxDaysBeforeCheckin === 2
                 ? "TWO_DAYS"
                 : "TWO_DAYS",
-        minDaysBeforeCheckin:
-          minDaysBeforeCheckin === null ? undefined : minDaysBeforeCheckin,
         maxDaysBeforeCheckin:
-          promo.maxDaysBeforeCheckin === null
+          maxDaysBeforeCheckin === null ? undefined : maxDaysBeforeCheckin,
+        minDaysBeforeCheckin:
+          promo.minDaysBeforeCheckin === null
             ? undefined
-            : promo.maxDaysBeforeCheckin,
-        advanceDays: promo.maxDaysBeforeCheckin ?? 5,
+            : promo.minDaysBeforeCheckin,
+        advanceDays: promo.minDaysBeforeCheckin ?? 5,
         offerFreeNights: promo.offerMode === "FREE_NIGHT",
         freeNightsCount: promo.freeNights || 0,
         minimumStayDays: promo.minStayNights || 2,
@@ -343,7 +343,7 @@ export default function EditPromotionPage() {
 
     setSaving(true);
     try {
-      const minDaysBeforeCheckinForLastMinute =
+      const daysBeforeCheckinForLastMinute =
         formData.bookablePeriod === "SAME_DAY"
           ? 0
           : formData.bookablePeriod === "ONE_DAY"
@@ -402,10 +402,10 @@ export default function EditPromotionPage() {
         contractsJson: undefined,
         promotionName: formData.promotionName,
         ...(formData.promotionType === "LAST_MINUTE" && {
-          minDaysBeforeCheckin: minDaysBeforeCheckinForLastMinute,
+          maxDaysBeforeCheckin: daysBeforeCheckinForLastMinute,
         }),
         ...(formData.promotionType === "EARLY_BIRD" && {
-          maxDaysBeforeCheckin: formData.advanceDays,
+          minDaysBeforeCheckin: formData.advanceDays,
         }),
         ...(formData.promotionType === "LONG_STAY" && {
           offerFreeNights: formData.offerFreeNights,

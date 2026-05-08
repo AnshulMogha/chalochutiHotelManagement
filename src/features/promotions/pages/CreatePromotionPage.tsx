@@ -393,7 +393,7 @@ export default function CreatePromotionPage() {
 
     setSaving(true);
     try {
-      const minDaysBeforeCheckinForLastMinute =
+      const daysBeforeCheckinForLastMinute =
         formData.bookablePeriod === "SAME_DAY"
           ? 0
           : formData.bookablePeriod === "ONE_DAY"
@@ -476,10 +476,10 @@ export default function CreatePromotionPage() {
         contractsJson: undefined,
         promotionName: formData.promotionName,
         ...(type === "last-minute" && {
-          minDaysBeforeCheckin: minDaysBeforeCheckinForLastMinute,
+          maxDaysBeforeCheckin: daysBeforeCheckinForLastMinute,
         }),
         ...(type === "early-bird" && {
-          maxDaysBeforeCheckin: formData.advanceDays,
+          minDaysBeforeCheckin: formData.advanceDays,
         }),
         ...(type === "long-stay" && {
           offerFreeNights: formData.offerFreeNights,
