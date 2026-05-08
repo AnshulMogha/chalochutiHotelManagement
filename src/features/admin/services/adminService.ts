@@ -33,6 +33,12 @@ export interface RejectedHotelItem {
   qcRemarks?: ReviewRemark[];
 }
 
+export interface HotelLookupItem {
+  hotelId: string;
+  hotelCode?: string;
+  hotelName: string;
+}
+
 export interface ReviewRemark {
   remark: string;
   remarkedAt: string;
@@ -929,6 +935,46 @@ export interface FoodServicesResponse {
 }
 
 export const adminService = {
+  getSuperAdminHotelLookup: async (
+    search: string = "",
+  ): Promise<HotelLookupItem[]> => {
+    const response = await apiClient.get<unknown>(
+      API_ENDPOINTS.CUSTOMER.HOTEL_LOOKUP,
+      {
+        params: { search },
+      },
+    );
+    const rows = Array.isArray(response)
+      ? response
+      : Array.isArray((response as { content?: unknown[] })?.content)
+        ? ((response as { content: unknown[] }).content ?? [])
+        : Array.isArray((response as { data?: unknown[] })?.data)
+          ? ((response as { data: unknown[] }).data ?? [])
+          : [];
+
+    return rows
+      .map((item) => {
+        const row = item as Record<string, unknown>;
+        const rawHotelId =
+          row.hotelId ?? row.id ?? row.hotel_id ?? row.value ?? "";
+        const hotelId = String(rawHotelId || "").trim();
+        const hotelName = String(
+          row.hotelName ?? row.name ?? row.hotel_name ?? row.label ?? "",
+        ).trim();
+        const hotelCode = String(
+          row.hotelCode ?? row.code ?? row.hotel_code ?? "",
+        ).trim();
+        if (!hotelId || !hotelName) {
+          return null;
+        }
+        return {
+          hotelId,
+          hotelName,
+          hotelCode: hotelCode || undefined,
+        } satisfies HotelLookupItem;
+      })
+      .filter((hotel): hotel is HotelLookupItem => hotel !== null);
+  },
   getStates: async (): Promise<StateMasterItem[]> => {
     const response = await apiClient.get<ApiSuccessResponse<StateMasterItem[]>>(
       API_ENDPOINTS.ADMIN.GET_STATES,

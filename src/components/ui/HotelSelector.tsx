@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Building2, ChevronDown } from "lucide-react";
+import { Building2, ChevronDown, Search } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,10 @@ import { Button } from "./Button";
 import { propertyService } from "@/features/properties/services/propertyService";
 import { adminService } from "@/features/admin/services/adminService";
 import type { HotelListResponse } from "@/features/properties/services/api.types";
-import type { ApprovedHotelItem } from "@/features/admin/services/adminService";
+import type {
+  ApprovedHotelItem,
+  HotelLookupItem,
+} from "@/features/admin/services/adminService";
 import { useLocation } from "react-router";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks";
@@ -36,10 +39,12 @@ export function HotelSelector({
   const effectiveSelectedHotelId =
     selectedHotelId ?? getStoredSelectedHotelId();
   const [hotels, setHotels] = useState<
-    (HotelListResponse | ApprovedHotelItem)[]
+    (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[]
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const location = useLocation();
   const isBasicInfoPage = location.pathname === ROUTES.PROPERTY_INFO.BASIC_INFO;
   const isRoomsRatePlansPage =
@@ -109,21 +114,24 @@ export function HotelSelector({
   const hasAutoSelectedRef = useRef(false);
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+
+  useEffect(() => {
     const fetchHotels = async () => {
       try {
         setIsLoading(true);
-        let data: (HotelListResponse | ApprovedHotelItem)[] = [];
+        let data: (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[] = [];
 
-        // Super admin gets approved hotels list.
+        // Super admin uses lookup API with server-side search.
         // Other roles (owner/manager/team users) use accessible hotels list.
         if (isHotelFilterPage && isSuperAdminUser) {
-          const approvedHotels = await adminService.getApprovedHotels();
-          // Convert ApprovedHotelItem to HotelListResponse format
-          data = approvedHotels.map((hotel) => ({
-            hotelId: hotel.hotelId,
-            hotelName: hotel.hotelName,
-            hotelCode: hotel.hotelCode,
-          }));
+          const lookupHotels =
+            await adminService.getSuperAdminHotelLookup(debouncedSearch);
+          data = lookupHotels;
         } else {
           // For non-superadmin users, backend should return hotels they can access.
           const allHotels = await propertyService.getAllHotels();
@@ -166,7 +174,13 @@ export function HotelSelector({
 
     fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHotelFilterPage, isHotelOwnerUser, selectedHotelId]);
+  }, [
+    debouncedSearch,
+    isHotelFilterPage,
+    isHotelOwnerUser,
+    isSuperAdminUser,
+    selectedHotelId,
+  ]);
 
   // Reset auto-select ref when selectedHotelId is cleared (allows re-auto-selection)
   useEffect(() => {
@@ -176,24 +190,6 @@ export function HotelSelector({
   }, [selectedHotelId]);
 
   const selectedHotel = hotels.find((h) => h.hotelId === effectiveSelectedHotelId);
-
-  if (isLoading) {
-    return (
-      <div className={`flex items-center gap-2 px-3 py-2 ${className}`}>
-        <Building2 className="w-4 h-4 text-gray-400" />
-        <span className="text-sm text-gray-500">Loading hotels...</span>
-      </div>
-    );
-  }
-
-  if (hotels.length === 0) {
-    return (
-      <div className={`flex items-center gap-2 px-3 py-2 ${className}`}>
-        <Building2 className="w-4 h-4 text-gray-400" />
-        <span className="text-sm text-gray-500">No hotels available</span>
-      </div>
-    );
-  }
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -210,30 +206,51 @@ export function HotelSelector({
         align="start"
         className="w-64 max-h-[300px] overflow-y-auto"
       >
-        {hotels.map((hotel) => (
-          <DropdownMenuItem
-            key={hotel.hotelId}
-            onClick={() => {
-              onHotelChange(hotel.hotelId);
-              setIsOpen(false);
-            }}
-            className={cn(
-              "flex items-center gap-2 cursor-pointer",
-                  effectiveSelectedHotelId === hotel.hotelId &&
-                    "bg-[#2f3d95]/10",
-            )}
-          >
-            <Building2 className="w-4 h-4 text-[#2f3d95]" />
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm truncate">
-                {hotel.hotelName}
-              </div>
-              <div className="text-xs text-gray-500 truncate">
-                {hotel.hotelCode || ""}
-              </div>
+        {isSuperAdminUser ? (
+          <div className="sticky top-0 z-10 border-b border-gray-100 bg-white p-2">
+            <div className="flex items-center gap-2 rounded-md border border-gray-200 px-2 py-1.5">
+              <Search className="h-3.5 w-3.5 text-gray-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+                placeholder="Search hotels..."
+                className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
+              />
             </div>
-          </DropdownMenuItem>
-        ))}
+          </div>
+        ) : null}
+        {isLoading ? (
+          <div className="px-3 py-2 text-sm text-gray-500">Loading hotels...</div>
+        ) : hotels.length === 0 ? (
+          <div className="px-3 py-2 text-sm text-gray-500">
+            {isSuperAdminUser && debouncedSearch
+              ? "No hotels found. Try another search."
+              : "No hotels available"}
+          </div>
+        ) : (
+          hotels.map((hotel) => (
+            <DropdownMenuItem
+              key={hotel.hotelId}
+              onClick={() => {
+                onHotelChange(hotel.hotelId);
+                setIsOpen(false);
+              }}
+              className={cn(
+                "flex items-center gap-2 cursor-pointer",
+                effectiveSelectedHotelId === hotel.hotelId && "bg-[#2f3d95]/10",
+              )}
+            >
+              <Building2 className="w-4 h-4 text-[#2f3d95]" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm truncate">{hotel.hotelName}</div>
+                <div className="text-xs text-gray-500 truncate">
+                  {hotel.hotelCode || ""}
+                </div>
+              </div>
+            </DropdownMenuItem>
+          ))
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

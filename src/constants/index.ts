@@ -342,6 +342,9 @@ export const API_ENDPOINTS = {
     BOOKING_DETAIL: (id: string) => `/reports/booking-list/${id}`,
     BOOKING_VOUCHER: (id: string) => `/reports/booking-list/${id}/voucher`,
   },
+  CUSTOMER: {
+    HOTEL_LOOKUP: "/customer/packages/hotel/lookup",
+  },
   RATES: {
     GET_CALENDAR: (
       hotelId: string,
