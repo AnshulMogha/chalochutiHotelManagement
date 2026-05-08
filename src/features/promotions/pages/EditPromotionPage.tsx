@@ -82,7 +82,7 @@ export default function EditPromotionPage() {
     applyAllRooms: true,
     applyAllRateplans: true,
     applyChannel: "B2C",
-    contractsJson: ["B2C", "MOBILE", "IPOS"],
+    contractsJson: [],
     promotionName: "",
     bookablePeriod: "TWO_DAYS",
     advanceDays: 5,
@@ -399,8 +399,7 @@ export default function EditPromotionPage() {
             ? Array.from(selectedRatePlanIds)
             : undefined,
         applyChannel: formData.applyChannel,
-        contractsJson:
-          formData.applyChannel === "B2C" ? formData.contractsJson : [],
+        contractsJson: undefined,
         promotionName: formData.promotionName,
         ...(formData.promotionType === "LAST_MINUTE" && {
           minDaysBeforeCheckin: minDaysBeforeCheckinForLastMinute,
@@ -1438,24 +1437,9 @@ export default function EditPromotionPage() {
                         name="applyChannel"
                         value="B2C"
                         checked={formData.applyChannel === "B2C"}
-                        onChange={(e) => {
-                          handleInputChange("applyChannel", e.target.value);
-                          // Reset contractsJson when switching away from B2C
-                          if (e.target.value !== "B2C") {
-                            handleInputChange("contractsJson", []);
-                          } else {
-                            // Set default contracts when selecting B2C
-                            const currentContracts =
-                              formData.contractsJson || [];
-                            if (currentContracts.length === 0) {
-                              handleInputChange("contractsJson", [
-                                "B2C",
-                                "MOBILE",
-                                "IPOS",
-                              ]);
-                            }
-                          }
-                        }}
+                        onChange={(e) =>
+                          handleInputChange("applyChannel", e.target.value)
+                        }
                         className="w-4 h-4 text-blue-600"
                       />
                       <span className="text-sm text-gray-700">B2C</span>
@@ -1466,10 +1450,9 @@ export default function EditPromotionPage() {
                         name="applyChannel"
                         value="BUNDLED_RATES"
                         checked={formData.applyChannel === "BUNDLED_RATES"}
-                        onChange={(e) => {
-                          handleInputChange("applyChannel", e.target.value);
-                          handleInputChange("contractsJson", []);
-                        }}
+                        onChange={(e) =>
+                          handleInputChange("applyChannel", e.target.value)
+                        }
                         className="w-4 h-4 text-blue-600"
                       />
                       <span className="text-sm text-gray-700">
@@ -1482,107 +1465,15 @@ export default function EditPromotionPage() {
                         name="applyChannel"
                         value="B2B"
                         checked={formData.applyChannel === "B2B"}
-                        onChange={(e) => {
-                          handleInputChange("applyChannel", e.target.value);
-                          handleInputChange("contractsJson", []);
-                        }}
+                        onChange={(e) =>
+                          handleInputChange("applyChannel", e.target.value)
+                        }
                         className="w-4 h-4 text-blue-600"
                       />
                       <span className="text-sm text-gray-700">B2B</span>
                     </label>
                   </div>
 
-                  {/* Contract checkboxes - Show only when B2C is selected */}
-                  {formData.applyChannel === "B2C" && (
-                    <div className="mt-4 pl-2">
-                      <div className="flex flex-wrap gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={
-                              formData.contractsJson?.includes("B2C") || false
-                            }
-                            onChange={(e) => {
-                              const currentContracts =
-                                formData.contractsJson || [];
-                              if (e.target.checked) {
-                                handleInputChange("contractsJson", [
-                                  ...currentContracts,
-                                  "B2C",
-                                ]);
-                              } else {
-                                handleInputChange(
-                                  "contractsJson",
-                                  currentContracts.filter((c) => c !== "B2C"),
-                                );
-                              }
-                            }}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">
-                            B2C Contract
-                          </span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={
-                              formData.contractsJson?.includes("MOBILE") ||
-                              false
-                            }
-                            onChange={(e) => {
-                              const currentContracts =
-                                formData.contractsJson || [];
-                              if (e.target.checked) {
-                                handleInputChange("contractsJson", [
-                                  ...currentContracts,
-                                  "MOBILE",
-                                ]);
-                              } else {
-                                handleInputChange(
-                                  "contractsJson",
-                                  currentContracts.filter(
-                                    (c) => c !== "MOBILE",
-                                  ),
-                                );
-                              }
-                            }}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">
-                            Mobile Contract
-                          </span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={
-                              formData.contractsJson?.includes("IPOS") || false
-                            }
-                            onChange={(e) => {
-                              const currentContracts =
-                                formData.contractsJson || [];
-                              if (e.target.checked) {
-                                handleInputChange("contractsJson", [
-                                  ...currentContracts,
-                                  "IPOS",
-                                ]);
-                              } else {
-                                handleInputChange(
-                                  "contractsJson",
-                                  currentContracts.filter((c) => c !== "IPOS"),
-                                );
-                              }
-                            }}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">
-                            IPOS Contract
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {!isViewMode && (

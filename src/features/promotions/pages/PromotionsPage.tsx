@@ -16,7 +16,6 @@ interface PromotionType {
   title: string;
   description: string;
   icon: React.ReactNode;
-  activeCount?: number;
   iconColor?: string;
   iconBg?: string;
 }
@@ -27,7 +26,6 @@ const promotionTypes: PromotionType[] = [
     title: "Basic Promotion",
     description: "Offer recurring discounts to improve occupancy.",
     icon: <Percent className="w-6 h-6" />,
-    activeCount: 3,
     iconColor: "text-blue-600",
     iconBg: "bg-blue-50",
   },
@@ -37,7 +35,6 @@ const promotionTypes: PromotionType[] = [
     description:
       "Offer last-minute discounts to guests who book 0, 1, or 2 days before check-in.",
     icon: <Clock className="w-6 h-6" />,
-    activeCount: 1,
     iconColor: "text-purple-600",
     iconBg: "bg-purple-50",
   },
@@ -320,12 +317,6 @@ export default function PromotionsPage() {
                     <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                     One-click setup
                   </span>
-                  {promo.activeCount !== undefined && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 font-medium text-green-700">
-                      <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                      {promo.activeCount} active
-                    </span>
-                  )}
                 </div>
               </button>
             ))}
