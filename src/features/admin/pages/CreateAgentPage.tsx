@@ -27,6 +27,13 @@ const TITLE_OPTIONS = [
   { value: "Miss", label: "Miss" },
   { value: "Dr", label: "Dr" },
 ];
+const AGENCY_TIER_OPTIONS = [
+  { value: "DIAMOND", label: "Diamond" },
+  { value: "PLATINUM", label: "Platinum" },
+  { value: "GOLD", label: "Gold" },
+  { value: "SILVER", label: "Silver" },
+  { value: "BRONZE", label: "Bronze" },
+];
 const NAME_REGEX = /^[A-Za-z ]+$/;
 const MIN_NAME_LENGTH = 3;
 const MAX_NAME_LENGTH = 50;
@@ -80,6 +87,7 @@ interface AgentFormSnapshot {
   fullName: string;
   email: string;
   agencyName: string;
+  agencyTier: "DIAMOND" | "PLATINUM" | "GOLD" | "SILVER" | "BRONZE" | "";
   panNumber: string;
   panCardDocumentUrl: string;
   gstNumber: string;
@@ -117,6 +125,9 @@ export default function CreateAgentPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [agencyName, setAgencyName] = useState("");
+  const [agencyTier, setAgencyTier] = useState<
+    "DIAMOND" | "PLATINUM" | "GOLD" | "SILVER" | "BRONZE" | ""
+  >("");
   const [panNumber, setPanNumber] = useState("");
   const [panCardDocumentUrl, setPanCardDocumentUrl] = useState("");
   const [panFileLabel, setPanFileLabel] = useState<string | null>(null);
@@ -143,6 +154,7 @@ export default function CreateAgentPage() {
     fullName: "",
     email: "",
     agencyName: "",
+    agencyTier: "",
     panNumber: "",
     panCardDocumentUrl: "",
     gstNumber: "",
@@ -163,6 +175,7 @@ export default function CreateAgentPage() {
       fullName,
       email,
       agencyName,
+      agencyTier,
       panNumber,
       panCardDocumentUrl,
       gstNumber,
@@ -181,6 +194,7 @@ export default function CreateAgentPage() {
       fullName,
       email,
       agencyName,
+      agencyTier,
       panNumber,
       panCardDocumentUrl,
       gstNumber,
@@ -236,6 +250,7 @@ export default function CreateAgentPage() {
         fullName: "",
         email: "",
         agencyName: "",
+        agencyTier: "",
         panNumber: "",
         panCardDocumentUrl: "",
         gstNumber: "",
@@ -277,6 +292,7 @@ export default function CreateAgentPage() {
         setEmail(item.email);
         setAgencyName(item.agencyName);
         setAgencyNameError(null);
+        setAgencyTier(item.agencyTier || "");
         setPanNumber(item.panNumber);
         setPanError(null);
         setPanCardDocumentUrl(item.panCardDocumentUrl);
@@ -303,6 +319,7 @@ export default function CreateAgentPage() {
           fullName: item.fullName,
           email: item.email,
           agencyName: item.agencyName,
+          agencyTier: item.agencyTier || "",
           panNumber: item.panNumber,
           panCardDocumentUrl: item.panCardDocumentUrl,
           gstNumber: item.gstNumber,
@@ -413,6 +430,10 @@ export default function CreateAgentPage() {
       return;
     }
     setAgencyNameError(null);
+    if (!agencyTier) {
+      showToast("Please select agency tier.", "error");
+      return;
+    }
     if (businessAddress.trim().length > MAX_BUSINESS_ADDRESS_LENGTH) {
       showToast(
         `Business address cannot exceed ${MAX_BUSINESS_ADDRESS_LENGTH} characters.`,
@@ -510,6 +531,7 @@ export default function CreateAgentPage() {
       fullName: trimmedFullName,
       email: email.trim(),
       agencyName: trimmedAgencyName,
+      agencyTier,
       panNumber: normalizedPan,
       panCardDocumentUrl,
       gstNumber: normalizedGst,
@@ -687,6 +709,26 @@ export default function CreateAgentPage() {
                         {agencyNameError}
                       </p>
                     )}
+                  </div>
+                  <div>
+                    <Select
+                      label="Agency tier"
+                      required
+                      value={agencyTier}
+                      onChange={(e) =>
+                        setAgencyTier(
+                          e.target.value as
+                            | "DIAMOND"
+                            | "PLATINUM"
+                            | "GOLD"
+                            | "SILVER"
+                            | "BRONZE"
+                            | "",
+                        )
+                      }
+                      options={AGENCY_TIER_OPTIONS}
+                      placeholder="Select agency tier"
+                    />
                   </div>
                   <div>
                     <Label htmlFor="panNumber">

@@ -40,6 +40,7 @@ const COMMISSION_SCOPE_OPTIONS = [
   { value: "HOTEL", label: "Hotel" },
   // { value: "CITY", label: "City" }, // Temporarily disabled
   { value: "CHANNEL", label: "Channel" },
+  { value: "AGENCY_TIER", label: "Agency Tier" },
 ];
 
 const COMMISSION_TYPE_OPTIONS = [
@@ -72,6 +73,14 @@ const CUSTOMER_TYPE_OPTIONS = [
 const CHANNEL_OPTIONS = [
   { value: "B2B", label: "B2B" },
   { value: "B2C", label: "B2C" },
+];
+
+const AGENCY_TIER_OPTIONS = [
+  { value: "DIAMOND", label: "Diamond" },
+  { value: "PLATINUM", label: "Platinum" },
+  { value: "GOLD", label: "Gold" },
+  { value: "SILVER", label: "Silver" },
+  { value: "BRONZE", label: "Bronze" },
 ];
 
 // Indian States - using full state name as value
@@ -142,7 +151,10 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
     if (mode === "edit" && commission) {
       setFormData({
         scope: commission.scope,
-        scopeValue: commission.scopeValue,
+        scopeValue:
+          commission.scope === "AGENCY_TIER"
+            ? commission.scopeValue || commission.agencyTier || null
+            : commission.scopeValue,
         commissionType: commission.commissionType,
         commissionValue: commission.commissionValue,
         effectiveFrom: commission.effectiveFrom.split("T")[0],
@@ -219,7 +231,11 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
     setApiError(null);
     setErrors({});
     try {
-      await onSubmit(formData);
+      const payload: CreateCommissionRequest = {
+        ...formData,
+        scopeValue: formData.scope === "GLOBAL" ? null : formData.scopeValue,
+      };
+      await onSubmit(payload);
       onClose();
     } catch (error: any) {
       console.error("Error submitting form:", error);
@@ -299,7 +315,7 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
                 setFormData({
                   ...formData,
                   scope: newScope,
-                  scopeValue: newScope === "GLOBAL" ? null : null, // Clear scopeValue when changing scope
+                  scopeValue: null, // Clear scopeValue when changing scope
                 });
               }}
               error={errors.scope}
@@ -344,6 +360,21 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
                   required
                   icon={<Radio className="w-4 h-4 text-gray-400" />}
                   options={CHANNEL_OPTIONS}
+                />
+              ) : formData.scope === "AGENCY_TIER" ? (
+                <Select
+                  label="Agency Tier"
+                  value={formData.scopeValue || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      scopeValue: e.target.value || null,
+                    })
+                  }
+                  error={errors.scopeValue}
+                  required
+                  icon={<Building2 className="w-4 h-4 text-gray-400" />}
+                  options={AGENCY_TIER_OPTIONS}
                 />
               ) : (
                 <Input
@@ -1045,6 +1076,12 @@ function StatusBadge({ status, active }: { status?: "ACTIVE" | "INACTIVE" | stri
 export default function CommissionAndTaxPage() {
   const [activeTab, setActiveTab] = useState<"commission" | "tax" | "serviceFee">("commission");
   const [commissions, setCommissions] = useState<Commission[]>([]);
+  const [commissionPage, setCommissionPage] = useState(0);
+  const [commissionPageSize, setCommissionPageSize] = useState(20);
+  const [commissionTotal, setCommissionTotal] = useState(0);
+  const [commissionTotalPages, setCommissionTotalPages] = useState(0);
+  const [commissionHasNext, setCommissionHasNext] = useState(false);
+  const [commissionHasPrevious, setCommissionHasPrevious] = useState(false);
   const [taxes, setTaxes] = useState<Tax[]>([]);
   const [serviceFees, setServiceFees] = useState<ServiceFee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -1066,6 +1103,7 @@ export default function CommissionAndTaxPage() {
     const id = String(c.id ?? "").toLowerCase();
     const scope = (c.scope ?? "").toLowerCase();
     const scopeValue = (c.scopeValue ?? "").toLowerCase();
+    const agencyTier = (c.agencyTier ?? "").toLowerCase();
     const type = (c.commissionType ?? "").toLowerCase();
     const value = String(c.commissionValue ?? "").toLowerCase();
     const from = (c.effectiveFrom ?? "").toLowerCase();
@@ -1073,6 +1111,7 @@ export default function CommissionAndTaxPage() {
       id.includes(q) ||
       scope.includes(q) ||
       scopeValue.includes(q) ||
+      agencyTier.includes(q) ||
       type.includes(q) ||
       value.includes(q) ||
       from.includes(q)
@@ -1120,24 +1159,37 @@ export default function CommissionAndTaxPage() {
 
   useEffect(() => {
     if (activeTab === "commission") {
-      fetchCommissions();
+      fetchCommissions(commissionPage, commissionPageSize);
     } else if (activeTab === "tax") {
       fetchTaxes();
     } else {
       fetchServiceFees();
     }
-  }, [activeTab]);
+  }, [activeTab, commissionPage, commissionPageSize]);
 
-  const fetchCommissions = async () => {
+  const fetchCommissions = async (page = 0, size = 20) => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await commissionTaxService.getCommissions();
+      const response = await commissionTaxService.getCommissions({ page, size });
       setCommissions(response.commissions || []);
+      setCommissionTotal(response.total || 0);
+      setCommissionTotalPages(
+        response.totalPages ??
+          Math.ceil((response.total || 0) / (response.size || size || 1)),
+      );
+      setCommissionHasNext(
+        response.hasNext ?? page + 1 < Math.ceil((response.total || 0) / (size || 1)),
+      );
+      setCommissionHasPrevious(response.hasPrevious ?? page > 0);
     } catch (err) {
       setError("Failed to load commissions");
       console.error("Error fetching commissions:", err);
       setCommissions([]);
+      setCommissionTotal(0);
+      setCommissionTotalPages(0);
+      setCommissionHasNext(false);
+      setCommissionHasPrevious(false);
     } finally {
       setIsLoading(false);
     }
@@ -1176,7 +1228,7 @@ export default function CommissionAndTaxPage() {
   const handleCreateCommission = async (data: CreateCommissionRequest) => {
     try {
       await commissionTaxService.createCommission(data);
-      await fetchCommissions();
+      await fetchCommissions(commissionPage, commissionPageSize);
     } catch (error) {
       throw error;
     }
@@ -1392,7 +1444,7 @@ export default function CommissionAndTaxPage() {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center">
                                   {commission.commissionType === "PERCENTAGE" ? (
-                                    <DollarSign className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
+                                    <Percent className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
                                   ) : (
                                     <IndianRupee className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
                                   )}
@@ -1417,6 +1469,49 @@ export default function CommissionAndTaxPage() {
                         })}
                       </tbody>
                     </table>
+                  </div>
+                  <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="text-sm text-gray-600">
+                      Showing page {commissionTotalPages === 0 ? 0 : commissionPage + 1} of{" "}
+                      {commissionTotalPages} ({commissionTotal} total)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="commission-page-size" className="text-sm text-gray-600">
+                        Rows:
+                      </label>
+                      <select
+                        id="commission-page-size"
+                        className="h-9 rounded-md border border-gray-300 px-2 text-sm"
+                        value={commissionPageSize}
+                        onChange={(e) => {
+                          const nextSize = Number(e.target.value);
+                          setCommissionPageSize(nextSize);
+                          setCommissionPage(0);
+                        }}
+                      >
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                      </select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!commissionHasPrevious || isLoading}
+                        onClick={() =>
+                          setCommissionPage((prev) => Math.max(0, prev - 1))
+                        }
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!commissionHasNext || isLoading}
+                        onClick={() => setCommissionPage((prev) => prev + 1)}
+                      >
+                        Next
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}

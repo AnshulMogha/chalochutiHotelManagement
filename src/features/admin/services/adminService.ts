@@ -79,12 +79,19 @@ export interface RejectHotelRequest {
 
 /** Agent onboarding – list item from GET travel-agent/onboarding */
 export type TravelAgentOnboardingStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type AgencyTier =
+  | "DIAMOND"
+  | "PLATINUM"
+  | "GOLD"
+  | "SILVER"
+  | "BRONZE";
 
 export interface TravelAgentOnboardingListItem {
   id: number;
   fullName: string;
   email: string;
   agencyName: string;
+  agencyTier?: AgencyTier;
   status: TravelAgentOnboardingStatus;
   createdAt: string;
 }
@@ -114,6 +121,7 @@ export interface TravelAgentOnboardingItem {
   fullName: string;
   email: string;
   agencyName: string;
+  agencyTier: AgencyTier;
   panNumber: string;
   panCardDocumentUrl: string;
   gstNumber: string;
@@ -143,12 +151,17 @@ export interface RejectTravelAgentOnboardingRequest {
   remarks: string;
 }
 
+export interface UpdateAgencyTierPayload {
+  agencyTier: AgencyTier;
+}
+
 /** POST travel-agent/onboarding – create application */
 export interface TravelAgentOnboardingCreatePayload {
   title: string;
   fullName: string;
   email: string;
   agencyName: string;
+  agencyTier: AgencyTier;
   panNumber: string;
   panCardDocumentUrl: string;
   gstNumber: string;
@@ -532,6 +545,15 @@ export interface PromotionListItem {
 
 export interface PromotionListResponse {
   data: PromotionListItem[];
+  content: PromotionListItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+  hasNext: boolean;
+  hasPrevious: boolean;
 }
 
 export interface DropdownOption {
@@ -1499,24 +1521,107 @@ export const adminService = {
     );
     return response.data;
   },
-  getPromotions: async (hotelId: string): Promise<PromotionListResponse> => {
+  getPromotions: async (
+    hotelId: string,
+    params?: {
+      page?: number;
+      size?: number;
+      status?: "DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED";
+    },
+  ): Promise<PromotionListResponse> => {
     const response = await apiClient.get<
-      ApiSuccessResponse<PromotionListItem[]>
-    >(API_ENDPOINTS.HOTEL_ADMIN.GET_PROMOTIONS(hotelId));
-    // response.data is the data from ApiSuccessResponse
-    // If it's an array, use it directly
+      ApiSuccessResponse<
+        | PromotionListItem[]
+        | {
+            content?: PromotionListItem[];
+            page?: number;
+            size?: number;
+            totalElements?: number;
+            totalPages?: number;
+            first?: boolean;
+            last?: boolean;
+            hasNext?: boolean;
+            hasPrevious?: boolean;
+            data?: PromotionListItem[];
+          }
+      >
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_PROMOTIONS(hotelId), { params });
     if (Array.isArray(response.data)) {
-      return { data: response.data };
+      const content = response.data;
+      return {
+        data: content,
+        content,
+        page: params?.page ?? 0,
+        size: params?.size ?? content.length,
+        totalElements: content.length,
+        totalPages: 1,
+        first: true,
+        last: true,
+        hasNext: false,
+        hasPrevious: false,
+      };
     }
-    // If it's an object with a data property, extract it
+    if (
+      response.data &&
+      typeof response.data === "object" &&
+      "content" in response.data
+    ) {
+      const paged = response.data as {
+        content?: PromotionListItem[];
+        page?: number;
+        size?: number;
+        totalElements?: number;
+        totalPages?: number;
+        first?: boolean;
+        last?: boolean;
+        hasNext?: boolean;
+        hasPrevious?: boolean;
+      };
+      const content = paged.content || [];
+      return {
+        data: content,
+        content,
+        page: paged.page ?? params?.page ?? 0,
+        size: paged.size ?? params?.size ?? content.length,
+        totalElements: paged.totalElements ?? content.length,
+        totalPages: paged.totalPages ?? 1,
+        first: paged.first ?? true,
+        last: paged.last ?? true,
+        hasNext: paged.hasNext ?? false,
+        hasPrevious: paged.hasPrevious ?? false,
+      };
+    }
     if (
       response.data &&
       typeof response.data === "object" &&
       "data" in response.data
     ) {
-      return { data: (response.data as any).data || [] };
+      const data = (response.data as { data?: PromotionListItem[] }).data || [];
+      return {
+        data,
+        content: data,
+        page: params?.page ?? 0,
+        size: params?.size ?? data.length,
+        totalElements: data.length,
+        totalPages: 1,
+        first: true,
+        last: true,
+        hasNext: false,
+        hasPrevious: false,
+      };
     }
-    return { data: [] };
+    return {
+      data: [],
+      content: [],
+      page: params?.page ?? 0,
+      size: params?.size ?? 0,
+      totalElements: 0,
+      totalPages: 0,
+      first: true,
+      last: true,
+      hasNext: false,
+      hasPrevious: false,
+    };
   },
   getPromotionEdit: async (
     hotelId: string,
@@ -1998,6 +2103,15 @@ export const adminService = {
   ): Promise<void> => {
     await apiClient.post(
       API_ENDPOINTS.ADMIN.TRAVEL_AGENT_ONBOARDING_REJECT(id),
+      data,
+    );
+  },
+  updateTravelAgentAgencyTier: async (
+    id: string | number,
+    data: UpdateAgencyTierPayload,
+  ): Promise<void> => {
+    await apiClient.patch(
+      API_ENDPOINTS.TRAVEL_AGENT_ONBOARDING.AGENCY_TIER(id),
       data,
     );
   },

@@ -67,6 +67,19 @@ export default function PromotionsPage() {
   >("all");
   const [loading, setLoading] = useState(false);
   const [promotions, setPromotions] = useState<PromotionListItem[]>([]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
+  const [statusCounts, setStatusCounts] = useState({
+    all: 0,
+    draft: 0,
+    active: 0,
+    paused: 0,
+    expired: 0,
+  });
   const navigate = useNavigate();
   const hotelId = searchParams.get("hotelId");
   const { showToast } = useToast();
@@ -85,19 +98,89 @@ export default function PromotionsPage() {
     if (activeTab === "my-promotions" && hotelId) {
       loadPromotions();
     }
+  }, [activeTab, hotelId, myPromotionsSubTab, page, pageSize]);
+
+  useEffect(() => {
+    if (activeTab !== "my-promotions" || !hotelId) return;
+    loadStatusCounts();
   }, [activeTab, hotelId]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [myPromotionsSubTab]);
 
   const loadPromotions = async () => {
     if (!hotelId) return;
     setLoading(true);
     try {
-      const response = await adminService.getPromotions(hotelId);
-      setPromotions(response.data || []);
+      const statusParamMap: Record<
+        "all" | "draft" | "active" | "paused" | "expired",
+        "DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED" | undefined
+      > = {
+        all: undefined,
+        draft: "DRAFT",
+        active: "ACTIVE",
+        paused: "PAUSED",
+        expired: "EXPIRED",
+      };
+      const response = await adminService.getPromotions(hotelId, {
+        page,
+        size: pageSize,
+        status: statusParamMap[myPromotionsSubTab],
+      });
+      setPromotions(response.content || response.data || []);
+      setTotalPages(response.totalPages || 0);
+      setTotalElements(response.totalElements || 0);
+      setHasNext(Boolean(response.hasNext));
+      setHasPrevious(Boolean(response.hasPrevious));
     } catch (error) {
       console.error("Error loading promotions:", error);
       showToast("Failed to load promotions", "error");
+      setPromotions([]);
+      setTotalPages(0);
+      setTotalElements(0);
+      setHasNext(false);
+      setHasPrevious(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadStatusCounts = async () => {
+    if (!hotelId) return;
+    try {
+      const [all, draft, active, paused, expired] = await Promise.all([
+        adminService.getPromotions(hotelId, { page: 0, size: 1 }),
+        adminService.getPromotions(hotelId, {
+          page: 0,
+          size: 1,
+          status: "DRAFT",
+        }),
+        adminService.getPromotions(hotelId, {
+          page: 0,
+          size: 1,
+          status: "ACTIVE",
+        }),
+        adminService.getPromotions(hotelId, {
+          page: 0,
+          size: 1,
+          status: "PAUSED",
+        }),
+        adminService.getPromotions(hotelId, {
+          page: 0,
+          size: 1,
+          status: "EXPIRED",
+        }),
+      ]);
+      setStatusCounts({
+        all: all.totalElements || 0,
+        draft: draft.totalElements || 0,
+        active: active.totalElements || 0,
+        paused: paused.totalElements || 0,
+        expired: expired.totalElements || 0,
+      });
+    } catch (error) {
+      console.error("Error loading promotion status counts:", error);
     }
   };
 
@@ -130,6 +213,7 @@ export default function PromotionsPage() {
       );
       // Reload promotions list
       loadPromotions();
+      loadStatusCounts();
     } catch (error: any) {
       console.error("Error updating promotion status:", error);
       showToast(
@@ -216,27 +300,7 @@ export default function PromotionsPage() {
     }
   };
 
-  const activeCount = promotions.filter((p) => p.status === "ACTIVE").length;
-  const draftCount = promotions.filter((p) => p.status === "DRAFT").length;
-  const liveCount = promotions.filter((p) => p.status === "ACTIVE").length;
-  const pausedCount = promotions.filter((p) => p.status === "PAUSED").length;
-  const expiredCount = promotions.filter((p) => p.status === "EXPIRED").length;
-  const subTabStatusMap: Record<
-    "draft" | "active" | "paused" | "expired",
-    PromotionListItem["status"]
-  > = {
-    draft: "DRAFT",
-    active: "ACTIVE",
-    paused: "PAUSED",
-    expired: "EXPIRED",
-  };
-  const filteredPromotions =
-    myPromotionsSubTab === "all"
-      ? promotions
-      : promotions.filter(
-          (promotion) =>
-            promotion.status === subTabStatusMap[myPromotionsSubTab],
-        );
+  const activeCount = statusCounts.active;
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -373,19 +437,19 @@ export default function PromotionsPage() {
             >
               <TabsList className="bg-white border border-gray-200">
                 <TabsTrigger value="all" className="text-sm">
-                  All ({promotions.length})
+                  All ({statusCounts.all})
                 </TabsTrigger>
                 <TabsTrigger value="draft" className="text-sm">
-                  Draft ({draftCount})
+                  Draft ({statusCounts.draft})
                 </TabsTrigger>
                 <TabsTrigger value="active" className="text-sm">
-                  Active ({liveCount})
+                  Active ({statusCounts.active})
                 </TabsTrigger>
                 <TabsTrigger value="paused" className="text-sm">
-                  Paused ({pausedCount})
+                  Paused ({statusCounts.paused})
                 </TabsTrigger>
                 <TabsTrigger value="expired" className="text-sm">
-                  Expired ({expiredCount})
+                  Expired ({statusCounts.expired})
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -396,7 +460,7 @@ export default function PromotionsPage() {
               <div className="flex items-center justify-center min-h-[400px]">
                 <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
               </div>
-            ) : filteredPromotions.length === 0 ? (
+            ) : promotions.length === 0 ? (
               <div className="text-center py-12 px-6">
                 <p className="text-gray-500 mb-4">
                   {myPromotionsSubTab === "all"
@@ -413,7 +477,8 @@ export default function PromotionsPage() {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-white border-b border-gray-200">
                     <tr>
@@ -441,7 +506,7 @@ export default function PromotionsPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {filteredPromotions.map((promotion) => (
+                    {promotions.map((promotion) => (
                       <tr
                         key={promotion.id}
                         className="hover:bg-blue-50/60 transition-colors"
@@ -553,7 +618,52 @@ export default function PromotionsPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+                </div>
+                <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="text-sm text-gray-600">
+                  Showing page {totalPages === 0 ? 0 : page + 1} of {totalPages} (
+                  {totalElements} total)
+                </div>
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="promotions-page-size"
+                    className="text-sm text-gray-600"
+                  >
+                    Rows:
+                  </label>
+                  <select
+                    id="promotions-page-size"
+                    className="h-9 rounded-md border border-gray-300 px-2 text-sm"
+                    value={pageSize}
+                    onChange={(e) => {
+                      const nextSize = Number(e.target.value);
+                      setPageSize(nextSize);
+                      setPage(0);
+                    }}
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!hasPrevious || loading}
+                    onClick={() => setPage((prev) => Math.max(0, prev - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!hasNext || loading}
+                    onClick={() => setPage((prev) => prev + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+                </div>
+              </>
             )}
           </div>
         </TabsContent>

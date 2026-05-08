@@ -113,6 +113,9 @@ export const API_ENDPOINTS = {
     ROOT: "travel-agent/onboarding",
     /** GET one, PUT full payload (e.g. resubmit after reject) */
     BY_ID: (id: string | number) => `travel-agent/onboarding/${id}`,
+    /** PATCH agency tier for approved agents */
+    AGENCY_TIER: (id: string | number) =>
+      `travel-agent/onboarding/${id}/agency-tier`,
   },
   ADMIN: {
     GET_HOTELS_FOR_REVIEW: "/admin/hotels/review",

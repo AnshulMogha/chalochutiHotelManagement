@@ -59,7 +59,9 @@ const ROLE_OPTIONS = [
   { value: "HELPDESK_AGENT", label: "Helpdesk Agent" },
   { value: "AUDITOR", label: "Auditor" },
 ];
-const ALLOWED_SUPER_ADMIN_ROLES = new Set(ROLE_OPTIONS.map((role) => role.value));
+const ALLOWED_SUPER_ADMIN_ROLES = new Set(
+  ROLE_OPTIONS.map((role) => role.value),
+);
 
 const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "Active" },
@@ -729,7 +731,10 @@ export default function UsersPage() {
       flex: 1.2,
       minWidth: 250,
       renderCell: (params) => {
-        const states = (params.row.states || []) as Array<{ id: number; name: string }>;
+        const states = (params.row.states || []) as Array<{
+          id: number;
+          name: string;
+        }>;
         if (!states.length) {
           return (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
@@ -867,9 +872,12 @@ export default function UsersPage() {
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(ROUTES.ADMIN.USER_MANAGE_HOTELS(params.row.userId), {
-                      state: { user: params.row },
-                    });
+                    navigate(
+                      ROUTES.ADMIN.USER_MANAGE_HOTELS(params.row.userId),
+                      {
+                        state: { user: params.row },
+                      },
+                    );
                   }}
                   className="gap-2 whitespace-nowrap"
                 >
@@ -1187,7 +1195,6 @@ export default function UsersPage() {
           />
         </Box>
       )}
-
     </div>
   );
 }

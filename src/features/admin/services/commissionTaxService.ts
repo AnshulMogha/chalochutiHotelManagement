@@ -3,12 +3,19 @@ import { API_ENDPOINTS } from "@/constants";
 import type { ApiSuccessResponse } from "@/services/api/types";
 
 // Commission Types
-export type CommissionScope = "GLOBAL" | "HOTEL" | "CITY" | "CHANNEL";
+export type CommissionScope =
+  | "GLOBAL"
+  | "HOTEL"
+  | "CITY"
+  | "CHANNEL"
+  | "AGENCY_TIER";
 export type CommissionType = "PERCENTAGE" | "FLAT";
+export type AgencyTier = "DIAMOND" | "PLATINUM" | "GOLD" | "SILVER" | "BRONZE";
 
 export interface CreateCommissionRequest {
   scope: CommissionScope;
   scopeValue: string | null;
+  agencyTier?: AgencyTier | null;
   commissionType: CommissionType;
   commissionValue: number;
   effectiveFrom: string;
@@ -18,6 +25,7 @@ export interface Commission {
   id: string;
   scope: CommissionScope;
   scopeValue: string | null;
+  agencyTier?: AgencyTier | null;
   commissionType: CommissionType;
   commissionValue: number;
   effectiveFrom: string;
@@ -30,6 +38,11 @@ export interface Commission {
 export interface CommissionListResponse {
   commissions: Commission[];
   total: number;
+  page?: number;
+  size?: number;
+  totalPages?: number;
+  hasNext?: boolean;
+  hasPrevious?: boolean;
 }
 
 // Tax Types
@@ -106,20 +119,54 @@ export const commissionTaxService = {
     );
     return response.data;
   },
-  getCommissions: async (): Promise<CommissionListResponse> => {
+  getCommissions: async (
+    params?: { page?: number; size?: number },
+  ): Promise<CommissionListResponse> => {
     const response = await apiClient.get<ApiSuccessResponse<Commission[] | CommissionListResponse>>(
-      API_ENDPOINTS.ADMIN.GET_COMMISSIONS
+      API_ENDPOINTS.ADMIN.GET_COMMISSIONS,
+      { params }
     );
     // Handle both array and wrapped response
     if (Array.isArray(response.data)) {
-      return { commissions: response.data, total: response.data.length };
+      return {
+        commissions: response.data,
+        total: response.data.length,
+        page: params?.page ?? 0,
+        size: params?.size ?? response.data.length,
+      };
     }
     // If it's an object with commissions array
     if (response.data && typeof response.data === 'object' && 'commissions' in response.data) {
       return response.data as CommissionListResponse;
     }
+    // Backend pageable shape: { content, totalElements, totalPages, page, size, hasNext, hasPrevious }
+    if (response.data && typeof response.data === "object" && "content" in response.data) {
+      const paged = response.data as {
+        content: Commission[];
+        totalElements?: number;
+        totalPages?: number;
+        page?: number;
+        size?: number;
+        hasNext?: boolean;
+        hasPrevious?: boolean;
+      };
+      return {
+        commissions: paged.content || [],
+        total: paged.totalElements ?? (paged.content || []).length,
+        totalPages: paged.totalPages,
+        page: paged.page,
+        size: paged.size,
+        hasNext: paged.hasNext,
+        hasPrevious: paged.hasPrevious,
+      };
+    }
     // Fallback to empty array
-    return { commissions: [], total: 0 };
+    return {
+      commissions: [],
+      total: 0,
+      page: params?.page ?? 0,
+      size: params?.size ?? 10,
+    };
   },
   getActiveCommissions: async (): Promise<CommissionListResponse> => {
     const response = await apiClient.get<ApiSuccessResponse<Commission[] | CommissionListResponse>>(

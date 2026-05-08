@@ -3,9 +3,16 @@ import { Button } from "@/components/ui";
 import { ApproveRejectModal } from "../components/ApproveRejectModal";
 import { adminService } from "../services/adminService";
 import type {
+  AgencyTier,
   TravelAgentOnboardingListItem,
   TravelAgentOnboardingItem,
 } from "../services/adminService";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  isSalesManagerRole,
+  isSuperAdmin,
+  isZonalManagerSalesRole,
+} from "@/constants/roles";
 import {
   Handshake,
   Eye,
@@ -18,7 +25,6 @@ import {
   CheckCircle,
   XCircle,
   Mail,
-  Phone,
   MapPin,
   Hash,
   CalendarDays,
@@ -38,8 +44,8 @@ export interface TravelPartner {
   title: string;
   name: string;
   email: string;
-  phone?: string;
   agencyNumber: string;
+  agencyTier?: AgencyTier;
   panNumber?: string;
   panCardFileUrl?: string;
   gstNumber?: string;
@@ -55,6 +61,14 @@ export interface TravelPartner {
   remarks?: string;
 }
 
+const AGENCY_TIER_OPTIONS: Array<{ value: AgencyTier; label: string }> = [
+  { value: "DIAMOND", label: "Diamond" },
+  { value: "PLATINUM", label: "Platinum" },
+  { value: "GOLD", label: "Gold" },
+  { value: "SILVER", label: "Silver" },
+  { value: "BRONZE", label: "Bronze" },
+];
+
 function mapListItemToPartner(
   item: TravelAgentOnboardingListItem,
 ): TravelPartner {
@@ -66,6 +80,7 @@ function mapListItemToPartner(
     name: item.fullName,
     email: item.email,
     agencyNumber: item.agencyName,
+    agencyTier: item.agencyTier,
   };
 }
 
@@ -81,6 +96,7 @@ function mapOnboardingToPartner(
     name: item.fullName,
     email: item.email,
     agencyNumber: item.agencyName,
+    agencyTier: item.agencyTier,
     panNumber: item.panNumber,
     panCardFileUrl: item.panCardDocumentUrl,
     gstNumber: item.gstNumber,
@@ -132,6 +148,7 @@ function formatDate(iso: string) {
 }
 
 export default function TravelPartnersPage() {
+  const { user } = useAuth();
   const [partners, setPartners] = useState<TravelPartner[]>([]);
   const [activeTab, setActiveTab] = useState<TravelPartnerStatus>("PENDING");
   const [selectedPartner, setSelectedPartner] = useState<TravelPartner | null>(
@@ -144,6 +161,12 @@ export default function TravelPartnersPage() {
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [showTierModal, setShowTierModal] = useState(false);
+  const [tierUpdating, setTierUpdating] = useState(false);
+  const [tierTargetPartner, setTierTargetPartner] = useState<TravelPartner | null>(
+    null,
+  );
+  const [selectedTier, setSelectedTier] = useState<AgencyTier>("GOLD");
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(0);
@@ -157,6 +180,11 @@ export default function TravelPartnersPage() {
     APPROVED: 0,
     REJECTED: 0,
   });
+  const canUpdateTier = Boolean(
+    isSuperAdmin(user?.roles) ||
+      isSalesManagerRole(user?.roles) ||
+      isZonalManagerSalesRole(user?.roles),
+  );
 
   const fetchPartners = useCallback(async () => {
     setLoading(true);
@@ -239,6 +267,32 @@ export default function TravelPartnersPage() {
       setSelectedPartner(null);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const openTierModal = useCallback((partner: TravelPartner) => {
+    setTierTargetPartner(partner);
+    setSelectedTier(partner.agencyTier ?? "GOLD");
+    setShowTierModal(true);
+  }, []);
+
+  const handleUpdateTier = async () => {
+    if (!tierTargetPartner) return;
+    setTierUpdating(true);
+    try {
+      await adminService.updateTravelAgentAgencyTier(tierTargetPartner.id, {
+        agencyTier: selectedTier,
+      });
+      await fetchPartners();
+      if (selectedPartner?.id === tierTargetPartner.id) {
+        setSelectedPartner((prev) =>
+          prev ? { ...prev, agencyTier: selectedTier } : prev,
+        );
+      }
+      setShowTierModal(false);
+      setTierTargetPartner(null);
+    } finally {
+      setTierUpdating(false);
     }
   };
 
@@ -411,15 +465,27 @@ export default function TravelPartnersPage() {
                         </td>
                       )}
                       <td className="px-6 py-4 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5 border-gray-300 hover:border-[#2f3d95] hover:bg-[#2f3d95]/5 hover:text-[#2f3d95]"
-                          onClick={() => openPartnerDetail(partner)}
-                        >
-                          <Eye className="h-4 w-4" />
-                          View
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          {activeTab === "APPROVED" && canUpdateTier && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                              onClick={() => void openTierModal(partner)}
+                            >
+                              Tier
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 border-gray-300 hover:border-[#2f3d95] hover:bg-[#2f3d95]/5 hover:text-[#2f3d95]"
+                            onClick={() => openPartnerDetail(partner)}
+                          >
+                            <Eye className="h-4 w-4" />
+                            View
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -617,15 +683,6 @@ export default function TravelPartnersPage() {
                               </dd>
                             </div>
                           </div>
-                          <div className="flex items-start gap-2">
-                            <Phone className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-                            <div>
-                              <dt className="text-gray-500">Phone</dt>
-                              <dd className="font-medium text-gray-900">
-                                {selectedPartner.phone ?? "—"}
-                              </dd>
-                            </div>
-                          </div>
                         </dl>
                       </section>
                       <section className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
@@ -640,6 +697,15 @@ export default function TravelPartnersPage() {
                               <dt className="text-gray-500">Agency number</dt>
                               <dd className="font-medium text-gray-900">
                                 {selectedPartner.agencyNumber ?? "—"}
+                              </dd>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <Briefcase className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
+                            <div>
+                              <dt className="text-gray-500">Agency tier</dt>
+                              <dd className="font-medium text-gray-900">
+                                {selectedPartner.agencyTier ?? "—"}
                               </dd>
                             </div>
                           </div>
@@ -835,6 +901,58 @@ export default function TravelPartnersPage() {
         isLoading={isProcessing}
         title="Reject Partner"
       />
+      {showTierModal && tierTargetPartner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-emerald-100 p-6">
+            <h3 className="text-lg font-semibold text-gray-900">Update Tier</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              Update agency tier for {tierTargetPartner.name}.
+            </p>
+            <div className="mt-4">
+              <label
+                htmlFor="agency-tier"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Agency Tier
+              </label>
+              <select
+                id="agency-tier"
+                value={selectedTier}
+                onChange={(e) => setSelectedTier(e.target.value as AgencyTier)}
+                className="w-full h-10 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                {AGENCY_TIER_OPTIONS.map((tier) => (
+                  <option key={tier.value} value={tier.value}>
+                    {tier.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (tierUpdating) return;
+                  setShowTierModal(false);
+                  setTierTargetPartner(null);
+                }}
+                disabled={tierUpdating}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => void handleUpdateTier()}
+                disabled={tierUpdating}
+                isLoading={tierUpdating}
+                className="bg-emerald-600 hover:bg-emerald-700 border-0 text-white"
+              >
+                Update Tier
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
