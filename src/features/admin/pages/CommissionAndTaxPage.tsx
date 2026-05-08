@@ -146,6 +146,7 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hotels, setHotels] = useState<ApprovedHotelItem[]>([]);
   const [isLoadingHotels, setIsLoadingHotels] = useState(false);
+  const todayIso = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
     if (mode === "edit" && commission) {
@@ -217,6 +218,8 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
 
     if (!formData.effectiveFrom) {
       newErrors.effectiveFrom = "Effective from date is required";
+    } else if (formData.effectiveFrom < todayIso) {
+      newErrors.effectiveFrom = "Effective from date cannot be in the past.";
     }
 
     setErrors(newErrors);
@@ -239,6 +242,31 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
       onClose();
     } catch (error: any) {
       console.error("Error submitting form:", error);
+      const fieldErrors =
+        error?.data?.data ||
+        error?.response?.data?.data ||
+        error?.data ||
+        error?.response?.data ||
+        {};
+      const nextErrors: Record<string, string> = {};
+      if (fieldErrors?.effectiveFrom) {
+        nextErrors.effectiveFrom = String(fieldErrors.effectiveFrom);
+      }
+      if (fieldErrors?.scope) {
+        nextErrors.scope = String(fieldErrors.scope);
+      }
+      if (fieldErrors?.scopeValue) {
+        nextErrors.scopeValue = String(fieldErrors.scopeValue);
+      }
+      if (fieldErrors?.commissionType) {
+        nextErrors.commissionType = String(fieldErrors.commissionType);
+      }
+      if (fieldErrors?.commissionValue) {
+        nextErrors.commissionValue = String(fieldErrors.commissionValue);
+      }
+      if (Object.keys(nextErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...nextErrors }));
+      }
       const errorMessage =
         error?.message ||
         error?.response?.data?.message ||
@@ -438,6 +466,7 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
               onChange={(e) =>
                 setFormData({ ...formData, effectiveFrom: e.target.value })
               }
+              min={todayIso}
               error={errors.effectiveFrom}
               required
               icon={<Calendar className="w-4 h-4 text-gray-400" />}

@@ -59,6 +59,9 @@ const CreatePropertyPage = lazy(
 const NotFoundPage = lazy(
   () => import("../features/common/pages/NotFoundPage"),
 );
+const ComingSoonPage = lazy(
+  () => import("../features/common/pages/ComingSoonPage"),
+);
 
 // Lazy load auth pages
 const OtpVerificationPage = lazy(
@@ -412,6 +415,18 @@ export const routes: RouteObject[] = [
       {
         path: "profile",
         element: <MyProfilePage />,
+      },
+      {
+        path: "more",
+        element: <ComingSoonPage />,
+      },
+      {
+        path: "analytics",
+        element: <ComingSoonPage />,
+      },
+      {
+        path: "ratings-reviews",
+        element: <ComingSoonPage />,
       },
     ],
   },

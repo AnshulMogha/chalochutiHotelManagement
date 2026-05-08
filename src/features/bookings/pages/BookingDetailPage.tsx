@@ -540,7 +540,7 @@ export default function BookingDetailPage() {
                     )}
                   />
                   <RateRow
-                    label="6. GST on commission"
+                    label="6. GST on commission @18%"
                     value={formatCurrency(
                       rateBreakup?.commissionGst,
                       rateBreakup?.currency,
