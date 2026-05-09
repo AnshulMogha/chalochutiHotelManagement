@@ -78,6 +78,24 @@ interface RoomTypesGridProps {
     maxStay?: number | null | undefined,
     cutoffTime?: string | null | undefined
   ) => void;
+  onCommonRestrictionUpdate?: (
+    roomId: number,
+    date: string,
+    patch: {
+      minStay?: number | null;
+      maxStay?: number | null;
+      cta?: boolean;
+      ctd?: boolean;
+    },
+  ) => void;
+  activeRestrictionEdit?: {
+    roomId: number;
+    date: string;
+    minStay?: number | null;
+    maxStay?: number | null;
+    cta?: boolean;
+    ctd?: boolean;
+  } | null;
   activeRateEdit: {
     ratePlanId: number;
     roomId: number;
@@ -116,6 +134,8 @@ export const RoomTypesGrid = ({
   customerType,
   onRatePlanUpdate,
   activeRateEdit,
+  onCommonRestrictionUpdate,
+  activeRestrictionEdit = null,
   hidePaidChildCharge = false,
   childPolicy = null,
   onOpenLinkRatePlans,
@@ -232,9 +252,8 @@ export const RoomTypesGrid = ({
                     : "";
 
               const isThisCellEdited =
-                activeRateEdit?.roomId === firstRoom?.roomId &&
-                activeRateEdit?.ratePlanId === firstRoomFirstRatePlan?.ratePlanId &&
-                activeRateEdit?.date === dateStr;
+                activeRestrictionEdit?.roomId === firstRoom?.roomId &&
+                activeRestrictionEdit?.date === dateStr;
               const canEdit =
                 Boolean(firstRoom && firstRoomFirstRatePlan) &&
                 isSelected &&
@@ -257,18 +276,9 @@ export const RoomTypesGrid = ({
                       if (!canEdit || !firstRoom || !firstRoomFirstRatePlan) return;
                       const inputValue =
                         e.target.value === "" ? null : Number(e.target.value);
-                      onRatePlanUpdate(
-                        firstRoomFirstRatePlan.ratePlanId,
-                        firstRoom.roomId,
-                        dateStr,
-                        dayData?.baseRate ?? 0,
-                        dayData?.singleOccupancyRate ?? null,
-                        dayData?.extraAdultCharge ?? 0,
-                        dayData?.paidChildCharge ?? 0,
-                        inputValue ?? undefined,
-                        dayData?.maxStay ?? undefined,
-                        dayData?.cutoffTime ?? undefined,
-                      );
+                      onCommonRestrictionUpdate?.(firstRoom.roomId, dateStr, {
+                        minStay: inputValue,
+                      });
                       setCommonRestrictionLocalValues((prev) => {
                         const next = new Map(prev);
                         next.set(cellKey, e.target.value);
@@ -345,9 +355,8 @@ export const RoomTypesGrid = ({
                     : "";
 
               const isThisCellEdited =
-                activeRateEdit?.roomId === firstRoom?.roomId &&
-                activeRateEdit?.ratePlanId === firstRoomFirstRatePlan?.ratePlanId &&
-                activeRateEdit?.date === dateStr;
+                activeRestrictionEdit?.roomId === firstRoom?.roomId &&
+                activeRestrictionEdit?.date === dateStr;
               const canEdit =
                 Boolean(firstRoom && firstRoomFirstRatePlan) &&
                 isSelected &&
@@ -370,18 +379,9 @@ export const RoomTypesGrid = ({
                       if (!canEdit || !firstRoom || !firstRoomFirstRatePlan) return;
                       const inputValue =
                         e.target.value === "" ? null : Number(e.target.value);
-                      onRatePlanUpdate(
-                        firstRoomFirstRatePlan.ratePlanId,
-                        firstRoom.roomId,
-                        dateStr,
-                        dayData?.baseRate ?? 0,
-                        dayData?.singleOccupancyRate ?? null,
-                        dayData?.extraAdultCharge ?? 0,
-                        dayData?.paidChildCharge ?? 0,
-                        dayData?.minStay ?? undefined,
-                        inputValue ?? undefined,
-                        dayData?.cutoffTime ?? undefined,
-                      );
+                      onCommonRestrictionUpdate?.(firstRoom.roomId, dateStr, {
+                        maxStay: inputValue,
+                      });
                       setCommonRestrictionLocalValues((prev) => {
                         const next = new Map(prev);
                         next.set(cellKey, e.target.value);
@@ -454,8 +454,13 @@ export const RoomTypesGrid = ({
               const isSelected = isSameDay(date, activeDate);
               const dateStr = format(date, "yyyy-MM-dd");
               const ctaValue = getCommonBooleanRestrictionValue(dateStr, "cta");
-              const yesNoText =
-                ctaValue === null ? "-" : ctaValue ? "Yes" : "No";
+              const isThisCellEdited =
+                activeRestrictionEdit?.roomId === firstRoom?.roomId &&
+                activeRestrictionEdit?.date === dateStr;
+              const canEdit =
+                Boolean(firstRoom) && isSelected && (!isLocked || isThisCellEdited);
+              const displayValue =
+                ctaValue ?? false;
 
               return (
                 <div
@@ -466,9 +471,23 @@ export const RoomTypesGrid = ({
                     ${isSelected ? getSelectedColumnBg(date) : ""}
                   `}
                 >
-                  <div className="w-20 h-11 border rounded-lg font-semibold text-sm text-center flex items-center justify-center bg-white border-slate-300 text-slate-700">
-                    {yesNoText}
-                  </div>
+                  <button
+                    type="button"
+                    disabled={!canEdit}
+                    onClick={() => {
+                      if (!canEdit || !firstRoom) return;
+                      onCommonRestrictionUpdate?.(firstRoom.roomId, dateStr, {
+                        cta: !displayValue,
+                      });
+                    }}
+                    className={`w-20 h-11 border rounded-lg font-semibold text-sm text-center flex items-center justify-center transition-colors ${
+                      canEdit
+                        ? "cursor-pointer bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                        : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                    }`}
+                  >
+                    {displayValue ? "Yes" : "No"}
+                  </button>
                   <div className="mt-2.5 h-[14px]" aria-hidden="true" />
                 </div>
               );
@@ -495,8 +514,13 @@ export const RoomTypesGrid = ({
               const isSelected = isSameDay(date, activeDate);
               const dateStr = format(date, "yyyy-MM-dd");
               const ctdValue = getCommonBooleanRestrictionValue(dateStr, "ctd");
-              const yesNoText =
-                ctdValue === null ? "-" : ctdValue ? "Yes" : "No";
+              const isThisCellEdited =
+                activeRestrictionEdit?.roomId === firstRoom?.roomId &&
+                activeRestrictionEdit?.date === dateStr;
+              const canEdit =
+                Boolean(firstRoom) && isSelected && (!isLocked || isThisCellEdited);
+              const displayValue =
+                ctdValue ?? false;
 
               return (
                 <div
@@ -507,9 +531,23 @@ export const RoomTypesGrid = ({
                     ${isSelected ? getSelectedColumnBg(date) : ""}
                   `}
                 >
-                  <div className="w-20 h-11 border rounded-lg font-semibold text-sm text-center flex items-center justify-center bg-white border-slate-300 text-slate-700">
-                    {yesNoText}
-                  </div>
+                  <button
+                    type="button"
+                    disabled={!canEdit}
+                    onClick={() => {
+                      if (!canEdit || !firstRoom) return;
+                      onCommonRestrictionUpdate?.(firstRoom.roomId, dateStr, {
+                        ctd: !displayValue,
+                      });
+                    }}
+                    className={`w-20 h-11 border rounded-lg font-semibold text-sm text-center flex items-center justify-center transition-colors ${
+                      canEdit
+                        ? "cursor-pointer bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                        : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                    }`}
+                  >
+                    {displayValue ? "Yes" : "No"}
+                  </button>
                   <div className="mt-2.5 h-[14px]" aria-hidden="true" />
                 </div>
               );

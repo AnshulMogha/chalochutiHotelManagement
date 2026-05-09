@@ -1139,7 +1139,7 @@ export default function BulkUpdateRatesPage() {
                                             ),
                                           )
                                         }
-                                        placeholder="₹ 1"
+                                        placeholder=""
                                         min="1"
                                         disabled={isSubmitting}
                                         className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
@@ -1190,7 +1190,7 @@ export default function BulkUpdateRatesPage() {
                                             ),
                                           )
                                         }
-                                        placeholder="₹ 1"
+                                        placeholder=""
                                         min="1"
                                         disabled={isSubmitting}
                                         className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
@@ -1232,7 +1232,7 @@ export default function BulkUpdateRatesPage() {
                                               ),
                                             )
                                           }
-                                          placeholder="₹ 1"
+                                          placeholder=""
                                           min="1"
                                           disabled={isSubmitting}
                                           className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
@@ -1305,7 +1305,7 @@ export default function BulkUpdateRatesPage() {
                                               ),
                                             )
                                           }
-                                          placeholder="₹ 1"
+                                          placeholder=""
                                           min="1"
                                           disabled={isSubmitting}
                                           className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"

@@ -61,6 +61,15 @@ interface ActiveRateEdit {
   cutoffTime?: string | null;
 }
 
+interface ActiveRestrictionEdit {
+  roomId: number;
+  date: string;
+  minStay?: number | null;
+  maxStay?: number | null;
+  cta?: boolean;
+  ctd?: boolean;
+}
+
 export default function Layout() {
   const { user } = useAuth();
   const isReadOnly = !canEditModule(user, "RATES_INVENTORY");
@@ -265,6 +274,8 @@ export default function Layout() {
   
   // Track only the current active rate plan edit
   const [activeRateEdit, setActiveRateEdit] = useState<ActiveRateEdit | null>(null);
+  const [activeRestrictionEdit, setActiveRestrictionEdit] =
+    useState<ActiveRestrictionEdit | null>(null);
 
   // Track updating state per cell: key = `${roomId}-${dateStr}`
   const [updatingCells, setUpdatingCells] = useState<Set<string>>(new Set());
@@ -281,7 +292,8 @@ export default function Layout() {
   // Flag to prevent API calls when canceling
   const isCancelingRef = useRef(false);
 
-  const hasChanges = activeEdit !== null || activeRateEdit !== null;
+  const hasChanges =
+    activeEdit !== null || activeRateEdit !== null || activeRestrictionEdit !== null;
 
   // Reset all changes when switching between room-types and rate-plans tabs
   useEffect(() => {
@@ -301,6 +313,7 @@ export default function Layout() {
       setRateRooms(originalData);
     }
     setActiveRateEdit(null);
+    setActiveRestrictionEdit(null);
     
     // Clear any updating cells state
     setUpdatingCells(new Set());
@@ -724,6 +737,17 @@ export default function Layout() {
         activeRateEdit.cutoffTime,
       );
     }
+
+    if (activeRestrictionEdit) {
+      await handleSingleRestrictionUpdate(
+        activeRestrictionEdit.roomId,
+        activeRestrictionEdit.date,
+        activeRestrictionEdit.minStay,
+        activeRestrictionEdit.maxStay,
+        activeRestrictionEdit.cta,
+        activeRestrictionEdit.ctd,
+      );
+    }
   };
 
 
@@ -744,6 +768,7 @@ export default function Layout() {
       setRateRooms(originalData);
     }
     setActiveRateEdit(null);
+    setActiveRestrictionEdit(null);
     
     // Clear any updating cells state
     setUpdatingCells(new Set());
@@ -818,6 +843,79 @@ export default function Layout() {
     }));
   };
 
+  const handleCommonRestrictionUpdate = (
+    roomId: number,
+    date: string,
+    patch: {
+      minStay?: number | null;
+      maxStay?: number | null;
+      cta?: boolean;
+      ctd?: boolean;
+    },
+  ) => {
+    if (isReadOnly) return;
+
+    setRooms((prev) =>
+      prev.map((room) =>
+        room.roomId !== roomId
+          ? room
+          : {
+              ...room,
+              days: room.days.map((day) =>
+                day.date !== date
+                  ? day
+                  : {
+                      ...day,
+                      ...(patch.minStay !== undefined && { minStay: patch.minStay }),
+                      ...(patch.maxStay !== undefined && { maxStay: patch.maxStay }),
+                      ...(patch.cta !== undefined && { cta: patch.cta }),
+                      ...(patch.ctd !== undefined && { ctd: patch.ctd }),
+                    },
+              ),
+            },
+      ),
+    );
+
+    setActiveRestrictionEdit((prev) => ({
+      roomId,
+      date,
+      ...(prev?.roomId === roomId && prev?.date === date ? prev : {}),
+      ...patch,
+    }));
+  };
+
+  const handleSingleRestrictionUpdate = async (
+    roomId: number,
+    date: string,
+    minStay?: number | null,
+    maxStay?: number | null,
+    cta?: boolean,
+    ctd?: boolean,
+  ) => {
+    const inventoryRoom = rooms.find((room) => room.roomId === roomId);
+    const inventoryDay = inventoryRoom?.days.find((day) => day.date === date);
+    if (!inventoryDay) return;
+
+    try {
+      await inventoryService.updateInventory({
+        roomId,
+        date,
+        totalRooms: inventoryDay.total,
+        status: inventoryDay.status,
+        minStay: minStay !== undefined ? minStay : inventoryDay.minStay ?? null,
+        maxStay: maxStay !== undefined ? maxStay : inventoryDay.maxStay ?? null,
+        cta: cta !== undefined ? cta : inventoryDay.cta,
+        ctd: ctd !== undefined ? ctd : inventoryDay.ctd,
+      });
+
+      setActiveRestrictionEdit(null);
+      showToast("Restrictions updated successfully", "success");
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to update restrictions";
+      showToast(errorMessage, "error");
+    }
+  };
+
   // Handle single day rate update via API - ONLY called from Save button
   const handleSingleRateUpdate = async (
     ratePlanId: number,
@@ -864,9 +962,6 @@ export default function Layout() {
       singleOccupancyRate: singleOccupancyRate !== undefined ? singleOccupancyRate : (dayData?.singleOccupancyRate ?? null),
       extraAdultCharge: extraAdultCharge !== undefined ? extraAdultCharge : (dayData?.extraAdultCharge ?? 0),
       paidChildCharge: paidChildCharge !== undefined ? paidChildCharge : (dayData?.paidChildCharge ?? 0),
-      minStay: minStay !== undefined ? minStay : (dayData?.minStay ?? null),
-      maxStay: maxStay !== undefined ? maxStay : (dayData?.maxStay ?? null),
-      cutoffTime: cutoffTime !== undefined ? cutoffTime : (dayData?.cutoffTime ?? null),
       currency: dayData?.currency ?? "INR",
     };
 
@@ -1071,6 +1166,8 @@ export default function Layout() {
                   customerType={currentCustomerType}
                   onRatePlanUpdate={handleRatePlanUpdate}
                   activeRateEdit={activeRateEdit}
+                  onCommonRestrictionUpdate={handleCommonRestrictionUpdate}
+                  activeRestrictionEdit={activeRestrictionEdit}
                   hidePaidChildCharge={childPolicyNotFound}
                   childPolicy={childPolicy}
                   onOpenLinkRatePlans={openLinkRatePlansFromGrid}

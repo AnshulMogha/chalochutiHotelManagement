@@ -87,6 +87,10 @@ export interface UpdateInventoryRequest {
   date: string; // YYYY-MM-DD
   totalRooms: number;
   status: "OPEN" | "CLOSED";
+  minStay?: number | null;
+  maxStay?: number | null;
+  cta?: boolean;
+  ctd?: boolean;
 }
 
 /** Weekday values expected by POST /hotel/inventory/bulk/rooms */

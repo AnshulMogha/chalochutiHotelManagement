@@ -25,9 +25,9 @@ export interface UpdateSingleRateRequest {
   singleOccupancyRate?: number | null;
   extraAdultCharge: number;
   paidChildCharge: number;
-  minStay: number | null;
-  maxStay: number | null;
-  cutoffTime: string | null;
+  minStay?: number | null;
+  maxStay?: number | null;
+  cutoffTime?: string | null;
   currency: string | null;
 }
 

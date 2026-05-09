@@ -982,7 +982,7 @@ export const RatePlansGrid = ({
                                   ${!extraAdultCharge && canEdit ? 'text-rose-600' : ''}
                                   focus:outline-none
                                 `}
-                                placeholder={canEdit ? '1' : '—'}
+                                placeholder={canEdit ? '' : '—'}
                               />
 
                               <div className="flex flex-col items-center mt-2.5 gap-0.5">
@@ -1102,7 +1102,7 @@ export const RatePlansGrid = ({
                                   ${!paidChildCharge && canEdit ? 'text-rose-600' : ''}
                                   focus:outline-none
                                 `}
-                                  placeholder={canEdit ? '1' : '—'}
+                                  placeholder={canEdit ? '' : '—'}
                                 />
 
                                 <div className="flex flex-col items-center mt-2.5 gap-0.5">
