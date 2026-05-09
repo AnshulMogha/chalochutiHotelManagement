@@ -50,27 +50,27 @@ const PROMOTION_TYPES = {
     title: "Member Promotion",
     subtitle:
       "Attract more bookings with special discounts for registered members of MakeMyTrip & Golbibo.",
-    type: "BASIC" as const,
+    type: "SPECIAL_AUDIENCE" as const,
     audienceType: "MEMBER" as const,
   },
   "holiday-flights": {
     title: "Holiday+Flights Promotion",
     subtitle:
       "We're the top choice for 1 out of every 3 holiday bookings and flight bookings made in India! Seize this opportunity to attract more guests by offering exclusive discounts.",
-    type: "BASIC" as const,
+    type: "SPECIAL_AUDIENCE" as const,
     audienceType: "HOLIDAY_FLIGHTS" as const,
   },
   mobile: {
     title: "Mobile phones Promotion",
     subtitle:
       "More than 85% customers book through their mobile phones. Offer discounts to attract mobile bookers and increase your revenue.",
-    type: "BASIC" as const,
+    type: "SPECIAL_AUDIENCE" as const,
     audienceType: "MOBILE" as const,
   },
   mypartner: {
     title: "MyPartner Promotion",
     subtitle: "",
-    type: "BASIC" as const,
+    type: "SPECIAL_AUDIENCE" as const,
     audienceType: "MY_PARTNER" as const,
   },
 };
@@ -149,17 +149,8 @@ export default function CreatePromotionPage() {
   );
   const [loadingRooms, setLoadingRooms] = useState(false);
   const fetchingRoomsRef = useRef(false);
-  const [myPartnerAudienceType, setMyPartnerAudienceType] = useState<
-    | "MEMBER"
-    | "HOLIDAY_FLIGHT"
-    | "MOBILE"
-    | "MYBIZ"
-    | "INTERNATIONAL"
-    | "MYPARTNER"
-  >("MYPARTNER");
-  const [myPartnerApplyChannel, setMyPartnerApplyChannel] = useState<
-    "B2C" | "B2B" | "MYBIZ" | "PARTNER" | "PACKAGE"
-  >("PARTNER");
+  const MY_PARTNER_AUDIENCE = "MYPARTNER" as const;
+  const MY_PARTNER_CHANNEL = "B2B" as const;
 
   const promotionConfig = type
     ? PROMOTION_TYPES[type as keyof typeof PROMOTION_TYPES]
@@ -409,7 +400,7 @@ export default function CreatePromotionPage() {
           ? 0
           : extraLoggedDiscounts.reduce((sum, val) => sum + val, 0),
         audienceType: isMyPartner
-          ? myPartnerAudienceType
+          ? MY_PARTNER_AUDIENCE
           : isSpecialAudience && promotionConfig?.audienceType
             ? promotionConfig.audienceType
             : undefined,
@@ -469,7 +460,7 @@ export default function CreatePromotionPage() {
             ? Array.from(selectedRatePlanIds).map(Number)
             : undefined,
         applyChannel: isMyPartner
-          ? myPartnerApplyChannel
+          ? MY_PARTNER_CHANNEL
           : formData.applyChannel === "BUNDLED_RATES"
             ? "PACKAGE"
             : formData.applyChannel,
@@ -634,52 +625,16 @@ export default function CreatePromotionPage() {
                   <label className="block text-xs font-medium text-gray-500 mb-2">
                     Audience Type
                   </label>
-                  <select
-                    value={myPartnerAudienceType}
-                    onChange={(e) =>
-                      setMyPartnerAudienceType(
-                        e.target.value as
-                          | "MEMBER"
-                          | "HOLIDAY_FLIGHT"
-                          | "MOBILE"
-                          | "MYBIZ"
-                          | "INTERNATIONAL"
-                          | "MYPARTNER",
-                      )
-                    }
-                    className="w-full max-w-xs mb-4 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
-                  >
-                    <option value="MEMBER">Member</option>
-                    <option value="HOLIDAY_FLIGHT">Holiday + Flight</option>
-                    <option value="MOBILE">Mobile</option>
-                    <option value="MYBIZ">MyBiz</option>
-                    <option value="INTERNATIONAL">International</option>
-                    <option value="MYPARTNER">MyPartner</option>
-                  </select>
+                  <div className="w-full max-w-xs mb-4 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-800">
+                    My Partner
+                  </div>
 
                   <label className="block text-xs font-medium text-gray-500 mb-2">
                     Apply Channel
                   </label>
-                  <select
-                    value={myPartnerApplyChannel}
-                    onChange={(e) =>
-                      setMyPartnerApplyChannel(
-                        e.target.value as
-                          | "B2C"
-                          | "B2B"
-                          | "MYBIZ"
-                          | "PARTNER"
-                          | "PACKAGE",
-                      )
-                    }
-                    className="w-full max-w-xs mb-4 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
-                  >
-                    <option value="B2C">B2C</option>
-                    <option value="B2B">B2B</option>
-                    <option value="MYBIZ">MYBIZ</option>
-                    <option value="PARTNER">PARTNER</option>
-                    <option value="PACKAGE">PACKAGE</option>
-                  </select>
+                  <div className="w-full max-w-xs mb-4 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-800">
+                    B2B
+                  </div>
 
                   <label className="block text-xs font-medium text-gray-500 mb-2">
                     Enter offer value

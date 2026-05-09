@@ -489,7 +489,12 @@ export interface PaymentRuleListResponse {
 }
 
 export interface CreatePromotionPayload {
-  promotionType: "BASIC" | "LAST_MINUTE" | "EARLY_BIRD" | "LONG_STAY";
+  promotionType:
+    | "BASIC"
+    | "LAST_MINUTE"
+    | "EARLY_BIRD"
+    | "LONG_STAY"
+    | "SPECIAL_AUDIENCE";
   offerType: "PERCENTAGE" | "FIXED";
   discountAllUsers: number;
   discountLoggedUsers: number;

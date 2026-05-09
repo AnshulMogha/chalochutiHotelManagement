@@ -406,7 +406,7 @@ export default function PromotionsPage() {
                       Special Audience Promotion
                     </p>
                     <p className="mt-1 text-xs text-gray-500">
-                      Target members, mobile users, corporate travelers, or agency partners with tailored discounts.
+                      Create My Partner promotions with fixed audience type and B2B channel settings.
                     </p>
                   </div>
                 </div>
