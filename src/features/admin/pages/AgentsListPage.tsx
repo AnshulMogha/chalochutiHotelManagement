@@ -4,9 +4,12 @@ import { Button } from "@/components/ui";
 import { ROUTES } from "@/constants";
 import { adminService } from "../services/adminService";
 import type {
+  AgencyTier,
   TravelAgentOnboardingListItem,
   TravelAgentOnboardingItem,
 } from "../services/adminService";
+import { useAuth } from "@/hooks/useAuth";
+import { isSalesManagerRole, isZonalManagerSalesRole } from "@/constants/roles";
 import {
   UserRoundCog,
   Eye,
@@ -32,6 +35,14 @@ import {
 import { cn } from "@/lib/utils";
 import type { TravelPartnerStatus } from "./TravelPartnersPage";
 import type { TravelPartner } from "./TravelPartnersPage";
+
+const AGENCY_TIER_OPTIONS: Array<{ value: AgencyTier; label: string }> = [
+  { value: "DIAMOND", label: "Diamond" },
+  { value: "PLATINUM", label: "Platinum" },
+  { value: "GOLD", label: "Gold" },
+  { value: "SILVER", label: "Silver" },
+  { value: "BRONZE", label: "Bronze" },
+];
 
 function mapListItemToPartner(item: TravelAgentOnboardingListItem): TravelPartner {
   return {
@@ -113,6 +124,10 @@ function isPdfDocument(url?: string) {
 }
 
 export default function AgentsListPage() {
+  const { user } = useAuth();
+  const canUpdateTier =
+    isSalesManagerRole(user?.roles) || isZonalManagerSalesRole(user?.roles);
+
   const [partners, setPartners] = useState<TravelPartner[]>([]);
   const [activeTab, setActiveTab] = useState<TravelPartnerStatus>("PENDING");
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -122,6 +137,10 @@ export default function AgentsListPage() {
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [showTierModal, setShowTierModal] = useState(false);
+  const [tierUpdating, setTierUpdating] = useState(false);
+  const [tierTargetPartner, setTierTargetPartner] = useState<TravelPartner | null>(null);
+  const [selectedTier, setSelectedTier] = useState<AgencyTier>("GOLD");
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(0);
@@ -196,6 +215,32 @@ export default function AgentsListPage() {
       setDetailLoading(false);
     }
   }, []);
+
+  const openTierModal = useCallback((partner: TravelPartner) => {
+    setTierTargetPartner(partner);
+    setSelectedTier(partner.agencyTier ?? "GOLD");
+    setShowTierModal(true);
+  }, []);
+
+  const handleUpdateTier = useCallback(async () => {
+    if (!tierTargetPartner) return;
+    setTierUpdating(true);
+    try {
+      await adminService.updateTravelAgentAgencyTier(tierTargetPartner.id, {
+        agencyTier: selectedTier,
+      });
+      await fetchPartners();
+      setSelectedPartner((prev) =>
+        prev && prev.id === tierTargetPartner.id
+          ? { ...prev, agencyTier: selectedTier }
+          : prev,
+      );
+      setShowTierModal(false);
+      setTierTargetPartner(null);
+    } finally {
+      setTierUpdating(false);
+    }
+  }, [tierTargetPartner, selectedTier, fetchPartners]);
 
   return (
     <div className="min-h-screen bg-linear-to-b from-slate-50 to-emerald-50/30">
@@ -379,6 +424,16 @@ export default function AgentsListPage() {
                       )}
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2 flex-wrap">
+                          {activeTab === "APPROVED" && canUpdateTier && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                              onClick={() => openTierModal(partner)}
+                            >
+                              Tier
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -793,6 +848,59 @@ export default function AgentsListPage() {
               )}
               <Button variant="outline" onClick={closeDetailModal}>
                 Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTierModal && tierTargetPartner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-emerald-100 p-6">
+            <h3 className="text-lg font-semibold text-gray-900">Update Tier</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              Update agency tier for {tierTargetPartner.name}.
+            </p>
+            <div className="mt-4">
+              <label
+                htmlFor="agents-agency-tier"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Agency Tier
+              </label>
+              <select
+                id="agents-agency-tier"
+                value={selectedTier}
+                onChange={(e) => setSelectedTier(e.target.value as AgencyTier)}
+                className="w-full h-10 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                {AGENCY_TIER_OPTIONS.map((tier) => (
+                  <option key={tier.value} value={tier.value}>
+                    {tier.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (tierUpdating) return;
+                  setShowTierModal(false);
+                  setTierTargetPartner(null);
+                }}
+                disabled={tierUpdating}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => void handleUpdateTier()}
+                disabled={tierUpdating}
+                isLoading={tierUpdating}
+                className="bg-emerald-600 hover:bg-emerald-700 border-0 text-white"
+              >
+                Update Tier
               </Button>
             </div>
           </div>
