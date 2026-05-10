@@ -42,6 +42,7 @@ function mapListItemToPartner(item: TravelAgentOnboardingListItem): TravelPartne
     name: item.fullName,
     email: item.email,
     agencyNumber: item.agencyName,
+    agencyTier: item.agencyTier,
   };
 }
 
@@ -54,6 +55,7 @@ function mapOnboardingToPartner(item: TravelAgentOnboardingItem): TravelPartner 
     name: item.fullName,
     email: item.email,
     agencyNumber: item.agencyName,
+    agencyTier: item.agencyTier,
     panNumber: item.panNumber,
     panCardFileUrl: item.panCardDocumentUrl,
     gstNumber: item.gstNumber,
@@ -323,6 +325,11 @@ export default function AgentsListPage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       <span className="inline-flex items-center gap-1.5">
+                        <Briefcase className="h-3.5 w-3.5" /> Tier
+                      </span>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <span className="inline-flex items-center gap-1.5">
                         <CalendarDays className="h-3.5 w-3.5" /> Submitted
                       </span>
                     </th>
@@ -359,6 +366,9 @@ export default function AgentsListPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">{partner.email}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{partner.agencyNumber}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {partner.agencyTier ?? "—"}
+                      </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {formatDate(partner.appliedAt)}
                       </td>
@@ -631,6 +641,15 @@ export default function AgentsListPage() {
                               <dt className="text-gray-500">Agency name</dt>
                               <dd className="font-medium text-gray-900">
                                 {selectedPartner.agencyNumber ?? "—"}
+                              </dd>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <Briefcase className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
+                            <div>
+                              <dt className="text-gray-500">Agency tier</dt>
+                              <dd className="font-medium text-gray-900">
+                                {selectedPartner.agencyTier ?? "—"}
                               </dd>
                             </div>
                           </div>
