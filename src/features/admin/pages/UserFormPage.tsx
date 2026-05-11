@@ -39,6 +39,11 @@ const ROLE_OPTIONS: { value: CreateUserRequest["roles"][number]; label: string }
   { value: "AUDITOR", label: "Auditor" },
 ];
 
+const UPDATE_ONLY_ROLES = new Set<CreateUserRequest["roles"][number]>([
+  "TRAVEL_AGENT_ADMIN",
+  "TRAVEL_AGENT_USER",
+]);
+
 const ALLOWED_SUPER_ADMIN_ROLES = new Set(ROLE_OPTIONS.map((role) => role.value));
 
 const STATUS_OPTIONS = [
@@ -134,6 +139,13 @@ export default function UserFormPage() {
   const isHotelBdSelected = useMemo(
     () => formData.roles.includes("HOTEL_BD"),
     [formData.roles],
+  );
+  const roleOptions = useMemo(
+    () =>
+      isEdit
+        ? ROLE_OPTIONS
+        : ROLE_OPTIONS.filter((option) => !UPDATE_ONLY_ROLES.has(option.value)),
+    [isEdit],
   );
 
   function hydrateFormForEdit(user: User) {
@@ -397,7 +409,7 @@ export default function UserFormPage() {
             </div>
             <p className="mb-3 text-xs text-blue-900/80">Select exactly one role.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
-              {ROLE_OPTIONS.map((option) => {
+              {roleOptions.map((option) => {
                 const checked = formData.roles.includes(option.value);
                 return (
                   <label

@@ -61,6 +61,10 @@ const ROLE_OPTIONS = [
   { value: "HELPDESK_AGENT", label: "Helpdesk Agent" },
   { value: "AUDITOR", label: "Auditor" },
 ];
+const UPDATE_ONLY_ROLES = new Set<CreateUserRequest["roles"][number]>([
+  "TRAVEL_AGENT_ADMIN",
+  "TRAVEL_AGENT_USER",
+]);
 const ALLOWED_SUPER_ADMIN_ROLES = new Set(
   ROLE_OPTIONS.map((role) => role.value),
 );
@@ -86,6 +90,13 @@ function UserFormModal({
   user,
   mode,
 }: UserFormModalProps) {
+  const roleOptions =
+    mode === "edit"
+      ? ROLE_OPTIONS
+      : ROLE_OPTIONS.filter(
+          (option) => !UPDATE_ONLY_ROLES.has(option.value as CreateUserRequest["roles"][number]),
+        );
+
   const [formData, setFormData] = useState<
     CreateUserRequest | UpdateUserRequest
   >({
@@ -369,7 +380,7 @@ function UserFormModal({
               Roles
             </label>
             <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
-              {ROLE_OPTIONS.map((option) => {
+              {roleOptions.map((option) => {
                 const checked = (formData.roles || []).includes(
                   option.value as CreateUserRequest["roles"][number],
                 );
