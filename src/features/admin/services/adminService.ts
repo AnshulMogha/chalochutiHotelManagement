@@ -240,6 +240,8 @@ export type UserRole =
   | "PACKAGE_CREATOR"
   | "PACKAGE_BD"
   | "TRANSPORT_BD"
+  | "TRAVEL_AGENT_ADMIN"
+  | "TRAVEL_AGENT_USER"
   | "SALES_MANAGER"
   | "ZONAL_MANAGER_HOTEL"
   | "ZontalHotelManager"

@@ -51,6 +51,8 @@ const ROLE_OPTIONS = [
   { value: "PACKAGE_CREATOR", label: "Package Creator" },
   { value: "PACKAGE_BD", label: "Package BD" },
   { value: "TRANSPORT_BD", label: "Transport BD" },
+  { value: "TRAVEL_AGENT_ADMIN", label: "Travel Agent Admin" },
+  { value: "TRAVEL_AGENT_USER", label: "Travel Agent User" },
   { value: "SALES_MANAGER", label: "Sales Manager" },
   { value: "ZONAL_MANAGER_HOTEL", label: "Zonal Manager Hotel" },
   { value: "ZONAL_MANAGER_SALES", label: "Zonal Manager Sales" },
