@@ -145,7 +145,7 @@ const getNavItems = (user: User | null): NavItem[] => {
         icon: ImageIcon,
       },
       {
-        label: "Amenities and Restaurants",
+        label: "Amenities",
         path: ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS,
         icon: UtensilsCrossed,
       },
@@ -241,7 +241,7 @@ const getNavItems = (user: User | null): NavItem[] => {
         icon: ImageIcon,
       },
       {
-        label: "Amenities and Restaurants",
+        label: "Amenities",
         path: ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS,
         icon: UtensilsCrossed,
       },

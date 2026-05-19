@@ -14,8 +14,8 @@ export default function AmenitiesAndRestaurantsPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Amenities and Restaurants</h1>
-          <p className="text-gray-500 mt-2">Please select a hotel from the dropdown above to view amenities and restaurants</p>
+          <h1 className="text-3xl font-bold text-gray-900">Amenities</h1>
+          <p className="text-gray-500 mt-2">Please select a hotel from the dropdown above to view amenities</p>
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
           <div className="flex items-center justify-center min-h-[400px]">
@@ -29,9 +29,9 @@ export default function AmenitiesAndRestaurantsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Amenities and Restaurants</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Amenities</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Manage amenities and restaurant options for your hotel
+          Manage hotel and room amenities for your property
         </p>
       </div>
       <ReadOnlySection isReadOnly={isReadOnly}>

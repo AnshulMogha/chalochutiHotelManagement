@@ -223,6 +223,11 @@ export const commissionTaxService = {
     );
     return response.data;
   },
+  deactivateTax: async (id: string | number): Promise<void> => {
+    await apiClient.delete<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.ADMIN.GET_TAX_BY_ID(id),
+    );
+  },
   // Service Fee APIs
   createServiceFee: async (data: CreateServiceFeeRequest): Promise<ServiceFee> => {
     const response = await apiClient.post<ApiSuccessResponse<ServiceFee>>(
@@ -253,6 +258,11 @@ export const commissionTaxService = {
       API_ENDPOINTS.ADMIN.GET_SERVICE_FEE_BY_ID(id)
     );
     return response.data;
+  },
+  deactivateServiceFee: async (id: string | number): Promise<void> => {
+    await apiClient.delete<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.ADMIN.GET_SERVICE_FEE_BY_ID(id),
+    );
   },
 };
 

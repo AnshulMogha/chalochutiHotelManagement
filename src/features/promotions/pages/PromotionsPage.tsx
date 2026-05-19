@@ -1,15 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import {
   adminService,
   type PromotionListItem,
 } from "@/features/admin/services/adminService";
 import { useToast } from "@/components/ui/Toast";
-import { Percent, Clock, Bird, Calendar, Loader2, Crown, Eye } from "lucide-react";
+import {
+  Percent,
+  Clock,
+  Bird,
+  Calendar,
+  Loader2,
+  Crown,
+  Eye,
+  Search,
+} from "lucide-react";
 
 interface PromotionType {
   id: string;
@@ -73,6 +83,7 @@ export default function PromotionsPage() {
   const [totalElements, setTotalElements] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
+  const [promotionSearch, setPromotionSearch] = useState("");
   const [statusCounts, setStatusCounts] = useState({
     all: 0,
     draft: 0,
@@ -107,6 +118,7 @@ export default function PromotionsPage() {
 
   useEffect(() => {
     setPage(0);
+    setPromotionSearch("");
   }, [myPromotionsSubTab]);
 
   const loadPromotions = async () => {
@@ -300,6 +312,33 @@ export default function PromotionsPage() {
     }
   };
 
+  const filteredPromotions = useMemo(() => {
+    const q = promotionSearch.trim().toLowerCase();
+    if (!q) return promotions;
+    return promotions.filter((promotion) => {
+      const name = (promotion.promotionName ?? "").toLowerCase();
+      const type = (promotion.promotionType ?? "").toLowerCase();
+      const typeLabel = getPromotionTypeLabel(promotion.promotionType).toLowerCase();
+      const status = (promotion.status ?? "").toLowerCase();
+      const offerType = (promotion.offerType ?? "").toLowerCase();
+      const discount = String(promotion.discountAllUsers ?? "").toLowerCase();
+      const expiring = (promotion.expiringLabel ?? "").toLowerCase();
+      const lastModified = promotion.lastModified
+        ? new Date(promotion.lastModified).toLocaleDateString().toLowerCase()
+        : "";
+      return (
+        name.includes(q) ||
+        type.includes(q) ||
+        typeLabel.includes(q) ||
+        status.includes(q) ||
+        offerType.includes(q) ||
+        discount.includes(q) ||
+        expiring.includes(q) ||
+        lastModified.includes(q)
+      );
+    });
+  }, [promotions, promotionSearch]);
+
   const activeCount = statusCounts.active;
 
   return (
@@ -478,6 +517,32 @@ export default function PromotionsPage() {
               </div>
             ) : (
               <>
+                <div className="px-4 pt-4 pb-2 border-b border-gray-100">
+                  <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <Input
+                      type="text"
+                      placeholder="Search promotions..."
+                      value={promotionSearch}
+                      onChange={(e) => setPromotionSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+                {filteredPromotions.length === 0 ? (
+                  <div className="text-center py-12 px-6">
+                    <p className="text-gray-500 mb-4">
+                      No promotions match your search.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => setPromotionSearch("")}
+                    >
+                      Clear search
+                    </Button>
+                  </div>
+                ) : (
+                <>
                 <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-white border-b border-gray-200">
@@ -506,7 +571,7 @@ export default function PromotionsPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {promotions.map((promotion) => (
+                    {filteredPromotions.map((promotion) => (
                       <tr
                         key={promotion.id}
                         className="hover:bg-blue-50/60 transition-colors"
@@ -621,8 +686,17 @@ export default function PromotionsPage() {
                 </div>
                 <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="text-sm text-gray-600">
-                  Showing page {totalPages === 0 ? 0 : page + 1} of {totalPages} (
-                  {totalElements} total)
+                  {promotionSearch.trim() ? (
+                    <>
+                      Showing {filteredPromotions.length} of {promotions.length}{" "}
+                      on this page ({totalElements} total)
+                    </>
+                  ) : (
+                    <>
+                      Showing page {totalPages === 0 ? 0 : page + 1} of{" "}
+                      {totalPages} ({totalElements} total)
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <label
@@ -663,6 +737,8 @@ export default function PromotionsPage() {
                   </Button>
                 </div>
                 </div>
+                </>
+                )}
               </>
             )}
           </div>

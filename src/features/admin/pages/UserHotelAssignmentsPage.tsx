@@ -55,7 +55,7 @@ const HOTEL_BD_PERMISSION_MODULES: { value: PermissionModule; label: string }[] 
   { value: "PROPERTY_PHOTOS_VIDEOS", label: "Property - Photos & Videos" },
   {
     value: "PROPERTY_AMENITIES_RESTAURANTS",
-    label: "Property - Amenities & Restaurants",
+    label: "Property - Amenities",
   },
   { value: "PROPERTY_POLICY_RULES", label: "Property - Policy & Rules" },
   { value: "PROPERTY_DOCUMENT", label: "Property - Documents" },

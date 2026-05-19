@@ -54,6 +54,17 @@ export function RoomDetailsStep({
     setRoomDetailsState(setRoomSize(value));
   }
 
+  function handleRoomSizeInputChange(rawValue: string) {
+    if (rawValue === "") {
+      handleRoomSizeChange(0);
+      return;
+    }
+    const parsed = Number(rawValue);
+    if (!Number.isNaN(parsed)) {
+      handleRoomSizeChange(parsed);
+    }
+  }
+
   function handleRoomSizeUnitChange(value: "SQFT" | "SQM") {
     if (errors.roomDetails?.roomSizeUnit) {
       resetFieldError("roomDetails", "roomSizeUnit");
@@ -76,11 +87,20 @@ export function RoomDetailsStep({
   }
 
   function handleTotalRoomsChange(value: number) {
-    if (value >= 1) {
-      if (errors.roomDetails?.totalRooms) {
-        resetFieldError("roomDetails", "totalRooms");
-      }
-      setRoomDetailsState(setTotalRooms(value));
+    if (errors.roomDetails?.totalRooms) {
+      resetFieldError("roomDetails", "totalRooms");
+    }
+    setRoomDetailsState(setTotalRooms(value));
+  }
+
+  function handleTotalRoomsInputChange(rawValue: string) {
+    if (rawValue === "") {
+      handleTotalRoomsChange(0);
+      return;
+    }
+    const parsed = Number(rawValue);
+    if (!Number.isNaN(parsed)) {
+      handleTotalRoomsChange(parsed);
     }
   }
 
@@ -173,11 +193,12 @@ export function RoomDetailsStep({
             <Input
               type="number"
               placeholder="Enter room size"
-              value={roomDetails.roomSize}
+              min={1}
+              value={roomDetails.roomSize > 0 ? roomDetails.roomSize : ""}
               error={errors.roomDetails?.roomSize}
               className="flex-1"
               required
-              onChange={(e) => handleRoomSizeChange(Number(e.target.value))}
+              onChange={(e) => handleRoomSizeInputChange(e.target.value)}
             />
 
             <Select
@@ -201,28 +222,30 @@ export function RoomDetailsStep({
               Number of Rooms (Inventory) <span className="text-red-500">*</span>
             </label>
 
-            <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-2">
               <button
                 type="button"
-                className="w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-10 h-10 shrink-0 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => handleDecrementTotalRooms()}
                 disabled={roomDetails.totalRooms <= 1}
               >
                 <Minus className="w-4 h-4 text-gray-600" />
               </button>
 
-              <Input
-                type="number"
-                className="w-24 text-center font-medium"
-                error={errors.roomDetails?.totalRooms}
-                min={1}
-                value={roomDetails.totalRooms}
-                onChange={(e) => handleTotalRoomsChange(Number(e.target.value))}
-              />
+              <div className="w-24 shrink-0">
+                <Input
+                  type="number"
+                  className="w-full text-center font-medium"
+                  error={errors.roomDetails?.totalRooms}
+                  min={1}
+                  value={roomDetails.totalRooms >= 1 ? roomDetails.totalRooms : ""}
+                  onChange={(e) => handleTotalRoomsInputChange(e.target.value)}
+                />
+              </div>
 
               <button
                 type="button"
-                className="w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors"
+                className="w-10 h-10 shrink-0 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors"
                 onClick={() => handleIncrementTotalRooms()}
               >
                 <Plus className="w-4 h-4 text-gray-600" />
@@ -237,28 +260,30 @@ export function RoomDetailsStep({
               Number of Bathrooms <span className="text-red-500">*</span>
             </label>
 
-            <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-2">
               <button
                 type="button"
-                className="w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-10 h-10 shrink-0 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => handleDecrementNumberOfBathrooms()}
                 disabled={roomDetails.numberOfBathrooms <= 1}
               >
                 <Minus className="w-4 h-4 text-gray-600" />
               </button>
 
-              <Input
-                type="number"
-                className="w-24 text-center font-medium"
-                error={errors.roomDetails?.numberOfBathrooms}
-                min={1}
-                value={roomDetails.numberOfBathrooms}
-                onChange={(e) => handleNumberOfBathroomsChange(Number(e.target.value))}
-              />
+              <div className="w-24 shrink-0">
+                <Input
+                  type="number"
+                  className="w-full text-center font-medium"
+                  error={errors.roomDetails?.numberOfBathrooms}
+                  min={1}
+                  value={roomDetails.numberOfBathrooms}
+                  onChange={(e) => handleNumberOfBathroomsChange(Number(e.target.value))}
+                />
+              </div>
 
               <button
                 type="button"
-                className="w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors"
+                className="w-10 h-10 shrink-0 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors"
                 onClick={() => handleIncrementNumberOfBathrooms()}
               >
                 <Plus className="w-4 h-4 text-gray-600" />

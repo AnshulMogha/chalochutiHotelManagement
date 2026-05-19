@@ -90,7 +90,7 @@ const PERMISSION_MODULES: { value: PermissionModule; label: string }[] = [
   { value: "PROPERTY_BASIC_INFO", label: "Property - Basic Information" },
   { value: "PROPERTY_ROOMS_RATEPLANS", label: "Property - Rooms & Rate Plans" },
   { value: "PROPERTY_PHOTOS_VIDEOS", label: "Property - Photos & Videos" },
-  { value: "PROPERTY_AMENITIES_RESTAURANTS", label: "Property - Amenities & Restaurants" },
+  { value: "PROPERTY_AMENITIES_RESTAURANTS", label: "Property - Amenities" },
   { value: "PROPERTY_POLICY_RULES", label: "Property - Policy & Rules" },
   { value: "PROPERTY_FINANCE", label: "Property - Finance" },
   { value: "PROPERTY_DOCUMENT", label: "Property - Documents" },
@@ -940,6 +940,8 @@ export default function MyTeamPage() {
   const [searchParams] = useSearchParams();
   const selectedHotelId = searchParams.get("hotelId");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchFilter, setSearchFilter] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
@@ -1030,6 +1032,47 @@ export default function MyTeamPage() {
       setIsLoading(false);
     }
   }, [selectedHotelId]);
+
+  useEffect(() => {
+    setSearchInput("");
+    setSearchFilter("");
+  }, [selectedHotelId]);
+
+  const displayedTeamMembers = useMemo(() => {
+    const query = searchFilter.trim().toLowerCase();
+    if (!query) return teamMembers;
+
+    return teamMembers.filter((member) => {
+      const email = member.email?.toLowerCase() || "";
+      const name = `${member.firstName || ""} ${member.lastName || ""}`
+        .trim()
+        .toLowerCase();
+      const mobile = member.mobile?.toLowerCase() || "";
+      return (
+        email.includes(query) ||
+        name.includes(query) ||
+        mobile.includes(query)
+      );
+    });
+  }, [teamMembers, searchFilter]);
+
+  const applyTeamSearch = () => {
+    setSearchFilter(searchInput.trim());
+  };
+
+  const resetTeamSearch = () => {
+    setSearchInput("");
+    setSearchFilter("");
+  };
+
+  const handleTeamSearchKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applyTeamSearch();
+    }
+  };
 
   useEffect(() => {
     if (
@@ -1263,6 +1306,38 @@ export default function MyTeamPage() {
           </div>
         </div>
       ) : (
+        <div className="space-y-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+              <Input
+                label="Search team member"
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={handleTeamSearchKeyDown}
+                placeholder="Search by name, email, or mobile"
+                icon={<Mail className="w-4 h-4 text-gray-400" />}
+              />
+              <div className="flex items-end gap-2">
+                <Button type="button" variant="primary" onClick={applyTeamSearch}>
+                  Search
+                </Button>
+                <Button type="button" variant="outline" onClick={resetTeamSearch}>
+                  Reset
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {displayedTeamMembers.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+              <UserIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="font-medium text-gray-800">No matching team members</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Try a different search term or reset filters.
+              </p>
+            </div>
+          ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -1292,7 +1367,7 @@ export default function MyTeamPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {teamMembers.map((member) => {
+                {displayedTeamMembers.map((member) => {
                   const actionLocked = !canManageMemberActions(member);
                   const actionLockTitle =
                     "You do not have permission to manage this team member.";
@@ -1469,6 +1544,8 @@ export default function MyTeamPage() {
               </tbody>
             </table>
           </div>
+        </div>
+          )}
         </div>
       )}
 

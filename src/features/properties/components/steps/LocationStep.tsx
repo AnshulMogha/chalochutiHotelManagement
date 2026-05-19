@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
 import { Input, Button } from "@/components/ui";
-import { MapPin, Navigation, X } from "lucide-react";
+import { MapPin, Navigation, X, Check } from "lucide-react";
 import { useFormContext } from "../../context/useFormContext";
+import { cn } from "@/lib/utils";
 
 import {
   setAddress,
@@ -21,9 +22,131 @@ import { useOutletContext, useSearchParams } from "react-router";
 import { propertyService } from "../../services/propertyService";
 
 const DEFAULT_CENTER = { lat: 28.6139, lng: 77.209 };
+const GOOGLE_MAP_LIBRARIES: ("places")[] = ["places"];
+
+type ParsedAddressFields = Pick<
+  LocationInfo,
+  "address" | "locality" | "landmark" | "pincode" | "city" | "state" | "country"
+>;
+
+function findAddressComponent(
+  components: readonly google.maps.GeocoderAddressComponent[],
+  ...types: string[]
+): string {
+  for (const type of types) {
+    const match = components.find((component) => component.types.includes(type));
+    if (match?.long_name) return match.long_name;
+  }
+  return "";
+}
+
+function parseAddressFromGeocoderResult(
+  result: google.maps.GeocoderResult,
+): ParsedAddressFields {
+  const components = result.address_components ?? [];
+  const streetNumber = findAddressComponent(components, "street_number");
+  const route = findAddressComponent(components, "route");
+  const premise = findAddressComponent(components, "premise", "establishment");
+  const plusCode = findAddressComponent(components, "plus_code");
+
+  let address = [streetNumber, route].filter(Boolean).join(" ").trim();
+  if (!address) {
+    const area = findAddressComponent(
+      components,
+      "neighborhood",
+      "sublocality",
+      "sublocality_level_1",
+    );
+    if (area && route) address = `${area} ${route}`.trim();
+  }
+  if (!address) address = premise || plusCode;
+  if (!address && result.formatted_address) {
+    address = result.formatted_address.split(",")[0]?.trim() ?? "";
+  }
+
+  const locality = findAddressComponent(
+    components,
+    "sublocality_level_1",
+    "sublocality",
+    "sublocality_level_2",
+    "neighborhood",
+    "administrative_area_level_3",
+  );
+  const city =
+    findAddressComponent(components, "locality") ||
+    findAddressComponent(components, "postal_town") ||
+    findAddressComponent(components, "administrative_area_level_2");
+  const landmark = findAddressComponent(
+    components,
+    "administrative_area_level_2",
+    "administrative_area_level_3",
+  );
+  const state = findAddressComponent(components, "administrative_area_level_1");
+  const country = findAddressComponent(components, "country");
+  const pincode = findAddressComponent(components, "postal_code");
+
+  return { address, locality, landmark, pincode, city, state, country };
+}
+
+function formatAddressOptionLine(parsed: ParsedAddressFields): string {
+  const order: (keyof ParsedAddressFields)[] = [
+    "address",
+    "locality",
+    "landmark",
+    "city",
+    "state",
+    "country",
+    "pincode",
+  ];
+  return order
+    .map((key) => parsed[key]?.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+function AddressOptionDetails({ parsed }: { parsed: ParsedAddressFields }) {
+  return (
+    <p className="min-w-0 flex-1 text-sm font-medium leading-relaxed break-words text-gray-900">
+      {formatAddressOptionLine(parsed) || "—"}
+    </p>
+  );
+}
+
+function dedupeGeocoderResults(
+  results: google.maps.GeocoderResult[],
+): google.maps.GeocoderResult[] {
+  const seen = new Set<string>();
+  return results.filter((result) => {
+    const key = result.formatted_address ?? result.place_id ?? "";
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function hasRequiredAddressFields(parsed: ParsedAddressFields): boolean {
+  return Boolean(
+    parsed.city?.trim() &&
+      parsed.state?.trim() &&
+      parsed.country?.trim() &&
+      parsed.pincode?.trim(),
+  );
+}
+
+function filterGeocoderResultsWithRequiredFields(
+  results: google.maps.GeocoderResult[],
+): google.maps.GeocoderResult[] {
+  return dedupeGeocoderResults(results).filter((result) =>
+    hasRequiredAddressFields(parseAddressFromGeocoderResult(result)),
+  );
+}
 
 export function LocationStep() {
-  const { errors: errorsFromContext, resetFieldError, readOnly } = useOutletContext<{
+  const {
+    errors: errorsFromContext,
+    resetFieldError,
+    readOnly,
+  } = useOutletContext<{
     errors: Errors;
     resetFieldError: (step: keyof Errors, field: keyof LocationInfo) => void;
     readOnly?: boolean;
@@ -42,6 +165,12 @@ export function LocationStep() {
   >([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [addressOptions, setAddressOptions] = useState<
+    google.maps.GeocoderResult[]
+  >([]);
+  const [selectedAddressIndex, setSelectedAddressIndex] = useState<
+    number | null
+  >(null);
 
   const searchParams = useSearchParams();
   const draftId = searchParams[0].get("draftId");
@@ -60,7 +189,7 @@ export function LocationStep() {
           city: response.city,
           state: response.state,
           country: response.country,
-        })
+        }),
       );
     }
     if (draftId) {
@@ -69,32 +198,41 @@ export function LocationStep() {
   }, [draftId, setFormDataState]);
   /* ---------------- HELPERS ---------------- */
 
-  const extractAddressComponents = useCallback(
-    (components: readonly google.maps.GeocoderAddressComponent[]) => {
-      components.forEach((comp) => {
-        console.log(comp);
-        if (comp.types.includes("country"))
-          setFormDataState(setCountry(comp.long_name ?? ""));
-
-        if (comp.types.includes("administrative_area_level_1"))
-          setFormDataState(setState(comp.long_name ?? ""));
-
-        if(comp.types.includes("sublocality"))
-          setFormDataState(setLocality(comp.long_name ?? ""));
-        if (comp.types.includes("locality"))
-          setFormDataState(setCity(comp.long_name ?? ""));
-
-        if (comp.types.includes("postal_code"))
-          setFormDataState(setPincode(comp.long_name ?? ""));
-       
-      });
+  const applyParsedAddress = useCallback(
+    (parsed: ParsedAddressFields) => {
+      setFormDataState(setAddress(parsed.address));
+      setFormDataState(setLocality(parsed.locality));
+      setFormDataState(setLandmark(parsed.landmark));
+      setFormDataState(setPincode(parsed.pincode));
+      setFormDataState(setCity(parsed.city));
+      setFormDataState(setState(parsed.state));
+      setFormDataState(setCountry(parsed.country));
     },
-    [setFormDataState]
+    [setFormDataState],
   );
+
+  const applyGeocoderResult = useCallback(
+    (result: google.maps.GeocoderResult, index: number) => {
+      applyParsedAddress(parseAddressFromGeocoderResult(result));
+      setSelectedAddressIndex(index);
+    },
+    [applyParsedAddress],
+  );
+
+  const clearLocationFieldErrors = useCallback(() => {
+    resetFieldError("locationInfo", "city");
+    resetFieldError("locationInfo", "state");
+    resetFieldError("locationInfo", "country");
+    resetFieldError("locationInfo", "locality");
+    resetFieldError("locationInfo", "landmark");
+    resetFieldError("locationInfo", "pincode");
+    resetFieldError("locationInfo", "address");
+  }, [resetFieldError]);
+
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-    libraries: ["places"],
+    libraries: GOOGLE_MAP_LIBRARIES,
   });
   const handleAddressChange = (value: string) => {
     setFormDataState(setAddress(value));
@@ -138,14 +276,30 @@ export function LocationStep() {
           if (
             status === google.maps.GeocoderStatus.OK &&
             results &&
-            results[0]
+            results.length > 0
           ) {
-            extractAddressComponents(results[0].address_components);
+            const uniqueResults = dedupeGeocoderResults(results);
+            const completeResults = filterGeocoderResultsWithRequiredFields(results);
+            const resultToApply = completeResults[0] ?? uniqueResults[0];
+
+            if (completeResults.length >= 2) {
+              setAddressOptions(completeResults);
+              applyGeocoderResult(completeResults[0], 0);
+            } else {
+              setAddressOptions([]);
+              setSelectedAddressIndex(null);
+              if (resultToApply) {
+                applyGeocoderResult(resultToApply, 0);
+              }
+            }
+          } else {
+            setAddressOptions([]);
+            setSelectedAddressIndex(null);
           }
         });
       }, 100);
     },
-    [extractAddressComponents]
+    [applyGeocoderResult],
   );
 
   /* ---------------- DEBOUNCED AUTOCOMPLETE SEARCH ---------------- */
@@ -163,6 +317,8 @@ export function LocationStep() {
     if (!value.trim()) {
       setSuggestions([]);
       setShowDropdown(false);
+      setAddressOptions([]);
+      setSelectedAddressIndex(null);
       return;
     }
 
@@ -192,13 +348,13 @@ export function LocationStep() {
             setSuggestions([]);
             setShowDropdown(false);
           }
-        }
+        },
       );
     }, 500); // ✅ 500ms debounce delay
   };
 
   const handleSelectPlace = (
-    prediction: google.maps.places.AutocompletePrediction
+    prediction: google.maps.places.AutocompletePrediction,
   ) => {
     if (readOnly) return;
     if (!window.google) return;
@@ -209,7 +365,7 @@ export function LocationStep() {
 
     // Get detailed place information
     const service = new google.maps.places.PlacesService(
-      document.createElement("div")
+      document.createElement("div"),
     );
 
     service.getDetails(
@@ -224,25 +380,12 @@ export function LocationStep() {
 
           setFormDataState(setLatitude(lat));
           setFormDataState(setLongitude(lng));
-          // setFormDataState(setLocality(place.name ?? ""));
-
-          // Clear errors
-          resetFieldError("locationInfo", "city");
-          resetFieldError("locationInfo", "state");
-          resetFieldError("locationInfo", "country");
-          resetFieldError("locationInfo", "locality");
-          resetFieldError("locationInfo", "landmark");
-          resetFieldError("locationInfo", "pincode");
-          resetFieldError("locationInfo", "address");
-
-          // Extract address components
-          if (place.address_components) {
-            extractAddressComponents(place.address_components);
-          }
-
+          clearLocationFieldErrors();
+          setAddressOptions([]);
+          setSelectedAddressIndex(null);
           reverseGeocode(lat, lng);
         }
-      }
+      },
     );
   };
 
@@ -251,6 +394,17 @@ export function LocationStep() {
     setSearchValue("");
     setSuggestions([]);
     setShowDropdown(false);
+    setAddressOptions([]);
+    setSelectedAddressIndex(null);
+  };
+
+  const handleSelectAddressOption = (
+    result: google.maps.GeocoderResult,
+    index: number,
+  ) => {
+    if (readOnly) return;
+    clearLocationFieldErrors();
+    applyGeocoderResult(result, index);
   };
 
   /* ---------------- CLICK OUTSIDE TO CLOSE DROPDOWN ---------------- */
@@ -295,6 +449,8 @@ export function LocationStep() {
 
     setFormDataState(setLatitude(lat));
     setFormDataState(setLongitude(lng));
+    setAddressOptions([]);
+    setSelectedAddressIndex(null);
 
     reverseGeocode(lat, lng);
   };
@@ -317,6 +473,8 @@ export function LocationStep() {
     setFormDataState(setPincode(""));
     setFormDataState(setLatitude(lat));
     setFormDataState(setLongitude(lng));
+    setAddressOptions([]);
+    setSelectedAddressIndex(null);
 
     reverseGeocode(lat, lng);
   };
@@ -335,6 +493,8 @@ export function LocationStep() {
     resetFieldError("locationInfo", "state");
     resetFieldError("locationInfo", "country");
     resetFieldError("locationInfo", "pincode");
+    setAddressOptions([]);
+    setSelectedAddressIndex(null);
     navigator.geolocation.getCurrentPosition(({ coords }) => {
       setFormDataState(setLatitude(coords.latitude));
       setFormDataState(setLongitude(coords.longitude));
@@ -437,7 +597,6 @@ export function LocationStep() {
                       lat: formDataState.locationInfo.latitude,
                       lng: formDataState.locationInfo.longitude,
                     }}
-                    draggable
                     draggable={!readOnly}
                     onDragEnd={onMarkerDragEnd}
                   />
@@ -445,6 +604,57 @@ export function LocationStep() {
             </GoogleMap>
           )}
         </div>
+
+        {addressOptions.length >= 2 && (
+          <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white shadow-sm overflow-hidden">
+            <div className="px-4 pt-4 pb-3 border-b border-blue-100/80 bg-white/60">
+              <p className="text-sm font-semibold text-gray-900">Select address</p>
+              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                Multiple addresses were found for this location. Choose the one
+                that best matches your property.
+              </p>
+            </div>
+            <div className="max-h-[min(360px,55vh)] overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+              <ul className="flex flex-col gap-2 p-3">
+                {addressOptions.map((result, index) => {
+                  const parsed = parseAddressFromGeocoderResult(result);
+                  const isSelected = selectedAddressIndex === index;
+                  return (
+                    <li key={`${result.place_id ?? result.formatted_address}-${index}`}>
+                      <button
+                        type="button"
+                        disabled={!!readOnly}
+                        onClick={() => handleSelectAddressOption(result, index)}
+                        className={cn(
+                          "w-full text-left rounded-lg border px-3 py-3 transition-all flex items-start gap-3",
+                          isSelected
+                            ? "border-blue-600 bg-white shadow-sm"
+                            : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm",
+                          readOnly && "cursor-not-allowed opacity-60",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                            isSelected
+                              ? "border-blue-600 bg-blue-600"
+                              : "border-gray-300 bg-white",
+                          )}
+                          aria-hidden
+                        >
+                          {isSelected && (
+                            <Check className="h-3 w-3 text-white stroke-[3]" />
+                          )}
+                        </span>
+                        <AddressOptionDetails parsed={parsed} />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ADDRESS FIELDS */}

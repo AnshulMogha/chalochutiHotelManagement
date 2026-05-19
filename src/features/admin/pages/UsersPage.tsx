@@ -913,6 +913,15 @@ export default function UsersPage() {
     setEmailFilter(normalizedEmail);
   };
 
+  const handleEmailSearchKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applyFilters();
+    }
+  };
+
   const resetFilters = () => {
     setStatusFilter("");
     setRoleFilter("");
@@ -991,6 +1000,7 @@ export default function UsersPage() {
           type="email"
           value={emailFilterInput}
           onChange={(e) => setEmailFilterInput(e.target.value)}
+          onKeyDown={handleEmailSearchKeyDown}
           placeholder="Search by email"
           icon={<Mail className="w-4 h-4 text-gray-400" />}
         />

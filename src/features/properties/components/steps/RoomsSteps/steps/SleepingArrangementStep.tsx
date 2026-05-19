@@ -782,8 +782,15 @@ export function SleepingArrangementStep({
                 handleBaseChildrenChange(baseChildren),
               onDecrement: handleDecrementBaseChildren,
               onIncrement: handleIncrementBaseChildren,
-              description:
-                "Maximum number of free children that can be accommodated in this room.",
+              description: (
+                <>
+                  Maximum number of{" "}
+                  <span className="font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
+                    free
+                  </span>{" "}
+                  children that can be accommodated in this room.
+                </>
+              ),
             },
             {
               key: "maxChildren",

@@ -1126,6 +1126,15 @@ export default function CommissionAndTaxPage() {
   const [commissionToDeactivate, setCommissionToDeactivate] = useState<
     string | null
   >(null);
+  const [showDeactivateTaxModal, setShowDeactivateTaxModal] = useState(false);
+  const [deactivatingTax, setDeactivatingTax] = useState(false);
+  const [taxToDeactivate, setTaxToDeactivate] = useState<string | null>(null);
+  const [showDeactivateServiceFeeModal, setShowDeactivateServiceFeeModal] =
+    useState(false);
+  const [deactivatingServiceFee, setDeactivatingServiceFee] = useState(false);
+  const [serviceFeeToDeactivate, setServiceFeeToDeactivate] = useState<
+    string | null
+  >(null);
   const [commissionSearch, setCommissionSearch] = useState("");
   const [taxSearch, setTaxSearch] = useState("");
   const [taxStateFilter, setTaxStateFilter] = useState<string>("");
@@ -1299,6 +1308,22 @@ export default function CommissionAndTaxPage() {
     }
   };
 
+  const handleDeactivateTax = async () => {
+    if (!taxToDeactivate) return;
+    setDeactivatingTax(true);
+    try {
+      await commissionTaxService.deactivateTax(taxToDeactivate);
+      await fetchTaxes();
+      setShowDeactivateTaxModal(false);
+      setTaxToDeactivate(null);
+    } catch (error) {
+      console.error("Error deactivating tax:", error);
+      setError("Failed to deactivate tax");
+    } finally {
+      setDeactivatingTax(false);
+    }
+  };
+
   const handleCreateServiceFee = async (data: CreateServiceFeeRequest) => {
     try {
       await commissionTaxService.createServiceFee(data);
@@ -1308,6 +1333,21 @@ export default function CommissionAndTaxPage() {
     }
   };
 
+  const handleDeactivateServiceFee = async () => {
+    if (!serviceFeeToDeactivate) return;
+    setDeactivatingServiceFee(true);
+    try {
+      await commissionTaxService.deactivateServiceFee(serviceFeeToDeactivate);
+      await fetchServiceFees();
+      setShowDeactivateServiceFeeModal(false);
+      setServiceFeeToDeactivate(null);
+    } catch (error) {
+      console.error("Error deactivating service fee:", error);
+      setError("Failed to deactivate service fee");
+    } finally {
+      setDeactivatingServiceFee(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -1687,6 +1727,9 @@ export default function CommissionAndTaxPage() {
                           <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
                             Status
                           </th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -1769,6 +1812,20 @@ export default function CommissionAndTaxPage() {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <StatusBadge active={tax.active} />
                               </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={!tax.active}
+                                  onClick={() => {
+                                    setTaxToDeactivate(tax.id);
+                                    setShowDeactivateTaxModal(true);
+                                  }}
+                                  className="text-rose-700 border-rose-300 hover:bg-rose-50 disabled:opacity-50"
+                                >
+                                  Deactivate
+                                </Button>
+                              </td>
                             </tr>
                           );
                         })}
@@ -1847,6 +1904,7 @@ export default function CommissionAndTaxPage() {
                           <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">GST</th>
                           <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Effective From</th>
                           <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -1866,6 +1924,20 @@ export default function CommissionAndTaxPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <StatusBadge active={fee.active ?? true} />
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={fee.active === false}
+                                onClick={() => {
+                                  setServiceFeeToDeactivate(fee.id);
+                                  setShowDeactivateServiceFeeModal(true);
+                                }}
+                                className="text-rose-700 border-rose-300 hover:bg-rose-50 disabled:opacity-50"
+                              >
+                                Deactivate
+                              </Button>
                             </td>
                           </tr>
                         ))}
@@ -1931,6 +2003,80 @@ export default function CommissionAndTaxPage() {
                 onClick={handleDeactivateCommission}
                 disabled={deactivatingCommission}
                 isLoading={deactivatingCommission}
+                className="bg-rose-700 hover:bg-rose-800 text-white border-0"
+              >
+                Deactivate
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeactivateTaxModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Deactivate Tax</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Are you sure you want to deactivate this tax rule?
+              </p>
+            </div>
+            <div className="px-6 py-4 flex items-center justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (deactivatingTax) return;
+                  setShowDeactivateTaxModal(false);
+                  setTaxToDeactivate(null);
+                }}
+                disabled={deactivatingTax}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleDeactivateTax}
+                disabled={deactivatingTax}
+                isLoading={deactivatingTax}
+                className="bg-rose-700 hover:bg-rose-800 text-white border-0"
+              >
+                Deactivate
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeactivateServiceFeeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Deactivate Service Fee</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Are you sure you want to deactivate this service fee rule?
+              </p>
+            </div>
+            <div className="px-6 py-4 flex items-center justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (deactivatingServiceFee) return;
+                  setShowDeactivateServiceFeeModal(false);
+                  setServiceFeeToDeactivate(null);
+                }}
+                disabled={deactivatingServiceFee}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleDeactivateServiceFee}
+                disabled={deactivatingServiceFee}
+                isLoading={deactivatingServiceFee}
                 className="bg-rose-700 hover:bg-rose-800 text-white border-0"
               >
                 Deactivate

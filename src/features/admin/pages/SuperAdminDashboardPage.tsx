@@ -106,7 +106,7 @@ const DASHBOARD_LINKS = [
     key: "PROPERTY_PHOTOS_VIDEOS",
   },
   {
-    title: "Amenities and Restaurants",
+    title: "Amenities",
     description: "Maintain amenities and food service details.",
     path: ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS,
     icon: Info,
