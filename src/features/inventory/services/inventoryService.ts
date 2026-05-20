@@ -77,6 +77,9 @@ export interface InventoryCalendarApiResponse {
         maxStay: number | null;
         cta: boolean;
         ctd: boolean;
+        cutoffType?: BulkRestrictionsCutoffType | null;
+        cutoffHours?: number | null;
+        bookingCutoffTime?: string | null;
       }>;
     }>;
   };
@@ -116,15 +119,23 @@ export interface BulkUpdateInventoryRoomsRequest {
   weekDays: InventoryBulkRoomsWeekDay[];
 }
 
+export type BulkRestrictionsCutoffType =
+  | "BEFORE_MIDNIGHT"
+  | "MIDNIGHT"
+  | "AFTER_MIDNIGHT"
+  | "FIXED_TIME";
+
 export interface BulkUpdateRestrictionsRequest {
   from: string; // YYYY-MM-DD
   to: string; // YYYY-MM-DD
   status: "OPEN" | "CLOSED";
-  cta: boolean;
-  ctd: boolean;
+  cta: boolean | null;
+  ctd: boolean | null;
   minStay: number | null;
   maxStay: number | null;
-  cutoffTime: string | null; // HH:mm:ss format
+  cutoffType?: BulkRestrictionsCutoffType;
+  cutoffHours?: number;
+  bookingCutoffTime?: string; // HH:mm:ss — used when cutoffType is FIXED_TIME
 }
 
 export const inventoryService = {
@@ -163,6 +174,9 @@ export const inventoryService = {
           maxStay: day.maxStay ?? null,
           cta: day.cta,
           ctd: day.ctd,
+          cutoffType: day.cutoffType ?? null,
+          cutoffHours: day.cutoffHours ?? null,
+          bookingCutoffTime: day.bookingCutoffTime ?? null,
         })),
       }))
       .sort((firstRoom, secondRoom) => {

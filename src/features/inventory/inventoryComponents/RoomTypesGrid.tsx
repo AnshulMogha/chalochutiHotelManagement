@@ -7,8 +7,13 @@ import {
   isBefore,
   isWeekend,
 } from 'date-fns';
-import type { InventoryRoom } from '../type';
+import type { InventoryDay, InventoryRoom } from '../type';
 import type { RatesRoom } from '../type';
+import {
+  formatInventoryCutoffDisplay,
+  formatTimeForDisplay,
+  isInventoryCutoffConfigured,
+} from '../utils/rateHelpers';
 import type { ChildAgePolicyResponse } from '@/features/admin/services/adminService';
 import { RatePlansGrid, type OpenLinkRatePlansContext } from './RatePlansGrid';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -179,6 +184,45 @@ export const RoomTypesGrid = ({
       | undefined;
     const value = inventoryDay?.[field];
     return typeof value === "boolean" ? value : null;
+  };
+
+  const getCommonInventoryDay = (dateStr: string): InventoryDay | undefined =>
+    firstRoom?.days.find((day) => day.date === dateStr);
+
+  const formatCutoffDetailLine = (day: InventoryDay): string | null => {
+    if (!day.cutoffType) return null;
+
+    const parts: string[] = [];
+    switch (day.cutoffType) {
+      case 'BEFORE_MIDNIGHT':
+        parts.push('Before midnight');
+        break;
+      case 'AFTER_MIDNIGHT':
+        parts.push('After midnight');
+        break;
+      case 'MIDNIGHT':
+        parts.push('At midnight');
+        break;
+      case 'FIXED_TIME':
+        parts.push('Fixed time');
+        break;
+      default:
+        parts.push(day.cutoffType);
+    }
+
+    if (
+      (day.cutoffType === 'BEFORE_MIDNIGHT' ||
+        day.cutoffType === 'AFTER_MIDNIGHT') &&
+      day.cutoffHours != null
+    ) {
+      parts.push(`${day.cutoffHours} hr`);
+    }
+
+    if (day.cutoffType === 'FIXED_TIME' && day.bookingCutoffTime) {
+      parts.push(formatTimeForDisplay(day.bookingCutoffTime));
+    }
+
+    return parts.join(' · ');
   };
 
   return (
@@ -427,12 +471,73 @@ export const RoomTypesGrid = ({
             })}
           </div>
 
-          {/* Cutoff Time row intentionally kept commented until inventory list API returns this field. */}
-          {/*
-          <div className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150">
-            ...
+          {/* Booking cutoff (from inventory calendar API) */}
+          <div
+            className="grid border-t border-slate-300 bg-blue-50/50 hover:bg-blue-50/70 transition-colors duration-150"
+            style={{ gridTemplateColumns: `280px repeat(${dates.length}, 1fr)` }}
+          >
+            <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-300 bg-blue-100/50">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-600">
+                <span className="text-xs font-bold">T</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-slate-900">
+                  Booking Cutoff
+                </span>
+              </div>
+            </div>
+
+            {dates.map((date, i) => {
+              const isSelected = isSameDay(date, activeDate);
+              const dateStr = format(date, "yyyy-MM-dd");
+              const inventoryDay = getCommonInventoryDay(dateStr);
+              const cutoffConfigured = inventoryDay
+                ? isInventoryCutoffConfigured(inventoryDay.cutoffType)
+                : false;
+              const cutoffLabel = inventoryDay
+                ? formatInventoryCutoffDisplay(
+                    inventoryDay.cutoffType,
+                    inventoryDay.cutoffHours,
+                    inventoryDay.bookingCutoffTime,
+                  )
+                : "--";
+              const cutoffDetail = inventoryDay
+                ? formatCutoffDetailLine(inventoryDay)
+                : null;
+
+              return (
+                <div
+                  key={i}
+                  className={`
+                    border-r border-slate-200 last:border-r-0 px-2 py-4 flex flex-col items-center justify-center
+                    transition-colors duration-150
+                    ${isSelected ? getSelectedColumnBg(date) : ""}
+                  `}
+                >
+                  <div
+                    className="w-full min-h-[2.75rem] max-w-[8.5rem] border rounded-lg font-medium text-xs text-center flex flex-col items-center justify-center px-2 py-2 tabular-nums bg-slate-50/80 border-slate-200/80 text-slate-600"
+                    title={cutoffDetail ?? cutoffLabel}
+                  >
+                    <span className="leading-snug">{cutoffLabel}</span>
+                    {cutoffDetail ? (
+                      <span className="mt-1 text-[9px] font-medium uppercase tracking-wide text-slate-500">
+                        {cutoffDetail}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-col items-center mt-2.5 gap-0.5">
+                    <span
+                      className={`text-[10px] font-medium uppercase tracking-wide ${
+                        cutoffConfigured ? "text-emerald-600" : "text-rose-500"
+                      }`}
+                    >
+                      {cutoffConfigured ? "Set" : "Not Set"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          */}
 
           {/* CTA Row */}
           <div

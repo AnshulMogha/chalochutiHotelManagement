@@ -39,6 +39,10 @@ import {
 import { formatApiClientError } from "@/services/api/formatApiClientError";
 import { useAuth } from "@/hooks";
 import { canEditModule } from "@/lib/permissions";
+import {
+  buildSingleDerivedRateUpdatePayload,
+  getOriginalRateDay,
+} from "./utils/rateHelpers";
 
 // Track the single active edit
 interface ActiveEdit {
@@ -951,19 +955,29 @@ export default function Layout() {
     const previousMaxStay = inventoryDayData?.maxStay ?? null;
     const previousCutoffTime = dayData?.cutoffTime ?? null;
 
-    // Build payload using values from activeEdit or existing day data
-    // Use customerType from active navigation tab
-    const payload = {
-      roomId,
-      ratePlanId,
-      customerType: currentCustomerType, // Use customerType from active tab
-      date,
-      baseRate: baseRate || 0, // Send 0 if empty
-      singleOccupancyRate: singleOccupancyRate !== undefined ? singleOccupancyRate : (dayData?.singleOccupancyRate ?? null),
-      extraAdultCharge: extraAdultCharge !== undefined ? extraAdultCharge : (dayData?.extraAdultCharge ?? 0),
-      paidChildCharge: paidChildCharge !== undefined ? paidChildCharge : (dayData?.paidChildCharge ?? 0),
-      currency: dayData?.currency ?? "INR",
-    };
+    const payload = buildSingleDerivedRateUpdatePayload(
+      {
+        roomId,
+        ratePlanId,
+        customerType: currentCustomerType,
+        date,
+        baseRate,
+        singleOccupancyRate,
+        extraAdultCharge,
+        paidChildCharge,
+      },
+      getOriginalRateDay(
+        originalRateRoomsRef.current,
+        roomId,
+        ratePlanId,
+        date,
+      ),
+    );
+
+    if (!payload) {
+      setActiveRateEdit(null);
+      return;
+    }
 
     try {
       await rateService.updateSingleRate(payload);

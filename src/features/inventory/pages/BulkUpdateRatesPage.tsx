@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   format,
@@ -10,15 +10,40 @@ import {
 } from "date-fns";
 import {
   ArrowLeft,
+  Baby,
+  BedDouble,
+  Building2,
   Calendar,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  IndianRupee,
+  Loader2,
   Search,
-  Users,
-  AlertTriangle,
+  SlidersHorizontal,
+  Tag,
+  User,
+  UserPlus,
+  type LucideIcon,
 } from "lucide-react";
-import { rateService } from "../services/rateService";
+import {
+  rateService,
+  type BulkUpdateRatesRequest,
+} from "../services/rateService";
 import { mapHotelRoomUuidsToNumericRoomIds } from "../utils/mapHotelRoomUuidsToNumericRoomIds";
+import {
+  B2B_PRICING_MODE_OPTIONS,
+  buildBulkUpdateDerivedPayload,
+  clampB2bPercentageInput,
+  createDefaultB2bPricingState,
+  getB2bPricingFieldErrors,
+  getB2bPricingModeHint,
+  isB2bFixedPricingMode,
+  isB2bPercentagePricingMode,
+  type B2bB2cPricingState,
+  type B2bRateFieldKey,
+  validateB2bPricingConfig,
+} from "../utils/rateHelpers";
 import {
   adminService,
   type HotelRoom,
@@ -137,6 +162,86 @@ const getRoomTypeOrder = (
   return Number.MAX_SAFE_INTEGER;
 };
 
+type IconBadgeColor =
+  | "blue"
+  | "emerald"
+  | "amber"
+  | "violet"
+  | "indigo"
+  | "orange"
+  | "sky";
+
+const ICON_BADGE_STYLES: Record<IconBadgeColor, string> = {
+  blue: "bg-blue-100 text-blue-600",
+  emerald: "bg-emerald-100 text-emerald-600",
+  amber: "bg-amber-100 text-amber-600",
+  violet: "bg-violet-100 text-violet-600",
+  indigo: "bg-indigo-100 text-indigo-600",
+  orange: "bg-orange-100 text-orange-600",
+  sky: "bg-sky-100 text-sky-600",
+};
+
+function IconBadge({
+  icon: Icon,
+  color,
+  size = "md",
+}: {
+  icon: LucideIcon;
+  color: IconBadgeColor;
+  size?: "sm" | "md";
+}) {
+  const boxClass = size === "sm" ? "w-7 h-7 rounded-md" : "w-9 h-9 rounded-lg";
+  const iconClass = size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4";
+  return (
+    <div
+      className={`${boxClass} flex items-center justify-center shrink-0 ${ICON_BADGE_STYLES[color]}`}
+    >
+      <Icon className={iconClass} aria-hidden />
+    </div>
+  );
+}
+
+function FieldLabel({
+  icon: Icon,
+  iconClassName,
+  children,
+}: {
+  icon: LucideIcon;
+  iconClassName: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-2">
+      <Icon className={`w-4 h-4 shrink-0 ${iconClassName}`} aria-hidden />
+      <span>{children}</span>
+    </label>
+  );
+}
+
+function SectionHeading({
+  icon: Icon,
+  color,
+  title,
+  hint,
+}: {
+  icon: LucideIcon;
+  color: IconBadgeColor;
+  title: string;
+  hint?: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 mb-5 pb-3 border-b border-inherit">
+      <IconBadge icon={Icon} color={color} />
+      <div className="min-w-0">
+        <h5 className="text-sm font-bold text-slate-900">{title}</h5>
+        {hint && (
+          <p className="text-xs text-slate-500 mt-0.5 font-medium">{hint}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function BulkUpdateRatesPage() {
   const { user } = useAuth();
   const isReadOnly = !canEditModule(user, "RATES_INVENTORY");
@@ -219,7 +324,31 @@ export default function BulkUpdateRatesPage() {
   // UI state
   const [showNettRate, setShowNettRate] = useState(false);
   const [updateExtraGuestCharges, setUpdateExtraGuestCharges] = useState(false);
-  const [enableRateRestrictions, setEnableRateRestrictions] = useState(false);
+  // const [enableRateRestrictions, setEnableRateRestrictions] = useState(false);
+  const [updateBothPricesB2CAndB2B, setUpdateBothPricesB2CAndB2B] =
+    useState(false);
+
+  const [baseRateB2bPricing, setBaseRateB2bPricing] = useState(
+    createDefaultB2bPricingState,
+  );
+  const [singleAdultRateB2bPricing, setSingleAdultRateB2bPricing] = useState(
+    createDefaultB2bPricingState,
+  );
+  const [extraAdultChargeB2bPricing, setExtraAdultChargeB2bPricing] =
+    useState(createDefaultB2bPricingState);
+  const [paidChildChargeB2bPricing, setPaidChildChargeB2bPricing] = useState(
+    createDefaultB2bPricingState,
+  );
+
+  useEffect(() => {
+    if (customerTypeUI !== "B2C") {
+      setUpdateBothPricesB2CAndB2B(false);
+      setBaseRateB2bPricing(createDefaultB2bPricingState());
+      setSingleAdultRateB2bPricing(createDefaultB2bPricingState());
+      setExtraAdultChargeB2bPricing(createDefaultB2bPricingState());
+      setPaidChildChargeB2bPricing(createDefaultB2bPricingState());
+    }
+  }, [customerTypeUI]);
   const [searchQuery, setSearchQuery] = useState("");
   const startDateInputRef = useRef<HTMLInputElement | null>(null);
   const endDateInputRef = useRef<HTMLInputElement | null>(null);
@@ -243,9 +372,9 @@ export default function BulkUpdateRatesPage() {
   const [expandedRatePlans, setExpandedRatePlans] = useState<Set<string>>(
     new Set(),
   );
-  const [expandedRestrictions, setExpandedRestrictions] = useState<Set<string>>(
-    new Set(),
-  );
+  // const [expandedRestrictions, setExpandedRestrictions] = useState<Set<string>>(
+  //   new Set(),
+  // );
 
   // Mapping: room UUID (from HotelRoom) -> numeric roomId (from rate calendar)
   const [roomIdMapping, setRoomIdMapping] = useState<Record<string, number>>(
@@ -473,16 +602,16 @@ export default function BulkUpdateRatesPage() {
     setExpandedRatePlans(newExpanded);
   };
 
-  const toggleRestrictions = (roomId: string, ratePlanId: number) => {
-    const key = `${roomId}-${ratePlanId}`;
-    const newExpanded = new Set(expandedRestrictions);
-    if (newExpanded.has(key)) {
-      newExpanded.delete(key);
-    } else {
-      newExpanded.add(key);
-    }
-    setExpandedRestrictions(newExpanded);
-  };
+  // const toggleRestrictions = (roomId: string, ratePlanId: number) => {
+  //   const key = `${roomId}-${ratePlanId}`;
+  //   const newExpanded = new Set(expandedRestrictions);
+  //   if (newExpanded.has(key)) {
+  //     newExpanded.delete(key);
+  //   } else {
+  //     newExpanded.add(key);
+  //   }
+  //   setExpandedRestrictions(newExpanded);
+  // };
 
   const updateFormField = (
     roomUUID: string, // UUID from HotelRoom
@@ -581,7 +710,33 @@ export default function BulkUpdateRatesPage() {
     return fromDate <= toDate && !isBefore(fromDate, today);
   }, [fromDate, toDate, today]);
 
-  const canSubmit = hasFormData && isDateRangeValid && !isSubmitting;
+  const b2bPricingStates = useMemo(
+    () => ({
+      baseRate: baseRateB2bPricing,
+      singleOccupancyRate: singleAdultRateB2bPricing,
+      extraAdultCharge: extraAdultChargeB2bPricing,
+      paidChildCharge: paidChildChargeB2bPricing,
+    }),
+    [
+      baseRateB2bPricing,
+      singleAdultRateB2bPricing,
+      extraAdultChargeB2bPricing,
+      paidChildChargeB2bPricing,
+    ],
+  );
+
+  const b2bPricingFieldErrors = useMemo(() => {
+    if (!updateBothPricesB2CAndB2B) return {};
+    return getB2bPricingFieldErrors(Object.values(formData), b2bPricingStates);
+  }, [updateBothPricesB2CAndB2B, formData, b2bPricingStates]);
+
+  const hasB2bPricingErrors = Object.keys(b2bPricingFieldErrors).length > 0;
+
+  const canSubmit =
+    hasFormData &&
+    isDateRangeValid &&
+    !isSubmitting &&
+    !hasB2bPricingErrors;
 
   const handleSubmit = async () => {
     if (isReadOnly) return;
@@ -624,14 +779,29 @@ export default function BulkUpdateRatesPage() {
         return;
       }
 
-      const updatePromises = validFormEntries.map(([_, data]) => {
-        if (!data.numericRoomId || !data.ratePlanId) {
-          console.error("Invalid data in form entry:", data);
-          throw new Error(`Invalid room ID or rate plan ID`);
+      if (updateBothPricesB2CAndB2B) {
+        const b2bError = validateB2bPricingConfig(
+          validFormEntries.map(([, data]) => data),
+          b2bPricingStates,
+        );
+        if (b2bError) {
+          showToast(b2bError, "error");
+          setIsSubmitting(false);
+          return;
         }
+      }
 
-        const payload: any = {
-          roomId: data.numericRoomId, // Use numeric room ID from rate calendar
+      const buildRestrictionPayload = (
+        data: RoomRateData,
+      ): BulkUpdateRatesRequest | null => {
+        const hasRestrictions =
+          data.minStay !== undefined ||
+          data.maxStay !== undefined ||
+          data.cutoffTime !== undefined;
+        if (!hasRestrictions) return null;
+
+        const payload: BulkUpdateRatesRequest = {
+          roomId: data.numericRoomId,
           ratePlanId: data.ratePlanId,
           customerType,
           from: fromDateStr,
@@ -639,21 +809,70 @@ export default function BulkUpdateRatesPage() {
           weekDays: weekDaysToSend,
           currency: "INR",
         };
-
-        if (data.baseRate !== undefined) payload.baseRate = data.baseRate;
-        if (data.singleOccupancyRate !== undefined)
-          payload.singleOccupancyRate = data.singleOccupancyRate;
-        if (data.extraAdultCharge !== undefined)
-          payload.extraAdultCharge = data.extraAdultCharge;
-        if (data.paidChildCharge !== undefined)
-          payload.paidChildCharge = data.paidChildCharge;
         if (data.minStay !== undefined) payload.minStay = data.minStay;
         if (data.maxStay !== undefined) payload.maxStay = data.maxStay;
         if (data.cutoffTime !== undefined) payload.cutoffTime = data.cutoffTime;
+        return payload;
+      };
 
-        console.log("Sending payload:", payload); // Debug log
-        return rateService.bulkUpdateRates(payload);
+      const updatePromises = validFormEntries.flatMap(([_, data]) => {
+        if (!data.numericRoomId || !data.ratePlanId) {
+          console.error("Invalid data in form entry:", data);
+          throw new Error(`Invalid room ID or rate plan ID`);
+        }
+
+        const promises: Promise<void>[] = [];
+
+        if (updateBothPricesB2CAndB2B) {
+          const derivedPayload = buildBulkUpdateDerivedPayload(
+            data,
+            fromDateStr,
+            toDateStr,
+            weekDaysToSend,
+            b2bPricingStates,
+          );
+          if (derivedPayload) {
+            promises.push(rateService.bulkUpdateDerivedRates(derivedPayload));
+          }
+
+          const restrictionPayload = buildRestrictionPayload(data);
+          if (restrictionPayload) {
+            promises.push(rateService.bulkUpdateRates(restrictionPayload));
+          }
+        } else {
+          const payload: BulkUpdateRatesRequest = {
+            roomId: data.numericRoomId,
+            ratePlanId: data.ratePlanId,
+            customerType,
+            from: fromDateStr,
+            to: toDateStr,
+            weekDays: weekDaysToSend,
+            currency: "INR",
+          };
+
+          if (data.baseRate !== undefined) payload.baseRate = data.baseRate;
+          if (data.singleOccupancyRate !== undefined)
+            payload.singleOccupancyRate = data.singleOccupancyRate;
+          if (data.extraAdultCharge !== undefined)
+            payload.extraAdultCharge = data.extraAdultCharge;
+          if (data.paidChildCharge !== undefined)
+            payload.paidChildCharge = data.paidChildCharge;
+          if (data.minStay !== undefined) payload.minStay = data.minStay;
+          if (data.maxStay !== undefined) payload.maxStay = data.maxStay;
+          if (data.cutoffTime !== undefined)
+            payload.cutoffTime = data.cutoffTime;
+
+          promises.push(rateService.bulkUpdateRates(payload));
+        }
+
+        return promises;
       });
+
+      if (updatePromises.length === 0) {
+        showToast("Please fill at least one rate field before submitting", "error");
+        setIsSubmitting(false);
+        return;
+      }
 
       await Promise.all(updatePromises);
 
@@ -718,6 +937,132 @@ export default function BulkUpdateRatesPage() {
 
   const calculateNettRate = (grossRate: number) => grossRate;
 
+  const b2bB2cInputClassName =
+    "w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400";
+
+  const showB2bDualPricing =
+    customerTypeUI === "B2C" && updateBothPricesB2CAndB2B;
+
+  const renderB2bB2cPricingSection = (
+    fieldKey: B2bRateFieldKey,
+    sectionTitle: string,
+    state: B2bB2cPricingState,
+    setState: React.Dispatch<React.SetStateAction<B2bB2cPricingState>>,
+    fieldError?: string,
+  ) => (
+    <div
+      className={`mt-4 pt-4 border space-y-3 rounded-lg px-4 py-3 ${
+        fieldError
+          ? "border-red-300 bg-red-50/50"
+          : "border-violet-100 bg-violet-50/40"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <Building2 className="w-4 h-4 text-violet-600 shrink-0" aria-hidden />
+        <h6 className="text-sm font-semibold text-slate-800">{sectionTitle}</h6>
+      </div>
+      <div className="space-y-2.5">
+        <label className="block text-sm font-semibold text-slate-800">
+          P ricing rule <span className="text-red-500">*</span>
+        </label>
+        <select
+          value={state.mode}
+          onChange={(e) => {
+            const mode = e.target.value as B2bB2cPricingState["mode"];
+            setState((prev) => ({
+              ...prev,
+              mode,
+              fixedAmount: isB2bFixedPricingMode(mode) ? prev.fixedAmount : "",
+              percentage: isB2bPercentagePricingMode(mode)
+                ? prev.percentage
+                : "",
+            }));
+          }}
+          disabled={isSubmitting}
+          aria-invalid={Boolean(fieldError)}
+          aria-describedby={fieldError ? `${fieldKey}-b2b-error` : undefined}
+          className={`${b2bB2cInputClassName} ${
+            fieldError ? "border-red-400 focus:border-red-500 focus:ring-red-500/20" : ""
+          }`}
+        >
+          <option value="">Select B2B pricing</option>
+          {B2B_PRICING_MODE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {fieldError && (
+          <p
+            id={`${fieldKey}-b2b-error`}
+            className="text-xs font-medium text-red-600"
+            role="alert"
+          >
+            {fieldError}
+          </p>
+        )}
+      </div>
+      {isB2bFixedPricingMode(state.mode) && (
+        <div className="space-y-2.5">
+          <label className="block text-sm font-semibold text-slate-800">
+            Fixed amount (₹)
+          </label>
+          <input
+            type="number"
+            value={state.fixedAmount}
+            onChange={(e) =>
+              setState((prev) => ({ ...prev, fixedAmount: e.target.value }))
+            }
+            placeholder="Enter fixed amount"
+            min="0"
+            disabled={isSubmitting}
+            className={b2bB2cInputClassName}
+          />
+          {getB2bPricingModeHint(state.mode) && (
+            <p className="text-xs text-violet-600/90 font-medium">
+              {getB2bPricingModeHint(state.mode)}
+            </p>
+          )}
+        </div>
+      )}
+      {isB2bPercentagePricingMode(state.mode) && (
+        <div className="space-y-2.5">
+          <label className="block text-sm font-semibold text-slate-800">
+            Percentage (%)
+          </label>
+          <input
+            type="number"
+            value={state.percentage}
+            onChange={(e) =>
+              setState((prev) => ({
+                ...prev,
+                percentage: clampB2bPercentageInput(e.target.value),
+              }))
+            }
+            onBlur={(e) =>
+              setState((prev) => ({
+                ...prev,
+                percentage: clampB2bPercentageInput(e.target.value),
+              }))
+            }
+            onWheel={(e) => e.currentTarget.blur()}
+            placeholder="Enter percentage (max 100)"
+            min="0"
+            max="100"
+            step="0.01"
+            disabled={isSubmitting}
+            className={b2bB2cInputClassName}
+          />
+          {getB2bPricingModeHint(state.mode) && (
+            <p className="text-xs text-violet-600/90 font-medium">
+              {getB2bPricingModeHint(state.mode)}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   if (loadingRooms) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -740,11 +1085,16 @@ export default function BulkUpdateRatesPage() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <Users className="w-6 h-6 text-blue-600" />
-                <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">
-                  Bulk Update Rates
-                </h1>
+              <div className="flex items-center gap-3">
+                <IconBadge icon={IndianRupee} color="emerald" />
+                <div>
+                  <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">
+                    Bulk Update Rates
+                  </h1>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    Set rates for selected dates and rooms
+                  </p>
+                </div>
               </div>
               {/* <div className="h-1 w-full bg-blue-600/70 rounded-full mt-3"></div> */}
             </div>
@@ -752,15 +1102,15 @@ export default function BulkUpdateRatesPage() {
 
           {/* Step 1: Context & Filters Card */}
           <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-8">
-            <div className="flex items-center gap-2 mb-6 pb-3 border-b border-slate-100">
-              <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                <Calendar className="w-4 h-4" />
-              </div>
+            <div className="flex items-center gap-3 mb-6 pb-3 border-b border-slate-100">
+              <IconBadge icon={SlidersHorizontal} color="violet" />
               <div>
                 <h2 className="text-xl font-semibold text-slate-900">
                   Filters & Selection
                 </h2>
-                <div className="h-0.5 w-full bg-blue-600/80 rounded-full mt-1"></div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Choose contract, dates, and options
+                </p>
               </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -768,9 +1118,9 @@ export default function BulkUpdateRatesPage() {
               <div className="space-y-6">
                 {/* Contract Type */}
                 <div className="space-y-2.5">
-                  <label className="block text-sm font-semibold text-slate-800">
+                  <FieldLabel icon={Building2} iconClassName="text-violet-600">
                     Contract Type
-                  </label>
+                  </FieldLabel>
                   <select
                     value={customerTypeUI}
                     onChange={(e) => setCustomerTypeUI(e.target.value)}
@@ -785,15 +1135,15 @@ export default function BulkUpdateRatesPage() {
 
                 {/* Date Range */}
                 <div className="space-y-2.5">
-                  <label className="block text-sm font-semibold text-slate-800">
+                  <FieldLabel icon={Calendar} iconClassName="text-blue-600">
                     Date Range <span className="text-red-500">*</span>
-                  </label>
+                  </FieldLabel>
                   <div className="flex items-center gap-3">
                     <div
                       className="relative flex-1 cursor-pointer"
                       onClick={() => openDatePicker(startDateInputRef.current)}
                     >
-                      <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Calendar className="w-4 h-4 text-blue-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         ref={startDateInputRef}
                         type="date"
@@ -813,7 +1163,7 @@ export default function BulkUpdateRatesPage() {
                       className="relative flex-1 cursor-pointer"
                       onClick={() => openDatePicker(endDateInputRef.current)}
                     >
-                      <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Calendar className="w-4 h-4 text-blue-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         ref={endDateInputRef}
                         type="date"
@@ -921,14 +1271,17 @@ export default function BulkUpdateRatesPage() {
                   </div> */}
 
                   {/* Update Extra Guest Charges Toggle */}
-                  <div className="flex items-center justify-between p-5 bg-white rounded-xl border border-slate-200 shadow-sm hover:border-blue-200 hover:shadow transition-colors">
-                    <div>
-                      <span className="text-sm font-semibold text-slate-900">
-                        Update Extra Guest Charges
-                      </span>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Enable guest charge fields
-                      </p>
+                  <div className="flex items-center justify-between p-5 bg-white rounded-xl border border-slate-200 shadow-sm hover:border-orange-200 hover:shadow transition-colors">
+                    <div className="flex items-start gap-3">
+                      <IconBadge icon={UserPlus} color="orange" size="sm" />
+                      <div>
+                        <span className="text-sm font-semibold text-slate-900">
+                          Update Extra Guest Charges
+                        </span>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Show extra adult & child rate fields
+                        </p>
+                      </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -943,26 +1296,35 @@ export default function BulkUpdateRatesPage() {
                     </label>
                   </div>
 
-                  {/* Rate Restrictions Toggle */}
-                  <div className="flex items-center justify-between p-5 bg-white rounded-xl border border-slate-200 shadow-sm hover:border-blue-200 hover:shadow transition-colors">
-                    <div>
-                      <span className="text-sm font-semibold text-slate-900">
-                        Restrictions
-                      </span>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Show and edit restrictions for this rate plan
-                      </p>
+                  {/* Rate Restrictions Toggle - commented out */}
+                  {/* Apply B2B Pricing Toggle */}
+                  {customerTypeUI === "B2C" && (
+                  <div className="flex items-center justify-between p-5 bg-white rounded-xl border border-slate-200 shadow-sm hover:border-violet-200 hover:shadow transition-colors">
+                    <div className="flex items-start gap-3">
+                      <IconBadge icon={Building2} color="violet" size="sm" />
+                      <div>
+                        <span className="text-sm font-semibold text-slate-900">
+                          Apply B2B Pricing
+                        </span>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Auto-calculate B2B from B2C rates
+                        </p>
+                      </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={enableRateRestrictions}
-                        onChange={(e) => setEnableRateRestrictions(e.target.checked)}
+                        checked={updateBothPricesB2CAndB2B}
+                        onChange={(e) =>
+                          setUpdateBothPricesB2CAndB2B(e.target.checked)
+                        }
+                        disabled={isSubmitting}
                         className="sr-only peer"
                       />
                       <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
                     </label>
                   </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -981,14 +1343,16 @@ export default function BulkUpdateRatesPage() {
         {/* Step 3: Room Cards */}
         <div className="space-y-5 bg-white shadow-sm border-2 border-gray-200 rounded-2xl ">
 
-          <div className="mb-7 bg-[#2f3d95] p-5 rounded-md">
+          <div className="mb-7 bg-[#2f3d95] p-5 rounded-xl">
             <div className="flex items-center gap-4">
-              <div className="text-white leading-tight">
-                <p className="text-2xl font-semibold">Room List</p>
-              
+              <div className="flex items-center gap-3 text-white shrink-0">
+                <div className="w-10 h-10 rounded-lg bg-white/15 flex items-center justify-center">
+                  <BedDouble className="w-5 h-5 text-sky-300" aria-hidden />
+                </div>
+                <p className="text-xl font-semibold">Room List</p>
               </div>
               <div className="relative flex-1">
-                <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-5 h-5 text-blue-300 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Search for a rate plan..."
@@ -1026,8 +1390,9 @@ export default function BulkUpdateRatesPage() {
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <Users
-                        className={`w-4 h-4 ${isExpanded ? "text-white" : "text-blue-600"}`}
+                      <BedDouble
+                        className={`w-5 h-5 shrink-0 ${isExpanded ? "text-sky-300" : "text-blue-600"}`}
+                        aria-hidden
                       />
                       <h3
                         className={`text-lg font-semibold ${isExpanded ? "text-white" : "text-slate-900"}`}
@@ -1080,13 +1445,16 @@ export default function BulkUpdateRatesPage() {
                               }
                               className="w-full flex items-center justify-between p-5 bg-white hover:bg-slate-50/50 transition-all duration-200 border-b border-slate-200/60"
                             >
-                              <div className="flex justify-center items-center gap-3">
-                                <h4 className="text-base font-bold text-slate-900">
-                                  {ratePlan.ratePlanName}
-                                </h4>
-                                <p className="text-sm text-slate-500 font-medium">
-                                  {ratePlan.mealPlan}
-                                </p>
+                              <div className="flex items-center gap-3">
+                                <IconBadge icon={Tag} color="amber" size="sm" />
+                                <div className="text-left">
+                                  <h4 className="text-base font-bold text-slate-900">
+                                    {ratePlan.ratePlanName}
+                                  </h4>
+                                  <p className="text-sm text-slate-500 font-medium">
+                                    {ratePlan.mealPlan}
+                                  </p>
+                                </div>
                               </div>
                               {isRatePlanExpanded ? (
                                 <ChevronUp className="w-5 h-5 text-slate-600 transition-transform" />
@@ -1098,30 +1466,20 @@ export default function BulkUpdateRatesPage() {
                             {/* Rate Plan Form */}
                             {isRatePlanExpanded && (
                               <div className="p-6 bg-slate-50/30 space-y-6">
-                                {/* Warning Banner */}
-                                <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-lg">
-                                  <div className="flex items-start gap-3">
-                                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                                    <p className="text-sm text-amber-800 leading-relaxed font-medium">
-                                      If you have not set rates for any
-                                      occupancy yet, we will pick the next
-                                      higher-level occupancy rate here.
-                                    </p>
-                                  </div>
-                                </div>
-
                                 {/* Section: Rate */}
-                                <div className="bg-white rounded-lg p-6 border border-slate-200/60 shadow-sm">
-                                  <h5 className="text-sm font-bold text-slate-900 mb-5 flex items-center gap-2 pb-3 border-b border-slate-200/60">
-                                    <Users className="w-4 h-4 text-blue-600" />
-                                    Rate
-                                  </h5>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-emerald-50/60 rounded-xl p-6 border border-emerald-200/70 shadow-sm">
+                                  <SectionHeading
+                                    icon={IndianRupee}
+                                    color="emerald"
+                                    title="Rate"
+                                    hint="Leave blank to keep existing values"
+                                  />
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-0 md:divide-x md:divide-emerald-200/80">
                                     {/* Occupancy 2 (Base) */}
-                                    <div className="space-y-2.5">
-                                      <label className="block text-sm font-semibold text-slate-800 mb-2">
-                                        Adult 2 Base Rate
-                                      </label>
+                                    <div className="space-y-2.5 md:pr-6">
+                                      <FieldLabel icon={IndianRupee} iconClassName="text-emerald-600">
+                                        Base Rate
+                                      </FieldLabel>
                                       <input
                                         type="number"
                                         value={getFormValue(
@@ -1142,19 +1500,17 @@ export default function BulkUpdateRatesPage() {
                                         placeholder=""
                                         min="1"
                                         disabled={isSubmitting}
-                                        className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
+                                        className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                       />
-                                      <p className="text-xs text-slate-500 font-medium">
-                                        Leave blank to keep existing value
-                                      </p>
                                       {showNettRate &&
                                         getFormValue(
                                           room.roomId,
                                           ratePlan.ratePlanId,
                                           "baseRate",
                                         ) && (
-                                          <p className="text-xs text-blue-600 font-semibold">
-                                            Nett Rate: ₹
+                                          <p className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
+                                            <IndianRupee className="w-3 h-3" aria-hidden />
+                                            Nett: ₹
                                             {calculateNettRate(
                                               Number(
                                                 getFormValue(
@@ -1166,13 +1522,26 @@ export default function BulkUpdateRatesPage() {
                                             ).toFixed(2)}
                                           </p>
                                         )}
+                                      {showB2bDualPricing &&
+                                        getFormValue(
+                                          room.roomId,
+                                          ratePlan.ratePlanId,
+                                          "baseRate",
+                                        ) &&
+                                        renderB2bB2cPricingSection(
+                                          "baseRate",
+                                          "Apply B2B Pricing for Base Rate",
+                                          baseRateB2bPricing,
+                                          setBaseRateB2bPricing,
+                                          b2bPricingFieldErrors.baseRate,
+                                        )}
                                     </div>
 
                                     {/* Occupancy 1 */}
-                                    <div className="space-y-2.5">
-                                      <label className="block text-sm font-semibold text-slate-800 mb-2">
+                                    <div className="space-y-2.5 md:pl-6">
+                                      <FieldLabel icon={User} iconClassName="text-blue-600">
                                         Single Adult Rate
-                                      </label>
+                                      </FieldLabel>
                                       <input
                                         type="number"
                                         value={getFormValue(
@@ -1195,26 +1564,48 @@ export default function BulkUpdateRatesPage() {
                                         disabled={isSubmitting}
                                         className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                       />
-                                      <p className="text-xs text-slate-500 font-medium">
-                                        Leave blank to keep existing value
-                                      </p>
+                                      {showB2bDualPricing &&
+                                        getFormValue(
+                                          room.roomId,
+                                          ratePlan.ratePlanId,
+                                          "singleOccupancyRate",
+                                        ) &&
+                                        renderB2bB2cPricingSection(
+                                          "singleOccupancyRate",
+                                          "Apply B2B Pricing for Single Rate",
+                                          singleAdultRateB2bPricing,
+                                          setSingleAdultRateB2bPricing,
+                                          b2bPricingFieldErrors.singleOccupancyRate,
+                                        )}
                                     </div>
                                   </div>
                                 </div>
 
                                 {/* Section: Guest Charges */}
                                 {updateExtraGuestCharges && (
-                                  <div className="bg-white rounded-lg p-6 border border-slate-200/60 shadow-sm">
-                                    <h5 className="text-sm font-bold text-slate-900 mb-5 flex items-center gap-2 pb-3 border-b border-slate-200/60">
-                                      <Users className="w-4 h-4 text-blue-600" />
-                                      Guest Charges
-                                    </h5>
-                                    <div className={`grid grid-cols-1 gap-6 ${shouldShowFreeChildRate() ? 'md:grid-cols-3' : shouldShowPaidChildRate() ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
+                                  <div className="bg-orange-50/60 rounded-xl p-6 border border-orange-200/70 shadow-sm">
+                                    <SectionHeading
+                                      icon={UserPlus}
+                                      color="orange"
+                                      title="Guest Charges"
+                                      hint="Extra adult and child pricing"
+                                    />
+                                    <div
+                                      className={`grid grid-cols-1 gap-6 md:gap-0 ${
+                                        shouldShowFreeChildRate()
+                                          ? "md:grid-cols-3 md:divide-x md:divide-orange-200/70"
+                                          : shouldShowPaidChildRate()
+                                            ? "md:grid-cols-2 md:divide-x md:divide-orange-200/70"
+                                            : "md:grid-cols-1"
+                                      }`}
+                                    >
                                       {/* Extra Adult Charge */}
-                                      <div className="space-y-2.5">
-                                        <label className="block text-sm font-semibold text-slate-800">
+                                      <div
+                                        className={`space-y-2.5 ${shouldShowPaidChildRate() ? "md:pr-6" : ""}`}
+                                      >
+                                        <FieldLabel icon={UserPlus} iconClassName="text-orange-600">
                                           {getExtraAdultChargeLabel()}
-                                        </label>
+                                        </FieldLabel>
                                         <input
                                           type="number"
                                           value={getFormValue(
@@ -1235,19 +1626,30 @@ export default function BulkUpdateRatesPage() {
                                           placeholder=""
                                           min="1"
                                           disabled={isSubmitting}
-                                          className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
+                                          className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                         />
-                                        <p className="text-xs text-slate-500 font-medium">
-                                          Leave blank to keep existing value
-                                        </p>
+                                        {showB2bDualPricing &&
+                                          getFormValue(
+                                            room.roomId,
+                                            ratePlan.ratePlanId,
+                                            "extraAdultCharge",
+                                          ) &&
+                                          renderB2bB2cPricingSection(
+                                            "extraAdultCharge",
+                                            "Apply B2B Pricing for Extra Adult Charge",
+                                            extraAdultChargeB2bPricing,
+                                            setExtraAdultChargeB2bPricing,
+                                            b2bPricingFieldErrors.extraAdultCharge,
+                                          )}
                                         {showNettRate &&
                                           getFormValue(
                                             room.roomId,
                                             ratePlan.ratePlanId,
                                             "extraAdultCharge",
                                           ) && (
-                                            <p className="text-xs text-blue-600 font-semibold">
-                                              Nett Rate: ₹
+                                            <p className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
+                                              <IndianRupee className="w-3 h-3" aria-hidden />
+                                              Nett: ₹
                                               {calculateNettRate(
                                                 Number(
                                                   getFormValue(
@@ -1263,10 +1665,10 @@ export default function BulkUpdateRatesPage() {
 
                                       {/* Free Child Rate - Conditionally rendered */}
                                       {shouldShowFreeChildRate() && (
-                                        <div className="space-y-2.5">
-                                          <label className="block text-sm font-semibold text-slate-800">
+                                        <div className="space-y-2.5 md:px-6">
+                                          <FieldLabel icon={Baby} iconClassName="text-sky-600">
                                             {getFreeChildRateLabel()}
-                                          </label>
+                                          </FieldLabel>
                                           <input
                                             type="text"
                                             value="Free"
@@ -1275,8 +1677,9 @@ export default function BulkUpdateRatesPage() {
                                             className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-slate-50 text-sm font-medium text-slate-500 cursor-not-allowed"
                                           />
                                           {showNettRate && (
-                                            <p className="text-xs text-blue-600 font-semibold">
-                                              Nett Rate: ₹0.00
+                                            <p className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
+                                              <IndianRupee className="w-3 h-3" aria-hidden />
+                                              Nett: ₹0.00
                                             </p>
                                           )}
                                         </div>
@@ -1284,10 +1687,10 @@ export default function BulkUpdateRatesPage() {
 
                                       {/* Paid Child Rate - Conditionally rendered */}
                                       {shouldShowPaidChildRate() && (
-                                        <div className="space-y-2.5">
-                                          <label className="block text-sm font-semibold text-slate-800">
+                                        <div className="space-y-2.5 md:pl-6">
+                                          <FieldLabel icon={Baby} iconClassName="text-amber-600">
                                             {getPaidChildRateLabel()}
-                                          </label>
+                                          </FieldLabel>
                                         <input
                                           type="number"
                                           value={getFormValue(
@@ -1310,17 +1713,28 @@ export default function BulkUpdateRatesPage() {
                                           disabled={isSubmitting}
                                           className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                         />
-                                        <p className="text-xs text-slate-500 font-medium">
-                                          Leave blank to keep existing value
-                                        </p>
+                                        {showB2bDualPricing &&
+                                          getFormValue(
+                                            room.roomId,
+                                            ratePlan.ratePlanId,
+                                            "paidChildCharge",
+                                          ) &&
+                                          renderB2bB2cPricingSection(
+                                            "paidChildCharge",
+                                            "Apply B2B Pricing for Paid Child Rate",
+                                            paidChildChargeB2bPricing,
+                                            setPaidChildChargeB2bPricing,
+                                            b2bPricingFieldErrors.paidChildCharge,
+                                          )}
                                         {showNettRate &&
                                           getFormValue(
                                             room.roomId,
                                             ratePlan.ratePlanId,
                                             "paidChildCharge",
                                           ) && (
-                                            <p className="text-xs text-blue-600 font-semibold">
-                                              Nett Rate: ₹
+                                            <p className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
+                                              <IndianRupee className="w-3 h-3" aria-hidden />
+                                              Nett: ₹
                                               {calculateNettRate(
                                                 Number(
                                                   getFormValue(
@@ -1339,112 +1753,7 @@ export default function BulkUpdateRatesPage() {
                                   </div>
                                 )}
 
-                                {/* Section: Restrictions */}
-                                {enableRateRestrictions && (
-                                  <div className="bg-white rounded-lg border border-slate-200/60 shadow-sm overflow-hidden">
-                                    <div className="w-full flex items-center justify-between px-6 py-4 bg-slate-50/50 border-b border-slate-200/60">
-                                      <span className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                                        <Users className="w-4 h-4 text-blue-600" />
-                                        Rate Restrictions
-                                      </span>
-                                    </div>
-
-                                    <div className="p-6 space-y-5">
-                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div className="space-y-2.5">
-                                          <label className="block text-sm font-semibold text-slate-800">
-                                            Minimum Stay
-                                          </label>
-                                          <input
-                                            type="number"
-                                            value={getFormValue(
-                                              room.roomId,
-                                              ratePlan.ratePlanId,
-                                              "minStay",
-                                            )}
-                                            onChange={(e) =>
-                                              updateFormField(
-                                                room.roomId,
-                                                ratePlan.ratePlanId,
-                                                "minStay",
-                                                e.target.value === ""
-                                                  ? undefined
-                                                  : Number(e.target.value),
-                                              )
-                                            }
-                                            placeholder="Enter minimum stay"
-                                            min="0"
-                                            disabled={isSubmitting}
-                                            className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
-                                          />
-                                          <p className="text-xs text-slate-500 font-medium">
-                                            Leave blank to keep existing value
-                                          </p>
-                                        </div>
-
-                                        <div className="space-y-2.5">
-                                          <label className="block text-sm font-semibold text-slate-800">
-                                            Maximum Stay
-                                          </label>
-                                          <input
-                                            type="number"
-                                            value={getFormValue(
-                                              room.roomId,
-                                              ratePlan.ratePlanId,
-                                              "maxStay",
-                                            )}
-                                            onChange={(e) =>
-                                              updateFormField(
-                                                room.roomId,
-                                                ratePlan.ratePlanId,
-                                                "maxStay",
-                                                e.target.value === ""
-                                                  ? undefined
-                                                  : Number(e.target.value),
-                                              )
-                                            }
-                                            placeholder="Enter maximum stay"
-                                            min="0"
-                                            disabled={isSubmitting}
-                                            className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
-                                          />
-                                          <p className="text-xs text-slate-500 font-medium">
-                                            Leave blank to keep existing value
-                                          </p>
-                                        </div>
-
-                                        <div className="space-y-2.5">
-                                          <label className="block text-sm font-semibold text-slate-800">
-                                            Cutoff Time (HH:mm)
-                                          </label>
-                                          <input
-                                            type="time"
-                                            value={
-                                              getFormValue(
-                                                room.roomId,
-                                                ratePlan.ratePlanId,
-                                                "cutoffTime",
-                                              ) || ""
-                                            }
-                                            onChange={(e) =>
-                                              updateFormField(
-                                                room.roomId,
-                                                ratePlan.ratePlanId,
-                                                "cutoffTime",
-                                                e.target.value || undefined,
-                                              )
-                                            }
-                                            disabled={isSubmitting}
-                                            className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
-                                          />
-                                          <p className="text-xs text-slate-500 font-medium">
-                                            Leave blank to keep existing value
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
+                                {/* Section: Restrictions - commented out */}
                               </div>
                             )}
                           </div>
@@ -1469,11 +1778,14 @@ export default function BulkUpdateRatesPage() {
                       >
                         {isSubmitting ? (
                           <>
-                            <span className="animate-spin">⏳</span>
+                            <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
                             Applying...
                           </>
                         ) : (
-                          "Apply Updates"
+                          <>
+                            <CheckCircle2 className="w-4 h-4" aria-hidden />
+                            Apply Updates
+                          </>
                         )}
                       </button>
                     </div>

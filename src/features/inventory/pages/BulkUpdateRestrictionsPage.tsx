@@ -3,15 +3,15 @@ import { useNavigate, useSearchParams } from "react-router";
 import { format, addDays, startOfToday, isBefore, isSameDay, differenceInDays } from "date-fns";
 import { ArrowLeft, Calendar } from "lucide-react";
 import { inventoryService } from "../services/inventoryService";
+import {
+  buildBulkRestrictionsCutoff,
+  resolveRestrictionTriState,
+  type CutoffPreset,
+} from "../utils/rateHelpers";
+import { CutoffFormSection } from "../inventoryComponents/CutoffFormSection";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/hooks";
 import { canEditModule } from "@/lib/permissions";
-
-const CUTOFF_TIME_OPTIONS = [
-  { value: "00:00:00", label: "At Midnight" },
-  { value: "23:59:00", label: "Before Midnight" },
-  { value: "02:00:00", label: "After Midnight" },
-];
 
 export default function BulkUpdateRestrictionsPage() {
   const { user } = useAuth();
@@ -39,7 +39,10 @@ export default function BulkUpdateRestrictionsPage() {
 
   const [minStay, setMinStay] = useState<string>("");
   const [maxStay, setMaxStay] = useState<string>("");
-  const [cutoffTime, setCutoffTime] = useState<string>("");
+  const [cutoffPreset, setCutoffPreset] = useState<CutoffPreset>("");
+  const [cutoffHours, setCutoffHours] = useState<string>("");
+  const [fixedCutoffTime, setFixedCutoffTime] = useState<string>("");
+  const [cutoffError, setCutoffError] = useState<string | null>(null);
   const startDateInputRef = useRef<HTMLInputElement | null>(null);
   const endDateInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -131,15 +134,27 @@ export default function BulkUpdateRestrictionsPage() {
   const handleSubmit = async () => {
     const status: "OPEN" | "CLOSED" = blockInventory ? "CLOSED" : "OPEN";
 
+    const cutoffResult = buildBulkRestrictionsCutoff(
+      cutoffPreset,
+      cutoffHours,
+      fixedCutoffTime,
+    );
+    if (!cutoffResult.success) {
+      setCutoffError(cutoffResult.message);
+      showToast(cutoffResult.message, "error");
+      return;
+    }
+    setCutoffError(null);
+
     const payload = {
       from: format(startDate, "yyyy-MM-dd"),
       to: format(endDate, "yyyy-MM-dd"),
       status,
-      cta,
-      ctd,
+      cta: resolveRestrictionTriState(cta, inactivateCta),
+      ctd: resolveRestrictionTriState(ctd, inactivateCtd),
       minStay: minStay ? parseInt(minStay) : null,
       maxStay: maxStay ? parseInt(maxStay) : null,
-      cutoffTime: cutoffTime || null,
+      ...(cutoffResult.cutoff ?? {}),
     };
 
     try {
@@ -363,22 +378,25 @@ export default function BulkUpdateRestrictionsPage() {
               </div>
             </div>
 
-            {/* Cutoff */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-900">Set Cutoff</label>
-              <select
-                value={cutoffTime}
-                onChange={(e) => setCutoffTime(e.target.value)}
-                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 cursor-pointer"
-              >
-                <option value="">Select</option>
-                {CUTOFF_TIME_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CutoffFormSection
+              cutoffPreset={cutoffPreset}
+              cutoffHours={cutoffHours}
+              fixedCutoffTime={fixedCutoffTime}
+              onPresetChange={(value) => {
+                setCutoffPreset(value);
+                setCutoffError(null);
+              }}
+              onHoursChange={(value) => {
+                setCutoffHours(value);
+                setCutoffError(null);
+              }}
+              onFixedTimeChange={(value) => {
+                setFixedCutoffTime(value);
+                setCutoffError(null);
+              }}
+              disabled={isSubmitting || isReadOnly}
+              errorMessage={cutoffError}
+            />
             </fieldset>
           </div>
 

@@ -21,14 +21,15 @@ export interface UpdateSingleRateRequest {
   ratePlanId: number;
   customerType: string;
   date: string; // YYYY-MM-DD
-  baseRate: number;
+  currency: string | null;
+  /** Only fields the user changed are sent (partial update). */
+  baseRate?: number;
   singleOccupancyRate?: number | null;
-  extraAdultCharge: number;
-  paidChildCharge: number;
+  extraAdultCharge?: number;
+  paidChildCharge?: number;
   minStay?: number | null;
   maxStay?: number | null;
   cutoffTime?: string | null;
-  currency: string | null;
 }
 
 export interface SingleDerivedRateRequest {
@@ -61,6 +62,44 @@ export interface BulkUpdateRatesRequest {
   maxStay?: number | null;
   cutoffTime?: string | null;
   currency?: string;
+}
+
+export type TargetPricingRuleMode =
+  | "SAME_AS_SOURCE"
+  | "PERCENTAGE_DECREASE"
+  | "PERCENTAGE_INCREASE"
+  | "FIXED_DECREASE"
+  | "FIXED_INCREASE";
+
+export type TargetPricingRule =
+  | { mode: "SAME_AS_SOURCE" }
+  | { mode: "PERCENTAGE_DECREASE"; percentage: number }
+  | { mode: "PERCENTAGE_INCREASE"; percentage: number }
+  | { mode: "FIXED_DECREASE"; fixedAmount: number }
+  | { mode: "FIXED_INCREASE"; fixedAmount: number };
+
+export interface BulkUpdateDerivedRatesRequest {
+  roomId: number;
+  ratePlanId: number;
+  from: string;
+  to: string;
+  weekDays: string[];
+  currency: string;
+  sourceCustomerType: string;
+  targetCustomerType: string;
+  sourceRates: {
+    baseRate?: number;
+    singleOccupancyRate?: number;
+    extraAdultCharge?: number;
+    paidChildCharge?: number;
+  };
+  targetPricingRules: {
+    baseRate?: TargetPricingRule;
+    singleOccupancyRate?: TargetPricingRule;
+    extraAdultCharge?: TargetPricingRule;
+    paidChildCharge?: TargetPricingRule;
+  };
+  previewOnly?: boolean;
 }
 
 export type LinkRatePlanAdjustmentDirection = "LOWER" | "HIGHER";
@@ -173,6 +212,15 @@ export const rateService = {
   ): Promise<void> => {
     await apiClient.post<ApiSuccessResponse<null>>(
       API_ENDPOINTS.RATES.UPDATE_BULK,
+      request
+    );
+  },
+
+  bulkUpdateDerivedRates: async (
+    request: BulkUpdateDerivedRatesRequest
+  ): Promise<void> => {
+    await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.RATES.UPDATE_BULK_DERIVED,
       request
     );
   },

@@ -1,6 +1,13 @@
 import { useState, useMemo } from 'react';
 import { format, startOfToday, addDays, isBefore, isSameDay, differenceInDays } from 'date-fns';
 import { X, Calendar as CalendarIcon } from 'lucide-react';
+import {
+  buildBulkRestrictionsCutoff,
+  resolveRestrictionTriState,
+  type BulkRestrictionsCutoffPayload,
+  type CutoffPreset,
+} from '../utils/rateHelpers';
+import { CutoffFormSection } from './CutoffFormSection';
 
 interface BulkRestrictionsModalProps {
   isOpen: boolean;
@@ -9,19 +16,12 @@ interface BulkRestrictionsModalProps {
     from: string;
     to: string;
     status: 'OPEN' | 'CLOSED';
-    cta: boolean;
-    ctd: boolean;
+    cta: boolean | null;
+    ctd: boolean | null;
     minStay: number | null;
     maxStay: number | null;
-    cutoffTime: string | null;
-  }) => void;
+  } & Partial<BulkRestrictionsCutoffPayload>) => void;
 }
-
-const CUTOFF_TIME_OPTIONS = [
-  { value: '00:00:00', label: 'At Midnight' },
-  { value: '23:59:00', label: 'Before Midnight' },
-  { value: '02:00:00', label: 'After Midnight' },
-];
 
 export const BulkRestrictionsModal = ({
   isOpen,
@@ -50,8 +50,10 @@ export const BulkRestrictionsModal = ({
   const [minStay, setMinStay] = useState<string>('');
   const [maxStay, setMaxStay] = useState<string>('');
   
-  // Cutoff Time
-  const [cutoffTime, setCutoffTime] = useState<string>('');
+  const [cutoffPreset, setCutoffPreset] = useState<CutoffPreset>('');
+  const [cutoffHours, setCutoffHours] = useState<string>('');
+  const [fixedCutoffTime, setFixedCutoffTime] = useState<string>('');
+  const [cutoffError, setCutoffError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -115,19 +117,28 @@ export const BulkRestrictionsModal = ({
   };
 
   const handleSave = () => {
-    // Determine status: CLOSED if block, OPEN if unblock, default to OPEN
-    const status: 'OPEN' | 'CLOSED' = blockInventory ? 'CLOSED' : unblockInventory ? 'OPEN' : 'OPEN';
-    
-    // Build payload - all fields are required in the API
+    const status: 'OPEN' | 'CLOSED' = blockInventory ? 'CLOSED' : 'OPEN';
+
+    const cutoffResult = buildBulkRestrictionsCutoff(
+      cutoffPreset,
+      cutoffHours,
+      fixedCutoffTime,
+    );
+    if (!cutoffResult.success) {
+      setCutoffError(cutoffResult.message);
+      return;
+    }
+    setCutoffError(null);
+
     const payload = {
       from: format(startDate, 'yyyy-MM-dd'),
       to: format(endDate, 'yyyy-MM-dd'),
       status,
-      cta: cta,
-      ctd: ctd,
+      cta: resolveRestrictionTriState(cta, inactivateCta),
+      ctd: resolveRestrictionTriState(ctd, inactivateCtd),
       minStay: minStay ? parseInt(minStay) : null,
       maxStay: maxStay ? parseInt(maxStay) : null,
-      cutoffTime: cutoffTime || null,
+      ...(cutoffResult.cutoff ?? {}),
     };
 
     onApply(payload);
@@ -302,27 +313,25 @@ export const BulkRestrictionsModal = ({
             </div>
           </div>
 
-          {/* Cutoff Time */}
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">Set Cutoff</label>
-            <select
-              value={cutoffTime}
-              onChange={(e) => setCutoffTime(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
-            >
-              <option value="">Select</option>
-              {CUTOFF_TIME_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            {cutoffTime && (
-              <p className="text-xs text-slate-500 mt-1">
-                which means your check-in Bookable till {cutoffTime === '00:00:00' ? 'Midnight' : cutoffTime === '23:59:00' ? 'Before Midnight' : cutoffTime === '02:00:00' ? 'After Midnight' : format(new Date(`2000-01-01T${cutoffTime}`), 'h:mm a')}.
-              </p>
-            )}
-          </div>
+          <CutoffFormSection
+            cutoffPreset={cutoffPreset}
+            cutoffHours={cutoffHours}
+            fixedCutoffTime={fixedCutoffTime}
+            onPresetChange={(value) => {
+              setCutoffPreset(value);
+              setCutoffError(null);
+            }}
+            onHoursChange={(value) => {
+              setCutoffHours(value);
+              setCutoffError(null);
+            }}
+            onFixedTimeChange={(value) => {
+              setFixedCutoffTime(value);
+              setCutoffError(null);
+            }}
+            errorMessage={cutoffError}
+            labelClassName="text-sm font-semibold text-slate-700"
+          />
         </div>
 
         {/* Footer */}

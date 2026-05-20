@@ -16,7 +16,7 @@ export type RateDirection = "LOWER" | "HIGHER";
 export type AdjustmentUnit = "PERCENT" | "INR";
 
 export interface LinkRatePlansAdvancedPayload {
-  /** When true, use a separate offset for extra adult / paid child vs the main rule. */
+  /** When true, link extra adult and child charges separately from the base rate. */
   linkExtraGuestRates: boolean;
   extraGuestAdjustment: number;
   extraGuestUnit: AdjustmentUnit;
@@ -324,11 +324,9 @@ export function LinkRatePlansSheet({
           </button>
 
           {advancedOpen && (
-            <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-              <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <p className="text-sm font-medium leading-snug text-slate-800">
-                  Use a different offset for extra adult and child charges than
-                  the main rate rule above?
+            <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-sm font-medium text-slate-800">
+                  Link extra adult and child charges
                 </p>
                 <SegmentToggle<YesNo>
                   compact
@@ -362,8 +360,8 @@ export function LinkRatePlansSheet({
                     />
                   </div>
                 )}
-              </div>
 
+              {/* Sync restrictions with base plan — hidden until product enables this flow
               <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div>
                   <p className="text-sm font-medium text-slate-800">
@@ -384,6 +382,7 @@ export function LinkRatePlansSheet({
                   ]}
                 />
               </div>
+              */}
             </div>
           )}
         </div>

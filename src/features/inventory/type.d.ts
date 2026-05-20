@@ -17,6 +17,12 @@ export interface LegacyRatePlan {
 
 export type InventoryStatus = "OPEN" | "CLOSED";
 
+export type InventoryCutoffType =
+  | "BEFORE_MIDNIGHT"
+  | "MIDNIGHT"
+  | "AFTER_MIDNIGHT"
+  | "FIXED_TIME";
+
 export interface InventoryDay {
   date: string;          // "yyyy-MM-dd"
   total: number;
@@ -28,6 +34,9 @@ export interface InventoryDay {
   maxStay: number | null;
   cta: boolean;
   ctd: boolean;
+  cutoffType: InventoryCutoffType | null;
+  cutoffHours: number | null;
+  bookingCutoffTime: string | null;
 }
 
 export interface InventoryRoom {

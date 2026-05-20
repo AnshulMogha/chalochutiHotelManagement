@@ -356,6 +356,7 @@ export const API_ENDPOINTS = {
     UPDATE_SINGLE: "/hotel/rates/single",
     UPDATE_SINGLE_DERIVED: "/hotel/rates/single-derived",
     UPDATE_BULK: "/hotel/rates/bulk",
+    UPDATE_BULK_DERIVED: "/hotel/rates/bulk-update-derived",
     CREATE_SINGLE_DERIVED: "/hotel/rates/single-derived",
     LINK_RATE_PLANS: "/hotel/rate-plan/link",
     GET_RATE_PLAN_LINKS_BY_MASTER: (masterRatePlanId: number) =>
