@@ -9,6 +9,16 @@ import {
   type CreateServiceFeeRequest,
 } from "../services/commissionTaxService";
 import {
+  agentIncentiveService,
+  type AgentIncentive,
+  type AgentIncentiveConfigRequest,
+} from "../services/agentIncentiveService";
+import {
+  AgencyIncentiveFormModal,
+  AgencyIncentiveRulesPanel,
+  matchesIncentiveSearch,
+} from "../components/AgencyCommissionSection";
+import {
   adminService,
   type ApprovedHotelItem,
 } from "../services/adminService";
@@ -35,13 +45,14 @@ import {
 } from "lucide-react";
 
 // Commission Constants
-const COMMISSION_SCOPE_OPTIONS = [
+const OTA_COMMISSION_SCOPE_OPTIONS = [
   { value: "GLOBAL", label: "Global" },
   { value: "HOTEL", label: "Hotel" },
   // { value: "CITY", label: "City" }, // Temporarily disabled
   { value: "CHANNEL", label: "Channel" },
-  { value: "AGENCY_TIER", label: "Agency Tier" },
 ];
+
+type AdminCommissionTab = "otaCommission" | "agencyCommission" | "tax" | "serviceFee";
 
 const COMMISSION_TYPE_OPTIONS = [
   { value: "PERCENTAGE", label: "Percentage" },
@@ -133,7 +144,13 @@ interface CommissionFormModalProps {
   mode: "create" | "edit";
 }
 
-function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: CommissionFormModalProps) {
+function CommissionFormModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  commission,
+  mode,
+}: CommissionFormModalProps) {
   const [formData, setFormData] = useState<CreateCommissionRequest>({
     scope: "GLOBAL",
     scopeValue: null,
@@ -296,11 +313,11 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">
-                {mode === "create" ? "Create Commission" : "Edit Commission"}
+                {mode === "create" ? "Create OTA Commission" : "Edit OTA Commission"}
               </h2>
               <p className="text-sm text-gray-600">
                 {mode === "create"
-                  ? "Add a new commission rule"
+                  ? "Add a new OTA commission rule"
                   : "Update commission information"}
               </p>
             </div>
@@ -343,11 +360,11 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
                 setFormData({
                   ...formData,
                   scope: newScope,
-                  scopeValue: null, // Clear scopeValue when changing scope
+                  scopeValue: null,
                 });
               }}
               error={errors.scope}
-              options={COMMISSION_SCOPE_OPTIONS}
+              options={OTA_COMMISSION_SCOPE_OPTIONS}
               required
               icon={<Globe className="w-4 h-4 text-gray-400" />}
             />
@@ -478,7 +495,11 @@ function CommissionFormModal({ isOpen, onClose, onSubmit, commission, mode }: Co
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : mode === "create" ? "Create Commission" : "Update Commission"}
+              {isSubmitting
+                ? "Saving..."
+                : mode === "create"
+                  ? "Create OTA Commission"
+                  : "Update Commission"}
             </Button>
           </div>
         </form>
@@ -1029,6 +1050,281 @@ function ServiceFeeFormModal({ isOpen, onClose, onSubmit }: ServiceFeeFormModalP
 }
 
 // Status Badge Component
+function matchesCommissionSearch(commission: Commission, query: string): boolean {
+  if (!query.trim()) return true;
+  const q = query.toLowerCase().trim();
+  const id = String(commission.id ?? "").toLowerCase();
+  const scope = (commission.scope ?? "").toLowerCase();
+  const scopeValue = (commission.scopeValue ?? "").toLowerCase();
+  const agencyTier = (commission.agencyTier ?? "").toLowerCase();
+  const type = (commission.commissionType ?? "").toLowerCase();
+  const value = String(commission.commissionValue ?? "").toLowerCase();
+  const from = (commission.effectiveFrom ?? "").toLowerCase();
+  return (
+    id.includes(q) ||
+    scope.includes(q) ||
+    scopeValue.includes(q) ||
+    agencyTier.includes(q) ||
+    type.includes(q) ||
+    value.includes(q) ||
+    from.includes(q)
+  );
+}
+
+interface CommissionRulesPanelProps {
+  title: string;
+  addLabel: string;
+  emptyTitle: string;
+  emptyDescription: string;
+  searchPlaceholder: string;
+  commissions: Commission[];
+  filteredCommissions: Commission[];
+  commissionSearch: string;
+  onSearchChange: (value: string) => void;
+  onAdd: () => void;
+  error: string | null;
+  isLoading: boolean;
+  commissionPage: number;
+  commissionPageSize: number;
+  commissionTotal: number;
+  commissionTotalPages: number;
+  commissionHasNext: boolean;
+  commissionHasPrevious: boolean;
+  onPageSizeChange: (size: number) => void;
+  onPrevious: () => void;
+  onNext: () => void;
+  onDeactivate: (id: string) => void;
+}
+
+function CommissionRulesPanel({
+  title,
+  addLabel,
+  emptyTitle,
+  emptyDescription,
+  searchPlaceholder,
+  commissions,
+  filteredCommissions,
+  commissionSearch,
+  onSearchChange,
+  onAdd,
+  error,
+  isLoading,
+  commissionPage,
+  commissionPageSize,
+  commissionTotal,
+  commissionTotalPages,
+  commissionHasNext,
+  commissionHasPrevious,
+  onPageSizeChange,
+  onPrevious,
+  onNext,
+  onDeactivate,
+}: CommissionRulesPanelProps) {
+  return (
+    <Card variant="elevated" className="mb-6 bg-white shadow-lg border border-gray-200">
+      <CardHeader className="border-b border-gray-200 rounded-t-lg">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-gray-900">
+            <Percent className="w-5 h-5 text-blue-600" />
+            {title}
+          </CardTitle>
+          <Button variant="primary" onClick={onAdd} className="gap-2">
+            <Plus className="w-4 h-4" />
+            {addLabel}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+        {commissions.length > 0 && (
+          <div className="mb-4 flex flex-nowrap items-center gap-3">
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <Input
+                type="text"
+                placeholder={searchPlaceholder}
+                value={commissionSearch}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+        )}
+        {commissions.length === 0 ? (
+          <div className="text-center py-12">
+            <Percent className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-600 text-lg font-medium mb-2">{emptyTitle}</p>
+            <p className="text-gray-500 text-sm mb-4">{emptyDescription}</p>
+            <Button variant="primary" onClick={onAdd} className="gap-2">
+              <Plus className="w-4 h-4" />
+              {addLabel}
+            </Button>
+          </div>
+        ) : filteredCommissions.length === 0 ? (
+          <div className="text-center py-12">
+            <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-600 text-lg font-medium mb-2">No matching rules</p>
+            <p className="text-gray-500 text-sm">Try a different search term.</p>
+          </div>
+        ) : (
+          <div className="bg-white border border-gray-200 shadow-md rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-[#2f3d95] border-b-2 border-[#1e2a7a]">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">ID</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Scope</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Scope Value</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Value</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Effective From</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredCommissions.map((commission) => {
+                    let effectiveDate = "N/A";
+                    try {
+                      if (commission.effectiveFrom) {
+                        const date = new Date(commission.effectiveFrom);
+                        if (!isNaN(date.getTime())) {
+                          effectiveDate = date.toLocaleDateString();
+                        }
+                      }
+                    } catch {
+                      effectiveDate = "N/A";
+                    }
+                    const scopeValueDisplay =
+                      commission.scope === "AGENCY_TIER"
+                        ? commission.agencyTier || commission.scopeValue || "N/A"
+                        : commission.scopeValue || "N/A";
+                    return (
+                      <tr
+                        key={commission.id}
+                        className="hover:bg-blue-50 transition-colors even:bg-gray-50"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-700">
+                            <Hash className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
+                            <span className="font-medium" title={commission.id}>
+                              {typeof commission.id === "string" && commission.id.length > 8
+                                ? `${commission.id.substring(0, 8)}...`
+                                : commission.id}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {commission.scope === "GLOBAL" ? (
+                              <Globe className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
+                            ) : commission.scope === "HOTEL" ? (
+                              <Building2 className="w-4 h-4 mr-2 text-purple-500 flex-shrink-0" />
+                            ) : commission.scope === "CITY" ? (
+                              <MapPin className="w-4 h-4 mr-2 text-green-500 flex-shrink-0" />
+                            ) : (
+                              <Radio className="w-4 h-4 mr-2 text-orange-500 flex-shrink-0" />
+                            )}
+                            <span className="text-sm font-medium text-gray-900">{commission.scope}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-700">{scopeValueDisplay}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {commission.commissionType === "PERCENTAGE" ? (
+                              <Percent className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
+                            ) : (
+                              <IndianRupee className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
+                            )}
+                            <span className="text-sm text-gray-700">
+                              {commission.commissionType === "PERCENTAGE" ? "Percentage" : "Flat"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm font-semibold text-gray-900">
+                            {commission.commissionType === "PERCENTAGE"
+                              ? `${commission.commissionValue}%`
+                              : `₹${commission.commissionValue.toFixed(2)}`}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-700">
+                            <Calendar className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
+                            <span>{effectiveDate}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <StatusBadge active={commission.active} />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!commission.active}
+                            onClick={() => onDeactivate(commission.id)}
+                            className="text-rose-700 border-rose-300 hover:bg-rose-50 disabled:opacity-50"
+                          >
+                            Deactivate
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="text-sm text-gray-600">
+                Showing page {commissionTotalPages === 0 ? 0 : commissionPage + 1} of{" "}
+                {commissionTotalPages} ({commissionTotal} total)
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor={`commission-page-size-${title}`} className="text-sm text-gray-600">
+                  Rows:
+                </label>
+                <select
+                  id={`commission-page-size-${title}`}
+                  className="h-9 rounded-md border border-gray-300 px-2 text-sm"
+                  value={commissionPageSize}
+                  onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!commissionHasPrevious || isLoading}
+                  onClick={onPrevious}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!commissionHasNext || isLoading}
+                  onClick={onNext}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function StatusBadge({ status, active }: { status?: "ACTIVE" | "INACTIVE" | string | null; active?: boolean | null }) {
   // Handle boolean active field (new API format) - check this first
   if (active !== undefined && active !== null) {
@@ -1103,7 +1399,7 @@ function StatusBadge({ status, active }: { status?: "ACTIVE" | "INACTIVE" | stri
 }
 
 export default function CommissionAndTaxPage() {
-  const [activeTab, setActiveTab] = useState<"commission" | "tax" | "serviceFee">("commission");
+  const [activeTab, setActiveTab] = useState<AdminCommissionTab>("otaCommission");
   const [commissions, setCommissions] = useState<Commission[]>([]);
   const [commissionPage, setCommissionPage] = useState(0);
   const [commissionPageSize, setCommissionPageSize] = useState(20);
@@ -1135,32 +1431,33 @@ export default function CommissionAndTaxPage() {
   const [serviceFeeToDeactivate, setServiceFeeToDeactivate] = useState<
     string | null
   >(null);
-  const [commissionSearch, setCommissionSearch] = useState("");
+  const [otaCommissionSearch, setOtaCommissionSearch] = useState("");
+  const [agencyCommissionSearch, setAgencyCommissionSearch] = useState("");
+  const [agentIncentives, setAgentIncentives] = useState<AgentIncentive[]>([]);
+  const [agentIncentivePage, setAgentIncentivePage] = useState(0);
+  const [agentIncentivePageSize, setAgentIncentivePageSize] = useState(20);
+  const [agentIncentiveTotal, setAgentIncentiveTotal] = useState(0);
+  const [agentIncentiveTotalPages, setAgentIncentiveTotalPages] = useState(0);
+  const [agentIncentiveHasNext, setAgentIncentiveHasNext] = useState(false);
+  const [agentIncentiveHasPrevious, setAgentIncentiveHasPrevious] = useState(false);
+  const [showAgencyIncentiveModal, setShowAgencyIncentiveModal] = useState(false);
+  const [showDeactivateAgentIncentiveModal, setShowDeactivateAgentIncentiveModal] =
+    useState(false);
+  const [deactivatingAgentIncentive, setDeactivatingAgentIncentive] = useState(false);
+  const [agentIncentiveToDeactivate, setAgentIncentiveToDeactivate] = useState<
+    string | null
+  >(null);
   const [taxSearch, setTaxSearch] = useState("");
   const [taxStateFilter, setTaxStateFilter] = useState<string>("");
   const [serviceFeeSearch, setServiceFeeSearch] = useState("");
 
-  // Client-side filtered lists
-  const filteredCommissions = commissions.filter((c) => {
-    if (!commissionSearch.trim()) return true;
-    const q = commissionSearch.toLowerCase().trim();
-    const id = String(c.id ?? "").toLowerCase();
-    const scope = (c.scope ?? "").toLowerCase();
-    const scopeValue = (c.scopeValue ?? "").toLowerCase();
-    const agencyTier = (c.agencyTier ?? "").toLowerCase();
-    const type = (c.commissionType ?? "").toLowerCase();
-    const value = String(c.commissionValue ?? "").toLowerCase();
-    const from = (c.effectiveFrom ?? "").toLowerCase();
-    return (
-      id.includes(q) ||
-      scope.includes(q) ||
-      scopeValue.includes(q) ||
-      agencyTier.includes(q) ||
-      type.includes(q) ||
-      value.includes(q) ||
-      from.includes(q)
-    );
-  });
+  const otaCommissions = commissions.filter((c) => c.scope !== "AGENCY_TIER");
+  const filteredOtaCommissions = otaCommissions.filter((c) =>
+    matchesCommissionSearch(c, otaCommissionSearch),
+  );
+  const filteredAgentIncentives = agentIncentives.filter((row) =>
+    matchesIncentiveSearch(row, agencyCommissionSearch),
+  );
 
   const taxStates = Array.from(
     new Set(taxes.map((t) => t.stateCode).filter(Boolean))
@@ -1202,14 +1499,22 @@ export default function CommissionAndTaxPage() {
   });
 
   useEffect(() => {
-    if (activeTab === "commission") {
+    if (activeTab === "otaCommission") {
       fetchCommissions(commissionPage, commissionPageSize);
+    } else if (activeTab === "agencyCommission") {
+      fetchAgentIncentives(agentIncentivePage, agentIncentivePageSize);
     } else if (activeTab === "tax") {
       fetchTaxes();
     } else {
       fetchServiceFees();
     }
-  }, [activeTab, commissionPage, commissionPageSize]);
+  }, [
+    activeTab,
+    commissionPage,
+    commissionPageSize,
+    agentIncentivePage,
+    agentIncentivePageSize,
+  ]);
 
   const fetchCommissions = async (page = 0, size = 20) => {
     try {
@@ -1269,12 +1574,61 @@ export default function CommissionAndTaxPage() {
     }
   };
 
+  const fetchAgentIncentives = async (page = 0, size = 20) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await agentIncentiveService.getList({ page, size });
+      setAgentIncentives(response.incentives || []);
+      setAgentIncentiveTotal(response.total || 0);
+      setAgentIncentiveTotalPages(
+        response.totalPages ??
+          Math.ceil((response.total || 0) / (response.size || size || 1)),
+      );
+      setAgentIncentiveHasNext(
+        response.hasNext ?? page + 1 < Math.ceil((response.total || 0) / (size || 1)),
+      );
+      setAgentIncentiveHasPrevious(response.hasPrevious ?? page > 0);
+    } catch (err) {
+      setError("Failed to load agency commissions");
+      console.error("Error fetching agent incentives:", err);
+      setAgentIncentives([]);
+      setAgentIncentiveTotal(0);
+      setAgentIncentiveTotalPages(0);
+      setAgentIncentiveHasNext(false);
+      setAgentIncentiveHasPrevious(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCreateCommission = async (data: CreateCommissionRequest) => {
     try {
       await commissionTaxService.createCommission(data);
       await fetchCommissions(commissionPage, commissionPageSize);
     } catch (error) {
       throw error;
+    }
+  };
+
+  const handleCreateAgentIncentive = async (data: AgentIncentiveConfigRequest) => {
+    await agentIncentiveService.create(data);
+    await fetchAgentIncentives(agentIncentivePage, agentIncentivePageSize);
+  };
+
+  const handleDeactivateAgentIncentive = async () => {
+    if (!agentIncentiveToDeactivate) return;
+    setDeactivatingAgentIncentive(true);
+    try {
+      await agentIncentiveService.deactivate(agentIncentiveToDeactivate);
+      await fetchAgentIncentives(agentIncentivePage, agentIncentivePageSize);
+      setShowDeactivateAgentIncentiveModal(false);
+      setAgentIncentiveToDeactivate(null);
+    } catch (error) {
+      console.error("Error deactivating agent incentive:", error);
+      setError("Failed to deactivate agency commission");
+    } finally {
+      setDeactivatingAgentIncentive(false);
     }
   };
 
@@ -1368,11 +1722,18 @@ export default function CommissionAndTaxPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "commission" | "tax" | "serviceFee")}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as AdminCommissionTab)}
+      >
         <TabsList className="mb-6">
-          <TabsTrigger value="commission" className="gap-2">
+          <TabsTrigger value="otaCommission" className="gap-2">
             <Percent className="w-4 h-4" />
-            Commissions
+            OTA Commission
+          </TabsTrigger>
+          <TabsTrigger value="agencyCommission" className="gap-2">
+            <Building2 className="w-4 h-4" />
+            Agency Commission
           </TabsTrigger>
           <TabsTrigger value="tax" className="gap-2">
             <Receipt className="w-4 h-4" />
@@ -1384,247 +1745,70 @@ export default function CommissionAndTaxPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="commission">
-          <Card variant="elevated" className="mb-6 bg-white shadow-lg border border-gray-200">
-            <CardHeader className="border-b border-gray-200 rounded-t-lg">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-gray-900">
-                  <Percent className="w-5 h-5 text-blue-600" />
-                  Commission Rules
-                </CardTitle>
-                <Button
-                  variant="primary"
-                  onClick={() => setShowCommissionModal(true)}
-                  className="gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Commission
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {error && (
-                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-600" />
-                  <p className="text-sm text-red-700">{error}</p>
-                </div>
-              )}
-              {commissions.length > 0 && (
-                <div className="mb-4 flex flex-nowrap items-center gap-3">
-                  <div className="relative w-full max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    <Input
-                      type="text"
-                      placeholder="Search commissions..."
-                      value={commissionSearch}
-                      onChange={(e) => setCommissionSearch(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
-              )}
-              {commissions.length === 0 ? (
-                <div className="text-center py-12">
-                  <Percent className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 text-lg font-medium mb-2">
-                    No commissions yet
-                  </p>
-                  <p className="text-gray-500 text-sm mb-4">
-                    Create your first commission rule to get started
-                  </p>
-                  <Button
-                    variant="primary"
-                    onClick={() => setShowCommissionModal(true)}
-                    className="gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Commission
-                  </Button>
-                </div>
-              ) : (
-                <div className="bg-white border border-gray-200 shadow-md rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-[#2f3d95] border-b-2 border-[#1e2a7a]">
-                        <tr>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            ID
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Scope
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Scope Value
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Type
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Value
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Effective From
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredCommissions.map((commission) => {
-                          let effectiveDate = "N/A";
-                          try {
-                            if (commission.effectiveFrom) {
-                              // Handle both date formats: "2026-01-23" and ISO strings
-                              const date = new Date(commission.effectiveFrom);
-                              if (!isNaN(date.getTime())) {
-                                effectiveDate = date.toLocaleDateString();
-                              }
-                            }
-                          } catch (error) {
-                            effectiveDate = "N/A";
-                          }
-                          return (
-                            <tr
-                              key={commission.id}
-                              className="hover:bg-blue-50 transition-colors even:bg-gray-50"
-                            >
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center text-sm text-gray-700">
-                                  <Hash className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                                  <span className="font-medium" title={commission.id}>
-                                    {typeof commission.id === 'string' && commission.id.length > 8
-                                      ? `${commission.id.substring(0, 8)}...`
-                                      : commission.id}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  {commission.scope === "GLOBAL" ? (
-                                    <Globe className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
-                                  ) : commission.scope === "HOTEL" ? (
-                                    <Building2 className="w-4 h-4 mr-2 text-purple-500 flex-shrink-0" />
-                                  ) : commission.scope === "CITY" ? (
-                                    <MapPin className="w-4 h-4 mr-2 text-green-500 flex-shrink-0" />
-                                  ) : (
-                                    <Radio className="w-4 h-4 mr-2 text-orange-500 flex-shrink-0" />
-                                  )}
-                                  <span className="text-sm font-medium text-gray-900">
-                                    {commission.scope}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm text-gray-700">
-                                  {commission.scopeValue || "N/A"}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  {commission.commissionType === "PERCENTAGE" ? (
-                                    <Percent className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                                  ) : (
-                                    <IndianRupee className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                                  )}
-                                  <span className="text-sm text-gray-700">
-                                    {commission.commissionType === "PERCENTAGE" ? "Percentage" : "Flat"}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  {commission.commissionType === "PERCENTAGE" ? (
-                                    <Percent className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                                  ) : (
-                                    <IndianRupee className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                                  )}
-                                  <span className="text-sm font-semibold text-gray-900">
-                                    {commission.commissionType === "PERCENTAGE" 
-                                      ? `${commission.commissionValue}%`
-                                      : `₹${commission.commissionValue.toFixed(2)}`}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center text-sm text-gray-700">
-                                  <Calendar className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                                  <span>{effectiveDate}</span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <StatusBadge active={commission.active} />
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={!commission.active}
-                                  onClick={() => {
-                                    setCommissionToDeactivate(commission.id);
-                                    setShowDeactivateCommissionModal(true);
-                                  }}
-                                  className="text-rose-700 border-rose-300 hover:bg-rose-50 disabled:opacity-50"
-                                >
-                                  Deactivate
-                                </Button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="text-sm text-gray-600">
-                      Showing page {commissionTotalPages === 0 ? 0 : commissionPage + 1} of{" "}
-                      {commissionTotalPages} ({commissionTotal} total)
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label htmlFor="commission-page-size" className="text-sm text-gray-600">
-                        Rows:
-                      </label>
-                      <select
-                        id="commission-page-size"
-                        className="h-9 rounded-md border border-gray-300 px-2 text-sm"
-                        value={commissionPageSize}
-                        onChange={(e) => {
-                          const nextSize = Number(e.target.value);
-                          setCommissionPageSize(nextSize);
-                          setCommissionPage(0);
-                        }}
-                      >
-                        <option value={10}>10</option>
-                        <option value={20}>20</option>
-                        <option value={50}>50</option>
-                      </select>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!commissionHasPrevious || isLoading}
-                        onClick={() =>
-                          setCommissionPage((prev) => Math.max(0, prev - 1))
-                        }
-                      >
-                        Previous
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!commissionHasNext || isLoading}
-                        onClick={() => setCommissionPage((prev) => prev + 1)}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="otaCommission">
+          <CommissionRulesPanel
+            title="OTA Commission Rules"
+            addLabel="Add OTA Commission"
+            emptyTitle="No OTA commissions yet"
+            emptyDescription="Create your first OTA commission rule to get started"
+            searchPlaceholder="Search OTA commissions..."
+            commissions={otaCommissions}
+            filteredCommissions={filteredOtaCommissions}
+            commissionSearch={otaCommissionSearch}
+            onSearchChange={setOtaCommissionSearch}
+            onAdd={() => {
+              setEditingCommission(null);
+              setShowCommissionModal(true);
+            }}
+            error={error}
+            isLoading={isLoading}
+            commissionPage={commissionPage}
+            commissionPageSize={commissionPageSize}
+            commissionTotal={commissionTotal}
+            commissionTotalPages={commissionTotalPages}
+            commissionHasNext={commissionHasNext}
+            commissionHasPrevious={commissionHasPrevious}
+            onPageSizeChange={(size) => {
+              setCommissionPageSize(size);
+              setCommissionPage(0);
+            }}
+            onPrevious={() => setCommissionPage((prev) => Math.max(0, prev - 1))}
+            onNext={() => setCommissionPage((prev) => prev + 1)}
+            onDeactivate={(id) => {
+              setCommissionToDeactivate(id);
+              setShowDeactivateCommissionModal(true);
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="agencyCommission">
+          <AgencyIncentiveRulesPanel
+            incentives={agentIncentives}
+            filteredIncentives={filteredAgentIncentives}
+            search={agencyCommissionSearch}
+            onSearchChange={setAgencyCommissionSearch}
+            onAdd={() => setShowAgencyIncentiveModal(true)}
+            error={error}
+            isLoading={isLoading}
+            page={agentIncentivePage}
+            pageSize={agentIncentivePageSize}
+            total={agentIncentiveTotal}
+            totalPages={agentIncentiveTotalPages}
+            hasNext={agentIncentiveHasNext}
+            hasPrevious={agentIncentiveHasPrevious}
+            onPageSizeChange={(size) => {
+              setAgentIncentivePageSize(size);
+              setAgentIncentivePage(0);
+            }}
+            onPrevious={() =>
+              setAgentIncentivePage((prev) => Math.max(0, prev - 1))
+            }
+            onNext={() => setAgentIncentivePage((prev) => prev + 1)}
+            onDeactivate={(id) => {
+              setAgentIncentiveToDeactivate(id);
+              setShowDeactivateAgentIncentiveModal(true);
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="tax">
@@ -1956,7 +2140,14 @@ export default function CommissionAndTaxPage() {
         isOpen={showCommissionModal}
         onClose={() => setShowCommissionModal(false)}
         onSubmit={handleCreateCommission}
-        mode="create"
+        commission={editingCommission}
+        mode={editingCommission ? "edit" : "create"}
+      />
+
+      <AgencyIncentiveFormModal
+        isOpen={showAgencyIncentiveModal}
+        onClose={() => setShowAgencyIncentiveModal(false)}
+        onSubmit={handleCreateAgentIncentive}
       />
 
       {/* Tax Modal */}
@@ -1972,6 +2163,45 @@ export default function CommissionAndTaxPage() {
         onClose={() => setShowServiceFeeModal(false)}
         onSubmit={handleCreateServiceFee}
       />
+
+      {showDeactivateAgentIncentiveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Deactivate Agency Commission
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Are you sure you want to deactivate this agency commission rule?
+              </p>
+            </div>
+            <div className="px-6 py-4 flex items-center justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (deactivatingAgentIncentive) return;
+                  setShowDeactivateAgentIncentiveModal(false);
+                  setAgentIncentiveToDeactivate(null);
+                }}
+                disabled={deactivatingAgentIncentive}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={handleDeactivateAgentIncentive}
+                disabled={deactivatingAgentIncentive}
+                isLoading={deactivatingAgentIncentive}
+                className="bg-rose-700 hover:bg-rose-800 text-white border-0"
+              >
+                Deactivate
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDeactivateCommissionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">

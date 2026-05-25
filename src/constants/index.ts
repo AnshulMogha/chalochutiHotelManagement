@@ -162,6 +162,12 @@ export const API_ENDPOINTS = {
     GET_COMMISSIONS: "/admin/commission/list",
     GET_ACTIVE_COMMISSIONS: "/admin/commission/active",
     GET_COMMISSION_BY_ID: (id: string | number) => `/admin/commission/${id}`,
+    // Agent incentive (agency commission) APIs
+    CREATE_AGENT_INCENTIVE: "/admin/finance/agent-incentives",
+    GET_AGENT_INCENTIVES: "/admin/finance/agent-incentives",
+    GET_ACTIVE_AGENT_INCENTIVES: "/admin/finance/agent-incentives/active",
+    GET_AGENT_INCENTIVE_BY_ID: (id: string | number) =>
+      `/admin/finance/agent-incentives/${id}`,
     // Tax APIs
     CREATE_TAX: "/admin/tax",
     GET_TAXES: "/admin/tax/list",

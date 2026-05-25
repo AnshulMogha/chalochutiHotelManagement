@@ -682,7 +682,7 @@ export default function BookingDetailPage() {
               {!isPackageRate && (
                 <>
                   <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide border-t border-gray-200">
-                    Commission
+                    OTA Commission
                   </div>
                   <RateRow
                     label="5. OTA commission"
