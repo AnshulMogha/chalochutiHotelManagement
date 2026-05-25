@@ -348,6 +348,62 @@ export const RatePlansGrid = ({
     );
   };
 
+  const showSingleOccupancyRow = (ratePlan: RoomRatePlan): boolean => {
+    if (variant === 'embedded') return true;
+    return ratePlan.days.some(
+      (day) =>
+        day.singleOccupancyRate !== undefined || (day.baseRate ?? 0) > 0,
+    );
+  };
+
+  const primeRateCellEdit = (
+    ratePlanId: number,
+    roomId: number,
+    dateStr: string,
+    dayData: RoomRateDay | null,
+    isSelected: boolean,
+    canEdit: boolean,
+  ) => {
+    if (!isSelected || canEdit || !dayData) return;
+    const baseRate = getCurrentValue(ratePlanId, roomId, dateStr, 'baseRate', dayData) as number;
+    const singleOccupancyRate = getCurrentValue(
+      ratePlanId,
+      roomId,
+      dateStr,
+      'singleOccupancyRate',
+      dayData,
+    ) as number | null;
+    const extraAdultCharge = getCurrentValue(
+      ratePlanId,
+      roomId,
+      dateStr,
+      'extraAdultCharge',
+      dayData,
+    ) as number;
+    const paidChildCharge = getCurrentValue(
+      ratePlanId,
+      roomId,
+      dateStr,
+      'paidChildCharge',
+      dayData,
+    ) as number;
+    const minStay = getCurrentValue(ratePlanId, roomId, dateStr, 'minStay', dayData) as number | null;
+    const maxStay = getCurrentValue(ratePlanId, roomId, dateStr, 'maxStay', dayData) as number | null;
+    const cutoffTime = getCurrentValue(ratePlanId, roomId, dateStr, 'cutoffTime', dayData) as string | null;
+    onUpdate(
+      ratePlanId,
+      roomId,
+      dateStr,
+      baseRate,
+      singleOccupancyRate,
+      extraAdultCharge,
+      paidChildCharge,
+      minStay ?? undefined,
+      maxStay ?? undefined,
+      cutoffTime ?? undefined,
+    );
+  };
+
   const numColumns = dates.length;
   const effectiveExpandedRoomId = forcedExpandedRoomId ?? expandedRoomId;
 
@@ -598,6 +654,16 @@ export const RatePlansGrid = ({
                             value={displayValue}
                             min={1}
                             readOnly={!canEdit}
+                            onFocus={() =>
+                              primeRateCellEdit(
+                                ratePlan.ratePlanId,
+                                room.roomId,
+                                dateStr,
+                                dayData,
+                                isSelected,
+                                canEdit,
+                              )
+                            }
                             onChange={(e) => {
                               if (canEdit) {
                                 const inputValue = parsePositiveRateInput(e.target.value);
@@ -670,8 +736,8 @@ export const RatePlansGrid = ({
                     })}
                   </div>
 
-                  {/* Single Occupancy Rate Row - Conditionally rendered */}
-                  {ratePlan.days.some((day) => day.singleOccupancyRate !== undefined) && (
+                  {/* Single Occupancy Rate Row (single-derived); always shown in embedded inventory view */}
+                  {showSingleOccupancyRow(ratePlan) && (
                     <div
                       className="grid border-t border-slate-100 bg-slate-50/40 hover:bg-slate-50/50 transition-colors duration-150"
                       style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
@@ -722,6 +788,16 @@ export const RatePlansGrid = ({
                               value={displayValue}
                               min={1}
                               readOnly={!canEdit}
+                              onFocus={() =>
+                                primeRateCellEdit(
+                                  ratePlan.ratePlanId,
+                                  room.roomId,
+                                  dateStr,
+                                  dayData,
+                                  isSelected,
+                                  canEdit,
+                                )
+                              }
                               onChange={(e) => {
                                 if (canEdit) {
                                   const inputValue = parsePositiveRateInput(e.target.value);
