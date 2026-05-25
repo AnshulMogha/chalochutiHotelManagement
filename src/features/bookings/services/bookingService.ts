@@ -26,13 +26,29 @@ export interface BookingDetailRoomType {
   mealPlan: string;
 }
 
+/** Applied promotion line in rate breakup */
+export interface AppliedPromotion {
+  promotionName: string;
+  promotionType: string;
+  discountPercentage: number;
+  percentLabel: string;
+  offerType: string;
+  discountAmount: number;
+  displayLine: string;
+}
+
 /** Rate breakup in booking detail */
 export interface RateBreakup {
   currency: string;
   hotelGrossCharges: number;
+  roomChargesBeforePromotion?: number;
+  extraAdultChildChargesBeforePromotion?: number;
   roomCharges: number;
   extraAdultChildCharges: number;
+  netAccommodationAfterPromotion?: number;
   propertyTaxes: number;
+  promotionDiscount?: number;
+  appliedPromotions?: AppliedPromotion[];
   serviceChargePercent: number;
   serviceChargeAmount: number;
   commissionTotal: number;
@@ -42,6 +58,8 @@ export interface RateBreakup {
   tcsAmount: number;
   tdsAmount: number;
   payableToHotel: number;
+  agentCommission?: number | null;
+  agencyTier?: string | null;
 }
 
 /** Booking detail from GET /reports/booking-list/:id */

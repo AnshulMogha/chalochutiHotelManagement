@@ -66,6 +66,24 @@ function getPaymentStatusStyle(status: string | undefined): string {
   return "bg-gray-100 text-gray-700 border-gray-200";
 }
 
+function formatPercent(value: number | undefined | null): string {
+  if (value === undefined || value === null || Number.isNaN(value)) return "";
+  const trimmed = Number(value.toFixed(4));
+  return `${trimmed}%`;
+}
+
+function hasPromotionBreakup(
+  rateBreakup: BookingDetail["rateBreakup"],
+): boolean {
+  if (!rateBreakup) return false;
+  const discount = rateBreakup.promotionDiscount ?? 0;
+  const promos = rateBreakup.appliedPromotions?.length ?? 0;
+  const before =
+    rateBreakup.roomChargesBeforePromotion != null ||
+    rateBreakup.extraAdultChildChargesBeforePromotion != null;
+  return discount > 0 || promos > 0 || before;
+}
+
 function getPricingComputationStyle(value: string | undefined | null): string {
   if (!value) return "bg-gray-100 text-gray-700 border-gray-200";
   const normalized = String(value).toUpperCase();
@@ -84,15 +102,19 @@ function DetailCard({
   iconColor,
   title,
   children,
+  className = "",
 }: {
   icon: React.ElementType;
   iconBg: string;
   iconColor: string;
   title: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
+    <div
+      className={`bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden ${className}`}
+    >
       <div className={`px-5 py-4 border-b border-gray-100 ${iconBg}`}>
         <div className="flex items-center gap-3">
           <div
@@ -256,6 +278,7 @@ export default function BookingDetailPage() {
   const isCancelledBooking = String(booking.paymentStatus || "")
     .toUpperCase()
     .includes("CANCELLED");
+  const showPromotionBreakup = hasPromotionBreakup(rateBreakup);
 
   return (
     <>
@@ -371,6 +394,9 @@ export default function BookingDetailPage() {
           >
             <dl className="divide-y divide-gray-50">
               <DetailRow label="Guest name" value={booking.guestName} />
+              {booking.guestStatus != null && booking.guestStatus !== "" && (
+                <DetailRow label="Guest status" value={booking.guestStatus} />
+              )}
               <DetailRow
                 label="Contact"
                 value={
@@ -445,9 +471,7 @@ export default function BookingDetailPage() {
                     key={idx}
                     className="p-3 rounded-xl bg-gray-50 border border-gray-100"
                   >
-                    <div className="font-medium text-gray-900">
-                      {room.roomName}
-                    </div>
+                    <div className="font-medium text-gray-900">{room.roomName}</div>
                     <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-gray-600">
                       <span className="inline-flex items-center gap-1">
                         <Utensils className="w-3.5 h-3.5 text-amber-500" />
@@ -466,26 +490,157 @@ export default function BookingDetailPage() {
             </div>
           </DetailCard>
 
+          {/* Payment summary */}
+          <DetailCard
+            icon={CreditCard}
+            iconBg="bg-emerald-50"
+            iconColor="bg-emerald-100 text-emerald-600"
+            title="Payment"
+          >
+            <dl className="divide-y divide-gray-50">
+              <DetailRow
+                label="Payment status"
+                value={
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${getPaymentStatusStyle(
+                      booking.paymentStatus,
+                    )}`}
+                  >
+                    {booking.paymentStatus}
+                  </span>
+                }
+              />
+              <DetailRow
+                label="Payment type"
+                value={booking.paymentType || "—"}
+              />
+              <DetailRow
+                label="Guest paid (total)"
+                value={
+                  <span className="text-lg font-bold text-gray-900 tabular-nums">
+                    {formatCurrency(
+                      booking.totalAmount,
+                      rateBreakup?.currency,
+                    )}
+                  </span>
+                }
+              />
+            </dl>
+          </DetailCard>
+
           {/* Rate breakup */}
           <DetailCard
             icon={Receipt}
             iconBg="bg-amber-50"
             iconColor="bg-amber-100 text-amber-600"
             title="Rate breakup"
+            className="lg:col-span-2"
           >
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-              <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+              {showPromotionBreakup && (
+                <>
+                  <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                    Accommodation (before promotion)
+                  </div>
+                  <RateRow
+                    label="Room charges (list)"
+                    value={formatCurrency(
+                      rateBreakup?.roomChargesBeforePromotion ??
+                        rateBreakup?.roomCharges,
+                      rateBreakup?.currency,
+                    )}
+                  />
+                  <RateRow
+                    label="Extra adult / child (list)"
+                    value={formatCurrency(
+                      rateBreakup?.extraAdultChildChargesBeforePromotion ??
+                        rateBreakup?.extraAdultChildCharges,
+                      rateBreakup?.currency,
+                    )}
+                  />
+                  <div className="bg-violet-50 px-4 py-2 text-xs font-semibold text-violet-700 uppercase tracking-wide border-t border-violet-100">
+                    Promotions
+                  </div>
+                  {rateBreakup?.appliedPromotions?.length ? (
+                    rateBreakup.appliedPromotions.map((promo, idx) => (
+                      <RateRow
+                        key={`${promo.promotionName}-${idx}`}
+                        label={
+                          promo.displayLine ||
+                          `${promo.promotionName} (${promo.percentLabel || formatPercent(promo.discountPercentage)})`
+                        }
+                        value={
+                          <span className="text-emerald-700 font-medium">
+                            −
+                            {formatCurrency(
+                              promo.discountAmount,
+                              rateBreakup?.currency,
+                            )}
+                          </span>
+                        }
+                      />
+                    ))
+                  ) : (
+                    <RateRow
+                      label="Promotion discount"
+                      value={
+                        <span className="text-emerald-700 font-medium">
+                          −
+                          {formatCurrency(
+                            rateBreakup?.promotionDiscount,
+                            rateBreakup?.currency,
+                          )}
+                        </span>
+                      }
+                    />
+                  )}
+                  {(rateBreakup?.appliedPromotions?.length ?? 0) > 1 &&
+                    (rateBreakup?.promotionDiscount ?? 0) > 0 && (
+                      <RateRow
+                        label="Total promotion discount"
+                        value={
+                          <span className="text-emerald-700 font-semibold">
+                            −
+                            {formatCurrency(
+                              rateBreakup?.promotionDiscount,
+                              rateBreakup?.currency,
+                            )}
+                          </span>
+                        }
+                        highlight
+                      />
+                    )}
+                  <RateRow
+                    label="Net accommodation (after promotion)"
+                    value={formatCurrency(
+                      rateBreakup?.netAccommodationAfterPromotion,
+                      rateBreakup?.currency,
+                    )}
+                    highlight
+                  />
+                </>
+              )}
+
+              <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide border-t border-gray-200">
                 Property charges
               </div>
               <RateRow
-                label="1. Room charges"
+                label={
+                  showPromotionBreakup
+                    ? "1. Room charges (after promotion)"
+                    : "1. Room charges"
+                }
                 value={formatCurrency(
                   rateBreakup?.roomCharges,
                   rateBreakup?.currency,
                 )}
               />
               <RateRow
-                label="2. Extra adult / child charges"
+                label={
+                  showPromotionBreakup
+                    ? "2. Extra adult / child (after promotion)"
+                    : "2. Extra adult / child charges"
+                }
                 value={formatCurrency(
                   rateBreakup?.extraAdultChildCharges,
                   rateBreakup?.currency,
@@ -500,18 +655,15 @@ export default function BookingDetailPage() {
               />
               {!isPackageRate && (
                 <RateRow
-                  label="4. Service charges"
-                  value={
+                  label={
                     rateBreakup?.serviceChargePercent
-                      ? `${formatCurrency(
-                          rateBreakup?.serviceChargeAmount,
-                          rateBreakup?.currency,
-                        )} `
-                      : formatCurrency(
-                          rateBreakup?.serviceChargeAmount,
-                          rateBreakup?.currency,
-                        )
+                      ? `4. Service charges (${formatPercent(rateBreakup.serviceChargePercent)})`
+                      : "4. Service charges"
                   }
+                  value={formatCurrency(
+                    rateBreakup?.serviceChargeAmount,
+                    rateBreakup?.currency,
+                  )}
                 />
               )}
               <RateRow
@@ -602,6 +754,27 @@ export default function BookingDetailPage() {
                   </div>
                 </div>
               </div>
+
+              {(rateBreakup?.agentCommission != null ||
+                rateBreakup?.agencyTier) && (
+                <>
+                  <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide border-t border-gray-200">
+                    Agency
+                  </div>
+                  {rateBreakup?.agencyTier && (
+                    <RateRow label="Agency tier" value={rateBreakup.agencyTier} />
+                  )}
+                  {rateBreakup?.agentCommission != null && (
+                    <RateRow
+                      label="Agent commission"
+                      value={formatCurrency(
+                        rateBreakup.agentCommission,
+                        rateBreakup?.currency,
+                      )}
+                    />
+                  )}
+                </>
+              )}
             </div>
           </DetailCard>
 
@@ -613,6 +786,16 @@ export default function BookingDetailPage() {
             title="Booking & policy"
           >
             <dl className="divide-y divide-gray-50">
+              {booking.externalBookingId && (
+                <DetailRow
+                  label="External booking ID"
+                  value={
+                    <span className="font-mono text-sm">
+                      {booking.externalBookingId}
+                    </span>
+                  }
+                />
+              )}
               <DetailRow label="Booked via" value={booking.bookedVia} />
               <DetailRow
                 label="Booked on"
@@ -622,10 +805,6 @@ export default function BookingDetailPage() {
                     {booking.bookedOn}
                   </span>
                 }
-              />
-              <DetailRow
-                label="Payment type"
-                value={booking.paymentType || "—"}
               />
               <DetailRow
                 label="Cancellation policy"
@@ -638,14 +817,6 @@ export default function BookingDetailPage() {
                   ) : (
                     "—"
                   )
-                }
-              />
-              <DetailRow
-                label="Total amount"
-                value={
-                  <span className="text-lg font-bold text-gray-900 tabular-nums">
-                    {formatCurrency(booking.totalAmount, rateBreakup?.currency)}
-                  </span>
                 }
               />
             </dl>
