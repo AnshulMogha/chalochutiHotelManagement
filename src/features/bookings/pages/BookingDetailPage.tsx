@@ -653,25 +653,8 @@ export default function BookingDetailPage() {
                   rateBreakup?.currency,
                 )}
               />
-              {!isPackageRate && (
-                <RateRow
-                  label={
-                    rateBreakup?.serviceChargePercent
-                      ? `4. Service charges (${formatPercent(rateBreakup.serviceChargePercent)})`
-                      : "4. Service charges"
-                  }
-                  value={formatCurrency(
-                    rateBreakup?.serviceChargeAmount,
-                    rateBreakup?.currency,
-                  )}
-                />
-              )}
               <RateRow
-                label={
-                  isPackageRate
-                    ? "(A) Property gross charges (1+2+3)"
-                    : "(A) Property gross charges (1+2+3+4)"
-                }
+                label="(A) Property gross charges (1+2+3)"
                 value={formatCurrency(
                   rateBreakup?.hotelGrossCharges,
                   rateBreakup?.currency,
@@ -685,21 +668,21 @@ export default function BookingDetailPage() {
                     OTA Commission
                   </div>
                   <RateRow
-                    label="5. OTA commission"
+                    label="4. OTA commission"
                     value={formatCurrency(
                       rateBreakup?.commissionAmount,
                       rateBreakup?.currency,
                     )}
                   />
                   <RateRow
-                    label="6. GST on commission @18%"
+                    label="5. GST on commission @18%"
                     value={formatCurrency(
                       rateBreakup?.commissionGst,
                       rateBreakup?.currency,
                     )}
                   />
                   <RateRow
-                    label="(B) Commission including GST (5+6)"
+                    label="(B) Commission including GST (4+5)"
                     value={formatCurrency(
                       rateBreakup?.commissionTotal,
                       rateBreakup?.currency,
@@ -715,21 +698,21 @@ export default function BookingDetailPage() {
                     Tax deduction
                   </div>
                   <RateRow
-                    label="7. TCS @ 0.5%"
+                    label="6. TCS @ 0.5%"
                     value={formatCurrency(
                       rateBreakup?.tcsAmount,
                       rateBreakup?.currency,
                     )}
                   />
                   <RateRow
-                    label="8. TDS @ 0.1%"
+                    label="7. TDS @ 0.1%"
                     value={formatCurrency(
                       rateBreakup?.tdsAmount,
                       rateBreakup?.currency,
                     )}
                   />
                   <RateRow
-                    label="(C) Tax deduction (7+8)"
+                    label="(C) Tax deduction (6+7)"
                     value={formatCurrency(
                       rateBreakup?.taxDeductions,
                       rateBreakup?.currency,
