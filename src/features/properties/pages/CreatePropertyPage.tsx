@@ -18,6 +18,7 @@ import {
 } from "@/constants/roles";
 import { adminService } from "@/features/admin/services/adminService";
 import { ApproveRejectModal } from "@/features/admin/components/ApproveRejectModal";
+import { LocationCityConfirmModal } from "../components/steps/LocationCityConfirmModal";
 import { Button } from "@/components/ui";
 import { ArrowLeft, CheckCircle, XCircle } from "lucide-react";
 import { Toast, useToast } from "@/components/ui/Toast";
@@ -61,6 +62,7 @@ const stepRoutes = [
   { id: "documents", title: "Documents" },
   { id: "finance", title: "Finance and Legal" },
 ];
+const LOCATION_STEP_INDEX = stepRoutes.findIndex((step) => step.id === "location");
 const REVIEW_CONTEXT_KEY = "hotel-review-context";
 type ReviewTab = "pending" | "approved" | "rejected";
 type StoredReviewContext = {
@@ -121,6 +123,8 @@ function Container() {
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showCityConfirmModal, setShowCityConfirmModal] = useState(false);
+  const [isConfirmingLocation, setIsConfirmingLocation] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { formDataState } = useFormContext();
   const { user } = useAuth();
@@ -315,15 +319,43 @@ function Container() {
     return fallback;
   };
 
+  const proceedToNextStep = async () => {
+    const isValid = await stepSubmit[currentStep]();
+    if (!isValid) return false;
+    navigateWithParams(stepRoutes[currentStep + 1].id);
+    setOngoingStep(stepRoutes[currentStep + 1].id);
+    return true;
+  };
+
   const handleNext = async () => {
     try {
-      const isValid = await stepSubmit[currentStep]();
-      if (!isValid) return;
+      if (currentStep === LOCATION_STEP_INDEX && !formReadOnly) {
+        const stepErrors = locationValidator(formDataState.locationInfo);
+        if (stepErrors) {
+          setErrors((prev) => ({ ...prev, locationInfo: stepErrors }));
+          return;
+        }
+        setShowCityConfirmModal(true);
+        return;
+      }
 
-      navigateWithParams(stepRoutes[currentStep + 1].id);
-      setOngoingStep(stepRoutes[currentStep + 1].id);
+      await proceedToNextStep();
     } catch (error: unknown) {
       showToast(extractApiErrorMessage(error), "error");
+    }
+  };
+
+  const handleCityConfirm = async () => {
+    setIsConfirmingLocation(true);
+    try {
+      const advanced = await proceedToNextStep();
+      if (advanced) {
+        setShowCityConfirmModal(false);
+      }
+    } catch (error: unknown) {
+      showToast(extractApiErrorMessage(error), "error");
+    } finally {
+      setIsConfirmingLocation(false);
     }
   };
 
@@ -513,6 +545,19 @@ function Container() {
           isLoading={isProcessing}
         />
       )}
+
+      <LocationCityConfirmModal
+        isOpen={showCityConfirmModal}
+        city={formDataState.locationInfo.city || ""}
+        state={formDataState.locationInfo.state}
+        locality={formDataState.locationInfo.locality}
+        onClose={() => {
+          if (isConfirmingLocation) return;
+          setShowCityConfirmModal(false);
+        }}
+        onConfirm={handleCityConfirm}
+        isLoading={isConfirmingLocation}
+      />
     </>
   );
 }

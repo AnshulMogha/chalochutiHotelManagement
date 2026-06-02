@@ -19,6 +19,11 @@ import {
   matchesIncentiveSearch,
 } from "../components/AgencyCommissionSection";
 import {
+  ListStatusFilterTabs,
+  matchesListStatusFilter,
+  type ListStatusFilterValue,
+} from "../components/ListStatusFilter";
+import {
   adminService,
   type ApprovedHotelItem,
 } from "../services/adminService";
@@ -1094,6 +1099,11 @@ interface CommissionRulesPanelProps {
   onPrevious: () => void;
   onNext: () => void;
   onDeactivate: (id: string) => void;
+  statusFilter: ListStatusFilterValue;
+  onStatusFilterChange: (value: ListStatusFilterValue) => void;
+  activeCount: number;
+  inactiveCount: number;
+  statusFilteredCount: number;
 }
 
 function CommissionRulesPanel({
@@ -1119,6 +1129,11 @@ function CommissionRulesPanel({
   onPrevious,
   onNext,
   onDeactivate,
+  statusFilter,
+  onStatusFilterChange,
+  activeCount,
+  inactiveCount,
+  statusFilteredCount,
 }: CommissionRulesPanelProps) {
   return (
     <Card variant="elevated" className="mb-6 bg-white shadow-lg border border-gray-200">
@@ -1142,7 +1157,13 @@ function CommissionRulesPanel({
           </div>
         )}
         {commissions.length > 0 && (
-          <div className="mb-4 flex flex-nowrap items-center gap-3">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <ListStatusFilterTabs
+              value={statusFilter}
+              onChange={onStatusFilterChange}
+              activeCount={activeCount}
+              inactiveCount={inactiveCount}
+            />
             <div className="relative w-full max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input
@@ -1164,6 +1185,17 @@ function CommissionRulesPanel({
               <Plus className="w-4 h-4" />
               {addLabel}
             </Button>
+          </div>
+        ) : statusFilteredCount === 0 ? (
+          <div className="text-center py-12">
+            <Percent className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-600 text-lg font-medium mb-2">
+              No {statusFilter === "active" ? "active" : "inactive"} rules
+            </p>
+            <p className="text-gray-500 text-sm">
+              Switch to {statusFilter === "active" ? "Inactive" : "Active"} to view other
+              rules.
+            </p>
           </div>
         ) : filteredCommissions.length === 0 ? (
           <div className="text-center py-12">
@@ -1432,7 +1464,13 @@ export default function CommissionAndTaxPage() {
     string | null
   >(null);
   const [otaCommissionSearch, setOtaCommissionSearch] = useState("");
+  const [otaStatusFilter, setOtaStatusFilter] =
+    useState<ListStatusFilterValue>("active");
   const [agencyCommissionSearch, setAgencyCommissionSearch] = useState("");
+  const [agencyStatusFilter, setAgencyStatusFilter] =
+    useState<ListStatusFilterValue>("active");
+  const [serviceFeeStatusFilter, setServiceFeeStatusFilter] =
+    useState<ListStatusFilterValue>("active");
   const [agentIncentives, setAgentIncentives] = useState<AgentIncentive[]>([]);
   const [agentIncentivePage, setAgentIncentivePage] = useState(0);
   const [agentIncentivePageSize, setAgentIncentivePageSize] = useState(20);
@@ -1452,11 +1490,28 @@ export default function CommissionAndTaxPage() {
   const [serviceFeeSearch, setServiceFeeSearch] = useState("");
 
   const otaCommissions = commissions.filter((c) => c.scope !== "AGENCY_TIER");
-  const filteredOtaCommissions = otaCommissions.filter((c) =>
+  const otaActiveCount = otaCommissions.filter((c) => c.active !== false).length;
+  const otaInactiveCount = otaCommissions.filter((c) => c.active === false).length;
+  const otaStatusFiltered = otaCommissions.filter((c) =>
+    matchesListStatusFilter(c.active, otaStatusFilter),
+  );
+  const filteredOtaCommissions = otaStatusFiltered.filter((c) =>
     matchesCommissionSearch(c, otaCommissionSearch),
   );
-  const filteredAgentIncentives = agentIncentives.filter((row) =>
+
+  const agencyActiveCount = agentIncentives.filter((r) => r.active !== false).length;
+  const agencyInactiveCount = agentIncentives.filter((r) => r.active === false).length;
+  const agencyStatusFiltered = agentIncentives.filter((row) =>
+    matchesListStatusFilter(row.active, agencyStatusFilter),
+  );
+  const filteredAgentIncentives = agencyStatusFiltered.filter((row) =>
     matchesIncentiveSearch(row, agencyCommissionSearch),
+  );
+
+  const serviceFeeActiveCount = serviceFees.filter((f) => f.active !== false).length;
+  const serviceFeeInactiveCount = serviceFees.filter((f) => f.active === false).length;
+  const serviceFeeStatusFiltered = serviceFees.filter((fee) =>
+    matchesListStatusFilter(fee.active, serviceFeeStatusFilter),
   );
 
   const taxStates = Array.from(
@@ -1481,7 +1536,7 @@ export default function CommissionAndTaxPage() {
     );
   });
 
-  const filteredServiceFees = serviceFees.filter((fee) => {
+  const filteredServiceFees = serviceFeeStatusFiltered.filter((fee) => {
     if (!serviceFeeSearch.trim()) return true;
     const q = serviceFeeSearch.toLowerCase().trim();
     const scope = (fee.scope ?? "").toLowerCase();
@@ -1778,6 +1833,11 @@ export default function CommissionAndTaxPage() {
               setCommissionToDeactivate(id);
               setShowDeactivateCommissionModal(true);
             }}
+            statusFilter={otaStatusFilter}
+            onStatusFilterChange={setOtaStatusFilter}
+            activeCount={otaActiveCount}
+            inactiveCount={otaInactiveCount}
+            statusFilteredCount={otaStatusFiltered.length}
           />
         </TabsContent>
 
@@ -1785,8 +1845,13 @@ export default function CommissionAndTaxPage() {
           <AgencyIncentiveRulesPanel
             incentives={agentIncentives}
             filteredIncentives={filteredAgentIncentives}
+            statusFilteredCount={agencyStatusFiltered.length}
             search={agencyCommissionSearch}
             onSearchChange={setAgencyCommissionSearch}
+            statusFilter={agencyStatusFilter}
+            onStatusFilterChange={setAgencyStatusFilter}
+            activeCount={agencyActiveCount}
+            inactiveCount={agencyInactiveCount}
             onAdd={() => setShowAgencyIncentiveModal(true)}
             error={error}
             isLoading={isLoading}
@@ -2048,7 +2113,13 @@ export default function CommissionAndTaxPage() {
                 </div>
               )}
               {serviceFees.length > 0 && (
-                <div className="mb-4 flex flex-nowrap items-center gap-3">
+                <div className="mb-4 flex flex-wrap items-center gap-3">
+                  <ListStatusFilterTabs
+                    value={serviceFeeStatusFilter}
+                    onChange={setServiceFeeStatusFilter}
+                    activeCount={serviceFeeActiveCount}
+                    inactiveCount={serviceFeeInactiveCount}
+                  />
                   <div className="relative w-full max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <Input
@@ -2074,6 +2145,25 @@ export default function CommissionAndTaxPage() {
                     <Plus className="w-4 h-4" />
                     Add Service Fee
                   </Button>
+                </div>
+              ) : serviceFeeStatusFiltered.length === 0 ? (
+                <div className="text-center py-12">
+                  <IndianRupee className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600 text-lg font-medium mb-2">
+                    No {serviceFeeStatusFilter === "active" ? "active" : "inactive"} service fee
+                    rules
+                  </p>
+                  <p className="text-gray-500 text-sm">
+                    Switch to{" "}
+                    {serviceFeeStatusFilter === "active" ? "Inactive" : "Active"} to view other
+                    rules.
+                  </p>
+                </div>
+              ) : filteredServiceFees.length === 0 ? (
+                <div className="text-center py-12">
+                  <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600 text-lg font-medium mb-2">No matching rules</p>
+                  <p className="text-gray-500 text-sm">Try a different search term.</p>
                 </div>
               ) : (
                 <div className="bg-white border border-gray-200 shadow-md rounded-lg overflow-hidden">

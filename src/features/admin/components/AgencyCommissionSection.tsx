@@ -18,6 +18,10 @@ import {
   CardContent,
 } from "@/components/ui";
 import {
+  ListStatusFilterTabs,
+  type ListStatusFilterValue,
+} from "./ListStatusFilter";
+import {
   Plus,
   X,
   Percent,
@@ -386,8 +390,13 @@ export function AgencyIncentiveFormModal({
 export interface AgencyIncentiveRulesPanelProps {
   incentives: AgentIncentive[];
   filteredIncentives: AgentIncentive[];
+  statusFilteredCount: number;
   search: string;
   onSearchChange: (value: string) => void;
+  statusFilter: ListStatusFilterValue;
+  onStatusFilterChange: (value: ListStatusFilterValue) => void;
+  activeCount: number;
+  inactiveCount: number;
   onAdd: () => void;
   error: string | null;
   isLoading: boolean;
@@ -406,8 +415,13 @@ export interface AgencyIncentiveRulesPanelProps {
 export function AgencyIncentiveRulesPanel({
   incentives,
   filteredIncentives,
+  statusFilteredCount,
   search,
   onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  activeCount,
+  inactiveCount,
   onAdd,
   error,
   isLoading,
@@ -444,7 +458,13 @@ export function AgencyIncentiveRulesPanel({
           </div>
         )}
         {incentives.length > 0 && (
-          <div className="mb-4">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <ListStatusFilterTabs
+              value={statusFilter}
+              onChange={onStatusFilterChange}
+              activeCount={activeCount}
+              inactiveCount={inactiveCount}
+            />
             <div className="relative w-full max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input
@@ -470,6 +490,17 @@ export function AgencyIncentiveRulesPanel({
               <Plus className="w-4 h-4" />
               Add Agency Commission
             </Button>
+          </div>
+        ) : statusFilteredCount === 0 ? (
+          <div className="text-center py-12">
+            <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-600 text-lg font-medium mb-2">
+              No {statusFilter === "active" ? "active" : "inactive"} rules
+            </p>
+            <p className="text-gray-500 text-sm">
+              Switch to {statusFilter === "active" ? "Inactive" : "Active"} to view other
+              rules.
+            </p>
           </div>
         ) : filteredIncentives.length === 0 ? (
           <div className="text-center py-12">
