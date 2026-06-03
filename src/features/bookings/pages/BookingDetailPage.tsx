@@ -72,6 +72,15 @@ function formatPercent(value: number | undefined | null): string {
   return `${trimmed}%`;
 }
 
+/** Gross property charges excluding service fee (API gross includes service charge). */
+function getPropertyGrossExcludingServiceFee(
+  rateBreakup: BookingDetail["rateBreakup"],
+): number | undefined {
+  if (rateBreakup?.hotelGrossCharges == null) return undefined;
+  const serviceFee = rateBreakup.serviceChargeAmount ?? 0;
+  return Math.max(0, rateBreakup.hotelGrossCharges - serviceFee);
+}
+
 function hasPromotionBreakup(
   rateBreakup: BookingDetail["rateBreakup"],
 ): boolean {
@@ -279,6 +288,7 @@ export default function BookingDetailPage() {
     .toUpperCase()
     .includes("CANCELLED");
   const showPromotionBreakup = hasPromotionBreakup(rateBreakup);
+  const propertyGrossExServiceFee = getPropertyGrossExcludingServiceFee(rateBreakup);
 
   return (
     <>
@@ -654,9 +664,13 @@ export default function BookingDetailPage() {
                 )}
               />
               <RateRow
-                label="(A) Property gross charges (1+2+3)"
+                label={
+                  !isPackageRate && (rateBreakup?.serviceChargeAmount ?? 0) > 0
+                    ? "(A) Property gross charges (1+2+3, excl. service fee)"
+                    : "(A) Property gross charges (1+2+3)"
+                }
                 value={formatCurrency(
-                  rateBreakup?.hotelGrossCharges,
+                  propertyGrossExServiceFee ?? rateBreakup?.hotelGrossCharges,
                   rateBreakup?.currency,
                 )}
                 highlight
