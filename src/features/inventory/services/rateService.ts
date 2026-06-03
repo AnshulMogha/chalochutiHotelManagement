@@ -267,5 +267,54 @@ export const rateService = {
       API_ENDPOINTS.RATES.UPDATE_RATE_PLAN_LINK(linkId),
     );
   },
+
+  getMissingRates: async (
+    request: MissingRatesRequest,
+  ): Promise<MissingRatesData> => {
+    const response = await apiClient.post<ApiSuccessResponse<MissingRatesData>>(
+      API_ENDPOINTS.RATES.MISSING_RATES,
+      request,
+    );
+    return response.data;
+  },
 };
+
+export interface MissingRatesRequest {
+  hotelId: string;
+  startDate: string;
+  endDate: string;
+  rateType: string;
+}
+
+export interface MissingRatePlanRef {
+  ratePlanId: number;
+  ratePlanName: string;
+}
+
+export interface MissingRatesRoom {
+  roomId: number;
+  roomName: string;
+  missingRatePlans: MissingRatePlanRef[];
+}
+
+export interface MissingRatesDateEntry {
+  date: string;
+  missingRooms: MissingRatesRoom[];
+}
+
+export interface MissingRatesSummary {
+  totalDatesChecked: number;
+  totalMissingDates: number;
+  totalMissingRateEntries: number;
+}
+
+export interface MissingRatesData {
+  hotelId: string;
+  hotelName: string;
+  rateType: string;
+  startDate: string;
+  endDate: string;
+  summary: MissingRatesSummary;
+  missingDates: MissingRatesDateEntry[];
+}
 

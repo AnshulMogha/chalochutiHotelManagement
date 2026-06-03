@@ -55,6 +55,7 @@ export const ROUTES = {
   },
   RATE_INVENTORY: {
     LIST: "/inventory/rate-plans",
+    MISSING_RATES: "/rates/missing",
   },
   /** Single day derived rate form (hotel-scoped path). */
   HOTEL_RATES_ADD_SINGLE_DERIVED: "/hotel/rates/add-single-derived",
@@ -372,6 +373,7 @@ export const API_ENDPOINTS = {
       `/hotel/rate-plan/link?masterRatePlanId=${masterRatePlanId}`,
     UPDATE_RATE_PLAN_LINK: (linkId: number) =>
       `/hotel/rate-plan/link/${linkId}`,
+    MISSING_RATES: "/hotel/missing-rates",
   },
 } as const;
 

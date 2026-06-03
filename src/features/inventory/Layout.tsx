@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLocation, useSearchParams, useNavigate } from "react-router";
 import { ROUTES } from "@/constants";
 import { startOfToday, addDays, format } from "date-fns";
-import { ChevronDown, Eye, EyeOff } from "lucide-react";
+import { AlertTriangle, ChevronDown, Eye, EyeOff } from "lucide-react";
 import { DateSelector } from "./inventoryComponents/DateSelector";
 import { NavigationTabs } from "./inventoryComponents/NavigationTabs";
 import { RoomTypesGrid } from "./inventoryComponents/RoomTypesGrid";
@@ -1067,6 +1067,23 @@ export default function Layout() {
                 channelSegmentLabel={activeSegmentLabel}
                 rightAction={
                   <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!hotelId) return;
+                        const segment =
+                          TAB_OPTIONS.find((t) => t.id === activeTab)?.label ??
+                          activeTab;
+                        navigate(
+                          `${ROUTES.RATE_INVENTORY.MISSING_RATES}?hotelId=${encodeURIComponent(hotelId)}&startDate=${fromDate}&endDate=${toDate}&rateType=${encodeURIComponent(currentCustomerType)}&segment=${encodeURIComponent(segment)}`,
+                        );
+                      }}
+                      disabled={!hotelId}
+                      className="px-6 py-2.5 text-sm font-semibold text-amber-800 bg-amber-50 border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors shadow-sm whitespace-nowrap inline-flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                      Missing Rates
+                    </button>
                     <button
                       type="button"
                       onClick={() =>

@@ -116,6 +116,9 @@ const BulkUpdateInventoryPage = lazy(
 const AddSingleDerivedRatePage = lazy(
   () => import("../features/inventory/pages/AddSingleDerivedRatePage"),
 );
+const MissingRatesPage = lazy(
+  () => import("../features/inventory/pages/MissingRatesPage"),
+);
 const PhotosAndVideosPage = lazy(
   () => import("../features/properties/pages/PhotosAndVideosPage"),
 );
@@ -371,6 +374,10 @@ export const routes: RouteObject[] = [
       {
         path: "rates/bulk-update",
         element: <BulkUpdateRatesPage />,
+      },
+      {
+        path: "rates/missing",
+        element: <MissingRatesPage />,
       },
       {
         path: "restrictions/bulk-update",
