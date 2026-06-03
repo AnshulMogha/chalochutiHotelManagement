@@ -3,6 +3,8 @@ import { useParams, useNavigate, useSearchParams } from "react-router";
 import { bookingService, type BookingDetail } from "../services/bookingService";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
+import { ROLES, hasAnyRole } from "@/constants/roles";
+import { useAuth } from "@/hooks";
 import {
   ArrowLeft,
   Hash,
@@ -25,6 +27,7 @@ import {
   StickyNote,
 } from "lucide-react";
 import { VoucherViewModal } from "../components/VoucherViewModal";
+import AdminBookingDetailPage from "./AdminBookingDetailPage";
 
 function formatDate(value: string | undefined): string {
   if (!value) return "—";
@@ -185,6 +188,36 @@ export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const hotelId = searchParams.get("hotelId");
+  const { isUserProfileLoading, user } = useAuth();
+  const isSuperAdmin = hasAnyRole(user?.roles, [ROLES.SUPER_ADMIN]);
+
+  if (isUserProfileLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex flex-col items-center justify-center py-24">
+          <Loader2 className="w-10 h-10 text-[#2f3d95] animate-spin mb-4" />
+          <p className="text-sm font-medium text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSuperAdmin) {
+    return (
+      <AdminBookingDetailPage listItemId={id} backHotelId={hotelId} />
+    );
+  }
+
+  return <HotelBookingDetailPage bookingId={id} hotelId={hotelId} />;
+}
+
+function HotelBookingDetailPage({
+  bookingId: id,
+  hotelId,
+}: {
+  bookingId: string | undefined;
+  hotelId: string | null;
+}) {
   const navigate = useNavigate();
   const { toast, showToast, hideToast } = useToast();
   const [booking, setBooking] = useState<BookingDetail | null>(null);
@@ -217,7 +250,7 @@ export default function BookingDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, hotelId]);
+  }, [id, hotelId, showToast]);
 
   const backToBookings = () => {
     const to = hotelId

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CheckCircle, XCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -79,13 +79,16 @@ export function useToast() {
     isVisible: false,
   });
 
-  const showToast = (message: string, type: "success" | "error" = "success") => {
-    setToast({ message, type, isVisible: true });
-  };
+  const showToast = useCallback(
+    (message: string, type: "success" | "error" = "success") => {
+      setToast({ message, type, isVisible: true });
+    },
+    [],
+  );
 
-  const hideToast = () => {
+  const hideToast = useCallback(() => {
     setToast((prev) => ({ ...prev, isVisible: false }));
-  };
+  }, []);
 
   return {
     toast,

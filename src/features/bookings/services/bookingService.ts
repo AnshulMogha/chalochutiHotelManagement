@@ -62,6 +62,128 @@ export interface RateBreakup {
   agencyTier?: string | null;
 }
 
+/** Super Admin full-details — nested admin API payload */
+export interface AdminBookingSummary {
+  bookingId: number;
+  bookingRef: string;
+  bookingStatus: string;
+  hotelName: string;
+  hotelLocality: string | null;
+  hotelCity: string;
+  hotelAddress: string;
+  checkInDate: string;
+  checkOutDate: string;
+  nightsDisplay: string;
+  occupancyDisplay: string;
+  bookedVia: string;
+  bookedOn: string;
+  totalAmount: number;
+}
+
+export interface AdminBookingGuestEntry {
+  name: string;
+  email: string | null;
+  phone: string | null;
+}
+
+export interface AdminBookingGuest {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  guests: AdminBookingGuestEntry[];
+}
+
+export interface AdminBookingPricing {
+  basePrice: number;
+  promotionDiscount: number;
+  priceAfterPromo: number;
+  gstAmount: number;
+  commissionAmount: number;
+  finalPayable: number;
+  hotelPayout: number;
+  otaGrossRevenue: number;
+  otaNetRevenue: number;
+  currency: string;
+  rateBreakup: RateBreakup;
+}
+
+export interface AdminBookingFinancials {
+  id: number;
+  bookingId: number;
+  basePrice: number;
+  extraChildCharges: number;
+  promotionDiscount: number;
+  priceAfterPromo: number;
+  gstPercent: number;
+  gstAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  serviceFeeAmount: number;
+  serviceFeeGst: number;
+  serviceFeeRuleName: string;
+  commissionPercent: number;
+  commissionAmount: number;
+  commissionGst: number;
+  commissionRuleName: string;
+  tcsPercent: number;
+  tcsAmount: number;
+  tdsPercent: number;
+  tdsAmount: number;
+  taxRuleName: string;
+  customerSellingPrice: number;
+  finalPayable: number;
+  hotelPayout: number;
+  otaGrossRevenue: number;
+  otaNetRevenue: number;
+  agencyCommission: number;
+  selectedCustomerType: string;
+  selectedPricingSource: string;
+  channelType: string;
+  bookingMode: string;
+  currencyCode: string;
+  promotionRuleName: string;
+}
+
+export interface AdminRoomDayFinancial {
+  id: number;
+  bookingId: number;
+  roomInstanceIndex: number;
+  stayDate: string;
+  roomCharges: number;
+  extraCharges: number;
+  promotionDiscount: number;
+  netAccommodation: number;
+  hotelGst: number;
+  propertyGross: number;
+  commission: number;
+  propertyNetPayable: number;
+  appliedPromotionCodes: string;
+}
+
+export interface AdminBookingPayment {
+  paymentStatus: string;
+  paymentType: string;
+  transactionId: string | null;
+  paidAt: string | null;
+  paidAmount: number;
+}
+
+export interface AdminBookingFullDetail {
+  bookingSummary: AdminBookingSummary;
+  guest: AdminBookingGuest;
+  rooms: BookingDetailRoomType[];
+  pricing: AdminBookingPricing;
+  financials: AdminBookingFinancials;
+  roomDayFinancials: AdminRoomDayFinancial[];
+  payment: AdminBookingPayment;
+  cancellation: { cancellationPolicy: string | null };
+  audit: {
+    createdAt: string;
+    updatedAt: string;
+    pricingEngineVersion: string;
+  };
+}
+
 /** Booking detail from GET /reports/booking-list/:id */
 export interface BookingDetail {
   hotelName: string;
@@ -165,7 +287,23 @@ export const bookingService = {
     const url = `${API_ENDPOINTS.REPORTS.BOOKING_DETAIL(bookingId)}?hotelId=${encodeURIComponent(hotelId)}`;
     const response =
       await apiClient.get<ApiSuccessResponse<BookingDetail>>(url);
-    const data = response.data;
+    return bookingService.normalizeBookingDetail(response.data);
+  },
+
+  /** Super Admin — GET /reports/admin/booking-list/:id/full-details (list item id) */
+  getAdminBookingFullDetail: async (
+    id: string,
+  ): Promise<AdminBookingFullDetail> => {
+    const url = API_ENDPOINTS.REPORTS.ADMIN_BOOKING_FULL_DETAILS(id);
+    const response =
+      await apiClient.get<ApiSuccessResponse<AdminBookingFullDetail>>(url);
+    if (!response.data) {
+      throw new Error("Booking not found");
+    }
+    return response.data;
+  },
+
+  normalizeBookingDetail: (data: BookingDetail | undefined): BookingDetail => {
     if (!data) {
       throw new Error("Booking not found");
     }

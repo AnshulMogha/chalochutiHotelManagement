@@ -346,6 +346,9 @@ export const API_ENDPOINTS = {
   REPORTS: {
     BOOKING_LIST: "/reports/booking-list",
     BOOKING_DETAIL: (id: string) => `/reports/booking-list/${id}`,
+    /** Super Admin only — full booking details; path param is list item id (numeric) */
+    ADMIN_BOOKING_FULL_DETAILS: (id: string) =>
+      `/reports/admin/booking-list/${id}/full-details`,
     BOOKING_VOUCHER: (id: string) => `/reports/booking-list/${id}/voucher`,
   },
   CUSTOMER: {
