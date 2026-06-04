@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   bookingService,
@@ -27,6 +27,7 @@ import {
   Utensils,
   Layers,
   Clock,
+  Scale,
 } from "lucide-react";
 
 function formatDate(value: string | undefined): string {
@@ -99,9 +100,18 @@ function getPaymentStatusStyle(status: string | undefined): string {
   return "bg-gray-100 text-gray-700 border-gray-200";
 }
 
+function getServiceFeeFromBreakup(rateBreakup: RateBreakup | undefined): number {
+  if (!rateBreakup) return 0;
+  return (
+    rateBreakup.serviceFeeIncludingGst ??
+    rateBreakup.serviceChargeAmount ??
+    0
+  );
+}
+
 function getPropertyGrossExcludingServiceFee(rateBreakup: RateBreakup | undefined) {
   if (rateBreakup?.hotelGrossCharges == null) return undefined;
-  const serviceFee = rateBreakup.serviceChargeAmount ?? 0;
+  const serviceFee = getServiceFeeFromBreakup(rateBreakup);
   return Math.max(0, rateBreakup.hotelGrossCharges - serviceFee);
 }
 
@@ -197,6 +207,39 @@ function KpiCard({
   );
 }
 
+function RuleCard({
+  title,
+  ruleName,
+  percent,
+  amount,
+  currency,
+}: {
+  title: string;
+  ruleName: string;
+  percent?: number | null;
+  amount?: number | null;
+  currency: string;
+}) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-linear-to-br from-white to-slate-50/80 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {title}
+      </p>
+      <p className="mt-1 text-sm font-semibold text-gray-900">{ruleName || "—"}</p>
+      {percent != null && !Number.isNaN(percent) ? (
+        <p className="mt-1 text-xs text-indigo-700 font-medium">
+          {formatPercent(percent)} effective
+        </p>
+      ) : null}
+      {amount != null && amount > 0 ? (
+        <p className="mt-0.5 text-sm tabular-nums text-gray-800">
+          {formatCurrency(amount, currency)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 type Props = {
   listItemId: string | undefined;
   backHotelId: string | null;
@@ -208,6 +251,8 @@ export default function AdminBookingDetailPage({
 }: Props) {
   const navigate = useNavigate();
   const { toast, showToast, hideToast } = useToast();
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
   const [detail, setDetail] = useState<AdminBookingFullDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showVoucher, setShowVoucher] = useState(false);
@@ -228,7 +273,7 @@ export default function AdminBookingDetailPage({
       .catch((err) => {
         if (!cancelled) {
           console.error("Error fetching admin booking detail:", err);
-          showToast("Failed to load booking details", "error");
+          showToastRef.current("Failed to load booking details", "error");
           setDetail(null);
         }
       })
@@ -238,7 +283,7 @@ export default function AdminBookingDetailPage({
     return () => {
       cancelled = true;
     };
-  }, [listItemId, showToast]);
+  }, [listItemId]);
 
   const backToBookings = () => {
     const to = backHotelId
@@ -296,8 +341,18 @@ export default function AdminBookingDetailPage({
   const showBeforePromotion =
     rateBreakup?.roomChargesBeforePromotion != null ||
     rateBreakup?.extraAdultChildChargesBeforePromotion != null;
-  const serviceChargePercent = rateBreakup?.serviceChargePercent ?? 0;
-  const serviceChargeAmount = rateBreakup?.serviceChargeAmount ?? 0;
+  const serviceChargePercent =
+    rateBreakup?.serviceChargePercent ?? detail.financials.effectiveServiceFeePercent ?? 0;
+  const serviceFeeExclGst =
+    detail.pricing.serviceFeeAmount ?? detail.financials.serviceFeeAmount ?? 0;
+  const serviceFeeInclGst = getServiceFeeFromBreakup(rateBreakup);
+  const extraAdultCharges =
+    detail.financials.extraAdultCharges ?? detail.financials.extraChildCharges;
+  const promotionDiscount =
+    detail.pricing.promotionDiscount ?? detail.financials.promotionDiscount ?? 0;
+  const showRoomDayPromo = detail.roomDayFinancials.some(
+    (r) => (r.promotionDiscount ?? 0) > 0,
+  );
   const hasAgencyLine =
     (rateBreakup?.agentCommission != null && rateBreakup.agentCommission > 0) ||
     Boolean(rateBreakup?.agencyTier);
@@ -340,6 +395,7 @@ export default function AdminBookingDetailPage({
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Booked {formatDateTime(summary.bookedOn)}
+                  {summary.hotelCity ? ` · ${summary.hotelCity}` : ""}
                 </p>
               </div>
             </div>
@@ -371,7 +427,7 @@ export default function AdminBookingDetailPage({
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <KpiCard
             label="Guest paid"
             value={formatCurrency(summary.totalAmount, currency)}
@@ -389,9 +445,19 @@ export default function AdminBookingDetailPage({
             accent="border-violet-200 bg-violet-50/50"
           />
           <KpiCard
-            label="Promotion discount"
-            value={formatCurrency(detail.pricing.promotionDiscount, currency)}
-            accent="border-amber-200 bg-amber-50/50"
+            label="Commission"
+            value={formatCurrency(detail.pricing.commissionAmount, currency)}
+            accent="border-blue-200 bg-blue-50/50"
+          />
+          <KpiCard
+            label="Service fee"
+            value={formatCurrency(serviceFeeExclGst, currency)}
+            sub={
+              serviceFeeInclGst > 0
+                ? `Incl. GST ${formatCurrency(serviceFeeInclGst, currency)}`
+                : undefined
+            }
+            accent="border-orange-200 bg-orange-50/50"
           />
         </div>
 
@@ -399,35 +465,78 @@ export default function AdminBookingDetailPage({
           <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">
             Service charges
           </p>
-          <div className="mt-2 flex flex-wrap gap-6 text-sm">
-            <span>
-              <span className="text-gray-600">Rate breakup: </span>
-              <span className="font-semibold tabular-nums">
-                {formatCurrency(serviceChargeAmount, currency)}
-                {serviceChargePercent > 0 &&
-                  ` (${formatPercent(serviceChargePercent)})`}
-              </span>
-            </span>
-            <span>
-              <span className="text-gray-600">Service fee (excl. GST): </span>
-              <span className="font-semibold tabular-nums">
-                {formatCurrency(detail.financials.serviceFeeAmount, currency)}
-              </span>
-            </span>
-            <span>
-              <span className="text-gray-600">GST on service fee: </span>
-              <span className="font-semibold tabular-nums">
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+            <div className="rounded-xl border border-orange-100 bg-white/70 px-3 py-2.5">
+              <p className="text-xs text-gray-500">Service fee (excl. GST)</p>
+              <p className="font-semibold tabular-nums text-gray-900">
+                {formatCurrency(serviceFeeExclGst, currency)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-white/70 px-3 py-2.5">
+              <p className="text-xs text-gray-500">GST on service fee</p>
+              <p className="font-semibold tabular-nums text-gray-900">
                 {formatCurrency(detail.financials.serviceFeeGst, currency)}
-              </span>
-            </span>
-            <span className="text-gray-600">
-              Rule:{" "}
-              <span className="font-medium text-gray-900">
+              </p>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-white/70 px-3 py-2.5">
+              <p className="text-xs text-gray-500">Service fee (incl. GST)</p>
+              <p className="font-semibold tabular-nums text-gray-900">
+                {formatCurrency(serviceFeeInclGst, currency)}
+                {serviceChargePercent > 0 &&
+                  ` · ${formatPercent(serviceChargePercent)}`}
+              </p>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-white/70 px-3 py-2.5">
+              <p className="text-xs text-gray-500">Rule</p>
+              <p className="font-medium text-gray-900">
                 {detail.financials.serviceFeeRuleName || "—"}
-              </span>
-            </span>
+              </p>
+              {detail.financials.effectiveServiceFeePercent != null ? (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Effective {formatPercent(detail.financials.effectiveServiceFeePercent)}
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
+
+        <SectionCard
+          icon={Scale}
+          iconBg="bg-indigo-50"
+          iconColor="bg-indigo-100 text-indigo-700"
+          title="Applied pricing rules"
+          className="mb-6"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <RuleCard
+              title="Service fee"
+              ruleName={detail.financials.serviceFeeRuleName}
+              percent={detail.financials.effectiveServiceFeePercent}
+              amount={serviceFeeInclGst}
+              currency={currency}
+            />
+            <RuleCard
+              title="Commission"
+              ruleName={detail.financials.commissionRuleName}
+              percent={detail.financials.commissionPercent}
+              amount={detail.financials.commissionAmount}
+              currency={currency}
+            />
+            <RuleCard
+              title="Tax (GST)"
+              ruleName={detail.financials.taxRuleName}
+              percent={detail.financials.gstPercent}
+              amount={detail.financials.gstAmount}
+              currency={currency}
+            />
+          </div>
+          <p className="mt-4 text-xs text-gray-500">
+            Promotion:{" "}
+            <span className="font-medium text-gray-700">
+              {detail.financials.promotionRuleName || "None"}
+            </span>
+          </p>
+        </SectionCard>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SectionCard
@@ -438,6 +547,18 @@ export default function AdminBookingDetailPage({
           >
             <dl>
               <DetailRow label="Hotel" value={summary.hotelName} />
+              <DetailRow
+                label="Booking status"
+                value={
+                  <span
+                    className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${getBookingStatusStyle(
+                      summary.bookingStatus,
+                    )}`}
+                  >
+                    {summary.bookingStatus}
+                  </span>
+                }
+              />
               <DetailRow
                 label="Address"
                 value={
@@ -651,14 +772,16 @@ export default function AdminBookingDetailPage({
                 label="Base price"
                 value={formatCurrency(detail.pricing.basePrice, currency)}
               />
-              <RateRow
-                label="Promotion discount"
-                value={
-                  <span className="text-emerald-700">
-                    −{formatCurrency(detail.pricing.promotionDiscount, currency)}
-                  </span>
-                }
-              />
+              {promotionDiscount > 0 ? (
+                <RateRow
+                  label="Promotion discount"
+                  value={
+                    <span className="text-emerald-700">
+                      −{formatCurrency(promotionDiscount, currency)}
+                    </span>
+                  }
+                />
+              ) : null}
               <RateRow
                 label="Price after promotion"
                 value={formatCurrency(detail.pricing.priceAfterPromo, currency)}
@@ -666,6 +789,22 @@ export default function AdminBookingDetailPage({
               <RateRow
                 label="GST on accommodation"
                 value={formatCurrency(detail.pricing.gstAmount, currency)}
+              />
+              <RateRow
+                label="Service fee (excl. GST)"
+                value={formatCurrency(serviceFeeExclGst, currency)}
+              />
+              <RateRow
+                label="GST on service fee"
+                value={formatCurrency(detail.financials.serviceFeeGst, currency)}
+              />
+              <RateRow
+                label="Service fee (incl. GST)"
+                value={formatCurrency(serviceFeeInclGst, currency)}
+              />
+              <RateRow
+                label="Commission (excl. GST)"
+                value={formatCurrency(detail.pricing.commissionAmount, currency)}
               />
               <RateRow
                 label="Customer selling price"
@@ -680,31 +819,32 @@ export default function AdminBookingDetailPage({
                 highlight
               />
 
+              {showBeforePromotion && (
+                <>
+                  <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase border-t">
+                    Accommodation (list rates)
+                  </div>
+                  <RateRow
+                    label="Room charges (list)"
+                    value={formatCurrency(
+                      rateBreakup?.roomChargesBeforePromotion ??
+                        rateBreakup?.roomCharges,
+                      currency,
+                    )}
+                  />
+                  <RateRow
+                    label="Extra adult / child (list)"
+                    value={formatCurrency(
+                      rateBreakup?.extraAdultChildChargesBeforePromotion ??
+                        rateBreakup?.extraAdultChildCharges,
+                      currency,
+                    )}
+                  />
+                </>
+              )}
+
               {showPromotionBreakup && (
                 <>
-                  {showBeforePromotion && (
-                    <>
-                      <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase border-t">
-                        Accommodation (before promotion)
-                      </div>
-                      <RateRow
-                        label="Room charges (list)"
-                        value={formatCurrency(
-                          rateBreakup?.roomChargesBeforePromotion ??
-                            rateBreakup?.roomCharges,
-                          currency,
-                        )}
-                      />
-                      <RateRow
-                        label="Extra adult / child (list)"
-                        value={formatCurrency(
-                          rateBreakup?.extraAdultChildChargesBeforePromotion ??
-                            rateBreakup?.extraAdultChildCharges,
-                          currency,
-                        )}
-                      />
-                    </>
-                  )}
                   <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase border-t">
                     Promotions
                   </div>
@@ -768,18 +908,22 @@ export default function AdminBookingDetailPage({
               <RateRow
                 label={
                   serviceChargePercent > 0
-                    ? `Service charge @ ${formatPercent(serviceChargePercent)}`
-                    : "Service charge"
+                    ? `Service fee incl. GST @ ${formatPercent(serviceChargePercent)}`
+                    : "Service fee (incl. GST)"
                 }
-                value={formatCurrency(serviceChargeAmount, currency)}
+                value={formatCurrency(
+                  rateBreakup?.serviceFeeIncludingGst ?? serviceFeeInclGst,
+                  currency,
+                )}
+                highlight
+              />
+              <RateRow
+                label="Service fee (excl. GST)"
+                value={formatCurrency(serviceFeeExclGst, currency)}
               />
               <RateRow
                 label="GST on service fee"
                 value={formatCurrency(detail.financials.serviceFeeGst, currency)}
-              />
-              <RateRow
-                label="Service fee (excl. GST)"
-                value={formatCurrency(detail.financials.serviceFeeAmount, currency)}
               />
               <RateRow
                 label="Service fee rule"
@@ -896,24 +1040,19 @@ export default function AdminBookingDetailPage({
                   value={formatCurrency(detail.financials.basePrice, currency)}
                 />
                 <DetailRow
-                  label="Extra child charges"
-                  value={formatCurrency(
-                    detail.financials.extraChildCharges,
-                    currency,
-                  )}
+                  label="Extra adult charges"
+                  value={formatCurrency(extraAdultCharges, currency)}
                 />
-                <DetailRow
-                  label="Promotion discount"
-                  value={
-                    <span className="text-emerald-700">
-                      −
-                      {formatCurrency(
-                        detail.financials.promotionDiscount,
-                        currency,
-                      )}
-                    </span>
-                  }
-                />
+                {promotionDiscount > 0 ? (
+                  <DetailRow
+                    label="Promotion discount"
+                    value={
+                      <span className="text-emerald-700">
+                        −{formatCurrency(promotionDiscount, currency)}
+                      </span>
+                    }
+                  />
+                ) : null}
                 <DetailRow
                   label="Price after promo"
                   value={formatCurrency(
@@ -950,8 +1089,21 @@ export default function AdminBookingDetailPage({
                   value={formatCurrency(detail.financials.serviceFeeGst, currency)}
                 />
                 <DetailRow
+                  label="Service fee (incl. GST)"
+                  value={formatCurrency(serviceFeeInclGst, currency)}
+                />
+                <DetailRow
                   label="Service fee rule"
-                  value={detail.financials.serviceFeeRuleName}
+                  value={
+                    <div>
+                      <span>{detail.financials.serviceFeeRuleName}</span>
+                      {detail.financials.effectiveServiceFeePercent != null ? (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Effective {formatPercent(detail.financials.effectiveServiceFeePercent)}
+                        </p>
+                      ) : null}
+                    </div>
+                  }
                 />
                 <DetailRow
                   label={`Commission (${formatPercent(detail.financials.commissionPercent)})`}
@@ -966,11 +1118,7 @@ export default function AdminBookingDetailPage({
                 />
                 <DetailRow
                   label="Commission rule"
-                  value={
-                    <span className="font-mono text-xs break-all">
-                      {detail.financials.commissionRuleName}
-                    </span>
-                  }
+                  value={detail.financials.commissionRuleName}
                 />
                 <DetailRow
                   label="Agency commission"
@@ -1042,7 +1190,9 @@ export default function AdminBookingDetailPage({
                       <th className="py-2 pr-3">Stay date</th>
                       <th className="py-2 pr-3 text-right">Room</th>
                       <th className="py-2 pr-3 text-right">Extra</th>
-                      <th className="py-2 pr-3 text-right">Promo</th>
+                      {showRoomDayPromo ? (
+                        <th className="py-2 pr-3 text-right">Promo</th>
+                      ) : null}
                       <th className="py-2 pr-3 text-right">Net accom.</th>
                       <th className="py-2 pr-3 text-right">GST</th>
                       <th className="py-2 pr-3 text-right">Gross</th>
@@ -1068,9 +1218,11 @@ export default function AdminBookingDetailPage({
                         <td className="py-2.5 pr-3 text-right tabular-nums">
                           {formatCurrency(row.extraCharges, currency)}
                         </td>
-                        <td className="py-2.5 pr-3 text-right tabular-nums text-emerald-700">
-                          −{formatCurrency(row.promotionDiscount, currency)}
-                        </td>
+                        {showRoomDayPromo ? (
+                          <td className="py-2.5 pr-3 text-right tabular-nums text-emerald-700">
+                            −{formatCurrency(row.promotionDiscount, currency)}
+                          </td>
+                        ) : null}
                         <td className="py-2.5 pr-3 text-right tabular-nums">
                           {formatCurrency(row.netAccommodation, currency)}
                         </td>

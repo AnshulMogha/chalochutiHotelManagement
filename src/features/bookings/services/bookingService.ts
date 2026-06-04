@@ -49,8 +49,11 @@ export interface RateBreakup {
   propertyTaxes: number;
   promotionDiscount?: number;
   appliedPromotions?: AppliedPromotion[];
-  serviceChargePercent: number;
-  serviceChargeAmount: number;
+  serviceChargePercent?: number;
+  /** Legacy field name */
+  serviceChargeAmount?: number;
+  /** Service fee including GST (multi-stream pricing) */
+  serviceFeeIncludingGst?: number;
   commissionTotal: number;
   commissionAmount: number;
   commissionGst: number;
@@ -95,9 +98,10 @@ export interface AdminBookingGuest {
 
 export interface AdminBookingPricing {
   basePrice: number;
-  promotionDiscount: number;
+  promotionDiscount?: number;
   priceAfterPromo: number;
   gstAmount: number;
+  serviceFeeAmount?: number;
   commissionAmount: number;
   finalPayable: number;
   hotelPayout: number;
@@ -111,8 +115,10 @@ export interface AdminBookingFinancials {
   id: number;
   bookingId: number;
   basePrice: number;
-  extraChildCharges: number;
-  promotionDiscount: number;
+  extraAdultCharges?: number;
+  /** @deprecated prefer extraAdultCharges */
+  extraChildCharges?: number;
+  promotionDiscount?: number;
   priceAfterPromo: number;
   gstPercent: number;
   gstAmount: number;
@@ -120,16 +126,20 @@ export interface AdminBookingFinancials {
   sgstAmount: number;
   serviceFeeAmount: number;
   serviceFeeGst: number;
+  effectiveServiceFeePercent?: number;
   serviceFeeRuleName: string;
+  serviceFeeRuleId?: string;
   commissionPercent: number;
   commissionAmount: number;
   commissionGst: number;
   commissionRuleName: string;
+  commissionRuleId?: string;
   tcsPercent: number;
   tcsAmount: number;
   tdsPercent: number;
   tdsAmount: number;
   taxRuleName: string;
+  taxRuleId?: string;
   customerSellingPrice: number;
   finalPayable: number;
   hotelPayout: number;
@@ -142,6 +152,7 @@ export interface AdminBookingFinancials {
   bookingMode: string;
   currencyCode: string;
   promotionRuleName: string;
+  pricingEngineVersion?: string;
 }
 
 export interface AdminRoomDayFinancial {
@@ -151,13 +162,13 @@ export interface AdminRoomDayFinancial {
   stayDate: string;
   roomCharges: number;
   extraCharges: number;
-  promotionDiscount: number;
+  promotionDiscount?: number;
   netAccommodation: number;
   hotelGst: number;
   propertyGross: number;
   commission: number;
   propertyNetPayable: number;
-  appliedPromotionCodes: string;
+  appliedPromotionCodes?: string;
 }
 
 export interface AdminBookingPayment {
@@ -180,7 +191,30 @@ export interface AdminBookingFullDetail {
   audit: {
     createdAt: string;
     updatedAt: string;
-    pricingEngineVersion: string;
+    pricingEngineVersion?: string;
+  };
+}
+
+function normalizeAdminBookingFullDetail(
+  data: AdminBookingFullDetail,
+): AdminBookingFullDetail {
+  const fin = data.financials;
+  const extraAdult =
+    fin.extraAdultCharges ?? fin.extraChildCharges ?? undefined;
+  return {
+    ...data,
+    pricing: {
+      ...data.pricing,
+      promotionDiscount: data.pricing.promotionDiscount ?? fin.promotionDiscount ?? 0,
+      serviceFeeAmount:
+        data.pricing.serviceFeeAmount ?? fin.serviceFeeAmount ?? undefined,
+    },
+    financials: {
+      ...fin,
+      extraAdultCharges: extraAdult,
+      pricingEngineVersion:
+        fin.pricingEngineVersion ?? data.audit?.pricingEngineVersion,
+    },
   };
 }
 
@@ -300,7 +334,7 @@ export const bookingService = {
     if (!response.data) {
       throw new Error("Booking not found");
     }
-    return response.data;
+    return normalizeAdminBookingFullDetail(response.data);
   },
 
   normalizeBookingDetail: (data: BookingDetail | undefined): BookingDetail => {
