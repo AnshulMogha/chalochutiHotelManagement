@@ -39,6 +39,8 @@ export const ADMIN_MANAGED_ROLE_BADGE_STYLES: Record<
   TRANSPORT_BD: { bg: "bg-sky-100", text: "text-sky-800" },
   TRAVEL_AGENT_ADMIN: { bg: "bg-cyan-100", text: "text-cyan-800" },
   TRAVEL_AGENT_USER: { bg: "bg-lime-100", text: "text-lime-800" },
+  TRANSPORT_AGENT_ADMIN: { bg: "bg-orange-100", text: "text-orange-800" },
+  TRANSPORT_AGENT_USER: { bg: "bg-amber-100", text: "text-amber-800" },
   SALES_MANAGER: { bg: "bg-emerald-100", text: "text-emerald-800" },
   ZONAL_MANAGER_HOTEL: { bg: "bg-indigo-100", text: "text-indigo-800" },
   ZontalHotelManager: { bg: "bg-indigo-100", text: "text-indigo-800" },
@@ -57,6 +59,8 @@ export const ADMIN_MANAGED_ROLE_LABELS: Record<string, string> = {
   TRANSPORT_BD: "Transport BD",
   TRAVEL_AGENT_ADMIN: "Travel Agent Admin",
   TRAVEL_AGENT_USER: "Travel Agent User",
+  TRANSPORT_AGENT_ADMIN: "Transport Agent Admin",
+  TRANSPORT_AGENT_USER: "Transport Agent User",
   SALES_MANAGER: "Sales Manager",
   ZONAL_MANAGER_HOTEL: "Zonal Manager Hotel",
   ZontalHotelManager: "Zonal Hotel Manager",
@@ -150,6 +154,45 @@ export function isHotelOwner(userRoles: string[] | undefined): boolean {
  * access from admin screens — that stays with the hotel account.
  * Users who also have HOTEL_OWNER are still manageable as property owners.
  */
+/** Roles that cannot use the hotel onboarding portal (access denied screen). */
+export const PORTAL_ACCESS_DENIED_ROLES = [
+  "PACKAGE_CREATOR",
+  "PACKAGE_BD",
+  "TRANSPORT_BD",
+  "TRANSPORT_AGENT_ADMIN",
+  "TRANSPORT_AGENT_USER",
+] as const;
+
+export function normalizeUserRoles(
+  userRoles: string[] | undefined,
+): string[] {
+  if (!userRoles?.length) return [];
+  return userRoles.filter(
+    (role) => typeof role === "string" && role.trim().length > 0,
+  );
+}
+
+export function hasNoAssignedPortalRole(
+  userRoles: string[] | undefined,
+): boolean {
+  return normalizeUserRoles(userRoles).length === 0;
+}
+
+export function hasBlockedPortalRole(
+  userRoles: string[] | undefined,
+): boolean {
+  const roles = normalizeUserRoles(userRoles);
+  return roles.some((role) =>
+    (PORTAL_ACCESS_DENIED_ROLES as readonly string[]).includes(role),
+  );
+}
+
+export function isPortalAccessDenied(
+  userRoles: string[] | undefined,
+): boolean {
+  return hasNoAssignedPortalRole(userRoles) || hasBlockedPortalRole(userRoles);
+}
+
 export const SUPER_ADMIN_EXCLUDED_EDIT_ROLES = [
   "HOTEL_MANAGER",
   "ACCOUNTANT",

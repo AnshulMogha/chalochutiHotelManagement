@@ -30,6 +30,8 @@ const ROLE_OPTIONS: { value: CreateUserRequest["roles"][number]; label: string }
   { value: "TRANSPORT_BD", label: "Transport BD" },
   { value: "TRAVEL_AGENT_ADMIN", label: "Travel Agent Admin" },
   { value: "TRAVEL_AGENT_USER", label: "Travel Agent User" },
+  { value: "TRANSPORT_AGENT_ADMIN", label: "Transport Agent Admin" },
+  { value: "TRANSPORT_AGENT_USER", label: "Transport Agent User" },
   { value: "SALES_MANAGER", label: "Sales Manager" },
   { value: "ZONAL_MANAGER_HOTEL", label: "Zonal Manager Hotel" },
   { value: "ZONAL_MANAGER_SALES", label: "Zonal Manager Sales" },
@@ -42,6 +44,8 @@ const ROLE_OPTIONS: { value: CreateUserRequest["roles"][number]; label: string }
 const UPDATE_ONLY_ROLES = new Set<CreateUserRequest["roles"][number]>([
   "TRAVEL_AGENT_ADMIN",
   "TRAVEL_AGENT_USER",
+  "TRANSPORT_AGENT_ADMIN",
+  "TRANSPORT_AGENT_USER",
 ]);
 
 const ALLOWED_SUPER_ADMIN_ROLES = new Set(ROLE_OPTIONS.map((role) => role.value));

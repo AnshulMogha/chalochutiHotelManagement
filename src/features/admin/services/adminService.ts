@@ -242,6 +242,8 @@ export type UserRole =
   | "TRANSPORT_BD"
   | "TRAVEL_AGENT_ADMIN"
   | "TRAVEL_AGENT_USER"
+  | "TRANSPORT_AGENT_ADMIN"
+  | "TRANSPORT_AGENT_USER"
   | "SALES_MANAGER"
   | "ZONAL_MANAGER_HOTEL"
   | "ZontalHotelManager"

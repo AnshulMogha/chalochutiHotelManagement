@@ -11,6 +11,24 @@ export interface UpdateMyProfileRequest {
   gender: "MALE" | "FEMALE" | "OTHER";
 }
 
+function normalizeRolesFromApi(
+  user?: Partial<User> & { role?: string | string[] },
+): string[] {
+  if (Array.isArray(user?.roles) && user.roles.length > 0) {
+    return user.roles.filter(
+      (r) => typeof r === "string" && r.trim().length > 0,
+    );
+  }
+  const single = user?.role;
+  if (Array.isArray(single)) {
+    return single.filter((r) => typeof r === "string" && r.trim().length > 0);
+  }
+  if (typeof single === "string" && single.trim().length > 0) {
+    return [single.trim()];
+  }
+  return [];
+}
+
 function normalizeUser(user?: Partial<User> | null, fallback: Partial<User> = {}): User {
   return {
     userId: user?.userId ?? fallback.userId ?? 0,
@@ -33,7 +51,7 @@ function normalizeUser(user?: Partial<User> | null, fallback: Partial<User> = {}
     avatarUrl: user?.avatarUrl ?? fallback.avatarUrl ?? null,
     gender: user?.gender ?? fallback.gender ?? null,
     dob: user?.dob ?? fallback.dob ?? null,
-    roles: user?.roles ?? fallback.roles ?? [],
+    roles: normalizeRolesFromApi(user) ?? fallback.roles ?? [],
     permissions: user?.permissions ?? fallback.permissions ?? [],
     states: user?.states ?? fallback.states ?? [],
     createdAt: user?.createdAt ?? fallback.createdAt ?? "",
