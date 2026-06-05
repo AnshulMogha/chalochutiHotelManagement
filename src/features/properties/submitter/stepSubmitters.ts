@@ -10,6 +10,7 @@ import {
 
 import { propertyService } from "../services/propertyService";
 import type { AmenityPayload, PolicyRule } from "../services/api.types";
+import { toMealPlanRateNumber } from "../utils/mealPlanRateInput";
 
 async function submitBasicInfo(basicInfo: BasicInfo, metaInfo: metaInfo) {
   await propertyService.submitBasicInfo(
@@ -131,10 +132,10 @@ function buildMealPlan(meal: RoomStateType["mealPlanDetails"], roomDetails: Room
   return {
     pricing: {
       mealPlan: meal.mealPlan,
-      baseRate: meal.baseRate,
-      singleOccupancyRate: meal.singleOccupancyRate,
-      extraAdultCharge: meal.extraAdultCharge,
-      paidChildCharge: meal.paidChildCharge,
+      baseRate: toMealPlanRateNumber(meal.baseRate),
+      singleOccupancyRate: toMealPlanRateNumber(meal.singleOccupancyRate),
+      extraAdultCharge: toMealPlanRateNumber(meal.extraAdultCharge),
+      paidChildCharge: toMealPlanRateNumber(meal.paidChildCharge),
       refundable: false,
     },
     inventory: {

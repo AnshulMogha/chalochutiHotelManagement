@@ -92,10 +92,10 @@ export const initialRoomState: RoomStateType = {
   },
   mealPlanDetails: {
     mealPlan: "",
-    baseRate: 0,
-    singleOccupancyRate: 0,
-    extraAdultCharge: 0,
-    paidChildCharge: 0,
+    baseRate: "",
+    singleOccupancyRate: "",
+    extraAdultCharge: "",
+    paidChildCharge: "",
     // today's date
     startDate: new Date().toISOString().split("T")[0],
     endDate: new Date().toISOString().split("T")[0],

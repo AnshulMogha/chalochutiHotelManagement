@@ -9,6 +9,7 @@ import type {
   BasicInfo,
  
   RoomStateType,
+  MealPlanRateInput,
 } from "../types";
 import type { FormActionType, RoomInfoActionType } from "./actions";
 
@@ -406,27 +407,31 @@ const setMealPlan = (mealPlan: string): RoomInfoActionType => {
     payload: { mealPlan: mealPlan },
   };
 };
-const setBaseRate = (baseRate: number): RoomInfoActionType => {
+const setBaseRate = (baseRate: MealPlanRateInput): RoomInfoActionType => {
   return {
     type: "SET_BASE_RATE" as const,
     payload: { baseRate: baseRate },
   };
 };
 const setSingleOccupancyRate = (
-  singleOccupancyRate: number
+  singleOccupancyRate: MealPlanRateInput,
 ): RoomInfoActionType => {
   return {
     type: "SET_SINGLE_OCCUPANCY_RATE" as const,
     payload: { singleOccupancyRate },
   };
 };
-const setExtraAdultCharge = (extraAdultCharge: number): RoomInfoActionType => {
+const setExtraAdultCharge = (
+  extraAdultCharge: MealPlanRateInput,
+): RoomInfoActionType => {
   return {
     type: "SET_EXTRA_ADULT_CHARGE" as const,
     payload: { extraAdultCharge: extraAdultCharge },
   };
 };
-const setPaidChildCharge = (paidChildCharge: number): RoomInfoActionType => {
+const setPaidChildCharge = (
+  paidChildCharge: MealPlanRateInput,
+): RoomInfoActionType => {
   return {
     type: "SET_PAID_CHILD_CHARGE" as const,
     payload: { paidChildCharge: paidChildCharge },

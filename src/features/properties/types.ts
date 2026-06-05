@@ -98,12 +98,14 @@ export interface SleepingArrangement {
 export interface BathroomDetails {
   numberOfBathrooms: number;
 }
+export type MealPlanRateInput = number | "";
+
 export interface MealPlanDetails {
   mealPlan: string;
-  baseRate: number;
-  singleOccupancyRate: number;
-  extraAdultCharge: number;
-  paidChildCharge: number;
+  baseRate: MealPlanRateInput;
+  singleOccupancyRate: MealPlanRateInput;
+  extraAdultCharge: MealPlanRateInput;
+  paidChildCharge: MealPlanRateInput;
   startDate: string;
   endDate: string;
 }

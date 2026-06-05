@@ -9,6 +9,7 @@ import type {
   FinanceAndLegalInfo,
   BasicInfo,
   RoomStateType,
+  MealPlanRateInput,
 } from "../types";
 export type FormActionType =
   | {
@@ -247,19 +248,19 @@ export type RoomInfoActionType =
     }
   | {
       type: "SET_BASE_RATE";
-      payload: { baseRate: number };
+      payload: { baseRate: MealPlanRateInput };
     }
   | {
       type: "SET_SINGLE_OCCUPANCY_RATE";
-      payload: { singleOccupancyRate: number };
+      payload: { singleOccupancyRate: MealPlanRateInput };
     }
   | {
       type: "SET_EXTRA_ADULT_CHARGE";
-      payload: { extraAdultCharge: number };
+      payload: { extraAdultCharge: MealPlanRateInput };
     }
   | {
       type: "SET_PAID_CHILD_CHARGE";
-      payload: { paidChildCharge: number };
+      payload: { paidChildCharge: MealPlanRateInput };
     }
   | {
       type: "SET_START_DATE";

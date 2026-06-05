@@ -11,7 +11,15 @@ import {
   setSingleOccupancyRate,
   setStartDate,
 } from "@/features/properties/state/actionCreators";
-import type { roomStepErrors, roomStepKeys } from "@/features/properties/types";
+import type {
+  MealPlanRateInput,
+  roomStepErrors,
+  roomStepKeys,
+} from "@/features/properties/types";
+import {
+  formatMealPlanRateValue,
+  parseMealPlanRateInput,
+} from "@/features/properties/utils/mealPlanRateInput";
 
 export function MealPlanStep({
   errors,
@@ -29,33 +37,19 @@ export function MealPlanStep({
     }
     setRoomDetailsState(setMealPlan(value));
   };
-  const handleBaseRateChange = (value: string) => {
-    if (Number(value) < 0) return;
-    if (errors.mealPlanDetails?.baseRate) {
-      resetFieldError("mealPlanDetails", "baseRate");
+  const handleRateChange = (
+    value: string,
+    field:
+      | "baseRate"
+      | "singleOccupancyRate"
+      | "extraAdultCharge"
+      | "paidChildCharge",
+    setter: (rate: MealPlanRateInput) => ReturnType<typeof setBaseRate>,
+  ) => {
+    if (errors.mealPlanDetails?.[field]) {
+      resetFieldError("mealPlanDetails", field);
     }
-    setRoomDetailsState(setBaseRate(Number(value)));
-  };
-  const handleExtraAdultChargeChange = (value: string) => {
-    if (Number(value) < 0) return;
-    if (errors.mealPlanDetails?.extraAdultCharge) {
-      resetFieldError("mealPlanDetails", "extraAdultCharge");
-    }
-    setRoomDetailsState(setExtraAdultCharge(Number(value)));
-  };
-  const handleSingleOccupancyRateChange = (value: string) => {
-    if (Number(value) < 0) return;
-    if (errors.mealPlanDetails?.singleOccupancyRate) {
-      resetFieldError("mealPlanDetails", "singleOccupancyRate");
-    }
-    setRoomDetailsState(setSingleOccupancyRate(Number(value)));
-  };
-  const handlePaidChildChargeChange = (value: string) => {
-    if (Number(value) < 0) return;
-    if (errors.mealPlanDetails?.paidChildCharge) {
-      resetFieldError("mealPlanDetails", "paidChildCharge");
-    }
-    setRoomDetailsState(setPaidChildCharge(Number(value)));
+    setRoomDetailsState(setter(parseMealPlanRateInput(value)));
   };
   const handleStartDateChange = (value: string) => {
     //start date will not be in the past
@@ -122,8 +116,8 @@ export function MealPlanStep({
               label: "Base Rate for 2 adults",
               description: "Enter the standard room rate for 2 adults.",
               placeholder: "Enter base rate",
-              min: 1,
-              onChange: handleBaseRateChange,
+              onChange: (value: string) =>
+                handleRateChange(value, "baseRate", setBaseRate),
               error: errors.mealPlanDetails?.baseRate,
             },
             {
@@ -131,8 +125,8 @@ export function MealPlanStep({
               label: "Single Occupancy Rate",
               description: "Rate for single adult occupancy.",
               placeholder: "Enter single occupancy rate",
-              min: 1,
-              onChange: handleSingleOccupancyRateChange,
+              onChange: (value: string) =>
+                handleRateChange(value, "singleOccupancyRate", setSingleOccupancyRate),
               error: errors.mealPlanDetails?.singleOccupancyRate,
             },
             {
@@ -141,8 +135,8 @@ export function MealPlanStep({
               description:
                 "Additional charge for each adult guest aged 18 years or older.",
               placeholder: "Enter extra adult charge",
-              min: 0,
-              onChange: handleExtraAdultChargeChange,
+              onChange: (value: string) =>
+                handleRateChange(value, "extraAdultCharge", setExtraAdultCharge),
               error: errors.mealPlanDetails?.extraAdultCharge,
             },
             {
@@ -150,8 +144,8 @@ export function MealPlanStep({
               label: "Paid Child Charge",
               description: "Charge per child aged 7 to 17 years.",
               placeholder: "Enter charge for child",
-              min: 0,
-              onChange: handlePaidChildChargeChange,
+              onChange: (value: string) =>
+                handleRateChange(value, "paidChildCharge", setPaidChildCharge),
               error: errors.mealPlanDetails?.paidChildCharge,
             },
           ].map((item) => (
@@ -165,14 +159,16 @@ export function MealPlanStep({
                   ₹
                 </span>
                 <Input
-                  type="number"
-                  value={
-                    mealPlanDetails[item.key as keyof typeof mealPlanDetails] ??
-                    ""
-                  }
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={formatMealPlanRateValue(
+                    mealPlanDetails[
+                      item.key as keyof typeof mealPlanDetails
+                    ] as MealPlanRateInput,
+                  )}
                   onChange={(e) => item.onChange(e.target.value)}
                   placeholder={item.placeholder}
-                  min={item.min}
                   className="pl-8"
                   error={item.error}
                 />

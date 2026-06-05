@@ -147,10 +147,11 @@ export function RoomsForm({
         },
         mealPlanDetails: {
           mealPlan: response.data.pricing?.mealPlan || "",
-          baseRate: response.data.pricing?.baseRate || 0,
-          singleOccupancyRate: response.data.pricing?.singleOccupancyRate || 0,
-          extraAdultCharge: response.data.pricing?.extraAdultCharge || 0,
-          paidChildCharge: response.data.pricing?.paidChildCharge || 0,
+          baseRate: response.data.pricing?.baseRate ?? "",
+          singleOccupancyRate:
+            response.data.pricing?.singleOccupancyRate ?? "",
+          extraAdultCharge: response.data.pricing?.extraAdultCharge ?? "",
+          paidChildCharge: response.data.pricing?.paidChildCharge ?? "",
           startDate: response.data.inventory?.startDate || "",
           endDate: response.data.inventory?.endDate || "",
         },
