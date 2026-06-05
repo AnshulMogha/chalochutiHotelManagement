@@ -124,7 +124,8 @@ export function HotelSelector({
     const fetchHotels = async () => {
       try {
         setIsLoading(true);
-        let data: (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[] = [];
+        let data: (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[] =
+          [];
 
         // Super admin uses lookup API with server-side search.
         // Other roles (owner/manager/team users) use accessible hotels list.
@@ -189,7 +190,9 @@ export function HotelSelector({
     }
   }, [selectedHotelId]);
 
-  const selectedHotel = hotels.find((h) => h.hotelId === effectiveSelectedHotelId);
+  const selectedHotel = hotels.find(
+    (h) => h.hotelId === effectiveSelectedHotelId,
+  );
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -221,7 +224,9 @@ export function HotelSelector({
           </div>
         ) : null}
         {isLoading ? (
-          <div className="px-3 py-2 text-sm text-gray-500">Loading hotels...</div>
+          <div className="px-3 py-2 text-sm text-gray-500">
+            Loading hotels...
+          </div>
         ) : hotels.length === 0 ? (
           <div className="px-3 py-2 text-sm text-gray-500">
             {isSuperAdminUser && debouncedSearch
@@ -243,10 +248,16 @@ export function HotelSelector({
             >
               <Building2 className="w-4 h-4 text-[#2f3d95]" />
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm truncate">{hotel.hotelName}</div>
-                <div className="text-xs text-gray-500 truncate">
-                  {hotel.hotelCode || ""}
+                <div className="truncate text-sm font-medium">
+                  {isSuperAdminUser
+                    ? `${hotel.hotelName} (${hotel.hotelId})`
+                    : hotel.hotelName}
                 </div>
+                {!isSuperAdminUser && hotel.hotelCode ? (
+                  <div className="truncate text-xs text-gray-500">
+                    {hotel.hotelCode}
+                  </div>
+                ) : null}
               </div>
             </DropdownMenuItem>
           ))

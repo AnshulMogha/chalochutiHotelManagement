@@ -85,12 +85,7 @@ export interface RejectHotelRequest {
 
 /** Agent onboarding – list item from GET travel-agent/onboarding */
 export type TravelAgentOnboardingStatus = "PENDING" | "APPROVED" | "REJECTED";
-export type AgencyTier =
-  | "DIAMOND"
-  | "PLATINUM"
-  | "GOLD"
-  | "SILVER"
-  | "BRONZE";
+export type AgencyTier = "DIAMOND" | "PLATINUM" | "GOLD" | "SILVER" | "BRONZE";
 
 export interface TravelAgentOnboardingListItem {
   id: number;

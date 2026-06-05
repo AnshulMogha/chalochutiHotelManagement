@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams, useLocation } from "react-router";
+import {
+  useNavigate,
+  useParams,
+  useSearchParams,
+  useLocation,
+} from "react-router";
 import {
   adminService,
   type User,
   type UserHotelAssignment,
-  type ApprovedHotelItem,
 } from "../services/adminService";
 import {
   teamService,
@@ -33,6 +37,7 @@ import {
   Building2,
   ChevronDown,
   Check,
+  Search,
   X,
   User as UserIcon,
   Trash2,
@@ -45,8 +50,27 @@ import {
 
 type HotelOption = { hotelId: string; hotelName: string; hotelCode: string };
 
+function mapLookupToHotelOption(hotel: {
+  hotelId: string;
+  hotelName: string;
+  hotelCode?: string;
+}): HotelOption {
+  return {
+    hotelId: hotel.hotelId,
+    hotelName: hotel.hotelName.trim(),
+    hotelCode: hotel.hotelCode?.trim() ?? "",
+  };
+}
+
+function formatHotelWithId(hotel: Pick<HotelOption, "hotelName" | "hotelId">): string {
+  return `${hotel.hotelName} (${hotel.hotelId})`;
+}
+
 /** Modules Super Admin can grant for Hotel BD at user level (Finance excluded by product policy). */
-const HOTEL_BD_PERMISSION_MODULES: { value: PermissionModule; label: string }[] = [
+const HOTEL_BD_PERMISSION_MODULES: {
+  value: PermissionModule;
+  label: string;
+}[] = [
   { value: "PROPERTY_BASIC_INFO", label: "Property - Basic Information" },
   {
     value: "PROPERTY_ROOMS_RATEPLANS",
@@ -97,7 +121,9 @@ function HotelBdPermissionsModal({
         canEdit: false,
       }));
       const hydratedFromInitial = HOTEL_BD_PERMISSION_MODULES.map((mod) => {
-        const ex = (initialPermissions || []).find((p) => p.module === mod.value);
+        const ex = (initialPermissions || []).find(
+          (p) => p.module === mod.value,
+        );
         return ex
           ? { module: mod.value, canView: ex.canView, canEdit: ex.canEdit }
           : { module: mod.value, canView: false, canEdit: false };
@@ -119,7 +145,9 @@ function HotelBdPermissionsModal({
         }
       } catch {
         if (!cancelled) {
-          setPermissions(initialPermissions?.length ? hydratedFromInitial : defaults);
+          setPermissions(
+            initialPermissions?.length ? hydratedFromInitial : defaults,
+          );
           setLoadWarning(
             "Could not load current permissions (you can still set and save them).",
           );
@@ -181,7 +209,9 @@ function HotelBdPermissionsModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && !isSubmitting && onClose()}
+      onClick={(e) =>
+        e.target === e.currentTarget && !isSubmitting && onClose()
+      }
     >
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl m-4 max-h-[90vh] overflow-y-auto"
@@ -229,7 +259,9 @@ function HotelBdPermissionsModal({
             <>
               <div className="space-y-3">
                 {HOTEL_BD_PERMISSION_MODULES.map((mod) => {
-                  const permission = permissions.find((p) => p.module === mod.value);
+                  const permission = permissions.find(
+                    (p) => p.module === mod.value,
+                  );
                   const canView = permission?.canView ?? false;
                   const canEdit = permission?.canEdit ?? false;
                   return (
@@ -286,7 +318,12 @@ function HotelBdPermissionsModal({
           )}
 
           <div className="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-gray-200">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button
@@ -311,13 +348,15 @@ function AssignHotelModal({
   userLabel,
   loadHotels,
   excludedHotelIds,
+  enableHotelSearch = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (hotelId: string) => Promise<void>;
   userLabel: string;
-  loadHotels: () => Promise<HotelOption[]>;
+  loadHotels: (search: string) => Promise<HotelOption[]>;
   excludedHotelIds: Set<string>;
+  enableHotelSearch?: boolean;
 }) {
   const [hotels, setHotels] = useState<HotelOption[]>([]);
   const [selectedHotelId, setSelectedHotelId] = useState("");
@@ -326,6 +365,24 @@ function AssignHotelModal({
   const [isLoadingHotels, setIsLoadingHotels] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isHotelDropdownOpen, setIsHotelDropdownOpen] = useState(false);
+  const [hotelSearch, setHotelSearch] = useState("");
+  const [debouncedHotelSearch, setDebouncedHotelSearch] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setHotelSearch("");
+    setDebouncedHotelSearch("");
+    setSelectedHotelId("");
+    setErrors({});
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !enableHotelSearch) return;
+    const timeout = window.setTimeout(() => {
+      setDebouncedHotelSearch(hotelSearch.trim());
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [hotelSearch, enableHotelSearch, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -333,7 +390,8 @@ function AssignHotelModal({
       try {
         setIsLoadingHotels(true);
         setApiError(null);
-        const list = await loadHotels();
+        const search = enableHotelSearch ? debouncedHotelSearch : "";
+        const list = await loadHotels(search);
         setHotels(list.filter((hotel) => !excludedHotelIds.has(hotel.hotelId)));
       } catch (error: unknown) {
         const err = error as { message?: string };
@@ -344,9 +402,13 @@ function AssignHotelModal({
       }
     };
     fetchHotels();
-    setSelectedHotelId("");
-    setErrors({});
-  }, [isOpen, loadHotels, excludedHotelIds]);
+  }, [
+    isOpen,
+    loadHotels,
+    excludedHotelIds,
+    enableHotelSearch,
+    debouncedHotelSearch,
+  ]);
 
   if (!isOpen) return null;
 
@@ -426,7 +488,9 @@ function AssignHotelModal({
                     !selectedHotelId && "text-gray-500",
                     errors.hotelId && "border-red-500",
                   )}
-                  disabled={isLoadingHotels || isSubmitting || hotels.length === 0}
+                  disabled={
+                    isLoadingHotels || isSubmitting || hotels.length === 0
+                  }
                 >
                   <span className="truncate">
                     {selectedHotelId
@@ -435,7 +499,7 @@ function AssignHotelModal({
                             (hotel) => hotel.hotelId === selectedHotelId,
                           );
                           return selectedHotel
-                            ? `${selectedHotel.hotelName} (${selectedHotel.hotelCode})`
+                            ? formatHotelWithId(selectedHotel)
                             : "Select Hotel";
                         })()
                       : isLoadingHotels
@@ -453,33 +517,62 @@ function AssignHotelModal({
                 sideOffset={6}
                 className="w-[420px] max-w-[calc(100vw-48px)] max-h-56 overflow-y-auto z-[2000]"
               >
-                {hotels.map((hotel) => {
-                  const isSelected = selectedHotelId === hotel.hotelId;
-                  return (
-                    <DropdownMenuItem
-                      key={hotel.hotelId}
-                      onClick={() => {
-                        setSelectedHotelId(hotel.hotelId);
-                        setIsHotelDropdownOpen(false);
-                        if (errors.hotelId) {
-                          setErrors((prev) => {
-                            const next = { ...prev };
-                            delete next.hotelId;
-                            return next;
-                          });
-                        }
-                      }}
-                      className="flex items-center justify-between gap-2 cursor-pointer"
-                    >
-                      <span className="truncate">
-                        {hotel.hotelName} ({hotel.hotelCode})
-                      </span>
-                      {isSelected && (
-                        <Check className="w-4 h-4 text-blue-600 shrink-0" />
-                      )}
-                    </DropdownMenuItem>
-                  );
-                })}
+                {enableHotelSearch ? (
+                  <div className="sticky top-0 z-10 border-b border-gray-100 bg-white p-2">
+                    <div className="flex items-center gap-2 rounded-md border border-gray-200 px-2 py-1.5">
+                      <Search className="h-3.5 w-3.5 text-gray-400" />
+                      <input
+                        value={hotelSearch}
+                        onChange={(e) => setHotelSearch(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        placeholder="Search hotels..."
+                        className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+                {isLoadingHotels ? (
+                  <div className="px-3 py-2 text-sm text-gray-500">
+                    Loading hotels...
+                  </div>
+                ) : hotels.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-gray-500">
+                    {enableHotelSearch && debouncedHotelSearch
+                      ? "No hotels found. Try another search."
+                      : "No hotels available"}
+                  </div>
+                ) : (
+                  hotels.map((hotel) => {
+                    const isSelected = selectedHotelId === hotel.hotelId;
+                    return (
+                      <DropdownMenuItem
+                        key={hotel.hotelId}
+                        onClick={() => {
+                          setSelectedHotelId(hotel.hotelId);
+                          setIsHotelDropdownOpen(false);
+                          if (errors.hotelId) {
+                            setErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.hotelId;
+                              return next;
+                            });
+                          }
+                        }}
+                        className="flex items-center justify-between gap-2 cursor-pointer"
+                      >
+                        <span
+                          className="truncate text-sm"
+                          title={formatHotelWithId(hotel)}
+                        >
+                          {formatHotelWithId(hotel)}
+                        </span>
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-blue-600 shrink-0" />
+                        )}
+                      </DropdownMenuItem>
+                    );
+                  })
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
             {errors.hotelId && (
@@ -545,7 +638,9 @@ function RevokeAccessConfirmModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && !isSubmitting && onClose()}
+      onClick={(e) =>
+        e.target === e.currentTarget && !isSubmitting && onClose()
+      }
     >
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4 overflow-hidden"
@@ -644,11 +739,9 @@ export default function UserHotelAssignmentsPage() {
     if (!Number.isFinite(userId)) return;
     const rows = await adminService.getUserHotelAssignments(userId);
     const hotels: HotelOption[] = isAdminContext
-      ? (await adminService.getApprovedHotels()).map((h: ApprovedHotelItem) => ({
-          hotelId: h.hotelId,
-          hotelName: h.hotelName,
-          hotelCode: h.hotelCode,
-        }))
+      ? (await adminService.getSuperAdminHotelLookup("")).map(
+          mapLookupToHotelOption,
+        )
       : (await propertyService.getAllHotels())
           .filter((hotel) => hotel.status === "LIVE")
           .map((hotel) => ({
@@ -667,7 +760,9 @@ export default function UserHotelAssignmentsPage() {
         ...(accessId != null ? { accessId } : {}),
       };
       const match =
-        (normalized.hotelId ? byId.get(String(normalized.hotelId)) : undefined) ||
+        (normalized.hotelId
+          ? byId.get(String(normalized.hotelId))
+          : undefined) ||
         (normalized.hotelCode
           ? byCode.get(String(normalized.hotelCode))
           : undefined);
@@ -710,25 +805,27 @@ export default function UserHotelAssignmentsPage() {
     run();
   }, [userId, loadAssignments]);
 
-  const loadHotelsAdmin = useCallback(async (): Promise<HotelOption[]> => {
-    const approved = await adminService.getApprovedHotels();
-    return (approved as ApprovedHotelItem[]).map((h) => ({
-      hotelId: h.hotelId,
-      hotelName: h.hotelName,
-      hotelCode: h.hotelCode,
-    }));
-  }, []);
+  const loadHotelsAdmin = useCallback(
+    async (search: string): Promise<HotelOption[]> => {
+      const lookupHotels = await adminService.getSuperAdminHotelLookup(search);
+      return lookupHotels.map(mapLookupToHotelOption);
+    },
+    [],
+  );
 
-  const loadHotelsTeam = useCallback(async (): Promise<HotelOption[]> => {
-    const allHotels = await propertyService.getAllHotels();
-    return (allHotels || [])
-      .filter((hotel) => hotel.status === "LIVE")
-      .map((hotel) => ({
-        hotelId: hotel.hotelId,
-        hotelName: hotel.hotelName,
-        hotelCode: hotel.hotelCode,
-      }));
-  }, []);
+  const loadHotelsTeam = useCallback(
+    async (_search: string): Promise<HotelOption[]> => {
+      const allHotels = await propertyService.getAllHotels();
+      return (allHotels || [])
+        .filter((hotel) => hotel.status === "LIVE")
+        .map((hotel) => ({
+          hotelId: hotel.hotelId,
+          hotelName: hotel.hotelName,
+          hotelCode: hotel.hotelCode,
+        }));
+    },
+    [],
+  );
 
   const handleAssign = async (hotelId: string) => {
     if (!Number.isFinite(userId)) return;
@@ -764,10 +861,9 @@ export default function UserHotelAssignmentsPage() {
       );
       const failed = results.filter((r) => r.status === "rejected").length;
       if (failed > 0) {
-        const firstReason =
-          results.find((r) => r.status === "rejected") as
-            | PromiseRejectedResult
-            | undefined;
+        const firstReason = results.find((r) => r.status === "rejected") as
+          | PromiseRejectedResult
+          | undefined;
         const msg =
           (firstReason?.reason as { message?: string })?.message ||
           "Request failed";
@@ -818,9 +914,7 @@ export default function UserHotelAssignmentsPage() {
   }
 
   const superAdminCannotManageStaff =
-    isAdminContext &&
-    user &&
-    isSuperAdminExcludedFromUserEdit(user.roles);
+    isAdminContext && user && isSuperAdminExcludedFromUserEdit(user.roles);
 
   if (superAdminCannotManageStaff) {
     return (
@@ -855,9 +949,9 @@ export default function UserHotelAssignmentsPage() {
           You cannot manage this account from here
         </p>
         <p className="text-gray-600 text-sm mb-4">
-          Hotel owners cannot assign or revoke their own hotel access or
-          another owner&apos;s access from My Team. Co-owners may still appear
-          on the hotel user list for visibility.
+          Hotel owners cannot assign or revoke their own hotel access or another
+          owner&apos;s access from My Team. Co-owners may still appear on the
+          hotel user list for visibility.
         </p>
         <Button type="button" variant="outline" onClick={goBack}>
           Go back
@@ -987,7 +1081,10 @@ export default function UserHotelAssignmentsPage() {
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
                 {assignments.map((row, index) => (
-                  <tr key={assignmentKey(row, index)} className="hover:bg-blue-50/50">
+                  <tr
+                    key={assignmentKey(row, index)}
+                    className="hover:bg-blue-50/50"
+                  >
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {String(row.hotelName ?? "—")}
                     </td>
@@ -1013,6 +1110,7 @@ export default function UserHotelAssignmentsPage() {
         onSubmit={handleAssign}
         userLabel={userLabel}
         loadHotels={isAdminContext ? loadHotelsAdmin : loadHotelsTeam}
+        enableHotelSearch={isAdminContext}
         excludedHotelIds={
           new Set(
             assignments
