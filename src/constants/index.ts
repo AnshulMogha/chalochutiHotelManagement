@@ -38,6 +38,7 @@ export const ROUTES = {
     COMMISSION_AND_TAX: "/admin/commission-tax",
     DOCUMENT_REVIEW: "/admin/document-review",
     TRAVEL_PARTNERS: "/admin/travel-partners",
+    TRANSPORT: "/transferManagement/",
   },
   PROPERTY_INFO: {
     LIST: "/property/information",

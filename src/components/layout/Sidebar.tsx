@@ -30,6 +30,7 @@ import {
   Percent,
   Handshake,
   UserRoundCog,
+  Bus,
   type LucideIcon,
 } from "lucide-react";
 
@@ -362,6 +363,12 @@ const getNavItems = (user: User | null): NavItem[] => {
         label: "Travel Partners",
         path: ROUTES.ADMIN.TRAVEL_PARTNERS,
         icon: Handshake,
+      },
+      {
+        label: "Transport",
+        path: ROUTES.ADMIN.TRANSPORT,
+        icon: Bus,
+        external: true,
       },
     );
   }

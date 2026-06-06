@@ -11,6 +11,7 @@ interface NavItem {
   icon: LucideIcon;
   badge?: string;
   children?: NavItem[];
+  external?: boolean;
 }
 
 interface SidebarItemProps {
@@ -77,57 +78,79 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
     }
   };
 
+  const linkClassName = cn(
+    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
+    "focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#2f3d95]",
+    "group relative min-w-0 w-full",
+    isOpen ? "justify-start" : "justify-center",
+    itemActive || hasActiveChild
+      ? "bg-white/35 text-white font-semibold"
+      : "text-white hover:bg-white/30",
+  );
+
+  const linkContent = (
+    <>
+      <item.icon
+        className={cn(
+          "text-xl shrink-0 transition-colors",
+          itemActive || hasActiveChild ? "text-white" : "text-white/80",
+        )}
+      />
+      <span
+        className={cn(
+          "transition-all duration-200 whitespace-nowrap flex-1 min-w-0 overflow-hidden",
+          isOpen ? "block" : "hidden",
+        )}
+      >
+        {item.label}
+      </span>
+
+      {hasChildren && isOpen && (
+        <span className="ml-auto shrink-0">
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-white/80" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-white/80" />
+          )}
+        </span>
+      )}
+
+      {(itemActive || hasActiveChild) && (
+        <span
+          className={cn(
+            "absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full",
+            !isOpen && "lg:hidden",
+          )}
+        />
+      )}
+    </>
+  );
+
   return (
     <li className="min-w-0">
       <div className="relative group/item min-w-0">
-        <Link
-          to={hasChildren ? "#" : buildUrl(item.path)}
-          onClick={handleClick}
-          className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
-            "focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#2f3d95]",
-            "group relative min-w-0 w-full",
-            isOpen ? "justify-start" : "justify-center",
-            itemActive || hasActiveChild
-              ? "bg-white/35 text-white font-semibold"
-              : "text-white hover:bg-white/30"
-          )}
-          aria-current={itemActive ? "page" : undefined}
-        >
-          <item.icon
-            className={cn(
-              "text-xl shrink-0 transition-colors",
-              itemActive || hasActiveChild ? "text-white" : "text-white/80"
-            )}
-          />
-          <span
-            className={cn(
-              "transition-all duration-200 whitespace-nowrap flex-1 min-w-0 overflow-hidden",
-              isOpen ? "block" : "hidden"
-            )}
+        {item.external && !hasChildren ? (
+          <a
+            href={item.path}
+            onClick={() => {
+              if (window.innerWidth < 1024) {
+                onToggle();
+              }
+            }}
+            className={linkClassName}
           >
-            {item.label}
-          </span>
-          
-          {hasChildren && isOpen && (
-            <span className="ml-auto shrink-0">
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-white/80" />
-              ) : (
-                <ChevronRight className="w-4 h-4 text-white/80" />
-              )}
-            </span>
-          )}
-
-          {(itemActive || hasActiveChild) && (
-            <span
-              className={cn(
-                "absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full",
-                !isOpen && "lg:hidden"
-              )}
-            />
-          )}
-        </Link>
+            {linkContent}
+          </a>
+        ) : (
+          <Link
+            to={hasChildren ? "#" : buildUrl(item.path)}
+            onClick={handleClick}
+            className={linkClassName}
+            aria-current={itemActive ? "page" : undefined}
+          >
+            {linkContent}
+          </Link>
+        )}
 
         {/* Submenu */}
         {hasChildren && isExpanded && isOpen && (
@@ -135,7 +158,7 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
             {item.children?.map((child) => {
               const childActive = isActive(child.path);
               const ChildIcon = child.icon;
-              
+
               return (
                 <li key={child.path} className="min-w-0">
                   <Link
@@ -149,12 +172,14 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
                       "flex items-center gap-2 px-3 py-2 rounded-md transition-all duration-200 text-sm min-w-0 w-full",
                       childActive
                         ? "bg-white/25 text-white font-medium"
-                        : "text-white/80 hover:bg-white/20 hover:text-white"
+                        : "text-white/80 hover:bg-white/20 hover:text-white",
                     )}
                     aria-current={childActive ? "page" : undefined}
                   >
                     <ChildIcon className="w-4 h-4 shrink-0" />
-                    <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{child.label}</span>
+                    <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                      {child.label}
+                    </span>
                   </Link>
                 </li>
               );
