@@ -19,6 +19,7 @@ import {
   Crown,
   Eye,
   Search,
+  ArrowLeft,
 } from "lucide-react";
 
 interface PromotionType {
@@ -376,6 +377,14 @@ export default function PromotionsPage() {
         )}
 
         <TabsContent value="create" className="mt-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("my-promotions")}
+            className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
           <div className="mb-4">
             <h2 className="text-xl font-semibold text-gray-900">
               Choose a promotion type

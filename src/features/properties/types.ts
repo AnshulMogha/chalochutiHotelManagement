@@ -123,6 +123,7 @@ export type StepKey =
   | "locationInfo"
   | "amenitiesInfo"
   | "policiesInfo"
+  | "documentsInfo"
   | "financeAndLegalInfo";
 
 export type Errors = Partial<Record<StepKey, Record<string, string>>>;

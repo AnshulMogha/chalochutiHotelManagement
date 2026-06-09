@@ -15,13 +15,26 @@ import {
   Loader2,
   X,
   Edit,
+  Check,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Errors } from "../../types";
+import {
+  REQUIRED_ONBOARDING_DOCUMENT_LABELS,
+  REQUIRED_ONBOARDING_DOCUMENT_TYPES,
+} from "../../validator/onboardingDocuments";
 
 const DOCUMENT_TYPES: Array<{ value: OnboardingDocumentType; label: string }> = [
-  { value: "GST_CERTIFICATE", label: "GST Certificate" },
+  {
+    value: "GST_CERTIFICATE",
+    label: `${REQUIRED_ONBOARDING_DOCUMENT_LABELS.GST_CERTIFICATE} *`,
+  },
   { value: "PAN_CARD", label: "PAN Card" },
-  { value: "CANCELLED_CHEQUE", label: "Cancelled Cheque" },
+  {
+    value: "CANCELLED_CHEQUE",
+    label: `${REQUIRED_ONBOARDING_DOCUMENT_LABELS.CANCELLED_CHEQUE} *`,
+  },
   { value: "BANK_STATEMENT", label: "Bank Statement" },
   { value: "AGREEMENT", label: "Agreement" },
   { value: "OTHER", label: "Other" },
@@ -102,12 +115,18 @@ function StatusBadge({ status }: { status?: string }) {
   );
 }
 
-type OutletContext = { readOnly?: boolean };
+type OutletContext = {
+  readOnly?: boolean;
+  errors?: Errors;
+  resetFieldError?: (step: keyof Errors, field: string) => void;
+};
 
 export function DocumentsStep() {
   const [searchParams] = useSearchParams();
   const outletContext = useOutletContext<OutletContext>();
   const readOnly = outletContext?.readOnly ?? false;
+  const stepErrors = outletContext?.errors?.documentsInfo;
+  const resetFieldError = outletContext?.resetFieldError;
   const hotelId = searchParams.get("draftId");
 
   const [loading, setLoading] = useState(true);
@@ -226,7 +245,11 @@ export function DocumentsStep() {
         });
       }
       const list = await propertyService.getOnboardingDocuments(hotelId);
-      setDocuments(Array.isArray(list) ? list : []);
+      const nextDocuments = Array.isArray(list) ? list : [];
+      setDocuments(nextDocuments);
+      if (resetFieldError && selectedDocType) {
+        resetFieldError("documentsInfo", selectedDocType);
+      }
       setSelectedFile(null);
       setSelectedDocType("");
       setEditingDocument(null);
@@ -254,8 +277,78 @@ export function DocumentsStep() {
     );
   }
 
+  const hasStepErrors = stepErrors && Object.keys(stepErrors).length > 0;
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      {hasStepErrors && (
+        <div
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          role="alert"
+        >
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">Required documents are missing</p>
+              <p className="mt-1">
+                Upload GST Certificate and Cancelled Cheque before moving to the
+                next step.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+          <h3 className="text-sm font-semibold text-gray-900">
+            Required documents
+          </h3>
+          <p className="mt-1 text-xs text-gray-500">
+            GST Certificate and Cancelled Cheque must be uploaded to continue.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {REQUIRED_ONBOARDING_DOCUMENT_TYPES.map((docType) => {
+              const isUploaded = uploadedDocTypes.has(docType);
+              const fieldError = stepErrors?.[docType];
+              return (
+                <li
+                  key={docType}
+                  className={cn(
+                    "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm",
+                    fieldError
+                      ? "border-red-200 bg-red-50/60"
+                      : isUploaded
+                        ? "border-emerald-200 bg-emerald-50/60"
+                        : "border-gray-200 bg-white",
+                  )}
+                >
+                  <span className="font-medium text-gray-900">
+                    {REQUIRED_ONBOARDING_DOCUMENT_LABELS[docType]}
+                    <span className="text-red-500"> *</span>
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 text-xs font-medium",
+                      isUploaded ? "text-emerald-700" : "text-amber-700",
+                    )}
+                  >
+                    {isUploaded ? (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        Uploaded
+                      </>
+                    ) : (
+                      "Not uploaded"
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="bg-linear-to-br from-slate-50 to-blue-50/50 px-6 py-6 border-b border-gray-100">

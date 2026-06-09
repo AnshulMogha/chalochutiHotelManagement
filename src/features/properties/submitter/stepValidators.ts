@@ -278,3 +278,4 @@ export const mealPlanValidator = (mealPlanDetails: MealPlanDetails) => {
   return null;
 };
 export { roomDetailsValidator };
+export { documentsValidator } from "../validator/onboardingDocuments";

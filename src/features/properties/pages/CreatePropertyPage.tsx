@@ -37,6 +37,7 @@ import {
   financeAndLegalValidator,
   locationValidator,
   policiesValidator,
+  documentsValidator,
 } from "../submitter/stepValidators";
 
 import { propertyService } from "../services/propertyService";
@@ -278,7 +279,16 @@ function Container() {
     },
 
     async () => {
-      // Documents step: allow moving next (draft: false is applied when user uploads on "Next" or backend marks step complete)
+      const list = await propertyService.getOnboardingDocuments(draftId!);
+      const stepErrors = documentsValidator(Array.isArray(list) ? list : []);
+      if (stepErrors) {
+        setErrors((prev) => ({ ...prev, documentsInfo: stepErrors }));
+        showToast(
+          "Please upload GST Certificate and Cancelled Cheque before continuing.",
+          "error",
+        );
+        return false;
+      }
       return true;
     },
   ];
