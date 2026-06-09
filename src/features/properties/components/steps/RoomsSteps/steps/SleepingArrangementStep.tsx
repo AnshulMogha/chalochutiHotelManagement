@@ -786,9 +786,10 @@ export function SleepingArrangementStep({
                 <>
                   Maximum number of{" "}
                   <span className="font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
-                    free
+                    Free
                   </span>{" "}
-                  children that can be accommodated in this room.
+                  children that can be accommodated in the room, As per the
+                  Child age policy.
                 </>
               ),
             },
@@ -802,7 +803,7 @@ export function SleepingArrangementStep({
               onDecrement: handleDecrementMaxChildren,
               onIncrement: handleIncrementMaxChildren,
               description:
-                "Maximum number of children that can be accommodated in this room.",
+                "Maximum number of children that can accommodate in this room including Base Children.",
             },
             {
               key: "maxOccupancy",
