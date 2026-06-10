@@ -31,6 +31,7 @@ import {
   Handshake,
   UserRoundCog,
   Bus,
+  Package,
   type LucideIcon,
 } from "lucide-react";
 
@@ -44,6 +45,7 @@ export interface NavItem {
   icon: LucideIcon;
   badge?: string;
   children?: NavItem[];
+  external?: boolean;
 }
 
 const getNavItems = (user: User | null): NavItem[] => {
@@ -368,6 +370,12 @@ const getNavItems = (user: User | null): NavItem[] => {
         label: "Transport",
         path: ROUTES.ADMIN.TRANSPORT,
         icon: Bus,
+        external: true,
+      },
+      {
+        label: "Packages",
+        path: ROUTES.ADMIN.PACKAGES,
+        icon: Package,
         external: true,
       },
     );

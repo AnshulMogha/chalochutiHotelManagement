@@ -39,6 +39,7 @@ export const ROUTES = {
     DOCUMENT_REVIEW: "/admin/document-review",
     TRAVEL_PARTNERS: "/admin/travel-partners",
     TRANSPORT: "/transferManagement/",
+    PACKAGES: "/packageManagement/",
   },
   PROPERTY_INFO: {
     LIST: "/property/information",
