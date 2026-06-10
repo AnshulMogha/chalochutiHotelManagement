@@ -147,6 +147,19 @@ function formatDate(iso: string) {
   });
 }
 
+function isPdfDocument(url?: string) {
+  if (!url) return false;
+  const cleanUrl = url.split("?")[0].toLowerCase();
+  return cleanUrl.endsWith(".pdf");
+}
+
+function formatAgencyTier(tier?: AgencyTier) {
+  if (!tier) return "—";
+  return (
+    AGENCY_TIER_OPTIONS.find((option) => option.value === tier)?.label ?? tier
+  );
+}
+
 export default function TravelPartnersPage() {
   const { user } = useAuth();
   const [partners, setPartners] = useState<TravelPartner[]>([]);
@@ -180,11 +193,15 @@ export default function TravelPartnersPage() {
     APPROVED: 0,
     REJECTED: 0,
   });
+  const isZonalSales = isZonalManagerSalesRole(user?.roles);
   const canUpdateTier = Boolean(
     isSuperAdmin(user?.roles) ||
       isSalesManagerRole(user?.roles) ||
-      isZonalManagerSalesRole(user?.roles),
+      isZonalSales,
   );
+  const showApproveRejectActions =
+    selectedPartner?.status === "PENDING" &&
+    (!isZonalSales || detailStep === 2);
 
   const fetchPartners = useCallback(async () => {
     setLoading(true);
@@ -416,6 +433,11 @@ export default function TravelPartnersPage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       <span className="inline-flex items-center gap-1.5">
+                        <Briefcase className="h-3.5 w-3.5" /> Agency Tier
+                      </span>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <span className="inline-flex items-center gap-1.5">
                         <CalendarDays className="h-3.5 w-3.5" /> Applied
                       </span>
                     </th>
@@ -455,6 +477,9 @@ export default function TravelPartnersPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {partner.agencyNumber}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {formatAgencyTier(partner.agencyTier)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {formatDate(partner.appliedAt)}
@@ -722,15 +747,26 @@ export default function TravelPartnersPage() {
                         {selectedPartner.panCardFileUrl ? (
                           <div>
                             <dt className="text-gray-500 text-sm mb-2 flex items-center gap-1.5">
-                              <FileText className="h-3.5 w-3.5" /> PAN card
+                              <FileText className="h-3.5 w-3.5" /> PAN document
                             </dt>
-                            <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
-                              <img
-                                src={selectedPartner.panCardFileUrl}
-                                alt="PAN card"
-                                className="w-full max-h-64 object-contain"
-                              />
-                            </div>
+                            {isPdfDocument(selectedPartner.panCardFileUrl) ? (
+                              <a
+                                href={selectedPartner.panCardFileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
+                              >
+                                View document
+                              </a>
+                            ) : (
+                              <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
+                                <img
+                                  src={selectedPartner.panCardFileUrl}
+                                  alt="PAN card"
+                                  className="w-full max-h-64 object-contain"
+                                />
+                              </div>
+                            )}
                           </div>
                         ) : null}
                       </section>
@@ -845,7 +881,7 @@ export default function TravelPartnersPage() {
               )}
             </div>
 
-            {selectedPartner.status === "PENDING" && (
+            {(showApproveRejectActions || selectedPartner.status === "PENDING") && (
               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50 shrink-0">
                 <Button
                   variant="outline"
@@ -853,22 +889,26 @@ export default function TravelPartnersPage() {
                 >
                   Close
                 </Button>
-                <Button
-                  variant="danger"
-                  onClick={() => setShowRejectModal(true)}
-                  className="gap-2 bg-rose-700 hover:bg-rose-800 text-white border-0"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Reject
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={() => setShowApproveModal(true)}
-                  className="gap-2 bg-emerald-700 hover:bg-emerald-800 text-white border-0"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Approve
-                </Button>
+                {showApproveRejectActions && (
+                  <>
+                    <Button
+                      variant="danger"
+                      onClick={() => setShowRejectModal(true)}
+                      className="gap-2 bg-rose-700 hover:bg-rose-800 text-white border-0"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      Reject
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={() => setShowApproveModal(true)}
+                      className="gap-2 bg-emerald-700 hover:bg-emerald-800 text-white border-0"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      Approve
+                    </Button>
+                  </>
+                )}
               </div>
             )}
             {selectedPartner.status !== "PENDING" && (

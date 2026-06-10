@@ -123,6 +123,13 @@ function isPdfDocument(url?: string) {
   return cleanUrl.endsWith(".pdf");
 }
 
+function formatAgencyTier(tier?: AgencyTier) {
+  if (!tier) return "—";
+  return (
+    AGENCY_TIER_OPTIONS.find((option) => option.value === tier)?.label ?? tier
+  );
+}
+
 export default function AgentsListPage() {
   const { user } = useAuth();
   const canUpdateTier =
@@ -370,7 +377,7 @@ export default function AgentsListPage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       <span className="inline-flex items-center gap-1.5">
-                        <Briefcase className="h-3.5 w-3.5" /> Tier
+                        <Briefcase className="h-3.5 w-3.5" /> Agency Tier
                       </span>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -412,7 +419,7 @@ export default function AgentsListPage() {
                       <td className="px-6 py-4 text-sm text-gray-600">{partner.email}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{partner.agencyNumber}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {partner.agencyTier ?? "—"}
+                        {formatAgencyTier(partner.agencyTier)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {formatDate(partner.appliedAt)}
