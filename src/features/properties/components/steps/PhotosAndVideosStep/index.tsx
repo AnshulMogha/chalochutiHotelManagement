@@ -196,36 +196,45 @@ export function PhotosAndVideosStep() {
       // Upload files using hotel-specific endpoint
       const uploadResponses = await propertyService.uploadHotelMedia(hotelId, validFiles);
 
-      const duplicateUploads = uploadResponses.filter((item) => item.duplicate);
+      const uploadResults = uploadResponses.map((item, index) => ({
+        item,
+        file: validFiles[index],
+      }));
+      const successfulUploads = uploadResults.filter(({ item }) => !item.duplicate);
+      const duplicateUploads = uploadResults.filter(({ item }) => item.duplicate);
+
       if (duplicateUploads.length > 0) {
-        const duplicateFiles = uploadResponses
-          .map((item, index) => ({ item, file: validFiles[index] }))
-          .filter(({ item, file }) => item.duplicate && !!file)
+        const duplicateFiles = duplicateUploads
+          .filter(({ file }) => !!file)
           .map(({ file }) => ({
             name: file.name,
             sizeMb: (file.size / (1024 * 1024)).toFixed(2),
           }));
 
-        setDuplicateUploadError(
-          {
-            message:
-              duplicateUploads.length === 1
-                ? "Duplicate image detected. This file already exists."
-                : `${duplicateUploads.length} duplicate images detected. These files already exist.`,
-            files: duplicateFiles,
-          },
-        );
+        setDuplicateUploadError({
+          message:
+            duplicateUploads.length === 1
+              ? "Duplicate image detected. This file already exists."
+              : `${duplicateUploads.length} duplicate images detected. These files already exist.`,
+          files: duplicateFiles,
+        });
       }
-      
+
+      if (successfulUploads.length === 0) {
+        return;
+      }
+
+      const successfulResponses = successfulUploads.map(({ item }) => item);
+
       // Add uploaded media directly to inventory (without tags initially)
-      const newMediaItems: MediaFile[] = uploadResponses.map((media) => ({
+      const newMediaItems: MediaFile[] = successfulResponses.map((media) => ({
         mediaId: media.mediaId,
         fileUrl: media.fileUrl,
         type: media.fileType,
-        tag: "", // No tag initially
+        tag: "",
       }));
 
-      setInventory([...inventory, ...newMediaItems]);
+      setInventory((prev) => [...prev, ...newMediaItems]);
       setShowUploadModal(false);
 
       // Refresh media data to ensure consistency

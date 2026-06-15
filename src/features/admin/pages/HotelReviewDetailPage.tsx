@@ -41,6 +41,7 @@ function Container() {
   const [currentStep, setCurrentStep] = useState(0);
   const [ongoingStep, setOngoingStep] = useState<string | null>(null);
   const [hotelStatus, setHotelStatus] = useState<string | null>(null);
+  const [onboardingHotelName, setOnboardingHotelName] = useState("");
   const { formDataState } = useFormContext();
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -66,6 +67,7 @@ function Container() {
         const response = await propertyService.getOnboardingStatus(hotelId);
         setOngoingStep(response.currentStep.toLowerCase());
         setHotelStatus((response.status || "").toUpperCase());
+        setOnboardingHotelName(response.hotelName?.trim() ?? "");
         const stepIndex = stepRoutes.findIndex(
           (step) => step.id === response.currentStep.toLowerCase()
         );
@@ -131,13 +133,17 @@ function Container() {
   const isFinalReviewStatus =
     hotelStatus === "APPROVED" || hotelStatus === "REJECTED";
 
+  const displayHotelName =
+    formDataState.basicInfo.name?.trim() ||
+    onboardingHotelName.trim() ||
+    undefined;
 
   return (
     <>
       <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Review Hotel: {formDataState.basicInfo?.name || "Loading..."}
+            Review Hotel: {displayHotelName || "Loading..."}
           </h1>
           <p className="text-gray-600 mt-1">View-only mode - No edits allowed</p>
         </div>
@@ -175,6 +181,7 @@ function Container() {
         onSubmit={() => {}}
         draftId={hotelId!}
         readOnly={true}
+        hotelName={displayHotelName}
       >
         <Outlet context={{ readOnly: true }} />
       </MultiStepForm>

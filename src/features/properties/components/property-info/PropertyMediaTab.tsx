@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type DragEvent } from "react";
+import { useState, useEffect, type DragEvent } from "react";
 import { adminService, type HotelMediaItem, type HotelRoom } from "@/features/admin/services/adminService";
 import { Building2, Image as ImageIcon, Plus, Upload, X, Check, Tag, Play, Trash2, Star, ChevronDown, ChevronRight, MoreVertical, ArrowUp, ArrowDown, CheckSquare, Square, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -6,6 +6,7 @@ import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { MEDIA_TAGS } from "@/features/properties/components/steps/PhotosAndVideosStep/constants";
 import type { MediaTag } from "@/features/properties/components/steps/PhotosAndVideosStep/types";
+import { UploadModal } from "@/features/properties/components/steps/PhotosAndVideosStep/UploadModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +56,6 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
   const [dragOverImageId, setDragOverImageId] = useState<number | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedImageIds, setSelectedImageIds] = useState<Set<number>>(new Set());
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch hotel media
   const fetchHotelMedia = async () => {
@@ -203,11 +203,16 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
         responses = await adminService.uploadHotelMedia(hotelId, validFiles);
       }
 
-      const duplicateUploads = responses.filter((item) => item.duplicate);
+      const uploadResults = responses.map((item, index) => ({
+        item,
+        file: validFiles[index],
+      }));
+      const successfulUploads = uploadResults.filter(({ item }) => !item.duplicate);
+      const duplicateUploads = uploadResults.filter(({ item }) => item.duplicate);
+
       if (duplicateUploads.length > 0) {
-        const duplicateFiles = responses
-          .map((item, index) => ({ item, file: validFiles[index] }))
-          .filter(({ item, file }) => item.duplicate && !!file)
+        const duplicateFiles = duplicateUploads
+          .filter(({ file }) => !!file)
           .map(({ file }) => ({
             name: file.name,
             sizeMb: (file.size / (1024 * 1024)).toFixed(2),
@@ -222,39 +227,50 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
         });
       }
 
-      showToast(`${responses.length} media file(s) uploaded successfully`, "success");
-      setShowUploadModal(false);
+      if (successfulUploads.length > 0) {
+        showToast(
+          `${successfulUploads.length} media file(s) uploaded successfully`,
+          "success",
+        );
+        setShowUploadModal(false);
 
-      // Immediate UI sync for room uploads (avoid waiting for refetch/refresh)
-      if (uploadRoomKey) {
-        const room = resolveRoomByIdentifier(uploadRoomKey);
-        if (room) {
-          const optimisticItems: MediaFile[] = responses.map((res, index) => ({
-            imageId: res.imageId,
-            imageUrl: res.imageUrl,
-            thumbnailUrl: res.imageUrl,
-            category: null,
-            sortOrder: Date.now() + index,
-            roomId: room.roomId,
-            roomKey: room.roomKey ?? uploadRoomKey,
-            roomName: room.roomName,
-            cover: false,
-          }));
-          setRoomMediaMap((prev) => {
-            const existing = prev[room.roomId] || [];
-            const existingIds = new Set(existing.map((item) => item.imageId));
-            const merged = [
-              ...existing,
-              ...optimisticItems.filter((item) => !existingIds.has(item.imageId)),
-            ];
-            return { ...prev, [room.roomId]: merged };
-          });
+        const successfulResponses = successfulUploads.map(({ item }) => item);
+
+        // Immediate UI sync for room uploads (avoid waiting for refetch/refresh)
+        if (uploadRoomKey) {
+          const room = resolveRoomByIdentifier(uploadRoomKey);
+          if (room) {
+            const optimisticItems: MediaFile[] = successfulResponses.map(
+              (res, index) => ({
+                imageId: res.imageId,
+                imageUrl: res.imageUrl,
+                thumbnailUrl: res.imageUrl,
+                category: null,
+                sortOrder: Date.now() + index,
+                roomId: room.roomId,
+                roomKey: room.roomKey ?? uploadRoomKey,
+                roomName: room.roomName,
+                cover: false,
+              }),
+            );
+            setRoomMediaMap((prev) => {
+              const existing = prev[room.roomId] || [];
+              const existingIds = new Set(existing.map((item) => item.imageId));
+              const merged = [
+                ...existing,
+                ...optimisticItems.filter((item) => !existingIds.has(item.imageId)),
+              ];
+              return { ...prev, [room.roomId]: merged };
+            });
+          }
         }
       }
-      
+
       // Always refresh server state after upload so room section updates without page refresh.
-      await fetchHotelMedia();
-      if (uploadRoomKey) await refreshRoomMediaByIdentifier(uploadRoomKey);
+      if (successfulUploads.length > 0) {
+        await fetchHotelMedia();
+        if (uploadRoomKey) await refreshRoomMediaByIdentifier(uploadRoomKey);
+      }
     } catch (error: any) {
       console.error("Error uploading media:", error);
       const message =
@@ -969,7 +985,6 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
           }}
           onFilesSelect={handleFilesUpload}
           isUploading={isUploading}
-          fileInputRef={fileInputRef}
         />
       )}
 
@@ -1257,317 +1272,6 @@ function MediaItem({
         </div>
       )}
     </>
-  );
-}
-
-interface UploadModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onFilesSelect: (files: File[]) => void;
-  isUploading: boolean;
-  fileInputRef: React.RefObject<HTMLInputElement>;
-}
-
-function UploadModal({ 
-  isOpen, 
-  onClose, 
-  onFilesSelect, 
-  isUploading,
-  fileInputRef 
-}: UploadModalProps) {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [isDragActive, setIsDragActive] = useState(false);
-
-  const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
-  const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
-  const MAX_FILES_PER_UPLOAD = 10;
-  const ALLOWED_IMAGE_MIME_TYPES = new Set([
-    "image/jpeg",
-    "image/jpg",
-    "image/png",
-    "image/webp",
-  ]);
-  const ALLOWED_VIDEO_MIME_TYPES = new Set([
-    "video/mp4",
-    "video/webm",
-    "video/quicktime",
-  ]);
-
-  if (!isOpen) return null;
-
-  const isAllowedImageFile = (file: File) => {
-    const lower = file.name.toLowerCase();
-    const hasAllowedExt =
-      lower.endsWith(".jpg") ||
-      lower.endsWith(".jpeg") ||
-      lower.endsWith(".png") ||
-      lower.endsWith(".webp");
-    return ALLOWED_IMAGE_MIME_TYPES.has(file.type) || hasAllowedExt;
-  };
-
-  const processSelectedFiles = (files: File[]) => {
-    const valid: File[] = [];
-    const invalid: string[] = [];
-
-    if (files.length > MAX_FILES_PER_UPLOAD) {
-      setValidationError(`Maximum ${MAX_FILES_PER_UPLOAD} files are allowed at a time.`);
-      setSelectedFiles([]);
-      return;
-    }
-
-    files.forEach((file) => {
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
-      const lower = file.name.toLowerCase();
-      const isAllowedVideoExt =
-        lower.endsWith(".mp4") ||
-        lower.endsWith(".webm") ||
-        lower.endsWith(".mov");
-
-      if (!isImage && !isVideo) {
-        invalid.push(`${file.name}: unsupported file type`);
-        return;
-      }
-
-      if (isImage && !isAllowedImageFile(file)) {
-        invalid.push(`${file.name}: only jpg/jpeg/png/webp are allowed`);
-        return;
-      }
-
-      if (isVideo && !(ALLOWED_VIDEO_MIME_TYPES.has(file.type) || isAllowedVideoExt)) {
-        invalid.push(`${file.name}: only mp4/webm/mov are allowed`);
-        return;
-      }
-
-      if (isImage && file.size > MAX_IMAGE_SIZE_BYTES) {
-        invalid.push(`${file.name}: image exceeds 5 MB`);
-        return;
-      }
-
-      if (isVideo && file.size > MAX_VIDEO_SIZE_BYTES) {
-        invalid.push(`${file.name}: video exceeds 50 MB`);
-        return;
-      }
-
-      valid.push(file);
-    });
-
-    if (invalid.length > 0) {
-      const preview = invalid.slice(0, 2).join(" | ");
-      const more = invalid.length > 2 ? ` (+${invalid.length - 2} more)` : "";
-      setValidationError(preview + more);
-    } else {
-      setValidationError(null);
-    }
-
-    setSelectedFiles(valid);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      processSelectedFiles(Array.from(e.target.files));
-    }
-  };
-
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragActive(true);
-  };
-
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragActive(false);
-  };
-
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragActive(false);
-    const droppedFiles = Array.from(e.dataTransfer.files || []);
-    if (droppedFiles.length > 0) {
-      processSelectedFiles(droppedFiles);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
-
-  const handleUpload = () => {
-    if (selectedFiles.length > 0) {
-      onFilesSelect(selectedFiles);
-      setSelectedFiles([]);
-      setValidationError(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
-
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && !isUploading && onClose()}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl m-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between rounded-t-2xl px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <div className="flex items-center gap-3">
-            <Upload className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-bold text-gray-900">Upload Media</h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isUploading}
-          >
-            <X className="w-5 h-5 text-gray-600" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            
-            {selectedFiles.length > 0 && (
-              <div className="mb-4 space-y-2 max-h-48 overflow-y-auto">
-                {selectedFiles.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
-                  >
-                    <span className="text-sm text-gray-700 truncate flex-1">
-                      {file.name}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(index)}
-                      className="ml-2 p-1 hover:bg-gray-200 rounded"
-                    >
-                      <X className="w-4 h-4 text-gray-600" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div
-              className={cn(
-                "mb-4 rounded-lg border-2 border-dashed min-h-[180px] p-6 text-center transition-colors cursor-pointer flex flex-col items-center justify-center",
-                isDragActive
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/40",
-              )}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => !isUploading && fileInputRef.current?.click()}
-            >
-              <p className="text-sm font-medium text-gray-700">
-                Drag and drop files here
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                or click to select images/videos
-              </p>
-            </div>
-            <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-              <p className="font-medium">
-                <span className="text-red-600">*</span> Image rules
-              </p>
-              <p>
-                <span className="text-red-600">*</span> Allowed: jpg, jpeg, png, webp
-              </p>
-              <p>
-                <span className="text-red-600">*</span> Max image size: 5 MB
-              </p>
-              <p className="mt-1 font-medium">
-                <span className="text-red-600">*</span> Video rules
-              </p>
-              <p>
-                <span className="text-red-600">*</span> Allowed: mp4, webm, mov
-              </p>
-              <p>
-                <span className="text-red-600">*</span> Max video size: 50 MB
-              </p>
-              <p>
-                <span className="text-red-600">*</span> Max files per upload: 10
-              </p>
-              <p className="mt-2">
-                <span className="text-red-600">*</span> Allowed image formats: jpg, jpeg, png, webp (max 5MB).{" "}
-                <span className="text-red-600">*</span> Allowed video formats: mp4, webm, mov (max 50MB).{" "}
-                <span className="text-red-600">*</span> Max 10 files per upload.
-              </p>
-            </div>
-            {validationError && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                {validationError}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              variant="outline"
-              className="flex-1 gap-2"
-            >
-              <Upload className="w-4 h-4" />
-              {selectedFiles.length > 0 ? "Change Files" : "Select Files"}
-            </Button>
-            {selectedFiles.length > 0 && (
-              <Button
-                onClick={handleUpload}
-                disabled={isUploading}
-                variant="primary"
-                className="flex-1 gap-2"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    Upload
-                  </>
-                )}
-              </Button>
-            )}
-            <Button
-              onClick={onClose}
-              variant="outline"
-              disabled={isUploading}
-            >
-              Cancel
-            </Button>
-          </div>
-          {isUploading && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Upload in progress. Please wait...
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
 

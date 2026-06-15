@@ -1,12 +1,44 @@
 import { useRef, useState } from "react";
-import { Loader2, Upload, X } from "lucide-react";
+import { FileImage, FileVideo, Loader2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui";
+import { cn } from "@/lib/utils";
 
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onFilesSelect: (files: File[]) => void;
   isUploading?: boolean;
+}
+
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
+const MAX_FILES_PER_UPLOAD = 10;
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+]);
+const ALLOWED_VIDEO_MIME_TYPES = new Set([
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+]);
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function isAllowedImageFile(file: File) {
+  const lower = file.name.toLowerCase();
+  const hasAllowedExt =
+    lower.endsWith(".jpg") ||
+    lower.endsWith(".jpeg") ||
+    lower.endsWith(".png") ||
+    lower.endsWith(".webp");
+  return ALLOWED_IMAGE_MIME_TYPES.has(file.type) || hasAllowedExt;
 }
 
 export function UploadModal({
@@ -19,31 +51,6 @@ export function UploadModal({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
-
-  const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
-  const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
-  const MAX_FILES_PER_UPLOAD = 10;
-  const ALLOWED_IMAGE_MIME_TYPES = new Set([
-    "image/jpeg",
-    "image/jpg",
-    "image/png",
-    "image/webp",
-  ]);
-  const ALLOWED_VIDEO_MIME_TYPES = new Set([
-    "video/mp4",
-    "video/webm",
-    "video/quicktime",
-  ]);
-
-  const isAllowedImageFile = (file: File) => {
-    const lower = file.name.toLowerCase();
-    const hasAllowedExt =
-      lower.endsWith(".jpg") ||
-      lower.endsWith(".jpeg") ||
-      lower.endsWith(".png") ||
-      lower.endsWith(".webp");
-    return ALLOWED_IMAGE_MIME_TYPES.has(file.type) || hasAllowedExt;
-  };
 
   const validateFiles = (incomingFiles: File[]) => {
     const valid: File[] = [];
@@ -109,14 +116,19 @@ export function UploadModal({
         const key = `${file.name}-${file.size}-${file.lastModified}`;
         fileMap.set(key, file);
       });
-      return Array.from(fileMap.values());
+      const merged = Array.from(fileMap.values());
+      if (merged.length > MAX_FILES_PER_UPLOAD) {
+        setValidationError(`Maximum ${MAX_FILES_PER_UPLOAD} files are allowed at a time.`);
+        return merged.slice(0, MAX_FILES_PER_UPLOAD);
+      }
+      return merged;
     });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const filesArray = Array.from(e.target.files);
-      mergeFiles(filesArray);
+      mergeFiles(Array.from(e.target.files));
+      e.target.value = "";
     }
   };
 
@@ -137,18 +149,15 @@ export function UploadModal({
     e.stopPropagation();
     setIsDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const droppedFiles = Array.from(e.dataTransfer.files);
-      mergeFiles(droppedFiles);
+      mergeFiles(Array.from(e.dataTransfer.files));
       e.dataTransfer.clearData();
     }
   };
 
   const handleUpload = () => {
-    if (isUploading) return;
-    if (selectedFiles.length > 0) {
-      setValidationError(null);
-      onFilesSelect(selectedFiles);
-    }
+    if (isUploading || selectedFiles.length === 0) return;
+    setValidationError(null);
+    onFilesSelect(selectedFiles);
   };
 
   const handleClose = () => {
@@ -161,153 +170,213 @@ export function UploadModal({
     onClose();
   };
 
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setValidationError(null);
+  };
+
   if (!isOpen) return null;
+
+  const hasFiles = selectedFiles.length > 0;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && handleClose()}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl m-4"
+        className="flex max-h-[min(90vh,720px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between  rounded-t-2xl px-6 py-4 border-b border-gray-200 bg-linear-to-r from-blue-50 to-indigo-50">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-linear-to-r from-blue-50 to-indigo-50 px-6 py-4">
           <div className="flex items-center gap-3">
-            <Upload className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-bold text-gray-900">Upload Media</h2>
+            <Upload className="h-6 w-6 text-blue-600" />
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Upload Media</h2>
+              {hasFiles ? (
+                <p className="text-xs text-gray-500">
+                  {selectedFiles.length} of {MAX_FILES_PER_UPLOAD} files selected
+                </p>
+              ) : null}
+            </div>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg p-2 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Close modal"
             disabled={isUploading}
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="h-5 w-5 text-gray-600" />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Files (Multiple)
-            </label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <div
-              className={`mb-3 rounded-xl border-2 border-dashed min-h-[240px] p-8 transition-colors ${
-                isDragActive
-                  ? "border-blue-400 bg-blue-50"
-                  : "border-gray-300 bg-gray-50"
-              }`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
-              <p className="text-base text-gray-700 text-center mb-3">
-                Drag & drop image/video files here
-              </p>
-              <p className="text-sm text-gray-500 text-center mb-6">
-                or use the button below to browse files
-              </p>
-              <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                <p className="font-medium">
-                  <span className="text-red-600">*</span> Image rules
-                </p>
-                <p>
-                  <span className="text-red-600">*</span> Allowed: jpg, jpeg, png, webp
-                </p>
-                <p>
-                  <span className="text-red-600">*</span> Max image size: 5 MB
-                </p>
-                <p className="mt-1 font-medium">
-                  <span className="text-red-600">*</span> Video rules
-                </p>
-                <p>
-                  <span className="text-red-600">*</span> Allowed: mp4, webm, mov
-                </p>
-                <p>
-                  <span className="text-red-600">*</span> Max video size: 50 MB
-                </p>
-                <p>
-                  <span className="text-red-600">*</span> Max files per upload: 10
-                </p>
-                <p className="mt-2">
-                  <span className="text-red-600">*</span> Allowed image formats: jpg, jpeg, png, webp (max 5MB).{" "}
-                  <span className="text-red-600">*</span> Allowed video formats: mp4, webm, mov (max 50MB).{" "}
-                  <span className="text-red-600">*</span> Max 10 files per upload.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                className="gap-2 w-full"
-                disabled={isUploading}
-              >
-                <Upload className="w-4 h-4" />
-                Select Files
-              </Button>
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 space-y-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+          />
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-blue-100 bg-blue-50/80 px-3 py-2.5 text-xs text-blue-900">
+              <p className="mb-1 font-semibold">Images</p>
+              <p className="text-blue-800">jpg, jpeg, png, webp</p>
+              <p className="mt-1 text-blue-700">Max 5 MB each</p>
             </div>
-            {selectedFiles.length > 0 && (
-              <div className="border border-gray-200 rounded-lg p-3 max-h-32 overflow-y-auto">
-                <p className="text-xs text-gray-600 mb-2">
-                  {selectedFiles.length} file(s) selected:
+            <div className="rounded-lg border border-indigo-100 bg-indigo-50/80 px-3 py-2.5 text-xs text-indigo-900">
+              <p className="mb-1 font-semibold">Videos</p>
+              <p className="text-indigo-800">mp4, webm, mov</p>
+              <p className="mt-1 text-indigo-700">Max 50 MB each</p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">
+            Up to {MAX_FILES_PER_UPLOAD} files per upload. Drag and drop or browse below.
+          </p>
+
+          <div
+            className={cn(
+              "rounded-xl border-2 border-dashed transition-colors",
+              isDragActive
+                ? "border-blue-400 bg-blue-50"
+                : "border-gray-300 bg-gray-50",
+              hasFiles ? "px-4 py-3" : "px-6 py-8",
+            )}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {hasFiles ? (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-gray-600">
+                  Drop more files here or add from your device
                 </p>
-                <ul className="text-xs text-gray-500 space-y-1">
-                  {selectedFiles.map((file, index) => (
-                    <li key={index} className="truncate">
-                      {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="shrink-0 gap-1.5"
+                  disabled={isUploading}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Add files
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center">
+                <p className="text-base font-medium text-gray-700">
+                  Drag & drop image/video files here
+                </p>
+                <p className="mt-1 text-sm text-gray-500">
+                  or use the button below to browse files
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="mt-5 gap-2"
+                  disabled={isUploading}
+                >
+                  <Upload className="h-4 w-4" />
+                  Select Files
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {hasFiles ? (
+            <div className="rounded-lg border border-gray-200">
+              <div className="border-b border-gray-100 bg-gray-50 px-3 py-2">
+                <p className="text-xs font-medium text-gray-700">
+                  Selected files ({selectedFiles.length})
+                </p>
+              </div>
+              <ul className="max-h-44 space-y-1 overflow-y-auto p-2">
+                {selectedFiles.map((file, index) => {
+                  const isVideo = file.type.startsWith("video/");
+                  const Icon = isVideo ? FileVideo : FileImage;
+                  return (
+                    <li
+                      key={`${file.name}-${file.size}-${file.lastModified}`}
+                      className="flex items-center gap-2 rounded-md bg-gray-50 px-2 py-1.5"
+                    >
+                      <Icon className="h-4 w-4 shrink-0 text-gray-500" />
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="truncate text-sm font-medium text-gray-800"
+                          title={file.name}
+                        >
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {isVideo ? "Video" : "Image"} · {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(index)}
+                        className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                        aria-label={`Remove ${file.name}`}
+                        disabled={isUploading}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {validationError && (
-              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                {validationError}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="primary"
-              onClick={handleUpload}
-              disabled={selectedFiles.length === 0 || isUploading}
-              className="gap-2 flex-1"
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4" />
-                  Upload {selectedFiles.length > 0 ? `${selectedFiles.length} ` : ""}File{selectedFiles.length !== 1 ? "s" : ""}
-                </>
-              )}
-            </Button>
-            <Button type="button" variant="outline" onClick={handleClose} disabled={isUploading}>
-              Cancel
-            </Button>
-          </div>
-          {isUploading && (
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+
+          {validationError ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {validationError}
+            </div>
+          ) : null}
+
+          {isUploading ? (
             <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
               <span className="inline-flex items-center gap-2">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Upload in progress. Please wait...
               </span>
             </div>
-          )}
+          ) : null}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-3 border-t border-gray-200 bg-white px-6 py-4">
+          <Button
+            type="button"
+            variant="primary"
+            onClick={handleUpload}
+            disabled={selectedFiles.length === 0 || isUploading}
+            className="flex-1 gap-2"
+          >
+            {isUploading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4" />
+                Upload {hasFiles ? `${selectedFiles.length} ` : ""}
+                File{selectedFiles.length !== 1 ? "s" : ""}
+              </>
+            )}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleClose}
+            disabled={isUploading}
+          >
+            Cancel
+          </Button>
         </div>
       </div>
     </div>

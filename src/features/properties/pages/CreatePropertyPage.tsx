@@ -120,6 +120,7 @@ function Container() {
 
   const [ongoingStep, setOngoingStep] = useState<string | null>(null);
   const [hotelStatus, setHotelStatus] = useState<string | null>(null);
+  const [onboardingHotelName, setOnboardingHotelName] = useState("");
   const [errors, setErrors] = useState<Errors>({});
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -197,6 +198,7 @@ function Container() {
       const response = await propertyService.getOnboardingStatus(draftId);
       setOngoingStep(response.currentStep.toLowerCase());
       setHotelStatus((response.status || "").toUpperCase());
+      setOnboardingHotelName(response.hotelName?.trim() ?? "");
       // Check if status is SUBMITTED or APPROVED - then it's read-only
       // REJECTED hotels can be edited, so don't set read-only for them
       setIsReadOnly(
@@ -480,6 +482,11 @@ function Container() {
     );
   }
 
+  const displayHotelName =
+    formDataState.basicInfo.name?.trim() ||
+    onboardingHotelName.trim() ||
+    undefined;
+
   return (
     <>
       <Toast
@@ -526,6 +533,7 @@ function Container() {
         onSubmit={handleSubmitFinanceAndLegal}
         draftId={draftId!}
         readOnly={formReadOnly}
+        hotelName={displayHotelName}
       >
         <Outlet
           context={{

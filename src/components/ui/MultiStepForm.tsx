@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { Button } from "./Button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FaCheck } from "react-icons/fa";
 import { useNavigate } from "react-router";
@@ -23,6 +23,7 @@ export interface MultiStepFormProps {
   draftId: string;
   readOnly?: boolean;
   allowStepNavigation?: boolean; // Allow navigation via step circles even in read-only mode
+  hotelName?: string;
 }
 
 export function MultiStepForm({
@@ -38,6 +39,7 @@ export function MultiStepForm({
   draftId,
   readOnly = false,
   allowStepNavigation = true,
+  hotelName,
 }: MultiStepFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -83,6 +85,21 @@ export function MultiStepForm({
     >
       {/* Progress Indicator */}
       <div className="mb-8 w-full max-w-5xl px-4">
+        {hotelName ? (
+          <div className="mb-5 flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/80 px-4 py-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wide text-blue-700">
+                Onboarding hotel
+              </p>
+              <p className="truncate text-base font-semibold text-gray-900">
+                {hotelName}
+              </p>
+            </div>
+          </div>
+        ) : null}
         {/* Progress Percentage Bar */}
 
         {/* Step Indicators */}

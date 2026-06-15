@@ -1,6 +1,7 @@
-import { Input, Select } from "@/components/ui";
+import { Input } from "@/components/ui";
 import { useEffect, useRef } from "react";
 import { bedTypeOptions, roomCapacityOptions } from "../constants";
+import { BedTypeSelect } from "../BedTypeSelect";
 import { Minus, Plus, X } from "lucide-react";
 import { useFormContext } from "@/features/properties/context/useFormContext";
 import type {
@@ -494,15 +495,14 @@ export function SleepingArrangementStep({
           {sleepingArrangement.standardBeds.map(
             (bed: BedArrangement, index) => (
               <div key={index} className="flex items-center gap-3">
-                <Select
-                  label=""
+                <BedTypeSelect
                   value={bed.bedType}
                   error={
                     standardErrorIndex === index
                       ? parsedStandardErrorMessage
                       : undefined
                   }
-                  onChange={(e) => handleBedTypeChange(e.target.value, index)}
+                  onChange={(nextValue) => handleBedTypeChange(nextValue, index)}
                   options={getStandardBedOptions(index)}
                   className="flex-1"
                 />
@@ -666,16 +666,15 @@ export function SleepingArrangementStep({
             {sleepingArrangement.alternateBeds.map(
               (bed: BedArrangement, index) => (
                 <div key={index} className="flex items-center gap-3">
-                  <Select
-                    label=""
+                  <BedTypeSelect
                     value={bed.bedType}
                     error={
                       alternateErrorIndex === index
                         ? parsedAlternateErrorMessage
                         : undefined
                     }
-                    onChange={(e) =>
-                      handleAlternateBedTypeChange(e.target.value, index)
+                    onChange={(nextValue) =>
+                      handleAlternateBedTypeChange(nextValue, index)
                     }
                     options={getAlternateBedOptions(index)}
                     className="flex-1"
