@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileImage, FileVideo, Loader2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,21 @@ export function UploadModal({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  const resetModalState = () => {
+    setSelectedFiles([]);
+    setValidationError(null);
+    setIsDragActive(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      resetModalState();
+    }
+  }, [isOpen]);
 
   const validateFiles = (incomingFiles: File[]) => {
     const valid: File[] = [];
@@ -156,17 +171,15 @@ export function UploadModal({
 
   const handleUpload = () => {
     if (isUploading || selectedFiles.length === 0) return;
+    const filesToUpload = selectedFiles;
     setValidationError(null);
-    onFilesSelect(selectedFiles);
+    resetModalState();
+    onFilesSelect(filesToUpload);
   };
 
   const handleClose = () => {
     if (isUploading) return;
-    setSelectedFiles([]);
-    setValidationError(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    resetModalState();
     onClose();
   };
 

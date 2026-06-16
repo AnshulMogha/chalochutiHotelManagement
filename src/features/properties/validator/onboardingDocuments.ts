@@ -6,6 +6,7 @@ import type {
 export const REQUIRED_ONBOARDING_DOCUMENT_TYPES = [
   "GST_CERTIFICATE",
   "CANCELLED_CHEQUE",
+  "HOTEL_REGISTRATION",
 ] as const satisfies readonly OnboardingDocumentType[];
 
 export const REQUIRED_ONBOARDING_DOCUMENT_LABELS: Record<
@@ -14,6 +15,7 @@ export const REQUIRED_ONBOARDING_DOCUMENT_LABELS: Record<
 > = {
   GST_CERTIFICATE: "GST Certificate",
   CANCELLED_CHEQUE: "Cancelled Cheque",
+  HOTEL_REGISTRATION: "Hotel Registration",
 };
 
 export function documentsValidator(documents: OnboardingDocument[]) {

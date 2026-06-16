@@ -16,6 +16,7 @@ import {
   isQcReviewerRole,
   isZonalHotelReviewerRole,
 } from "@/constants/roles";
+import { ROUTES } from "@/constants";
 import { adminService } from "@/features/admin/services/adminService";
 import { ApproveRejectModal } from "@/features/admin/components/ApproveRejectModal";
 import { LocationCityConfirmModal } from "../components/steps/LocationCityConfirmModal";
@@ -146,6 +147,8 @@ function Container() {
     (isSuperAdmin && !!draftId) ||
     (isQcUser && !!draftId) ||
     (isZonalUser && !!draftId);
+  const canAccessOnboardingWizard =
+    canOnboardHotel(user?.roles) || (isForcedReadOnly && !!draftId);
 
   const lastStepIndex = stepRoutes.length - 1;
   const onFinanceStep = currentStep >= 0 && currentStep === lastStepIndex;
@@ -163,10 +166,13 @@ function Container() {
     isReviewActor &&
     !isSuperAdmin;
 
-  // ✅ NEW: derive allowedStep from server step
-  const allowedStep = ongoingStep
-    ? stepRoutes.findIndex((step) => step.id === ongoingStep)
-    : 0;
+  // ✅ derive allowedStep from server step (all steps in forced read-only view)
+  const allowedStep =
+    isForcedReadOnly && !isAdminStyleReview
+      ? lastStepIndex
+      : ongoingStep
+        ? stepRoutes.findIndex((step) => step.id === ongoingStep)
+        : 0;
   const navigateWithParams = useCallback(
     (path: string) => {
       const nextParams = new URLSearchParams();
@@ -194,19 +200,21 @@ function Container() {
   }, [draftId, reviewTab]);
   useEffect(() => {
     async function getCurrentStep() {
-      if (!canOnboardHotel(user?.roles) || !draftId) return;
+      if (!draftId) return;
+      if (!canOnboardHotel(user?.roles) && !isForcedReadOnly) return;
       const response = await propertyService.getOnboardingStatus(draftId);
       setOngoingStep(response.currentStep.toLowerCase());
       setHotelStatus((response.status || "").toUpperCase());
       setOnboardingHotelName(response.hotelName?.trim() ?? "");
-      // Check if status is SUBMITTED or APPROVED - then it's read-only
-      // REJECTED hotels can be edited, so don't set read-only for them
       setIsReadOnly(
-        response.status === "SUBMITTED" || response.status === "APPROVED",
+        isForcedReadOnly ||
+          response.status === "SUBMITTED" ||
+          response.status === "APPROVED" ||
+          response.status === "LIVE",
       );
     }
     getCurrentStep();
-  }, [draftId, navigateWithParams, user?.roles]);
+  }, [draftId, isForcedReadOnly, user?.roles]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -286,7 +294,7 @@ function Container() {
       if (stepErrors) {
         setErrors((prev) => ({ ...prev, documentsInfo: stepErrors }));
         showToast(
-          "Please upload GST Certificate and Cancelled Cheque before continuing.",
+          "Please upload GST Certificate, Cancelled Cheque, and Hotel Registration before continuing.",
           "error",
         );
         return false;
@@ -464,7 +472,7 @@ function Container() {
     }
   };
 
-  if (!canOnboardHotel(user?.roles)) {
+  if (!canAccessOnboardingWizard) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
         <p className="text-gray-900 font-medium mb-2">
@@ -475,7 +483,11 @@ function Container() {
           Hotel Owners, and Hotel BD. Ask a Super Admin to assign the correct
           role on <span className="font-medium">Admin → Users</span>.
         </p>
-        <Button type="button" variant="primary" onClick={() => navigate("/")}>
+        <Button
+          type="button"
+          variant="primary"
+          onClick={() => navigate(ROUTES.PROPERTIES.MY_PROPERTY)}
+        >
           Back to properties
         </Button>
       </div>
@@ -496,7 +508,15 @@ function Container() {
         onClose={hideToast}
       />
       <div className="mb-4 flex justify-start">
-        <Button type="button" variant="outline" onClick={() => navigate("/")}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            navigate(
+              isForcedReadOnly ? ROUTES.PROPERTIES.MY_PROPERTY : "/",
+            )
+          }
+        >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </Button>

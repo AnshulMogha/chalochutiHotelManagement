@@ -852,6 +852,7 @@ export type DocumentType =
   | "GST_CERTIFICATE"
   | "PAN_CARD"
   | "CANCELLED_CHEQUE"
+  | "HOTEL_REGISTRATION"
   | "BANK_STATEMENT"
   | "AGREEMENT"
   | "OTHER";

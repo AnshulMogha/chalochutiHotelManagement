@@ -13,6 +13,7 @@ const DOCUMENT_TYPES: Array<{ value: DocumentType; label: string }> = [
   { value: "GST_CERTIFICATE", label: "GST Certificate" },
   { value: "PAN_CARD", label: "PAN Card" },
   { value: "CANCELLED_CHEQUE", label: "Cancelled Cheque" },
+  { value: "HOTEL_REGISTRATION", label: "Hotel Registration" },
   { value: "BANK_STATEMENT", label: "Bank Statement" },
   { value: "AGREEMENT", label: "Agreement" },
   { value: "OTHER", label: "Other" },

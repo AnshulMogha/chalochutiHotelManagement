@@ -101,6 +101,9 @@ const formatDate = (dateString?: string) => {
   });
 };
 
+const getOnboardingReadOnlyUrl = (hotelId: string) =>
+  `${ROUTES.PROPERTIES.EDIT(hotelId)}&readOnly=true`;
+
 export default function MyPropertiesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -454,51 +457,69 @@ export default function MyPropertiesPage() {
                   <span className="text-sm text-gray-400">-</span>
                 ),
             } as GridColDef,
-            {
-              field: "actions",
-              headerName: "Actions",
-              width: 120,
-              flex: 0,
-              sortable: false,
-              filterable: false,
-              align: "right",
-              headerAlign: "right",
-              renderCell: (params) => {
-                const shouldOpenReadOnly =
-                  inProcessViewOnly && params.row.status !== "DRAFT";
-
-                if (!(shouldOpenReadOnly || !params.row.locked)) return null;
-
-                return (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      navigate(
-                        shouldOpenReadOnly
-                          ? `${ROUTES.PROPERTIES.EDIT(params.row.hotelId)}&readOnly=true`
-                          : ROUTES.PROPERTIES.EDIT(params.row.hotelId),
-                      )
-                    }
-                    className="gap-2"
-                  >
-                    {shouldOpenReadOnly ? (
-                      <>
-                        <Eye className="w-4 h-4" />
-                        View
-                      </>
-                    ) : (
-                      <>
-                        <Edit className="w-4 h-4" />
-                        Edit
-                      </>
-                    )}
-                  </Button>
-                );
-              },
-            } as GridColDef,
           ]
         : []),
+      {
+        field: "actions",
+        headerName: "Actions",
+        width: 120,
+        flex: 0,
+        sortable: false,
+        filterable: false,
+        align: "right",
+        headerAlign: "right",
+        renderCell: (params) => {
+          if (isActiveTab) {
+            return (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  navigate(getOnboardingReadOnlyUrl(params.row.hotelId));
+                }}
+                className="gap-2"
+              >
+                <Eye className="w-4 h-4" />
+                View
+              </Button>
+            );
+          }
+
+          const shouldOpenReadOnly =
+            inProcessViewOnly && params.row.status !== "DRAFT";
+
+          if (!(shouldOpenReadOnly || !params.row.locked)) return null;
+
+          return (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                navigate(
+                  shouldOpenReadOnly
+                    ? getOnboardingReadOnlyUrl(params.row.hotelId)
+                    : ROUTES.PROPERTIES.EDIT(params.row.hotelId),
+                );
+              }}
+              className="gap-2"
+            >
+              {shouldOpenReadOnly ? (
+                <>
+                  <Eye className="w-4 h-4" />
+                  View
+                </>
+              ) : (
+                <>
+                  <Edit className="w-4 h-4" />
+                  Edit
+                </>
+              )}
+            </Button>
+          );
+        },
+      } as GridColDef,
     ];
 
     return (
