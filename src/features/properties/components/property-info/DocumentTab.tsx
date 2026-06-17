@@ -33,6 +33,22 @@ function isAllowedDocumentFile(file: File) {
   return ALLOWED_DOCUMENT_MIME_TYPES.has(file.type) || hasAllowedExt;
 }
 
+function getDocumentUrl(document: Document) {
+  return document.documentUrl || document.fileUrl || "";
+}
+
+function isPdfDocument(document: Document) {
+  const url = getDocumentUrl(document).toLowerCase();
+  const fileName = (document.fileName || "").toLowerCase();
+  return (
+    document.contentType === "application/pdf" ||
+    fileName.endsWith(".pdf") ||
+    url.endsWith(".pdf") ||
+    url.includes(".pdf?") ||
+    url.includes(".pdf#")
+  );
+}
+
 export function DocumentTab({ hotelId }: DocumentTabProps) {
   const { toast, showToast, hideToast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -119,16 +135,23 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
   };
 
   const handleView = (document: Document) => {
+    const url = getDocumentUrl(document);
+    if (!url) {
+      showToast("Document URL not available", "error");
+      return;
+    }
+
+    if (isPdfDocument(document)) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
     setSelectedDocument(document);
     setShowViewerModal(true);
   };
 
   const isImage = (contentType: string) => {
     return contentType.startsWith("image/");
-  };
-
-  const isPDF = (contentType: string) => {
-    return contentType === "application/pdf";
   };
 
   const formatDate = (dateString: string) => {
@@ -259,9 +282,6 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                       Document Type
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Uploaded Date
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -287,9 +307,6 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(document.status)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-600">
                           {formatDate(document.uploadedAt)}
                         </span>
@@ -309,9 +326,17 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                           <button
                             onClick={() => handleView(document)}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                            title="View"
+                            title={
+                              isPdfDocument(document)
+                                ? "Open PDF in new tab"
+                                : "View"
+                            }
                           >
-                            <Eye className="w-4 h-4" />
+                            {isPdfDocument(document) ? (
+                              <ExternalLink className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
                       </td>
@@ -455,7 +480,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <a
-                    href={selectedDocument.documentUrl || selectedDocument.fileUrl}
+                    href={getDocumentUrl(selectedDocument)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
@@ -478,7 +503,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
               {/* Document Content */}
               <div className="flex-1 overflow-auto p-6 bg-gray-100 flex items-center justify-center">
                 {(() => {
-                  const documentUrl = selectedDocument.documentUrl || selectedDocument.fileUrl;
+                  const documentUrl = getDocumentUrl(selectedDocument);
                   if (!documentUrl) {
                     return (
                       <div className="text-center p-12">
@@ -489,7 +514,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                       </div>
                     );
                   }
-                  
+
                   if (isImage(selectedDocument.contentType)) {
                     return (
                       <div className="max-w-full max-h-[calc(90vh-120px)] flex items-center justify-center">
@@ -500,44 +525,35 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                         />
                       </div>
                     );
-                  } else if (isPDF(selectedDocument.contentType)) {
-                    return (
-                      <div className="w-full h-full min-h-[500px]">
-                        <iframe
-                          src={documentUrl}
-                          className="w-full h-full min-h-[500px] rounded-2xl border border-gray-300"
-                          title={selectedDocument.fileName}
-                        />
-                      </div>
-                    );
-                  } else {
-                    return (
-                      <div className="text-center p-12">
-                        <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                        <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                          Preview not available
-                        </h4>
-                        <p className="text-sm text-gray-600 mb-6">
-                          This file type ({selectedDocument.contentType}) cannot be previewed in the browser.
-                        </p>
-                        <div className="flex items-center justify-center gap-3">
-                          <a
-                            href={documentUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <Button
-                              variant="outline"
-                              className="flex items-center gap-2"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                              Open in New Tab
-                            </Button>
-                          </a>
-                        </div>
-                      </div>
-                    );
                   }
+
+                  return (
+                    <div className="text-center p-12">
+                      <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                        Preview not available
+                      </h4>
+                      <p className="text-sm text-gray-600 mb-6">
+                        This file type ({selectedDocument.contentType}) cannot be
+                        previewed in the browser.
+                      </p>
+                      <div className="flex items-center justify-center gap-3">
+                        <a
+                          href={documentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button
+                            variant="outline"
+                            className="flex items-center gap-2"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            Open in New Tab
+                          </Button>
+                        </a>
+                      </div>
+                    </div>
+                  );
                 })()}
               </div>
 
