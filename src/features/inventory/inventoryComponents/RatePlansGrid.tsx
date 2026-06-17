@@ -146,6 +146,8 @@ interface RatePlansGridProps {
   calendarIsLinkEnable?: boolean;
   /** Current hotel (URL); required for “Add LinkRate” navigation to add-single-derived. */
   hotelId?: string | null;
+  /** Inventory section the grid is rendered in; used for back navigation from single-day rate. */
+  inventorySection?: "room-types" | "rate-plans";
   hideRestrictions?: boolean;
   /** Optional inventory restrictions source for embedded room inventory view. */
   inventoryDaysByDate?: Record<
@@ -176,6 +178,7 @@ export const RatePlansGrid = ({
   onOpenLinkRatePlans,
   calendarIsLinkEnable,
   hotelId = null,
+  inventorySection = "rate-plans",
   hideRestrictions = false,
   inventoryDaysByDate,
 }: RatePlansGridProps) => {
@@ -587,6 +590,7 @@ export const RatePlansGrid = ({
                               hotelId,
                               roomId: String(room.roomId),
                               ratePlanId: String(ratePlan.ratePlanId),
+                              returnSection: inventorySection,
                             });
                             navigate(
                               `${ROUTES.HOTEL_RATES_ADD_SINGLE_DERIVED}?${q.toString()}`,

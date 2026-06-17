@@ -992,6 +992,7 @@ export const RoomTypesGrid = ({
                 onOpenLinkRatePlans={onOpenLinkRatePlans}
                 calendarIsLinkEnable={calendarIsLinkEnable}
                 hotelId={hotelId}
+                inventorySection="room-types"
                 inventoryDaysByDate={inventoryDaysByDate}
                 hideRestrictions
               />

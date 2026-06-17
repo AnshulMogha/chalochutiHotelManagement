@@ -9,9 +9,9 @@ import {
   User,
   UserPlus,
   Baby,
-  Hash,
-  Clock,
-  Coins,
+  // Hash,
+  // Clock,
+  // Coins,
   Link2,
   Save,
   X,
@@ -37,11 +37,11 @@ const CUSTOMER_TYPES = [
   { value: "CORPORATE", label: "CORPORATE" },
 ];
 
-const CURRENCIES = [
-  { value: "INR", label: "INR" },
-  { value: "USD", label: "USD" },
-  { value: "EUR", label: "EUR" },
-];
+// const CURRENCIES = [
+//   { value: "INR", label: "INR" },
+//   { value: "USD", label: "USD" },
+//   { value: "EUR", label: "EUR" },
+// ];
 
 const iconClass = "w-4 h-4 text-blue-600";
 
@@ -94,6 +94,7 @@ export default function AddSingleDerivedRatePage() {
   const toDateFromUrl = searchParams.get("to");
   const roomIdFromUrl = searchParams.get("roomId");
   const ratePlanIdFromUrl = searchParams.get("ratePlanId");
+  const returnSectionFromUrl = searchParams.get("returnSection");
   const { toast, showToast, hideToast } = useToast();
   const deepLinkFromInventoryAppliedRef = useRef(false);
 
@@ -138,9 +139,13 @@ export default function AddSingleDerivedRatePage() {
   const minSelectableDateYmd = format(startOfToday(), "yyyy-MM-dd");
 
   const backToRatePlans = () => {
+    const listRoute =
+      returnSectionFromUrl === "room-types"
+        ? ROUTES.ROOM_INVENTORY.LIST
+        : ROUTES.RATE_INVENTORY.LIST;
     const path = hotelId
-      ? `${ROUTES.RATE_INVENTORY.LIST}?hotelId=${encodeURIComponent(hotelId)}`
-      : ROUTES.RATE_INVENTORY.LIST;
+      ? `${listRoute}?hotelId=${encodeURIComponent(hotelId)}`
+      : listRoute;
     navigate(path);
   };
 
@@ -633,6 +638,7 @@ export default function AddSingleDerivedRatePage() {
             </div>
           </SectionCard>
 
+          {/* Stay length & Cutoff & currency — hidden until product enables this flow
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 w-full">
             <SectionCard
               title="Stay length"
@@ -708,6 +714,7 @@ export default function AddSingleDerivedRatePage() {
               </div>
             </SectionCard>
           </div>
+          */}
 
           <div className="w-full rounded-xl border border-slate-200 bg-white shadow-sm px-5 py-4 sm:px-6 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-end gap-3">
             <Button
