@@ -7,6 +7,7 @@ import { HowToReachTab } from "../components/property-info/HowToReachTab";
 import { useAuth } from "@/hooks";
 import {
   canEditBasicInfoContactDetails,
+  canEditBasicInfoPropertyDescription,
   canEditBasicInfoPropertyDetails,
   canEditBasicInfoHowToReach,
   canViewModule,
@@ -20,7 +21,9 @@ export default function BasicInformationPage() {
   const [activeTab, setActiveTab] = useState("property-details");
   const canViewBasicInfo = canViewModule(user, "PROPERTY_BASIC_INFO");
   const readOnlyContact = !canEditBasicInfoContactDetails(user);
-  const readOnlyPropertyDetails = !canEditBasicInfoPropertyDetails(user);
+  const readOnlyPropertyDetails =
+    !canEditBasicInfoPropertyDetails(user) &&
+    !canEditBasicInfoPropertyDescription(user);
   const readOnlyHowToReach = !canEditBasicInfoHowToReach(user);
 
   if (!selectedHotelId) {

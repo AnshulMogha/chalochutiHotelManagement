@@ -11,7 +11,10 @@ import { adminService, type HotelBasicInfoResponse } from "@/features/admin/serv
 import { Building, Tag, Hash, User, Calendar } from "lucide-react";
 import { useAuth } from "@/hooks";
 import { isSuperAdmin } from "@/constants/roles";
-import { canEditBasicInfoPropertyDetails } from "@/lib/permissions";
+import {
+  canEditBasicInfoPropertyDescription,
+  canEditBasicInfoPropertyDetails,
+} from "@/lib/permissions";
 
 interface PropertyDetailsTabProps {
   hotelId: string;
@@ -21,6 +24,8 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
   const { user } = useAuth();
   const isSuperAdminUser = isSuperAdmin(user?.roles);
   const canEditPropertyDetails = canEditBasicInfoPropertyDetails(user);
+  const canEditDescription = canEditBasicInfoPropertyDescription(user);
+  const canSavePropertyDetails = canEditPropertyDetails || canEditDescription;
   const useHotelAdminBasicInfo = !isSuperAdminUser;
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -116,7 +121,7 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!canEditPropertyDetails) {
+    if (!canSavePropertyDetails) {
       return;
     }
 
@@ -126,24 +131,46 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
 
     setIsSaving(true);
     try {
-      await adminService.updateHotelProfile(hotelId, {
-        name: formData.name,
-        displayName: formData.displayName,
-        propertyType: formData.propertyType,
-        starRating: parseInt(formData.starRating),
-        yearOfConstruction: parseInt(formData.yearOfConstruction),
-        currency: formData.currency,
-      });
-      // Refresh data after update
-      const data = await adminService.getHotelBasicInfo(hotelId);
+      if (canEditPropertyDetails) {
+        await adminService.updateHotelProfile(hotelId, {
+          name: formData.name,
+          displayName: formData.displayName,
+          propertyType: formData.propertyType,
+          starRating: parseInt(formData.starRating),
+          yearOfConstruction: parseInt(formData.yearOfConstruction),
+          currency: formData.currency,
+        });
+      } else {
+        await adminService.updateHotelAdminProfile(hotelId, {
+          description: formData.description,
+        });
+      }
+
+      const data = useHotelAdminBasicInfo
+        ? await adminService.getHotelAdminBasicInfo(hotelId)
+        : await adminService.getHotelBasicInfo(hotelId);
       if (data) {
         setHotelData(data);
-        setErrors({}); // Clear errors on success
+        setFormData((prev) => ({
+          ...prev,
+          description: data.description || "",
+        }));
+        setErrors({});
       }
-      showToast("Property details updated successfully!", "success");
+      showToast(
+        canEditPropertyDetails
+          ? "Property details updated successfully!"
+          : "Description updated successfully!",
+        "success",
+      );
     } catch (error) {
       console.error("Error saving property details:", error);
-      showToast("Failed to update property details. Please try again.", "error");
+      showToast(
+        canEditPropertyDetails
+          ? "Failed to update property details. Please try again."
+          : "Failed to update description. Please try again.",
+        "error",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -307,8 +334,8 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
                 id="description"
                 value={formData.description}
                 onChange={(e) => handleChange("description", e.target.value)}
-                readOnly={!canEditPropertyDetails}
-                className={!canEditPropertyDetails ? "bg-gray-50 resize-none" : "resize-none"}
+                readOnly={!canEditDescription}
+                className={!canEditDescription ? "bg-gray-50 resize-none" : "resize-none"}
                 rows={4}
                 placeholder="No description available"
               />
@@ -329,11 +356,21 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
             )}
           </div>
 
-          <div className="flex justify-end mt-8">
-            <Button type="submit" disabled={isSaving} className="bg-blue-500 hover:bg-blue-600">
-              {isSaving ? "Saving..." : "SAVE PROFILE"}
-            </Button>
-          </div>
+          {canSavePropertyDetails && (
+            <div className="flex justify-end mt-8">
+              <Button
+                type="submit"
+                disabled={isSaving}
+                className="bg-blue-500 hover:bg-blue-600"
+              >
+                {isSaving
+                  ? "Saving..."
+                  : canEditPropertyDetails
+                    ? "SAVE PROFILE"
+                    : "SAVE DESCRIPTION"}
+              </Button>
+            </div>
+          )}
         </form>
       </div>
 

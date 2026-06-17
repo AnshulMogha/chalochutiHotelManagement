@@ -212,6 +212,21 @@ export function canEditBasicInfoPropertyDetails(user: User | null): boolean {
   return isSuperAdmin(user.roles);
 }
 
+/**
+ * Basic Information → Property Details description field:
+ * Super Admin, Hotel Owner, or staff with PROPERTY_BASIC_INFO edit permission.
+ */
+export function canEditBasicInfoPropertyDescription(
+  user: User | null,
+): boolean {
+  if (!user) return true;
+  if (isSuperAdmin(user.roles)) return true;
+  if (user.roles?.includes("HOTEL_OWNER")) return true;
+  if (!hasPermissionBypass(user))
+    return canEditModule(user, "PROPERTY_BASIC_INFO");
+  return false;
+}
+
 /** Basic Information → How to Reach tab: Super Admin only. */
 export function canEditBasicInfoHowToReach(user: User | null): boolean {
   if (!user) return true;
@@ -257,7 +272,7 @@ export function shouldBlockBasicInfoWriteRequest(
   const superAdmin = isSuperAdmin(user.roles);
 
   if (/\/hotel\/[^/]+\/profile$/i.test(n)) {
-    return !superAdmin;
+    return !canEditBasicInfoPropertyDescription(user);
   }
   if (/\/admin\/hotel\/[^/]+\/(profile|status|location|address)$/i.test(n)) {
     return !superAdmin;
