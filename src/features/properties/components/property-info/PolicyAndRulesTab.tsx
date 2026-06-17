@@ -97,6 +97,55 @@ const ID_PROOF_OPTIONS = [
 type SlabPenaltyType = "PERCENTAGE" | "FIXED";
 type NoShowPenaltyType = "NONE" | "PERCENTAGE" | "FIXED";
 
+const HOURS_PER_DAY = 24;
+
+type RuleDraftState = {
+  fromDays: NumericInput;
+  fromHours: NumericInput;
+  toDays: NumericInput;
+  toHours: NumericInput;
+  penaltyType: SlabPenaltyType;
+  penaltyValue: NumericInput;
+};
+
+const EMPTY_RULE_DRAFT: RuleDraftState = {
+  fromDays: "",
+  fromHours: "",
+  toDays: "",
+  toHours: "",
+  penaltyType: "PERCENTAGE",
+  penaltyValue: "",
+};
+
+function splitTotalHoursToDaysAndHours(totalHours: number): {
+  days: NumericInput;
+  hours: NumericInput;
+} {
+  const safe = Math.max(0, Math.floor(totalHours));
+  return {
+    days: Math.floor(safe / HOURS_PER_DAY),
+    hours: safe % HOURS_PER_DAY,
+  };
+}
+
+function combineDaysAndHoursToTotalHours(
+  days: NumericInput,
+  hours: NumericInput,
+): number {
+  const dayCount = days === "" ? 0 : Number(days);
+  const hourCount = hours === "" ? 0 : Number(hours);
+  return dayCount * HOURS_PER_DAY + hourCount;
+}
+
+function formatCancellationDuration(totalHours: number): string {
+  const { days, hours } = splitTotalHoursToDaysAndHours(totalHours);
+  if (days === 0 && hours === 0) return "0 hrs";
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days} day${days === 1 ? "" : "s"}`);
+  if (hours > 0) parts.push(`${hours} hr${hours === 1 ? "" : "s"}`);
+  return `${parts.join(" ")} (${totalHours} hrs)`;
+}
+
 interface CancellationSlabForm {
   fromHours: number;
   toHours: number;
@@ -271,17 +320,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
   const cancellationNameInputRef = useRef<HTMLInputElement | null>(null);
   const [isCancellationModalOpen, setIsCancellationModalOpen] =
     useState(false);
-  const [ruleDraft, setRuleDraft] = useState<{
-    fromHours: NumericInput;
-    toHours: NumericInput;
-    penaltyType: SlabPenaltyType;
-    penaltyValue: NumericInput;
-  }>({
-    fromHours: "",
-    toHours: "",
-    penaltyType: "PERCENTAGE",
-    penaltyValue: "",
-  });
+  const [ruleDraft, setRuleDraft] = useState<RuleDraftState>(EMPTY_RULE_DRAFT);
   const [ruleDraftErrors, setRuleDraftErrors] = useState<RuleDraftErrors>({});
   const [cancellationErrors, setCancellationErrors] =
     useState<CancellationFormErrors>({});
@@ -421,12 +460,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
       noShowPenaltyValue: null,
       slabs: [],
     });
-    setRuleDraft({
-      fromHours: "",
-      toHours: "",
-      penaltyType: "PERCENTAGE",
-      penaltyValue: "",
-    });
+    setRuleDraft(EMPTY_RULE_DRAFT);
   }, [hotelId]);
 
   useEffect(() => {
@@ -723,12 +757,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
       noShowPenaltyValue: null,
       slabs: [],
     });
-    setRuleDraft({
-      fromHours: "",
-      toHours: "",
-      penaltyType: "PERCENTAGE",
-      penaltyValue: "",
-    });
+    setRuleDraft(EMPTY_RULE_DRAFT);
     setRuleDraftErrors({});
     setCancellationErrors({});
     setSelectedCancellationId(null);
@@ -754,18 +783,18 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     ignoreIndex: number | null = editingRuleIndex
   ): RuleDraftErrors => {
     const errors: RuleDraftErrors = {};
-    const from = draft.fromHours === "" ? NaN : Number(draft.fromHours);
-    const to = draft.toHours === "" ? NaN : Number(draft.toHours);
+    const from = combineDaysAndHoursToTotalHours(draft.fromDays, draft.fromHours);
+    const to = combineDaysAndHoursToTotalHours(draft.toDays, draft.toHours);
     const value = draft.penaltyValue === "" ? NaN : Number(draft.penaltyValue);
 
     if (Number.isNaN(from) || from < 0) {
-      errors.fromHours = "From hours must be 0 or greater";
+      errors.fromHours = "From time must be 0 or greater";
     }
     if (Number.isNaN(to) || to < 0) {
-      errors.toHours = "To hours must be 0 or greater";
+      errors.toHours = "To time must be 0 or greater";
     }
     if (!Number.isNaN(from) && !Number.isNaN(to) && from >= to) {
-      errors.toHours = "From must be less than To";
+      errors.toHours = "From time must be less than To time";
     }
     if (Number.isNaN(value) || value < 0) {
       errors.penaltyValue = "Penalty value must be 0 or greater";
@@ -791,8 +820,11 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     if (Object.keys(errors).length > 0) return;
 
     const nextSlab: CancellationSlabForm = {
-      fromHours: Number(ruleDraft.fromHours),
-      toHours: Number(ruleDraft.toHours),
+      fromHours: combineDaysAndHoursToTotalHours(
+        ruleDraft.fromDays,
+        ruleDraft.fromHours,
+      ),
+      toHours: combineDaysAndHoursToTotalHours(ruleDraft.toDays, ruleDraft.toHours),
       penaltyType: ruleDraft.penaltyType,
       penaltyValue: Number(ruleDraft.penaltyValue),
     };
@@ -810,12 +842,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
         ),
       };
     });
-    setRuleDraft({
-      fromHours: "",
-      toHours: "",
-      penaltyType: "PERCENTAGE",
-      penaltyValue: "",
-    });
+    setRuleDraft(EMPTY_RULE_DRAFT);
     setEditingRuleIndex(null);
     setRuleDraftErrors({});
     setShowRuleBuilder(false);
@@ -824,9 +851,13 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
   const startEditRule = (index: number) => {
     const slab = cancellationForm.slabs[index];
     if (!slab) return;
+    const fromParts = splitTotalHoursToDaysAndHours(slab.fromHours);
+    const toParts = splitTotalHoursToDaysAndHours(slab.toHours);
     setRuleDraft({
-      fromHours: slab.fromHours,
-      toHours: slab.toHours,
+      fromDays: fromParts.days,
+      fromHours: fromParts.hours,
+      toDays: toParts.days,
+      toHours: toParts.hours,
       penaltyType: slab.penaltyType,
       penaltyValue: slab.penaltyValue,
     });
@@ -842,12 +873,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     }));
     if (editingRuleIndex === index) {
       setEditingRuleIndex(null);
-      setRuleDraft({
-        fromHours: "",
-        toHours: "",
-        penaltyType: "PERCENTAGE",
-        penaltyValue: "",
-      });
+      setRuleDraft(EMPTY_RULE_DRAFT);
       setRuleDraftErrors({});
       setShowRuleBuilder(false);
     }
@@ -1419,8 +1445,8 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
 
                   <div className="rounded-lg border border-cyan-100 overflow-hidden">
                     <div className="grid grid-cols-4 bg-cyan-50 text-xs font-semibold text-cyan-900 px-4 py-2">
-                      <span>From (hrs)</span>
-                      <span>To (hrs)</span>
+                      <span>From</span>
+                      <span>To</span>
                       <span>Penalty Type</span>
                       <span>Value</span>
                     </div>
@@ -1432,8 +1458,8 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                             key={slab.id ?? `${slab.fromHours}-${slab.toHours}-${slab.penaltyType}-${slab.penaltyValue}`}
                             className="grid grid-cols-4 items-center px-4 py-2 text-sm"
                           >
-                            <span>{slab.fromHours}</span>
-                            <span>{slab.toHours}</span>
+                            <span>{formatCancellationDuration(slab.fromHours)}</span>
+                            <span>{formatCancellationDuration(slab.toHours)}</span>
                             <span>
                               <span
                                 className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -1718,8 +1744,8 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                         </div>
                         <div className="border border-indigo-100 rounded-lg overflow-hidden">
                           <div className="grid grid-cols-5 bg-indigo-50 text-xs font-semibold text-indigo-900 px-4 py-2">
-                            <span>From (hrs)</span>
-                            <span>To (hrs)</span>
+                            <span>From</span>
+                            <span>To</span>
                             <span>Penalty Type</span>
                             <span>Value</span>
                             <span className="text-right">Action</span>
@@ -1745,8 +1771,8 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                                       key={`${slab.fromHours}-${slab.toHours}-${slab.penaltyType}-${slab.penaltyValue}`}
                                       className="grid grid-cols-5 items-center px-4 py-2 text-sm hover:bg-indigo-50/30"
                                     >
-                                      <span>{slab.fromHours}</span>
-                                      <span>{slab.toHours}</span>
+                                      <span>{formatCancellationDuration(slab.fromHours)}</span>
+                                      <span>{formatCancellationDuration(slab.toHours)}</span>
                                       <span>{SLAB_TYPE_LABELS[slab.penaltyType]}</span>
                                       <span>
                                         {slab.penaltyType === "PERCENTAGE"
@@ -1792,45 +1818,111 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                               ? "Add Cancellation Rule"
                               : "Edit Cancellation Rule"}
                           </h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                From Hours
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                From (before check-in)
                               </label>
-                              <Input
-                                type="number"
-                                min={0}
-                                value={ruleDraft.fromHours}
-                                onChange={(e) =>
-                                  setRuleDraft((prev) => ({
-                                    ...prev,
-                                    fromHours: parseNumberInput(e.target.value),
-                                  }))
-                                }
-                              />
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="mb-1 block text-xs text-gray-500">
+                                    Days
+                                  </label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={ruleDraft.fromDays}
+                                    onChange={(e) =>
+                                      setRuleDraft((prev) => ({
+                                        ...prev,
+                                        fromDays: parseNumberInput(e.target.value),
+                                      }))
+                                    }
+                                    placeholder="0"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="mb-1 block text-xs text-gray-500">
+                                    Hours
+                                  </label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={ruleDraft.fromHours}
+                                    onChange={(e) =>
+                                      setRuleDraft((prev) => ({
+                                        ...prev,
+                                        fromHours: parseNumberInput(e.target.value),
+                                      }))
+                                    }
+                                    placeholder="0"
+                                  />
+                                </div>
+                              </div>
+                              <p className="text-xs text-gray-500">
+                                Total:{" "}
+                                {combineDaysAndHoursToTotalHours(
+                                  ruleDraft.fromDays,
+                                  ruleDraft.fromHours,
+                                )}{" "}
+                                hours
+                              </p>
                               {ruleDraftErrors.fromHours && (
-                                <p className="mt-1 text-xs text-red-600">
+                                <p className="text-xs text-red-600">
                                   {ruleDraftErrors.fromHours}
                                 </p>
                               )}
                             </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                To Hours
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                To (before check-in)
                               </label>
-                              <Input
-                                type="number"
-                                min={0}
-                                value={ruleDraft.toHours}
-                                onChange={(e) =>
-                                  setRuleDraft((prev) => ({
-                                    ...prev,
-                                    toHours: parseNumberInput(e.target.value),
-                                  }))
-                                }
-                              />
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="mb-1 block text-xs text-gray-500">
+                                    Days
+                                  </label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={ruleDraft.toDays}
+                                    onChange={(e) =>
+                                      setRuleDraft((prev) => ({
+                                        ...prev,
+                                        toDays: parseNumberInput(e.target.value),
+                                      }))
+                                    }
+                                    placeholder="0"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="mb-1 block text-xs text-gray-500">
+                                    Hours
+                                  </label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={ruleDraft.toHours}
+                                    onChange={(e) =>
+                                      setRuleDraft((prev) => ({
+                                        ...prev,
+                                        toHours: parseNumberInput(e.target.value),
+                                      }))
+                                    }
+                                    placeholder="0"
+                                  />
+                                </div>
+                              </div>
+                              <p className="text-xs text-gray-500">
+                                Total:{" "}
+                                {combineDaysAndHoursToTotalHours(
+                                  ruleDraft.toDays,
+                                  ruleDraft.toHours,
+                                )}{" "}
+                                hours
+                              </p>
                               {ruleDraftErrors.toHours && (
-                                <p className="mt-1 text-xs text-red-600">
+                                <p className="text-xs text-red-600">
                                   {ruleDraftErrors.toHours}
                                 </p>
                               )}
@@ -1894,12 +1986,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                               onClick={() => {
                                 setShowRuleBuilder(false);
                                 setEditingRuleIndex(null);
-                                setRuleDraft({
-                                  fromHours: "",
-                                  toHours: "",
-                                  penaltyType: "PERCENTAGE",
-                                  penaltyValue: "",
-                                });
+                                setRuleDraft(EMPTY_RULE_DRAFT);
                                 setRuleDraftErrors({});
                               }}
                             >
@@ -1939,10 +2026,10 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                                   className="text-sm text-emerald-900 rounded-md bg-white/75 border border-emerald-200 px-3 py-1.5"
                                 >
                                   {slab.fromHours === 0
-                                    ? `< ${slab.toHours} hrs`
+                                    ? `< ${formatCancellationDuration(slab.toHours)}`
                                     : slab.toHours >= 9999
-                                    ? `> ${slab.fromHours} hrs`
-                                    : `${slab.fromHours}-${slab.toHours} hrs`}{" "}
+                                    ? `> ${formatCancellationDuration(slab.fromHours)}`
+                                    : `${formatCancellationDuration(slab.fromHours)} - ${formatCancellationDuration(slab.toHours)}`}{" "}
                                   -{" "}
                                   {slab.penaltyType === "PERCENTAGE"
                                     ? `${slab.penaltyValue}% charge`
