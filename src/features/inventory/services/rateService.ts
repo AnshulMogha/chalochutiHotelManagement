@@ -117,6 +117,35 @@ export interface LinkRatePlanLinkApiPayload {
   copyRestrictions?: boolean;
 }
 
+export interface HotelRatePlanListItem {
+  ratePlanId: number;
+  ratePlanName: string;
+  roomId?: number | string;
+  roomName?: string | null;
+  mealPlan?: string | null;
+  paymentMode?: string | null;
+  active?: boolean;
+}
+
+export interface HotelRatePlansByRoomResponse {
+  totalRooms?: number;
+  totalRatePlans?: number;
+  rooms?: Array<{
+    roomId: string;
+    roomName: string;
+    roomTypeCode?: string | null;
+    active?: boolean;
+    totalRatePlans?: number;
+    ratePlans?: Array<{
+      ratePlanId: number;
+      ratePlanName: string;
+      mealPlan?: string | null;
+      paymentMode?: string | null;
+      active?: boolean;
+    }>;
+  }>;
+}
+
 export interface LinkRatePlanLinkAdvancedInput {
   linkExtraGuestRates: boolean;
   extraGuestAdjustment: number;
@@ -127,6 +156,9 @@ export interface LinkRatePlanLinkAdvancedInput {
 /** Row from GET /hotel/rate-plan/link?masterRatePlanId=… */
 export interface RatePlanLinkRecord {
   id: number;
+  roomId?: number;
+  masterRoomId?: number;
+  slaveRoomId?: number;
   masterRatePlanId: number;
   slaveRatePlanId: number;
   adjustmentType: LinkRatePlanAdjustmentType;
@@ -239,6 +271,54 @@ export const rateService = {
       API_ENDPOINTS.RATES.LINK_RATE_PLANS,
       payload,
     );
+  },
+
+  getHotelRatePlans: async (hotelId: string): Promise<HotelRatePlanListItem[]> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<
+        | HotelRatePlanListItem[]
+        | HotelRatePlansByRoomResponse
+        | {
+            ratePlans?: HotelRatePlanListItem[];
+            content?: HotelRatePlanListItem[];
+            data?: HotelRatePlanListItem[] | HotelRatePlansByRoomResponse;
+          }
+      >
+    >(API_ENDPOINTS.RATES.GET_RATE_PLANS(hotelId));
+    const raw = response.data;
+    if (Array.isArray(raw)) return raw;
+
+    const flattenRooms = (
+      payload: HotelRatePlansByRoomResponse | null | undefined,
+    ): HotelRatePlanListItem[] => {
+      if (!payload?.rooms || !Array.isArray(payload.rooms)) return [];
+      return payload.rooms.flatMap((room) =>
+        (room.ratePlans || []).map((rp) => ({
+          ratePlanId: rp.ratePlanId,
+          ratePlanName: rp.ratePlanName,
+          roomId: room.roomId,
+          roomName: room.roomName,
+          mealPlan: rp.mealPlan ?? null,
+          paymentMode: rp.paymentMode ?? null,
+          active: rp.active,
+        })),
+      );
+    };
+
+    if (raw && typeof raw === "object") {
+      const fromRawRooms = flattenRooms(raw as HotelRatePlansByRoomResponse);
+      if (fromRawRooms.length > 0) return fromRawRooms;
+      if (Array.isArray(raw.ratePlans)) return raw.ratePlans;
+      if (Array.isArray(raw.content)) return raw.content;
+      if (raw.data && typeof raw.data === "object" && !Array.isArray(raw.data)) {
+        const fromNestedDataRooms = flattenRooms(
+          raw.data as HotelRatePlansByRoomResponse,
+        );
+        if (fromNestedDataRooms.length > 0) return fromNestedDataRooms;
+      }
+      if (Array.isArray(raw.data)) return raw.data;
+    }
+    return [];
   },
 
   getRatePlanLinksByMaster: async (

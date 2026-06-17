@@ -99,6 +99,27 @@ function SegmentToggle<T extends string>({
 
 type YesNo = "NO" | "YES";
 
+const PERCENT_MAX = 100;
+
+function clampPercentAmount(value: string): string {
+  const n = Number.parseFloat(value);
+  if (!Number.isFinite(n) || n <= PERCENT_MAX) return value;
+  return String(PERCENT_MAX);
+}
+
+function handleAdjustmentInputChange(
+  raw: string,
+  isPercent: boolean,
+  setValue: (value: string) => void,
+) {
+  if (raw === "") {
+    setValue(raw);
+    return;
+  }
+  const next = isPercent ? clampPercentAmount(raw) : raw;
+  setValue(next);
+}
+
 export function LinkRatePlansSheet({
   open,
   onOpenChange,
@@ -146,18 +167,24 @@ export function LinkRatePlansSheet({
     if (!open || linkConfigLoading || !existingLinkRecord) return;
     const r = existingLinkRecord;
     setDirection(r.adjustmentDirection);
-    setBaseRateValue(String(r.slaveRatePlanId));
-    setAdjustmentAmount(String(r.adjustmentValue));
-    setUnit(r.adjustmentType === "FIXED" ? "INR" : "PERCENT");
+    setBaseRateValue(String(r.masterRatePlanId));
+    const adjustmentTypeIsPercent = r.adjustmentType !== "FIXED";
+    setAdjustmentAmount(
+      adjustmentTypeIsPercent && r.adjustmentValue > PERCENT_MAX
+        ? String(PERCENT_MAX)
+        : String(r.adjustmentValue),
+    );
+    setUnit(adjustmentTypeIsPercent ? "PERCENT" : "INR");
     setExtraGuestLink(r.linkExtraGuestRates ? "YES" : "NO");
+    const extraGuestTypeIsPercent = r.extraGuestAdjustmentType !== "FIXED";
+    const extraGuestValue =
+      r.extraGuestAdjustmentValue != null ? r.extraGuestAdjustmentValue : 0;
     setExtraGuestAmount(
-      r.extraGuestAdjustmentValue != null
-        ? String(r.extraGuestAdjustmentValue)
-        : "0",
+      extraGuestTypeIsPercent && extraGuestValue > PERCENT_MAX
+        ? String(PERCENT_MAX)
+        : String(extraGuestValue),
     );
-    setExtraGuestUnit(
-      r.extraGuestAdjustmentType === "FIXED" ? "INR" : "PERCENT",
-    );
+    setExtraGuestUnit(extraGuestTypeIsPercent ? "PERCENT" : "INR");
     setRestrictionsLink(r.copyRestrictions === false ? "NO" : "YES");
     setAdvancedOpen(
       r.linkExtraGuestRates || r.copyRestrictions !== undefined,
@@ -217,6 +244,19 @@ export function LinkRatePlansSheet({
     }
     const n = parseFloat(adjustmentAmount);
     const eg = parseFloat(extraGuestAmount);
+    if (unit === "PERCENT" && Number.isFinite(n) && n > PERCENT_MAX) {
+      onInvalid?.();
+      return;
+    }
+    if (
+      extraGuestLink === "YES" &&
+      extraGuestUnit === "PERCENT" &&
+      Number.isFinite(eg) &&
+      eg > PERCENT_MAX
+    ) {
+      onInvalid?.();
+      return;
+    }
     const payload: LinkRatePlansConfirmPayload = {
       masterRatePlanId,
       direction,
@@ -293,15 +333,29 @@ export function LinkRatePlansSheet({
                 <Input
                   type="number"
                   min={0}
+                  max={unit === "PERCENT" ? PERCENT_MAX : undefined}
                   step={unit === "PERCENT" ? 1 : 0.01}
                   value={adjustmentAmount}
-                  onChange={(e) => setAdjustmentAmount(e.target.value)}
+                  onChange={(e) =>
+                    handleAdjustmentInputChange(
+                      e.target.value,
+                      unit === "PERCENT",
+                      setAdjustmentAmount,
+                    )
+                  }
                   className="h-11"
                 />
               </div>
               <SegmentToggle
                 value={unit}
-                onChange={setUnit}
+                onChange={(nextUnit) => {
+                  setUnit(nextUnit);
+                  if (nextUnit === "PERCENT") {
+                    setAdjustmentAmount((prev) =>
+                      clampPercentAmount(prev),
+                    );
+                  }
+                }}
                 options={[
                   { value: "PERCENT", label: "%" },
                   { value: "INR", label: "₹" },
@@ -343,16 +397,32 @@ export function LinkRatePlansSheet({
                       <Input
                         type="number"
                         min={0}
+                        max={
+                          extraGuestUnit === "PERCENT" ? PERCENT_MAX : undefined
+                        }
                         step={extraGuestUnit === "PERCENT" ? 1 : 0.01}
                         value={extraGuestAmount}
-                        onChange={(e) => setExtraGuestAmount(e.target.value)}
+                        onChange={(e) =>
+                          handleAdjustmentInputChange(
+                            e.target.value,
+                            extraGuestUnit === "PERCENT",
+                            setExtraGuestAmount,
+                          )
+                        }
                         className="h-10"
                         placeholder="0"
                       />
                     </div>
                     <SegmentToggle
                       value={extraGuestUnit}
-                      onChange={setExtraGuestUnit}
+                      onChange={(nextUnit) => {
+                        setExtraGuestUnit(nextUnit);
+                        if (nextUnit === "PERCENT") {
+                          setExtraGuestAmount((prev) =>
+                            clampPercentAmount(prev),
+                          );
+                        }
+                      }}
                       options={[
                         { value: "PERCENT", label: "%" },
                         { value: "INR", label: "₹" },

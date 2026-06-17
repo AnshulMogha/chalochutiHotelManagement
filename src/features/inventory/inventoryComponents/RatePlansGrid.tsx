@@ -72,6 +72,8 @@ export interface OpenLinkRatePlansContext {
   /** Plan row that opened the sheet; excluded from base-plan dropdown. */
   currentRatePlanId: number;
   currentRatePlanName: string;
+  /** When true, load existing link config from GET /hotel/rate-plan/link. */
+  isLinkEnable?: boolean;
 }
 
 /** Calendar + room must allow linking; rate-plan `isLinkEnable` is handled in the UI separately. */
@@ -532,6 +534,7 @@ export const RatePlansGrid = ({
                                 roomName: room.roomName,
                                 currentRatePlanId: ratePlan.ratePlanId,
                                 currentRatePlanName: ratePlan.ratePlanName,
+                                isLinkEnable: ratePlan.isLinkEnable,
                               });
                             }}
                           >
@@ -559,6 +562,7 @@ export const RatePlansGrid = ({
                                   roomName: room.roomName,
                                   currentRatePlanId: ratePlan.ratePlanId,
                                   currentRatePlanName: ratePlan.ratePlanName,
+                                  isLinkEnable: ratePlan.isLinkEnable,
                                 });
                               }}
                             >
