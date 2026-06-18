@@ -82,6 +82,7 @@ export default function MissingRatesPage() {
   const hotelId = searchParams.get("hotelId") ?? "";
   const rateType = searchParams.get("rateType") ?? "RETAIL";
   const segmentLabel = searchParams.get("segment") ?? rateType;
+  const returnSection = searchParams.get("returnSection");
 
   const [startDate, setStartDate] = useState(
     searchParams.get("startDate") ?? "",
@@ -92,9 +93,15 @@ export default function MissingRatesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const backUrl = hotelId
-    ? `${ROUTES.RATE_INVENTORY.LIST}?hotelId=${encodeURIComponent(hotelId)}`
-    : ROUTES.RATE_INVENTORY.LIST;
+  const backUrl = useMemo(() => {
+    const listRoute =
+      returnSection === "rate-plans"
+        ? ROUTES.RATE_INVENTORY.LIST
+        : ROUTES.ROOM_INVENTORY.LIST;
+    return hotelId
+      ? `${listRoute}?hotelId=${encodeURIComponent(hotelId)}`
+      : listRoute;
+  }, [hotelId, returnSection]);
 
   const rateTypeLabel = RATE_TYPE_LABELS[rateType] ?? rateType;
 

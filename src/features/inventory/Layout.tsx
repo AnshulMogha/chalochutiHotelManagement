@@ -1120,7 +1120,7 @@ export default function Layout() {
                           TAB_OPTIONS.find((t) => t.id === activeTab)?.label ??
                           activeTab;
                         navigate(
-                          `${ROUTES.RATE_INVENTORY.MISSING_RATES}?hotelId=${encodeURIComponent(hotelId)}&startDate=${fromDate}&endDate=${toDate}&rateType=${encodeURIComponent(currentCustomerType)}&segment=${encodeURIComponent(segment)}`,
+                          `${ROUTES.RATE_INVENTORY.MISSING_RATES}?hotelId=${encodeURIComponent(hotelId)}&startDate=${fromDate}&endDate=${toDate}&rateType=${encodeURIComponent(currentCustomerType)}&segment=${encodeURIComponent(segment)}&returnSection=${encodeURIComponent(activeSidebarSection)}`,
                         );
                       }}
                       disabled={!hotelId}
