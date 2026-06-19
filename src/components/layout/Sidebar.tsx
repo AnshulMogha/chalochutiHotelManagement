@@ -67,6 +67,12 @@ const getNavItems = (user: User | null): NavItem[] => {
       path: ROUTES.ADMIN.TRAVEL_PARTNERS,
       icon: Handshake,
     });
+    items.push({
+      label: "Transfer",
+      path: ROUTES.ADMIN.TRANSPORT,
+      icon: Bus,
+      external: true,
+    });
     return items;
   }
   if (isSalesManager) {

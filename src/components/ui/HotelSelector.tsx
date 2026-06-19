@@ -7,7 +7,6 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 import { Button } from "./Button";
-import { propertyService } from "@/features/properties/services/propertyService";
 import { adminService } from "@/features/admin/services/adminService";
 import type { HotelListResponse } from "@/features/properties/services/api.types";
 import type {
@@ -16,8 +15,6 @@ import type {
 } from "@/features/admin/services/adminService";
 import { useLocation } from "react-router";
 import { ROUTES } from "@/constants";
-import { useAuth } from "@/hooks";
-import { isHotelOwner, isSuperAdmin } from "@/constants/roles";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 
 interface HotelSelectorProps {
@@ -31,9 +28,6 @@ export function HotelSelector({
   onHotelChange,
   className = "",
 }: HotelSelectorProps) {
-  const { user } = useAuth();
-  const isHotelOwnerUser = isHotelOwner(user?.roles);
-  const isSuperAdminUser = isSuperAdmin(user?.roles);
   // If parent hasn't provided a hotelId yet, fall back to persisted selection.
   // This prevents auto-selecting the first hotel by default.
   const effectiveSelectedHotelId =
@@ -46,70 +40,8 @@ export function HotelSelector({
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const location = useLocation();
-  const isBasicInfoPage = location.pathname === ROUTES.PROPERTY_INFO.BASIC_INFO;
-  const isRoomsRatePlansPage =
-    location.pathname === ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS;
-  const isPhotosVideosPage =
-    location.pathname === ROUTES.PROPERTY_INFO.PHOTOS_VIDEOS;
-  const isAmenitiesRestaurantsPage =
-    location.pathname === ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS;
-  const isPolicyRulesPage =
-    location.pathname === ROUTES.PROPERTY_INFO.POLICY_RULES;
-  const isFinancePage = location.pathname === ROUTES.PROPERTY_INFO.FINANCE;
-  const isDocumentPage = location.pathname === ROUTES.PROPERTY_INFO.DOCUMENT;
   const isDocumentReviewPage =
     location.pathname === ROUTES.ADMIN.DOCUMENT_REVIEW;
-  const isPropertyInfoPage =
-    isBasicInfoPage ||
-    isRoomsRatePlansPage ||
-    isPhotosVideosPage ||
-    isAmenitiesRestaurantsPage ||
-    isPolicyRulesPage ||
-    isFinancePage ||
-    isDocumentPage;
-
-  // Check inventory/rate-plans pages
-  const isInventoryRoomTypesPage =
-    location.pathname === ROUTES.ROOM_INVENTORY.LIST;
-  const isInventoryRatePlansPage =
-    location.pathname === ROUTES.RATE_INVENTORY.LIST;
-  const isBulkUpdateInventoryPage =
-    location.pathname === ROUTES.ROOM_INVENTORY.BULK_UPDATE;
-  const isBulkUpdateRatesPage = location.pathname === "/rates/bulk-update";
-  const isBulkUpdateRestrictionsPage =
-    location.pathname === "/restrictions/bulk-update";
-  const isInventoryPage =
-    isInventoryRoomTypesPage ||
-    isInventoryRatePlansPage ||
-    isBulkUpdateInventoryPage ||
-    isBulkUpdateRatesPage ||
-    isBulkUpdateRestrictionsPage;
-
-  // Check promotions pages
-  const isPromotionsListPage = location.pathname === ROUTES.PROMOTIONS.LIST;
-  const isPromotionsCreatePage = location.pathname.startsWith(
-    ROUTES.PROMOTIONS.CREATE,
-  );
-  const isPromotionsMyPromotionsPage =
-    location.pathname === ROUTES.PROMOTIONS.MY_PROMOTIONS;
-  const isPromotionsPage =
-    isPromotionsListPage ||
-    isPromotionsCreatePage ||
-    isPromotionsMyPromotionsPage;
-
-  // Check team page
-  const isTeamPage = location.pathname === ROUTES.TEAM.LIST;
-  // Check bookings page
-  const isBookingsPage = location.pathname === ROUTES.BOOKINGS.LIST;
-
-  // Combined check for pages that need hotel filtering (property info + inventory + promotions + document review + team + bookings)
-  const isHotelFilterPage =
-    isPropertyInfoPage ||
-    isInventoryPage ||
-    isPromotionsPage ||
-    isDocumentReviewPage ||
-    isTeamPage ||
-    isBookingsPage;
 
   const hasAutoSelectedRef = useRef(false);
 
@@ -124,25 +56,10 @@ export function HotelSelector({
     const fetchHotels = async () => {
       try {
         setIsLoading(true);
-        let data: (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[] =
-          [];
 
-        // Super admin uses lookup API with server-side search.
-        // Other roles (owner/manager/team users) use accessible hotels list.
-        if (isHotelFilterPage && isSuperAdminUser) {
-          const lookupHotels =
-            await adminService.getSuperAdminHotelLookup(debouncedSearch);
-          data = lookupHotels;
-        } else {
-          // For non-superadmin users, backend should return hotels they can access.
-          const allHotels = await propertyService.getAllHotels();
-          if (isHotelFilterPage && isHotelOwnerUser) {
-            // Filter to show only LIVE hotels for hotel owners on property info/promotions pages
-            data = allHotels.filter((hotel) => hotel.status === "LIVE");
-          } else {
-            data = allHotels;
-          }
-        }
+        // All roles use the same lookup API with server-side search.
+        let data: (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[] =
+          await adminService.getSuperAdminHotelLookup(debouncedSearch);
 
         // Filter the final list to show only LIVE hotels
         data = data.filter((hotel) => {
@@ -150,7 +67,7 @@ export function HotelSelector({
           if ("status" in hotel && hotel.status) {
             return hotel.status === "LIVE";
           }
-          // For approved hotels (which don't have status field but are LIVE by definition), include them
+          // For lookup hotels (which don't have status field but are LIVE by definition), include them
           return true;
         });
 
@@ -175,13 +92,7 @@ export function HotelSelector({
 
     fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    debouncedSearch,
-    isHotelFilterPage,
-    isHotelOwnerUser,
-    isSuperAdminUser,
-    selectedHotelId,
-  ]);
+  }, [debouncedSearch, selectedHotelId]);
 
   // Reset auto-select ref when selectedHotelId is cleared (allows re-auto-selection)
   useEffect(() => {
@@ -209,27 +120,25 @@ export function HotelSelector({
         align="start"
         className="w-64 max-h-[300px] overflow-y-auto"
       >
-        {isSuperAdminUser ? (
-          <div className="sticky top-0 z-10 border-b border-gray-100 bg-white p-2">
-            <div className="flex items-center gap-2 rounded-md border border-gray-200 px-2 py-1.5">
-              <Search className="h-3.5 w-3.5 text-gray-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.stopPropagation()}
-                placeholder="Search hotels..."
-                className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
-              />
-            </div>
+        <div className="sticky top-0 z-10 border-b border-gray-100 bg-white p-2">
+          <div className="flex items-center gap-2 rounded-md border border-gray-200 px-2 py-1.5">
+            <Search className="h-3.5 w-3.5 text-gray-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+              placeholder="Search hotels..."
+              className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
+            />
           </div>
-        ) : null}
+        </div>
         {isLoading ? (
           <div className="px-3 py-2 text-sm text-gray-500">
             Loading hotels...
           </div>
         ) : hotels.length === 0 ? (
           <div className="px-3 py-2 text-sm text-gray-500">
-            {isSuperAdminUser && debouncedSearch
+            {debouncedSearch
               ? "No hotels found. Try another search."
               : "No hotels available"}
           </div>
@@ -249,15 +158,8 @@ export function HotelSelector({
               <Building2 className="w-4 h-4 text-[#2f3d95]" />
               <div className="flex-1 min-w-0">
                 <div className="truncate text-sm font-medium">
-                  {isSuperAdminUser
-                    ? `${hotel.hotelName} (${hotel.hotelId})`
-                    : hotel.hotelName}
+                  {`${hotel.hotelName} (${hotel.hotelId})`}
                 </div>
-                {!isSuperAdminUser && hotel.hotelCode ? (
-                  <div className="truncate text-xs text-gray-500">
-                    {hotel.hotelCode}
-                  </div>
-                ) : null}
               </div>
             </DropdownMenuItem>
           ))

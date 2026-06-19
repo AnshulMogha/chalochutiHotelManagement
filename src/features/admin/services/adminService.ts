@@ -37,6 +37,7 @@ export interface HotelLookupItem {
   hotelId: string;
   hotelCode?: string;
   hotelName: string;
+  city?: string;
 }
 
 export interface ReviewRemark {
@@ -969,6 +970,9 @@ export const adminService = {
         const hotelCode = String(
           row.hotelCode ?? row.code ?? row.hotel_code ?? "",
         ).trim();
+        const city = String(
+          row.city ?? row.hotelCity ?? row.hotel_city ?? "",
+        ).trim();
         if (!hotelId || !hotelName) {
           return null;
         }
@@ -976,6 +980,7 @@ export const adminService = {
           hotelId,
           hotelName,
           hotelCode: hotelCode || undefined,
+          city: city || undefined,
         } satisfies HotelLookupItem;
       })
       .filter((hotel): hotel is HotelLookupItem => hotel !== null);

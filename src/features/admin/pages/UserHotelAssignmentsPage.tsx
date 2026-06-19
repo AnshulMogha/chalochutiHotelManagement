@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   useNavigate,
   useParams,
@@ -48,22 +48,31 @@ import {
   Unlock,
 } from "lucide-react";
 
-type HotelOption = { hotelId: string; hotelName: string; hotelCode: string };
+type HotelOption = {
+  hotelId: string;
+  hotelName: string;
+  hotelCode: string;
+  city: string;
+};
 
 function mapLookupToHotelOption(hotel: {
   hotelId: string;
   hotelName: string;
   hotelCode?: string;
+  city?: string;
 }): HotelOption {
   return {
     hotelId: hotel.hotelId,
     hotelName: hotel.hotelName.trim(),
     hotelCode: hotel.hotelCode?.trim() ?? "",
+    city: hotel.city?.trim() ?? "",
   };
 }
 
-function formatHotelWithId(hotel: Pick<HotelOption, "hotelName" | "hotelId">): string {
-  return `${hotel.hotelName} (${hotel.hotelId})`;
+function formatHotelWithCity(
+  hotel: Pick<HotelOption, "hotelName" | "city">,
+): string {
+  return hotel.city ? `${hotel.hotelName} (${hotel.city})` : hotel.hotelName;
 }
 
 /** Modules Super Admin can grant for Hotel BD at user level (Finance excluded by product policy). */
@@ -499,7 +508,7 @@ function AssignHotelModal({
                             (hotel) => hotel.hotelId === selectedHotelId,
                           );
                           return selectedHotel
-                            ? formatHotelWithId(selectedHotel)
+                            ? formatHotelWithCity(selectedHotel)
                             : "Select Hotel";
                         })()
                       : isLoadingHotels
@@ -562,9 +571,9 @@ function AssignHotelModal({
                       >
                         <span
                           className="truncate text-sm"
-                          title={formatHotelWithId(hotel)}
+                          title={formatHotelWithCity(hotel)}
                         >
-                          {formatHotelWithId(hotel)}
+                          {formatHotelWithCity(hotel)}
                         </span>
                         {isSelected && (
                           <Check className="w-4 h-4 text-blue-600 shrink-0" />
@@ -623,14 +632,14 @@ function RevokeAccessConfirmModal({
   onClose,
   onConfirm,
   userLabel,
-  count,
+  hotelLabel,
   isSubmitting,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => Promise<void>;
   userLabel: string;
-  count: number;
+  hotelLabel: string;
   isSubmitting: boolean;
 }) {
   if (!isOpen) return null;
@@ -654,7 +663,7 @@ function RevokeAccessConfirmModal({
             <div>
               <h2 className="text-xl font-bold text-gray-900">Revoke access</h2>
               <p className="text-sm text-gray-600">
-                Remove all hotel access for {userLabel}
+                Remove hotel access for {userLabel}
               </p>
             </div>
           </div>
@@ -671,9 +680,9 @@ function RevokeAccessConfirmModal({
         <div className="p-6 space-y-4">
           <p className="text-sm text-gray-700">
             This will revoke access for{" "}
-            <span className="font-semibold">{count}</span> hotel
-            {count === 1 ? "" : "s"} using the server access records. The user
-            will no longer appear in assignments until access is granted again.
+            <span className="font-semibold">{hotelLabel}</span>. The user will no
+            longer appear in this hotel&apos;s assignments until access is
+            granted again.
           </p>
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-gray-200">
             <Button
@@ -690,7 +699,7 @@ function RevokeAccessConfirmModal({
               disabled={isSubmitting}
               onClick={() => void onConfirm()}
             >
-              {isSubmitting ? "Revoking…" : "Revoke all access"}
+              {isSubmitting ? "Revoking…" : "Revoke access"}
             </Button>
           </div>
         </div>
@@ -717,8 +726,10 @@ export default function UserHotelAssignmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [revokeConfirmOpen, setRevokeConfirmOpen] = useState(false);
-  const [isRevokingAll, setIsRevokingAll] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<UserHotelAssignment | null>(
+    null,
+  );
+  const [isRevoking, setIsRevoking] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
   const [bdPermModalOpen, setBdPermModalOpen] = useState(false);
@@ -748,12 +759,19 @@ export default function UserHotelAssignmentsPage() {
             hotelId: hotel.hotelId,
             hotelName: hotel.hotelName,
             hotelCode: hotel.hotelCode,
+            city: "",
           }));
 
     const byId = new Map(hotels.map((h) => [h.hotelId, h]));
     const byCode = new Map(hotels.map((h) => [h.hotelCode, h]));
 
-    const enriched = rows.map((row) => {
+    // Only show LIVE hotels in the assignments list.
+    const liveRows = rows.filter((row) => {
+      const status = (row as Record<string, unknown>)["hotelStatus"];
+      return typeof status === "string" && status.toUpperCase() === "LIVE";
+    });
+
+    const enriched = liveRows.map((row) => {
       const accessId = extractAccessId(row);
       const normalized: UserHotelAssignment = {
         ...row,
@@ -822,6 +840,7 @@ export default function UserHotelAssignmentsPage() {
           hotelId: hotel.hotelId,
           hotelName: hotel.hotelName,
           hotelCode: hotel.hotelCode,
+          city: "",
         }));
     },
     [],
@@ -838,51 +857,34 @@ export default function UserHotelAssignmentsPage() {
     await loadAssignments();
   };
 
-  const revocableAccessIds = useMemo(() => {
-    const ids = assignments
-      .map((row) => extractAccessId(row))
-      .filter((id): id is number => id != null);
-    return [...new Set(ids)];
-  }, [assignments]);
+  const revokeTargetLabel = revokeTarget
+    ? String(revokeTarget.hotelName ?? revokeTarget.hotelCode ?? "this hotel")
+    : "";
 
-  const handleRevokeAllAccess = async () => {
-    if (revocableAccessIds.length === 0) {
+  const handleRevokeHotel = async () => {
+    if (!revokeTarget) return;
+    const accessId = extractAccessId(revokeTarget);
+    if (accessId == null) {
       setRevokeError(
-        "No access records to revoke. If assignments still appear, refresh or contact support.",
+        "No access record found for this hotel. Refresh and try again.",
       );
-      setRevokeConfirmOpen(false);
+      setRevokeTarget(null);
       return;
     }
-    setIsRevokingAll(true);
+    setIsRevoking(true);
     setRevokeError(null);
     try {
-      const results = await Promise.allSettled(
-        revocableAccessIds.map((id) => teamService.revokeAccess(id)),
-      );
-      const failed = results.filter((r) => r.status === "rejected").length;
-      if (failed > 0) {
-        const firstReason = results.find((r) => r.status === "rejected") as
-          | PromiseRejectedResult
-          | undefined;
-        const msg =
-          (firstReason?.reason as { message?: string })?.message ||
-          "Request failed";
-        setSuccessMessage(null);
-        setRevokeError(
-          failed === revocableAccessIds.length
-            ? msg
-            : `Revoked ${revocableAccessIds.length - failed} of ${revocableAccessIds.length}. ${msg}`,
-        );
-      } else {
-        setSuccessMessage("All hotel access revoked for this user.");
-      }
-      setRevokeConfirmOpen(false);
+      // Hotel-wise revoke: one call per hotel access record.
+      await teamService.revokeAccess(accessId);
+      setSuccessMessage(`Access revoked for ${revokeTargetLabel}.`);
+      setRevokeTarget(null);
       await loadAssignments();
     } catch (e: unknown) {
       const err = e as { message?: string };
+      setSuccessMessage(null);
       setRevokeError(err?.message || "Failed to revoke access");
     } finally {
-      setIsRevokingAll(false);
+      setIsRevoking(false);
     }
   };
 
@@ -999,21 +1001,6 @@ export default function UserHotelAssignmentsPage() {
               User permissions
             </Button>
           )}
-          {revocableAccessIds.length > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2 text-red-700 border-red-200 hover:bg-red-50"
-              disabled={isRevokingAll}
-              onClick={() => {
-                setRevokeError(null);
-                setRevokeConfirmOpen(true);
-              }}
-            >
-              <Trash2 className="w-4 h-4" />
-              Revoke Access
-            </Button>
-          )}
           <Button
             type="button"
             variant="primary"
@@ -1077,6 +1064,9 @@ export default function UserHotelAssignmentsPage() {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide">
                     Role
                   </th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-white uppercase tracking-wide">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
@@ -1095,6 +1085,21 @@ export default function UserHotelAssignmentsPage() {
                       {row.role != null && String(row.role).length > 0
                         ? String(row.role)
                         : "—"}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="gap-2 text-red-700 border-red-200 hover:bg-red-50"
+                        disabled={isRevoking}
+                        onClick={() => {
+                          setRevokeError(null);
+                          setRevokeTarget(row);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Revoke
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -1121,12 +1126,12 @@ export default function UserHotelAssignmentsPage() {
       />
 
       <RevokeAccessConfirmModal
-        isOpen={revokeConfirmOpen}
-        onClose={() => !isRevokingAll && setRevokeConfirmOpen(false)}
-        onConfirm={handleRevokeAllAccess}
+        isOpen={revokeTarget !== null}
+        onClose={() => !isRevoking && setRevokeTarget(null)}
+        onConfirm={handleRevokeHotel}
         userLabel={userLabel}
-        count={revocableAccessIds.length}
-        isSubmitting={isRevokingAll}
+        hotelLabel={revokeTargetLabel}
+        isSubmitting={isRevoking}
       />
 
       {showHotelBdUserPermissions && (

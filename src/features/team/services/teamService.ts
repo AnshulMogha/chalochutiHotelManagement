@@ -98,6 +98,7 @@ export const teamService = {
     return response.data;
   },
 
+  /** Revokes a single hotel access record (hotel-wise) by its access id. */
   revokeAccess: async (accessId: string | number): Promise<null> => {
     const response = await apiClient.delete<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.REVOKE_ACCESS(accessId)

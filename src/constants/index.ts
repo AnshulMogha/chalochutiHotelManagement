@@ -336,7 +336,8 @@ export const API_ENDPOINTS = {
     /** Path id: user-access record or user id (as per backend contract). */
     ASSIGN_PERMISSIONS: (accessIdOrUserId: string | number) =>
       `/user-access/${accessIdOrUserId}/permissions`,
-    REVOKE_ACCESS: (accessId: string | number) => `/user-access/${accessId}`,
+    /** Revokes a single hotel access record (hotel-wise) by its access id. */
+    REVOKE_ACCESS: (accessId: string | number) => `/hotel-access/${accessId}`,
   },
   INVENTORY: {
     GET_CALENDAR: (hotelId: string, fromDate: string, toDate: string) =>

@@ -719,7 +719,7 @@ export default function TravelPartnersPage() {
                           <div className="flex items-start gap-2">
                             <IdCard className="h-4 w-4 text-slate-500 mt-0.5 shrink-0" />
                             <div>
-                              <dt className="text-gray-500">Agency number</dt>
+                              <dt className="text-gray-500">Agency name</dt>
                               <dd className="font-medium text-gray-900">
                                 {selectedPartner.agencyNumber ?? "—"}
                               </dd>
