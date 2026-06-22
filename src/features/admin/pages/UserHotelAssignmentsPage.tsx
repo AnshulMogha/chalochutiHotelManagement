@@ -399,8 +399,8 @@ function AssignHotelModal({
       try {
         setIsLoadingHotels(true);
         setApiError(null);
-        const search = enableHotelSearch ? debouncedHotelSearch : "";
-        const list = await loadHotels(search);
+        // Load the full list and filter client-side (so city is searchable too).
+        const list = await loadHotels("");
         setHotels(list.filter((hotel) => !excludedHotelIds.has(hotel.hotelId)));
       } catch (error: unknown) {
         const err = error as { message?: string };
@@ -411,15 +411,18 @@ function AssignHotelModal({
       }
     };
     fetchHotels();
-  }, [
-    isOpen,
-    loadHotels,
-    excludedHotelIds,
-    enableHotelSearch,
-    debouncedHotelSearch,
-  ]);
+  }, [isOpen, loadHotels, excludedHotelIds]);
 
   if (!isOpen) return null;
+
+  const searchTerm = debouncedHotelSearch.toLowerCase();
+  const visibleHotels = searchTerm
+    ? hotels.filter((hotel) =>
+        [hotel.hotelName, hotel.hotelCode, hotel.city]
+          .filter(Boolean)
+          .some((field) => field.toLowerCase().includes(searchTerm)),
+      )
+    : hotels;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -534,7 +537,7 @@ function AssignHotelModal({
                         value={hotelSearch}
                         onChange={(e) => setHotelSearch(e.target.value)}
                         onKeyDown={(e) => e.stopPropagation()}
-                        placeholder="Search hotels..."
+                        placeholder="Search by name or city..."
                         className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
                       />
                     </div>
@@ -546,12 +549,14 @@ function AssignHotelModal({
                   </div>
                 ) : hotels.length === 0 ? (
                   <div className="px-3 py-2 text-sm text-gray-500">
-                    {enableHotelSearch && debouncedHotelSearch
-                      ? "No hotels found. Try another search."
-                      : "No hotels available"}
+                    No hotels available
+                  </div>
+                ) : visibleHotels.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-gray-500">
+                    No hotels found. Try another search.
                   </div>
                 ) : (
-                  hotels.map((hotel) => {
+                  visibleHotels.map((hotel) => {
                     const isSelected = selectedHotelId === hotel.hotelId;
                     return (
                       <DropdownMenuItem
