@@ -511,7 +511,9 @@ export default function BulkUpdateRatesPage() {
       setLoadingRooms(true);
       try {
         const data = await adminService.getHotelAdminRooms(hotelId);
-        setRooms(data.rooms || []);
+        setRooms(
+          (data.rooms || []).filter((room) => room.active !== false),
+        );
       } catch (error: any) {
         console.error("Error fetching rooms:", error);
         showToast(error?.message || "Failed to load rooms", "error");
