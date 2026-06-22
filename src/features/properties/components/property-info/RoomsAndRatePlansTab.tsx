@@ -21,6 +21,20 @@ interface RoomsAndRatePlansTabProps {
   hotelId: string;
 }
 
+function getRoomRatePlanLabel(
+  ratePlan: string | { ratePlanName?: string; plan_code?: string | null },
+): string {
+  if (typeof ratePlan === "string") return ratePlan;
+  return ratePlan.ratePlanName || ratePlan.plan_code || "Rate plan";
+}
+
+function isRoomRatePlanActive(
+  ratePlan: string | { ratePlanActive?: boolean },
+): boolean {
+  if (typeof ratePlan === "string") return true;
+  return ratePlan.ratePlanActive !== false;
+}
+
 export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
   const { user } = useAuth();
   const isHotelOwnerUser = isHotelOwner(user?.roles);
@@ -567,15 +581,21 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
                         {/* Rateplans */}
                         <td className="px-6 py-4">
                           <div className="flex flex-col gap-2">
-                            {room.ratePlans && room.ratePlans.length > 0 ? (
+                            {room.ratePlans?.some(isRoomRatePlanActive) ? (
                               <>
                                 <div className="flex flex-col gap-1.5">
-                                  {room.ratePlans.map((ratePlan, index) => (
+                                  {room.ratePlans
+                                    .filter(isRoomRatePlanActive)
+                                    .map((ratePlan, index) => (
                                     <div
-                                      key={index}
+                                      key={
+                                        typeof ratePlan === "string"
+                                          ? `${ratePlan}-${index}`
+                                          : ratePlan.ratePlanId
+                                      }
                                       className="text-sm text-gray-700 font-medium"
                                     >
-                                      {index + 1}. {ratePlan}
+                                      {index + 1}. {getRoomRatePlanLabel(ratePlan)}
                                     </div>
                                   ))}
                                 </div>

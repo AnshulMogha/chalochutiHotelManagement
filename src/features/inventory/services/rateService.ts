@@ -218,14 +218,16 @@ export const rateService = {
       ...response.data,
       rooms: response.data.rooms.map((room) => ({
         ...room,
-        ratePlans: [...room.ratePlans].sort((firstPlan, secondPlan) => {
-          const orderDiff =
-            getRatePlanOrder(firstPlan.plan_code) -
-            getRatePlanOrder(secondPlan.plan_code);
+        ratePlans: [...room.ratePlans]
+          .filter((plan) => plan.ratePlanActive !== false)
+          .sort((firstPlan, secondPlan) => {
+            const orderDiff =
+              getRatePlanOrder(firstPlan.plan_code) -
+              getRatePlanOrder(secondPlan.plan_code);
 
-          if (orderDiff !== 0) return orderDiff;
-          return firstPlan.ratePlanName.localeCompare(secondPlan.ratePlanName);
-        }),
+            if (orderDiff !== 0) return orderDiff;
+            return firstPlan.ratePlanName.localeCompare(secondPlan.ratePlanName);
+          }),
       })),
     };
   },

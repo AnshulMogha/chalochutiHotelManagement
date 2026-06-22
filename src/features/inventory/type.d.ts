@@ -104,6 +104,8 @@ export interface RoomRatePlan {
   ratePlanName: string;
   /** Meal plan code from API (e.g. EP, CP, MAP, AP). */
   plan_code?: string | null;
+  /** When false, hide this rate plan row from the calendar. */
+  ratePlanActive?: boolean;
   /** When false, hide the link control for this rate plan row. */
   isLinkEnable?: boolean;
   days: RoomRateDay[];

@@ -104,6 +104,22 @@ const getRatePlanOrder = (mealPlanCode?: string | null): number => {
   return RATE_PLAN_DISPLAY_ORDER[normalizedCode] ?? Number.MAX_SAFE_INTEGER;
 };
 
+function isBulkUpdateRatePlanActive(
+  ratePlan: AdminRatePlan,
+  roomRatePlanSummaries?: HotelRoom["ratePlans"],
+): boolean {
+  if (ratePlan.ratePlanActive === false || ratePlan.active === false) {
+    return false;
+  }
+  const summary = roomRatePlanSummaries?.find(
+    (rp) => typeof rp !== "string" && rp.ratePlanId === ratePlan.ratePlanId,
+  );
+  if (summary && typeof summary !== "string" && summary.ratePlanActive === false) {
+    return false;
+  }
+  return true;
+}
+
 const getRoomTypeOrder = (
   roomTypeCode?: string | null,
   roomName?: string,
@@ -559,7 +575,12 @@ export default function BulkUpdateRatesPage() {
     setLoadingRatePlans((prev) => ({ ...prev, [roomId]: true }));
     try {
       const data = await adminService.getRoomRatePlans(hotelId, roomId);
-      const sortedRatePlans = [...(data.ratePlans || [])].sort(
+      const roomData = rooms.find((room) => room.roomId === roomId);
+      const sortedRatePlans = [...(data.ratePlans || [])]
+        .filter((ratePlan) =>
+          isBulkUpdateRatePlanActive(ratePlan, roomData?.ratePlans),
+        )
+        .sort(
         (firstRatePlan, secondRatePlan) => {
           const orderDiff =
             getRatePlanOrder(firstRatePlan.mealPlan) -

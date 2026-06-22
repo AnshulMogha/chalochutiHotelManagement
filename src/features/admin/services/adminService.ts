@@ -682,6 +682,13 @@ export interface UpdateHotelAdminContactRequest {
   ownerPhone?: string | null;
 }
 
+export interface HotelRoomRatePlanSummary {
+  ratePlanId: number;
+  ratePlanName: string;
+  plan_code?: string | null;
+  ratePlanActive?: boolean;
+}
+
 export interface HotelRoom {
   roomId: string;
   roomKey?: string;
@@ -689,7 +696,7 @@ export interface HotelRoom {
   room_type_code?: string | null;
   description: string;
   active: boolean;
-  ratePlans: string[];
+  ratePlans: Array<string | HotelRoomRatePlanSummary>;
 }
 
 export interface HotelRoomsResponse {
@@ -739,6 +746,7 @@ export interface RatePlan {
   mealPlan: string;
   paymentMode: string | null;
   active: boolean;
+  ratePlanActive?: boolean;
 }
 
 export interface RoomRatePlansResponse {
