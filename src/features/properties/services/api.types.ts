@@ -187,6 +187,7 @@ export interface HotelListResponse {
   hotelId: string;
   hotelCode: string;
   hotelName: string;
+  city?: string;
   status: string;
   currentStep: string;
   locked: boolean;

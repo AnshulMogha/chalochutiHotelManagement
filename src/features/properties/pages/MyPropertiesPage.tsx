@@ -194,6 +194,7 @@ export default function MyPropertiesPage() {
           hotelId: hotel.hotelId,
           hotelCode: hotel.hotelCode,
           hotelName: hotel.hotelName,
+          city: hotel.city,
           status: hotel.status as HotelStatus,
           currentStep: hotel.currentStep,
           locked: hotel.locked,
@@ -205,6 +206,7 @@ export default function MyPropertiesPage() {
           hotelId: hotel.hotelId,
           hotelCode: hotel.hotelCode,
           hotelName: hotel.hotelName,
+          city: hotel.city,
           status: hotel.status as HotelStatus,
           currentStep: hotel.currentStep,
           locked: hotel.locked,
@@ -216,6 +218,7 @@ export default function MyPropertiesPage() {
           hotelId: hotel.hotelId,
           hotelCode: hotel.hotelCode,
           hotelName: hotel.hotelName,
+          city: hotel.city,
           status: hotel.status as HotelStatus,
           currentStep: hotel.currentStep,
           locked: hotel.locked,
@@ -241,6 +244,7 @@ export default function MyPropertiesPage() {
     const exportColumns: ExportColumn[] = [
       { field: "hotelName", headerName: "Hotel Name" },
       { field: "hotelCode", headerName: "Hotel Code" },
+      { field: "city", headerName: "City" },
       { field: "status", headerName: "Status" },
       ...(tab !== "active"
         ? [
@@ -278,6 +282,7 @@ export default function MyPropertiesPage() {
     const exportColumns: ExportColumn[] = [
       { field: "hotelName", headerName: "Hotel Name" },
       { field: "hotelCode", headerName: "Hotel Code" },
+      { field: "city", headerName: "City" },
       { field: "status", headerName: "Status" },
       ...(tab !== "active"
         ? [
@@ -371,6 +376,15 @@ export default function MyPropertiesPage() {
           <div className="text-sm text-gray-600 font-mono">
             {params.value || "N/A"}
           </div>
+        ),
+      },
+      {
+        field: "city",
+        headerName: "City",
+        flex: 0.7,
+        minWidth: 130,
+        renderCell: (params) => (
+          <div className="text-sm text-gray-600">{params.value || "N/A"}</div>
         ),
       },
       {

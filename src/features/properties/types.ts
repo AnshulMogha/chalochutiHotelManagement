@@ -173,6 +173,7 @@ export interface HotelList {
   hotelId: string;
   hotelCode?: string;
   hotelName: string;
+  city?: string;
   status: HotelStatus;
   currentStep: string;
   locked: boolean;
