@@ -32,7 +32,7 @@ function formatDisplayDate(dateStr: string): string {
   try {
     const d = parseISO(dateStr);
     if (!isValid(d)) return dateStr;
-    return format(d, "EEE, d MMM yyyy");
+    return format(d, "dd/MM/yyyy");
   } catch {
     return dateStr;
   }

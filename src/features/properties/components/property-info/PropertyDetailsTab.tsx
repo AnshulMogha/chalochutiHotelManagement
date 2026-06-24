@@ -410,7 +410,14 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
             <div>
               <Label>Created At</Label>
               <Input 
-                value={new Date(hotelData.createdAt).toLocaleString()} 
+                value={new Date(hotelData.createdAt).toLocaleString("en-GB", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                })} 
                 readOnly 
                 className="bg-gray-50"
                 icon={<Calendar className="w-4 h-4 text-pink-500" />}
@@ -419,7 +426,14 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
             <div>
               <Label>Updated At</Label>
               <Input 
-                value={new Date(hotelData.updatedAt).toLocaleString()} 
+                value={new Date(hotelData.updatedAt).toLocaleString("en-GB", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                })} 
                 readOnly 
                 className="bg-gray-50"
                 icon={<Calendar className="w-4 h-4 text-pink-500" />}

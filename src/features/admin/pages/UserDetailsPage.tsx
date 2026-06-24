@@ -22,12 +22,13 @@ import { cn } from "@/lib/utils";
 
 function formatDateTime(value?: string | null): string {
   if (!value) return "Never";
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
     year: "numeric",
-    month: "short",
-    day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 }
 

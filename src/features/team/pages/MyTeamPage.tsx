@@ -583,10 +583,10 @@ function TeamMemberDetailsModal({
                 <span>
                   Created:{" "}
                   {member.createdAt
-                    ? new Date(member.createdAt).toLocaleDateString("en-US", {
+                    ? new Date(member.createdAt).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "2-digit",
                         year: "numeric",
-                        month: "short",
-                        day: "numeric",
                       })
                     : "N/A"}
                 </span>
@@ -1434,11 +1434,11 @@ export default function MyTeamPage() {
                       <div className="text-sm text-gray-700">
                         {member.createdAt
                           ? new Date(member.createdAt).toLocaleDateString(
-                              "en-US",
+                              "en-GB",
                               {
+                                day: "2-digit",
+                                month: "2-digit",
                                 year: "numeric",
-                                month: "short",
-                                day: "numeric",
                               },
                             )
                           : "N/A"}

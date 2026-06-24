@@ -84,10 +84,10 @@ export default function BulkUpdateRestrictionsPage() {
   };
 
   const daysCount = differenceInDays(endDate, startDate) + 1;
-  const dateRangeText = `${format(startDate, "d MMM")} - ${format(
+  const dateRangeText = `${format(startDate, "dd/MM/yyyy")} - ${format(
     endDate,
-    "d MMM"
-  )} '${format(endDate, "yy")}, ${daysCount} ${daysCount === 1 ? "Day" : "Days"}`;
+    "dd/MM/yyyy"
+  )}, ${daysCount} ${daysCount === 1 ? "Day" : "Days"}`;
 
   const handleBlockInventoryChange = (checked: boolean) => {
     setBlockInventory(checked);

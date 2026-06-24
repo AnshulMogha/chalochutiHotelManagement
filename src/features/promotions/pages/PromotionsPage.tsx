@@ -325,7 +325,13 @@ export default function PromotionsPage() {
       const discount = String(promotion.discountAllUsers ?? "").toLowerCase();
       const expiring = (promotion.expiringLabel ?? "").toLowerCase();
       const lastModified = promotion.lastModified
-        ? new Date(promotion.lastModified).toLocaleDateString().toLowerCase()
+        ? new Date(promotion.lastModified)
+            .toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+            })
+            .toLowerCase()
         : "";
       return (
         name.includes(q) ||
@@ -669,7 +675,11 @@ export default function PromotionsPage() {
                           <div className="text-sm text-gray-500">
                             {new Date(
                               promotion.lastModified,
-                            ).toLocaleDateString()}
+                            ).toLocaleDateString("en-GB", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                            })}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

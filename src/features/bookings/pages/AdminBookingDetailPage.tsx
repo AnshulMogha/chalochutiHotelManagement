@@ -33,10 +33,9 @@ import {
 function formatDate(value: string | undefined): string {
   if (!value) return "—";
   try {
-    return new Date(value).toLocaleDateString("en-IN", {
-      weekday: "short",
+    return new Date(value).toLocaleDateString("en-GB", {
       day: "2-digit",
-      month: "short",
+      month: "2-digit",
       year: "numeric",
     });
   } catch {
@@ -47,12 +46,13 @@ function formatDate(value: string | undefined): string {
 function formatDateTime(value: string | undefined): string {
   if (!value) return "—";
   try {
-    return new Date(value).toLocaleString("en-IN", {
+    return new Date(value).toLocaleString("en-GB", {
       day: "2-digit",
-      month: "short",
+      month: "2-digit",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     });
   } catch {
     return String(value);

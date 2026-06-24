@@ -1266,7 +1266,11 @@ function CommissionRulesPanel({
                       if (commission.effectiveFrom) {
                         const date = new Date(commission.effectiveFrom);
                         if (!isNaN(date.getTime())) {
-                          effectiveDate = date.toLocaleDateString();
+                          effectiveDate = date.toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          });
                         }
                       }
                     } catch {
@@ -2029,7 +2033,11 @@ export default function CommissionAndTaxPage() {
                               // Handle both date formats: "2026-01-23" and ISO strings
                               const date = new Date(tax.effectiveFrom);
                               if (!isNaN(date.getTime())) {
-                                effectiveDate = date.toLocaleDateString();
+                                effectiveDate = date.toLocaleDateString("en-GB", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                });
                               }
                             }
                           } catch (error) {
@@ -2234,7 +2242,7 @@ export default function CommissionAndTaxPage() {
                               {fee.gstApplicable ? `${fee.gstRate}%` : "Not Applicable"}
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-700">
-                              {fee.effectiveFrom ? new Date(fee.effectiveFrom).toLocaleDateString() : "N/A"}
+                              {fee.effectiveFrom ? new Date(fee.effectiveFrom).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }) : "N/A"}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <StatusBadge active={fee.active ?? true} />

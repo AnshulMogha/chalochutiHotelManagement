@@ -1438,7 +1438,14 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                       <p className="text-xs text-gray-500">Created At</p>
                       <p className="font-medium text-gray-900 flex items-center gap-1.5">
                         <CalendarClock className="w-4 h-4 text-slate-600" />
-                        {new Date(viewingCancellationPolicy.createdAt).toLocaleString()}
+                        {new Date(viewingCancellationPolicy.createdAt).toLocaleString("en-GB", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: false,
+                        })}
                       </p>
                     </div>
                   </div>

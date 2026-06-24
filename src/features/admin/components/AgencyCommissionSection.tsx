@@ -565,10 +565,18 @@ export function AgencyIncentiveRulesPanel({
                     let effectiveTo = "—";
                     try {
                       if (row.effectiveFrom) {
-                        effectiveFrom = new Date(row.effectiveFrom).toLocaleDateString();
+                        effectiveFrom = new Date(row.effectiveFrom).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        });
                       }
                       if (row.effectiveTo) {
-                        effectiveTo = new Date(row.effectiveTo).toLocaleDateString();
+                        effectiveTo = new Date(row.effectiveTo).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        });
                       }
                     } catch {
                       /* keep defaults */

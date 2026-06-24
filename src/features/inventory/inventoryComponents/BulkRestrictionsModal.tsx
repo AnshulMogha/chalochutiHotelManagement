@@ -146,7 +146,7 @@ export const BulkRestrictionsModal = ({
   };
 
   const daysCount = differenceInDays(endDate, startDate) + 1;
-  const dateRangeText = `${format(startDate, 'd MMM')} - ${format(endDate, 'd MMM')} '${format(endDate, 'yy')}, ${daysCount} ${daysCount === 1 ? 'Day' : 'Days'}`;
+  const dateRangeText = `${format(startDate, 'dd/MM/yyyy')} - ${format(endDate, 'dd/MM/yyyy')}, ${daysCount} ${daysCount === 1 ? 'Day' : 'Days'}`;
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">

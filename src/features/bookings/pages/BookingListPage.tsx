@@ -27,9 +27,9 @@ import { VoucherViewModal } from "../components/VoucherViewModal";
 function formatDate(value: string | undefined): string {
   if (!value) return "—";
   try {
-    return new Date(value).toLocaleDateString("en-IN", {
+    return new Date(value).toLocaleDateString("en-GB", {
       day: "2-digit",
-      month: "short",
+      month: "2-digit",
       year: "numeric",
     });
   } catch {

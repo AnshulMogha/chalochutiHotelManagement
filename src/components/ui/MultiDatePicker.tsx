@@ -88,7 +88,7 @@ export function MultiDatePicker({
                 key={date}
                 className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-md"
               >
-                {format(new Date(date + "T00:00:00"), "MMM d")}
+                {format(new Date(date + "T00:00:00"), "dd/MM/yyyy")}
                 <button
                   type="button"
                   onClick={() =>
