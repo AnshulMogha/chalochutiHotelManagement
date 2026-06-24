@@ -534,6 +534,9 @@ function TaxFormModal({ isOpen, onClose, onSubmit, tax, mode }: TaxFormModalProp
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Raw string for the percentage input so the user can clear/edit freely
+  // (avoids a forced leading "0").
+  const [percentageInput, setPercentageInput] = useState("");
 
   useEffect(() => {
     if (mode === "edit" && tax) {
@@ -545,6 +548,9 @@ function TaxFormModal({ isOpen, onClose, onSubmit, tax, mode }: TaxFormModalProp
         maxAmount: tax.maxAmount || null,
         effectiveFrom: tax.effectiveFrom.split("T")[0],
       });
+      setPercentageInput(
+        tax.percentage != null ? String(tax.percentage) : "",
+      );
     } else {
       setFormData({
         taxType: "CGST",
@@ -554,6 +560,7 @@ function TaxFormModal({ isOpen, onClose, onSubmit, tax, mode }: TaxFormModalProp
         maxAmount: null,
         effectiveFrom: "",
       });
+      setPercentageInput("");
     }
     setErrors({});
     setApiError(null);
@@ -708,13 +715,22 @@ function TaxFormModal({ isOpen, onClose, onSubmit, tax, mode }: TaxFormModalProp
               step="0.01"
               min="0"
               max="100"
-              value={formData.percentage}
-              onChange={(e) =>
+              value={percentageInput}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "E") {
+                  e.preventDefault();
+                }
+              }}
+              onChange={(e) => {
+                const raw = e.target.value;
+                // Reject negative values.
+                if (raw.includes("-")) return;
+                setPercentageInput(raw);
                 setFormData({
                   ...formData,
-                  percentage: parseFloat(e.target.value) || 0,
-                })
-              }
+                  percentage: raw === "" ? 0 : parseFloat(raw) || 0,
+                });
+              }}
               error={errors.percentage}
               required
               icon={<Percent className="w-4 h-4 text-gray-400" />}
@@ -821,6 +837,10 @@ function ServiceFeeFormModal({ isOpen, onClose, onSubmit }: ServiceFeeFormModalP
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Raw strings for number inputs so the user can clear/edit freely
+  // (avoids a forced leading "0").
+  const [feeValueInput, setFeeValueInput] = useState("");
+  const [gstRateInput, setGstRateInput] = useState("18");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -833,6 +853,8 @@ function ServiceFeeFormModal({ isOpen, onClose, onSubmit }: ServiceFeeFormModalP
       gstRate: 18,
       effectiveFrom: "",
     });
+    setFeeValueInput("");
+    setGstRateInput("18");
     setErrors({});
     setApiError(null);
     setIsSubmitting(false);
@@ -979,13 +1001,22 @@ function ServiceFeeFormModal({ isOpen, onClose, onSubmit }: ServiceFeeFormModalP
               type="number"
               step="0.01"
               min="0"
-              value={formData.feeValue}
-              onChange={(e) =>
+              value={feeValueInput}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "E") {
+                  e.preventDefault();
+                }
+              }}
+              onChange={(e) => {
+                const raw = e.target.value;
+                // Reject negative values.
+                if (raw.includes("-")) return;
+                setFeeValueInput(raw);
                 setFormData((prev) => ({
                   ...prev,
-                  feeValue: parseFloat(e.target.value) || 0,
-                }))
-              }
+                  feeValue: raw === "" ? 0 : parseFloat(raw) || 0,
+                }));
+              }}
               error={errors.feeValue}
               required
             />
@@ -1014,13 +1045,22 @@ function ServiceFeeFormModal({ isOpen, onClose, onSubmit }: ServiceFeeFormModalP
                 type="number"
                 step="0.01"
                 min="0"
-                value={formData.gstRate}
-                onChange={(e) =>
+                value={gstRateInput}
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e" || e.key === "E") {
+                    e.preventDefault();
+                  }
+                }}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  // Reject negative values.
+                  if (raw.includes("-")) return;
+                  setGstRateInput(raw);
                   setFormData((prev) => ({
                     ...prev,
-                    gstRate: parseFloat(e.target.value) || 0,
-                  }))
-                }
+                    gstRate: raw === "" ? 0 : parseFloat(raw) || 0,
+                  }));
+                }}
                 error={errors.gstRate}
                 required
               />

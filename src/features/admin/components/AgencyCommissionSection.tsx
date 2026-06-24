@@ -111,6 +111,9 @@ export function AgencyIncentiveFormModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Raw string for the incentive value input so the user can clear/edit freely
+  // (avoids a forced leading "0").
+  const [incentiveValueInput, setIncentiveValueInput] = useState("");
   const todayIso = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
@@ -123,6 +126,7 @@ export function AgencyIncentiveFormModal({
       effectiveFrom: "",
       effectiveTo: "",
     });
+    setIncentiveValueInput("");
     setErrors({});
     setApiError(null);
   }, [isOpen]);
@@ -329,13 +333,22 @@ export function AgencyIncentiveFormModal({
               type="number"
               step="0.01"
               min="0"
-              value={formData.incentiveValue}
-              onChange={(e) =>
+              value={incentiveValueInput}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "E") {
+                  e.preventDefault();
+                }
+              }}
+              onChange={(e) => {
+                const raw = e.target.value;
+                // Reject negative values.
+                if (raw.includes("-")) return;
+                setIncentiveValueInput(raw);
                 setFormData({
                   ...formData,
-                  incentiveValue: parseFloat(e.target.value) || 0,
-                })
-              }
+                  incentiveValue: raw === "" ? 0 : parseFloat(raw) || 0,
+                });
+              }}
               error={errors.incentiveValue}
               required
               icon={
