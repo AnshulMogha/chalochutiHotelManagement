@@ -15,16 +15,18 @@ export function Toast({
   type,
   isVisible,
   onClose,
-  duration = 3000,
+  duration,
 }: ToastProps) {
+  // Errors need more reading time than success messages.
+  const effectiveDuration = duration ?? (type === "error" ? 8000 : 3000);
   useEffect(() => {
-    if (isVisible && duration > 0) {
+    if (isVisible && effectiveDuration > 0) {
       const timer = setTimeout(() => {
         onClose();
-      }, duration);
+      }, effectiveDuration);
       return () => clearTimeout(timer);
     }
-  }, [isVisible, duration, onClose]);
+  }, [isVisible, effectiveDuration, onClose]);
 
   if (!isVisible) return null;
 
