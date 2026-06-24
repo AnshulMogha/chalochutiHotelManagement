@@ -49,6 +49,9 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
   >([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
+  // City is auto-filled from the map/address lookup; require an explicit opt-in
+  // before allowing manual edits.
+  const [isCityEditable, setIsCityEditable] = useState(false);
 
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
@@ -546,16 +549,37 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
               required={canEditHowToReach}
             />
 
-            <Input
-              label="City"
-              value={locationData.city}
-              onChange={(e) => handleChange("location_city", e.target.value)}
-              error={errors.location_city}
-              icon={<MapPin className="w-4 h-4 text-red-500" />}
-              readOnly={!canEditHowToReach}
-              className={!canEditHowToReach ? "bg-gray-50" : ""}
-              required={canEditHowToReach}
-            />
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="block text-sm font-medium text-gray-700">
+                  City
+                  {canEditHowToReach && (
+                    <span className="ml-1 text-red-500">*</span>
+                  )}
+                </span>
+                {canEditHowToReach && (
+                  <label className="flex w-fit items-center gap-2 text-sm text-gray-600 select-none cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isCityEditable}
+                      onChange={(e) => setIsCityEditable(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-[#2f3d95] focus:ring-[#2f3d95]"
+                    />
+                    Edit city manually
+                  </label>
+                )}
+              </div>
+              <Input
+                value={locationData.city}
+                onChange={(e) => handleChange("location_city", e.target.value)}
+                error={errors.location_city}
+                icon={<MapPin className="w-4 h-4 text-red-500" />}
+                readOnly={!canEditHowToReach || !isCityEditable}
+                className={
+                  !canEditHowToReach || !isCityEditable ? "bg-gray-50" : ""
+                }
+              />
+            </div>
 
             <Input
               label="Pincode"

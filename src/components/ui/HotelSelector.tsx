@@ -57,9 +57,10 @@ export function HotelSelector({
       try {
         setIsLoading(true);
 
-        // All roles use the same lookup API with server-side search.
+        // Load the full lookup list once and filter client-side so search can
+        // match hotel name, code, or city (the backend search may not cover city).
         let data: (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[] =
-          await adminService.getSuperAdminHotelLookup(debouncedSearch);
+          await adminService.getSuperAdminHotelLookup("");
 
         // Filter the final list to show only LIVE hotels
         data = data.filter((hotel) => {
@@ -92,7 +93,18 @@ export function HotelSelector({
 
     fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, selectedHotelId]);
+  }, [selectedHotelId]);
+
+  const searchTerm = debouncedSearch.toLowerCase();
+  const visibleHotels = searchTerm
+    ? hotels.filter((hotel) => {
+        const city = "city" in hotel ? hotel.city : undefined;
+        const code = "hotelCode" in hotel ? hotel.hotelCode : undefined;
+        return [hotel.hotelName, code, city]
+          .filter((field): field is string => Boolean(field))
+          .some((field) => field.toLowerCase().includes(searchTerm));
+      })
+    : hotels;
 
   // Reset auto-select ref when selectedHotelId is cleared (allows re-auto-selection)
   useEffect(() => {
@@ -127,7 +139,7 @@ export function HotelSelector({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.stopPropagation()}
-              placeholder="Search hotels..."
+              placeholder="Search by name or city..."
               className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
             />
           </div>
@@ -136,33 +148,40 @@ export function HotelSelector({
           <div className="px-3 py-2 text-sm text-gray-500">
             Loading hotels...
           </div>
-        ) : hotels.length === 0 ? (
+        ) : visibleHotels.length === 0 ? (
           <div className="px-3 py-2 text-sm text-gray-500">
             {debouncedSearch
               ? "No hotels found. Try another search."
               : "No hotels available"}
           </div>
         ) : (
-          hotels.map((hotel) => (
-            <DropdownMenuItem
-              key={hotel.hotelId}
-              onClick={() => {
-                onHotelChange(hotel.hotelId);
-                setIsOpen(false);
-              }}
-              className={cn(
-                "flex items-center gap-2 cursor-pointer",
-                effectiveSelectedHotelId === hotel.hotelId && "bg-[#2f3d95]/10",
-              )}
-            >
-              <Building2 className="w-4 h-4 text-[#2f3d95]" />
-              <div className="flex-1 min-w-0">
-                <div className="truncate text-sm font-medium">
-                  {`${hotel.hotelName} (${hotel.hotelId})`}
+          visibleHotels.map((hotel) => {
+            const city = "city" in hotel ? hotel.city : undefined;
+            return (
+              <DropdownMenuItem
+                key={hotel.hotelId}
+                onClick={() => {
+                  onHotelChange(hotel.hotelId);
+                  setIsOpen(false);
+                }}
+                className={cn(
+                  "flex items-center gap-2 cursor-pointer",
+                  effectiveSelectedHotelId === hotel.hotelId &&
+                    "bg-[#2f3d95]/10",
+                )}
+              >
+                <Building2 className="w-4 h-4 text-[#2f3d95]" />
+                <div className="flex-1 min-w-0">
+                  <div className="truncate text-sm font-medium">
+                    {`${hotel.hotelName} (${hotel.hotelId})`}
+                  </div>
+                  {city && (
+                    <div className="truncate text-xs text-gray-500">{city}</div>
+                  )}
                 </div>
-              </div>
-            </DropdownMenuItem>
-          ))
+              </DropdownMenuItem>
+            );
+          })
         )}
       </DropdownMenuContent>
     </DropdownMenu>

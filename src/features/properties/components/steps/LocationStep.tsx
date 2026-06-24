@@ -158,6 +158,10 @@ export function LocationStep() {
   const searchTimeoutRef = useRef<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
+  // Allows the user to manually edit the city (which is normally auto-filled
+  // from the map / address lookup and kept read-only).
+  const [isCityEditable, setIsCityEditable] = useState(false);
+
   // Search state
   const [searchValue, setSearchValue] = useState("");
   const [suggestions, setSuggestions] = useState<
@@ -259,6 +263,13 @@ export function LocationStep() {
     setFormDataState(setPincode(value));
     if (errors?.pincode) {
       resetFieldError("locationInfo", "pincode");
+    }
+  };
+
+  const handleCityChange = (value: string) => {
+    setFormDataState(setCity(value));
+    if (errors?.city) {
+      resetFieldError("locationInfo", "city");
     }
   };
 
@@ -685,13 +696,31 @@ export function LocationStep() {
           disabled={!!readOnly}
         />
 
-        <Input
-          readOnly
-          label="City"
-          value={formDataState.locationInfo.city || ""}
-          required
-          error={errors?.city}
-        />
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="block text-sm font-medium text-gray-700">
+              City
+              <span className="ml-1 text-red-500">*</span>
+            </span>
+            <label className="flex w-fit items-center gap-2 text-sm text-gray-600 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isCityEditable}
+                onChange={(e) => setIsCityEditable(e.target.checked)}
+                disabled={!!readOnly}
+                className="h-4 w-4 rounded border-gray-300 text-[#2f3d95] focus:ring-[#2f3d95]"
+              />
+              Edit city manually
+            </label>
+          </div>
+          <Input
+            value={formDataState.locationInfo.city || ""}
+            onChange={(e) => handleCityChange(e.target.value)}
+            readOnly={!!readOnly || !isCityEditable}
+            required
+            error={errors?.city}
+          />
+        </div>
 
         <Input
           readOnly
