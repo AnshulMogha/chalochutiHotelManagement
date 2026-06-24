@@ -581,23 +581,35 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
                         {/* Rateplans */}
                         <td className="px-6 py-4">
                           <div className="flex flex-col gap-2">
-                            {room.ratePlans?.some(isRoomRatePlanActive) ? (
+                            {room.ratePlans && room.ratePlans.length > 0 ? (
                               <>
                                 <div className="flex flex-col gap-1.5">
-                                  {room.ratePlans
-                                    .filter(isRoomRatePlanActive)
-                                    .map((ratePlan, index) => (
-                                    <div
-                                      key={
-                                        typeof ratePlan === "string"
-                                          ? `${ratePlan}-${index}`
-                                          : ratePlan.ratePlanId
-                                      }
-                                      className="text-sm text-gray-700 font-medium"
-                                    >
-                                      {index + 1}. {getRoomRatePlanLabel(ratePlan)}
-                                    </div>
-                                  ))}
+                                  {room.ratePlans.map((ratePlan, index) => {
+                                    const isActive =
+                                      isRoomRatePlanActive(ratePlan);
+                                    return (
+                                      <div
+                                        key={
+                                          typeof ratePlan === "string"
+                                            ? `${ratePlan}-${index}`
+                                            : ratePlan.ratePlanId
+                                        }
+                                        className={`text-sm font-medium ${
+                                          isActive
+                                            ? "text-gray-700"
+                                            : "text-gray-400"
+                                        }`}
+                                      >
+                                        {index + 1}.{" "}
+                                        {getRoomRatePlanLabel(ratePlan)}
+                                        {!isActive && (
+                                          <span className="ml-1 text-xs italic text-gray-400">
+                                            (Suspended)
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                                 <button
                                   onClick={() =>

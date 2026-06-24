@@ -125,28 +125,40 @@ export function AddRatePlanModal({
       // Form will be reset by useEffect when modal closes
     } catch (error: any) {
       console.error("Error submitting rate plan:", error);
-      
-      // Extract error message from API response
-      // API response structure:
-      // {
-      //   data: {
-      //     mealPlan: "error.rate.plan.duplicate.meal.plan"
-      //   }
-      // }
-      // After interceptor: error.data contains the full ApiFailureResponse
-      // error.data.data contains the field-specific errors
-      const errorData = error?.data?.data || {};
-      
-      // Get the exact error message from the error data
-      // Priority: field-specific errors first, then general message
-      const errorMessage = 
-        errorData.mealPlan ||
-        errorData.ratePlanName ||
-        error?.data?.message ||
+
+      // The API client's response interceptor returns an ApiFailureResponse where
+      // `data` holds the field-specific errors, e.g.
+      //   { message: "One or more fields are invalid.", data: { mealPlan: "..." } }
+      const fieldErrors: Record<string, unknown> =
+        error?.data && typeof error.data === "object" ? error.data : {};
+
+      // Fall back to the first available field error for any unmapped field.
+      const firstFieldError = Object.values(fieldErrors).find(
+        (value): value is string =>
+          typeof value === "string" && value.trim().length > 0,
+      );
+
+      // Prefer the specific, human-readable field message over the generic one.
+      const errorMessage =
+        (typeof fieldErrors.mealPlan === "string" && fieldErrors.mealPlan) ||
+        (typeof fieldErrors.ratePlanName === "string" &&
+          fieldErrors.ratePlanName) ||
+        firstFieldError ||
         error?.message ||
         "Failed to save rate plan. Please try again.";
-      
-      // Show the exact error message from API
+
+      // Highlight the offending fields inline as well.
+      const inlineErrors: Record<string, string> = {};
+      if (typeof fieldErrors.mealPlan === "string") {
+        inlineErrors.mealPlan = fieldErrors.mealPlan;
+      }
+      if (typeof fieldErrors.ratePlanName === "string") {
+        inlineErrors.ratePlanName = fieldErrors.ratePlanName;
+      }
+      if (Object.keys(inlineErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...inlineErrors }));
+      }
+
       setApiError(errorMessage);
     }
   };
