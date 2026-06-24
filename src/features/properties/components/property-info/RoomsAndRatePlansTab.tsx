@@ -136,13 +136,29 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
   ) => {
     const newActiveStatus = !currentActive;
 
-    // Optimistic update
+    // Optimistic update (expanded detail table)
     setRatePlansData((prev) => ({
       ...prev,
       [roomId]: (prev[roomId] || []).map((rp) =>
         rp.ratePlanId === ratePlanId ? { ...rp, active: newActiveStatus } : rp,
       ),
     }));
+
+    // Optimistic update (summary column in the rooms table)
+    setRooms((prevRooms) =>
+      prevRooms.map((room) =>
+        room.roomId === roomId
+          ? {
+              ...room,
+              ratePlans: room.ratePlans.map((rp) =>
+                typeof rp !== "string" && rp.ratePlanId === ratePlanId
+                  ? { ...rp, ratePlanActive: newActiveStatus }
+                  : rp,
+              ),
+            }
+          : room,
+      ),
+    );
 
     try {
       await adminService.updateRatePlanActiveStatus(
@@ -170,6 +186,20 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
           rp.ratePlanId === ratePlanId ? { ...rp, active: currentActive } : rp,
         ),
       }));
+      setRooms((prevRooms) =>
+        prevRooms.map((room) =>
+          room.roomId === roomId
+            ? {
+                ...room,
+                ratePlans: room.ratePlans.map((rp) =>
+                  typeof rp !== "string" && rp.ratePlanId === ratePlanId
+                    ? { ...rp, ratePlanActive: currentActive }
+                    : rp,
+                ),
+              }
+            : room,
+        ),
+      );
     }
   };
 
@@ -197,7 +227,7 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
         data,
       );
 
-      // Add the new rate plan to the existing list
+      // Add the new rate plan to the existing list (expanded detail table)
       setRatePlansData((prev) => ({
         ...prev,
         [selectedRoomIdForRatePlan]: [
@@ -205,6 +235,25 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
           newRatePlan,
         ],
       }));
+
+      // Add the new rate plan to the summary column in the rooms table
+      setRooms((prevRooms) =>
+        prevRooms.map((room) =>
+          room.roomId === selectedRoomIdForRatePlan
+            ? {
+                ...room,
+                ratePlans: [
+                  ...room.ratePlans,
+                  {
+                    ratePlanId: newRatePlan.ratePlanId,
+                    ratePlanName: newRatePlan.ratePlanName,
+                    ratePlanActive: newRatePlan.active,
+                  },
+                ],
+              }
+            : room,
+        ),
+      );
 
       // Expand the rate plans section if not already expanded
       if (!expandedRatePlans.has(selectedRoomIdForRatePlan)) {
@@ -294,17 +343,43 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
         updatePayload,
       );
 
-      // Update the rate plan in the existing list
+      // The update endpoint may return null, so fall back to the submitted values.
+      const updatedName = updatedRatePlan?.ratePlanName ?? data.ratePlanName;
+      const updatedMealPlan = updatedRatePlan?.mealPlan ?? data.mealPlan;
+
+      // Update the rate plan in the existing list (expanded detail table)
       setRatePlansData((prev) => ({
         ...prev,
         [selectedRatePlanForEdit.roomId]: (
           prev[selectedRatePlanForEdit.roomId] || []
         ).map((rp) =>
           rp.ratePlanId === selectedRatePlanForEdit.ratePlanId
-            ? { ...rp, ...updatedRatePlan }
+            ? {
+                ...rp,
+                ...(updatedRatePlan ?? {}),
+                ratePlanName: updatedName,
+                mealPlan: updatedMealPlan,
+              }
             : rp,
         ),
       }));
+
+      // Update the rate plan name in the summary column of the rooms table
+      setRooms((prevRooms) =>
+        prevRooms.map((room) =>
+          room.roomId === selectedRatePlanForEdit.roomId
+            ? {
+                ...room,
+                ratePlans: room.ratePlans.map((rp) =>
+                  typeof rp !== "string" &&
+                  rp.ratePlanId === selectedRatePlanForEdit.ratePlanId
+                    ? { ...rp, ratePlanName: updatedName }
+                    : rp,
+                ),
+              }
+            : room,
+        ),
+      );
 
       showToast("Rate plan updated successfully!", "success");
       setIsEditRatePlanModalOpen(false);
