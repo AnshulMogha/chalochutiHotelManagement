@@ -21,12 +21,15 @@ interface HotelSelectorProps {
   selectedHotelId: string | null;
   onHotelChange: (hotelId: string) => void;
   className?: string;
+  /** Auto-select the first hotel when nothing is selected. Defaults to true. */
+  autoSelectFirst?: boolean;
 }
 
 export function HotelSelector({
   selectedHotelId,
   onHotelChange,
   className = "",
+  autoSelectFirst = true,
 }: HotelSelectorProps) {
   // If parent hasn't provided a hotelId yet, fall back to persisted selection.
   // This prevents auto-selecting the first hotel by default.
@@ -76,6 +79,7 @@ export function HotelSelector({
         // Auto-select first hotel if none selected (but not on document review page)
         // Always auto-select if no hotelId is in URL params (selectedHotelId is null)
         if (
+          autoSelectFirst &&
           !effectiveSelectedHotelId &&
           data.length > 0 &&
           data[0].hotelId &&

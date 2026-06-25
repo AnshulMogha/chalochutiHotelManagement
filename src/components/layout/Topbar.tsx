@@ -94,6 +94,10 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   // Check bookings page
   const isBookingsPage = location.pathname === ROUTES.BOOKINGS.LIST;
 
+  // Check My Properties page. Selecting a hotel here jumps to its info.
+  const isMyPropertiesPage =
+    location.pathname === ROUTES.PROPERTIES.MY_PROPERTY;
+
   // Show hotel selector on hotel-scoped pages for all roles.
   // Access to pages themselves is still controlled by role/permission checks.
   const shouldShowHotelSelector =
@@ -102,7 +106,8 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     isPromotionsPage ||
     isTeamPage ||
     isBookingsPage ||
-    isDocumentReviewPage;
+    isDocumentReviewPage ||
+    isMyPropertiesPage;
   const hotelIdFromUrl = searchParams.get("hotelId");
   const selectedHotelId = hotelIdFromUrl ?? getStoredSelectedHotelId();
 
@@ -116,7 +121,8 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
 
   // Keep URL in sync with persisted hotel when navigating to hotel-scoped pages without ?hotelId=
   useEffect(() => {
-    if (!shouldShowHotelSelector) return;
+    // Don't push a ?hotelId param onto the My Properties URL.
+    if (!shouldShowHotelSelector || isMyPropertiesPage) return;
     const fromUrl = searchParams.get("hotelId");
     if (fromUrl) {
       setStoredSelectedHotelId(fromUrl);
@@ -137,6 +143,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     }
   }, [
     shouldShowHotelSelector,
+    isMyPropertiesPage,
     location.pathname,
     location.search,
     setSearchParams,
@@ -145,6 +152,11 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   const handleHotelChange = useCallback(
     (hotelId: string) => {
       setStoredSelectedHotelId(hotelId);
+      // From My Properties, selecting a hotel opens its Property Info.
+      if (isMyPropertiesPage) {
+        navigate(`${ROUTES.PROPERTY_INFO.BASIC_INFO}?hotelId=${hotelId}`);
+        return;
+      }
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -154,7 +166,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
         { replace: true },
       );
     },
-    [setSearchParams],
+    [setSearchParams, isMyPropertiesPage, navigate],
   );
 
   const getInitials = (email: string) => {
@@ -198,8 +210,9 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
             {shouldShowHotelSelector && (
               <div className="ml-4">
                 <HotelSelector
-                  selectedHotelId={selectedHotelId}
+                  selectedHotelId={isMyPropertiesPage ? null : selectedHotelId}
                   onHotelChange={handleHotelChange}
+                  autoSelectFirst={!isMyPropertiesPage}
                 />
               </div>
             )}
