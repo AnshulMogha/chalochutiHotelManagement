@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   commissionTaxService,
   type Commission,
@@ -25,7 +25,7 @@ import {
 } from "../components/ListStatusFilter";
 import {
   adminService,
-  type ApprovedHotelItem,
+  type HotelLookupItem,
 } from "../services/adminService";
 import { Button, Input, Select, LoadingSpinner, Card, CardHeader, CardTitle, CardContent, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -163,11 +163,18 @@ function CommissionFormModal({
     commissionValue: 0,
     effectiveFrom: "",
   });
+  // Raw string mirror of commissionValue so the user can freely clear/edit the
+  // field without a forced leading zero.
+  const [commissionValueInput, setCommissionValueInput] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hotels, setHotels] = useState<ApprovedHotelItem[]>([]);
+  const [hotels, setHotels] = useState<HotelLookupItem[]>([]);
   const [isLoadingHotels, setIsLoadingHotels] = useState(false);
+  // Searchable hotel dropdown (matches the top-bar hotel selector behavior).
+  const [hotelSearch, setHotelSearch] = useState("");
+  const [isHotelDropdownOpen, setIsHotelDropdownOpen] = useState(false);
+  const hotelDropdownRef = useRef<HTMLDivElement | null>(null);
   const todayIso = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
@@ -182,6 +189,7 @@ function CommissionFormModal({
         commissionValue: commission.commissionValue,
         effectiveFrom: commission.effectiveFrom.split("T")[0],
       });
+      setCommissionValueInput(String(commission.commissionValue ?? ""));
     } else {
       setFormData({
         scope: "GLOBAL",
@@ -190,6 +198,7 @@ function CommissionFormModal({
         commissionValue: 0,
         effectiveFrom: "",
       });
+      setCommissionValueInput("");
     }
     setErrors({});
     setApiError(null);
@@ -201,8 +210,10 @@ function CommissionFormModal({
       if (formData.scope === "HOTEL") {
         try {
           setIsLoadingHotels(true);
-          const approvedHotels = await adminService.getApprovedHotels();
-          setHotels(approvedHotels);
+          // Use the same lookup API as the hotel selector dropdown so the list
+          // includes city and can be searched by name or city.
+          const lookupHotels = await adminService.getSuperAdminHotelLookup("");
+          setHotels(lookupHotels);
         } catch (error) {
           console.error("Error fetching hotels:", error);
           setHotels([]);
@@ -218,6 +229,25 @@ function CommissionFormModal({
       fetchScopeMasters();
     }
   }, [formData.scope, isOpen]);
+
+  // Close the searchable hotel dropdown when clicking outside it.
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        hotelDropdownRef.current &&
+        !hotelDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsHotelDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Reset the hotel search box when the dropdown closes or scope changes.
+  useEffect(() => {
+    if (!isHotelDropdownOpen) setHotelSearch("");
+  }, [isHotelDropdownOpen]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -378,27 +408,128 @@ function CommissionFormModal({
           {formData.scope !== "GLOBAL" && (
             <div className="mb-6">
               {formData.scope === "HOTEL" ? (
-                <Select
-                  label="Hotel"
-                  value={formData.scopeValue || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, scopeValue: e.target.value || null })
-                  }
-                  error={errors.scopeValue}
-                  required
-                  icon={<Building2 className="w-4 h-4 text-gray-400" />}
-                  options={
-                    isLoadingHotels
-                      ? [{ value: "", label: "Loading hotels..." }]
-                      : hotels.length > 0
-                      ? hotels.map((hotel) => ({
-                          value: hotel.hotelId,
-                          label: `${hotel.hotelName} (${hotel.hotelCode})`,
-                        }))
-                      : [{ value: "", label: "No hotels available" }]
-                  }
-                  disabled={isLoadingHotels}
-                />
+                (() => {
+                  const selectedHotel = hotels.find(
+                    (h) => h.hotelId === formData.scopeValue,
+                  );
+                  const term = hotelSearch.trim().toLowerCase();
+                  const visibleHotels = term
+                    ? hotels.filter((hotel) =>
+                        [hotel.hotelName, hotel.hotelCode, hotel.city]
+                          .filter((field): field is string => Boolean(field))
+                          .some((field) =>
+                            field.toLowerCase().includes(term),
+                          ),
+                      )
+                    : hotels;
+                  return (
+                    <div ref={hotelDropdownRef}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Hotel
+                        <span className="ml-1 text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            !isLoadingHotels &&
+                            setIsHotelDropdownOpen((prev) => !prev)
+                          }
+                          disabled={isLoadingHotels}
+                          className={cn(
+                            "flex w-full items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 text-left text-sm transition-colors",
+                            errors.scopeValue
+                              ? "border-red-400"
+                              : "border-gray-300",
+                            isLoadingHotels && "cursor-not-allowed opacity-60",
+                          )}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <Building2 className="h-4 w-4 shrink-0 text-gray-400" />
+                            <span
+                              className={cn(
+                                "truncate",
+                                !selectedHotel && "text-gray-400",
+                              )}
+                            >
+                              {isLoadingHotels
+                                ? "Loading hotels..."
+                                : selectedHotel
+                                  ? `${selectedHotel.hotelName}${
+                                      selectedHotel.city
+                                        ? ` (${selectedHotel.city})`
+                                        : ""
+                                    }`
+                                  : "Select a hotel"}
+                            </span>
+                          </span>
+                        </button>
+
+                        {isHotelDropdownOpen && !isLoadingHotels && (
+                          <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                            <div className="sticky top-0 z-10 border-b border-gray-100 bg-white p-2">
+                              <div className="flex items-center gap-2 rounded-md border border-gray-200 px-2 py-1.5">
+                                <Search className="h-3.5 w-3.5 text-gray-400" />
+                                <input
+                                  autoFocus
+                                  value={hotelSearch}
+                                  onChange={(e) =>
+                                    setHotelSearch(e.target.value)
+                                  }
+                                  placeholder="Search by name or city..."
+                                  className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400"
+                                />
+                              </div>
+                            </div>
+                            {visibleHotels.length === 0 ? (
+                              <div className="px-3 py-2 text-sm text-gray-500">
+                                {hotels.length === 0
+                                  ? "No hotels available"
+                                  : "No hotels found. Try another search."}
+                              </div>
+                            ) : (
+                              visibleHotels.map((hotel) => (
+                                <button
+                                  type="button"
+                                  key={hotel.hotelId}
+                                  onClick={() => {
+                                    setFormData({
+                                      ...formData,
+                                      scopeValue: hotel.hotelId,
+                                    });
+                                    setIsHotelDropdownOpen(false);
+                                  }}
+                                  className={cn(
+                                    "flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50",
+                                    formData.scopeValue === hotel.hotelId &&
+                                      "bg-[#2f3d95]/10",
+                                  )}
+                                >
+                                  <Building2 className="h-4 w-4 shrink-0 text-[#2f3d95]" />
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm font-medium">
+                                      {hotel.hotelName}
+                                    </span>
+                                    {hotel.city && (
+                                      <span className="block truncate text-xs text-gray-500">
+                                        {hotel.city}
+                                      </span>
+                                    )}
+                                  </span>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {errors.scopeValue && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.scopeValue}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()
               ) : formData.scope === "CHANNEL" ? (
                 <Select
                   label="Channel Name"
@@ -466,13 +597,21 @@ function CommissionFormModal({
               type="number"
               step="0.01"
               min="0"
-              value={formData.commissionValue}
-              onChange={(e) =>
+              value={commissionValueInput}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "E") {
+                  e.preventDefault();
+                }
+              }}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw.includes("-")) return;
+                setCommissionValueInput(raw);
                 setFormData({
                   ...formData,
-                  commissionValue: parseFloat(e.target.value) || 0,
-                })
-              }
+                  commissionValue: raw === "" ? 0 : parseFloat(raw) || 0,
+                });
+              }}
               error={errors.commissionValue}
               required
               icon={formData.commissionType === "PERCENTAGE" ? <Percent className="w-4 h-4 text-gray-400" /> : <IndianRupee className="w-4 h-4 text-gray-400" />}
