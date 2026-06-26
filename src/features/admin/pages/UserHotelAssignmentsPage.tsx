@@ -94,6 +94,7 @@ const HOTEL_BD_PERMISSION_MODULES: {
   { value: "PROPERTY_DOCUMENT", label: "Property - Documents" },
   { value: "RATES_INVENTORY", label: "Rates & Inventory" },
   { value: "OFFERS", label: "Promotions" },
+  { value: "BOOKINGS", label: "Bookings" },
 ];
 
 function HotelBdPermissionsModal({
@@ -273,6 +274,8 @@ function HotelBdPermissionsModal({
                   );
                   const canView = permission?.canView ?? false;
                   const canEdit = permission?.canEdit ?? false;
+                  // Bookings is view-only for Hotel BD, so no Edit toggle.
+                  const isViewOnlyModule = mod.value === "BOOKINGS";
                   return (
                     <div
                       key={mod.value}
@@ -299,25 +302,27 @@ function HotelBdPermissionsModal({
                           )}
                           View
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleEdit(mod.value)}
-                          disabled={!canView}
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                            canEdit
-                              ? "bg-green-100 text-green-700 hover:bg-green-200"
-                              : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-                            !canView && "opacity-50 cursor-not-allowed",
-                          )}
-                        >
-                          {canEdit ? (
-                            <Unlock className="w-4 h-4" />
-                          ) : (
-                            <Lock className="w-4 h-4" />
-                          )}
-                          Edit
-                        </button>
+                        {!isViewOnlyModule && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleEdit(mod.value)}
+                            disabled={!canView}
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                              canEdit
+                                ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                              !canView && "opacity-50 cursor-not-allowed",
+                            )}
+                          >
+                            {canEdit ? (
+                              <Unlock className="w-4 h-4" />
+                            ) : (
+                              <Lock className="w-4 h-4" />
+                            )}
+                            Edit
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

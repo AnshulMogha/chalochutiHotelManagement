@@ -307,6 +307,15 @@ const getNavItems = (user: User | null): NavItem[] => {
             },
           ]
         : []),
+      ...(canViewModule(user, "BOOKINGS")
+        ? [
+            {
+              label: "Bookings",
+              path: ROUTES.BOOKINGS.LIST,
+              icon: BookOpen,
+            },
+          ]
+        : []),
     );
   }
 
