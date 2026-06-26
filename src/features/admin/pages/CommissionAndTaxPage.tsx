@@ -1280,8 +1280,8 @@ interface CommissionRulesPanelProps {
   onDeactivate: (id: string) => void;
   statusFilter: ListStatusFilterValue;
   onStatusFilterChange: (value: ListStatusFilterValue) => void;
-  activeCount: number;
-  inactiveCount: number;
+  activeCount?: number;
+  inactiveCount?: number;
   statusFilteredCount: number;
 }
 
@@ -1335,27 +1335,25 @@ function CommissionRulesPanel({
             <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
-        {commissions.length > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <ListStatusFilterTabs
-              value={statusFilter}
-              onChange={onStatusFilterChange}
-              activeCount={activeCount}
-              inactiveCount={inactiveCount}
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <ListStatusFilterTabs
+            value={statusFilter}
+            onChange={onStatusFilterChange}
+            activeCount={activeCount}
+            inactiveCount={inactiveCount}
+          />
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <Input
+              type="text"
+              placeholder={searchPlaceholder}
+              value={commissionSearch}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-9"
             />
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              <Input
-                type="text"
-                placeholder={searchPlaceholder}
-                value={commissionSearch}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-9"
-              />
-            </div>
           </div>
-        )}
-        {commissions.length === 0 ? (
+        </div>
+        {commissions.length === 0 && statusFilter === "active" ? (
           <div className="text-center py-12">
             <Percent className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-600 text-lg font-medium mb-2">{emptyTitle}</p>
@@ -1673,8 +1671,6 @@ export default function CommissionAndTaxPage() {
   const [serviceFeeSearch, setServiceFeeSearch] = useState("");
 
   const otaCommissions = commissions.filter((c) => c.scope !== "AGENCY_TIER");
-  const otaActiveCount = otaCommissions.filter((c) => c.active !== false).length;
-  const otaInactiveCount = otaCommissions.filter((c) => c.active === false).length;
   const otaStatusFiltered = otaCommissions.filter((c) =>
     matchesListStatusFilter(c.active, otaStatusFilter),
   );
@@ -1750,6 +1746,7 @@ export default function CommissionAndTaxPage() {
     activeTab,
     commissionPage,
     commissionPageSize,
+    otaStatusFilter,
     agentIncentivePage,
     agentIncentivePageSize,
   ]);
@@ -1758,7 +1755,11 @@ export default function CommissionAndTaxPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await commissionTaxService.getCommissions({ page, size });
+      const response = await commissionTaxService.getCommissions({
+        page,
+        size,
+        active: otaStatusFilter === "active",
+      });
       setCommissions(response.commissions || []);
       setCommissionTotal(response.total || 0);
       setCommissionTotalPages(
@@ -2017,9 +2018,14 @@ export default function CommissionAndTaxPage() {
               setShowDeactivateCommissionModal(true);
             }}
             statusFilter={otaStatusFilter}
-            onStatusFilterChange={setOtaStatusFilter}
-            activeCount={otaActiveCount}
-            inactiveCount={otaInactiveCount}
+            onStatusFilterChange={(value) => {
+              setCommissionPage(0);
+              setOtaStatusFilter(value);
+            }}
+            activeCount={otaStatusFilter === "active" ? commissionTotal : undefined}
+            inactiveCount={
+              otaStatusFilter === "inactive" ? commissionTotal : undefined
+            }
             statusFilteredCount={otaStatusFiltered.length}
           />
         </TabsContent>

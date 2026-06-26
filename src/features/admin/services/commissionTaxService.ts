@@ -120,7 +120,7 @@ export const commissionTaxService = {
     return response.data;
   },
   getCommissions: async (
-    params?: { page?: number; size?: number },
+    params?: { page?: number; size?: number; active?: boolean },
   ): Promise<CommissionListResponse> => {
     const response = await apiClient.get<ApiSuccessResponse<Commission[] | CommissionListResponse>>(
       API_ENDPOINTS.ADMIN.GET_COMMISSIONS,
