@@ -408,8 +408,8 @@ export interface AgencyIncentiveRulesPanelProps {
   onSearchChange: (value: string) => void;
   statusFilter: ListStatusFilterValue;
   onStatusFilterChange: (value: ListStatusFilterValue) => void;
-  activeCount: number;
-  inactiveCount: number;
+  activeCount?: number;
+  inactiveCount?: number;
   onAdd: () => void;
   error: string | null;
   isLoading: boolean;
@@ -470,27 +470,25 @@ export function AgencyIncentiveRulesPanel({
             <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
-        {incentives.length > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <ListStatusFilterTabs
-              value={statusFilter}
-              onChange={onStatusFilterChange}
-              activeCount={activeCount}
-              inactiveCount={inactiveCount}
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <ListStatusFilterTabs
+            value={statusFilter}
+            onChange={onStatusFilterChange}
+            activeCount={activeCount}
+            inactiveCount={inactiveCount}
+          />
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <Input
+              type="text"
+              placeholder="Search agency commissions..."
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-9"
             />
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              <Input
-                type="text"
-                placeholder="Search agency commissions..."
-                value={search}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-9"
-              />
-            </div>
           </div>
-        )}
-        {incentives.length === 0 ? (
+        </div>
+        {incentives.length === 0 && statusFilter === "active" ? (
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-600 text-lg font-medium mb-2">

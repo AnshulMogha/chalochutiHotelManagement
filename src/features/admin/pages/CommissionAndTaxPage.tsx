@@ -1678,8 +1678,6 @@ export default function CommissionAndTaxPage() {
     matchesCommissionSearch(c, otaCommissionSearch),
   );
 
-  const agencyActiveCount = agentIncentives.filter((r) => r.active !== false).length;
-  const agencyInactiveCount = agentIncentives.filter((r) => r.active === false).length;
   const agencyStatusFiltered = agentIncentives.filter((row) =>
     matchesListStatusFilter(row.active, agencyStatusFilter),
   );
@@ -1747,6 +1745,7 @@ export default function CommissionAndTaxPage() {
     commissionPage,
     commissionPageSize,
     otaStatusFilter,
+    agencyStatusFilter,
     agentIncentivePage,
     agentIncentivePageSize,
   ]);
@@ -1817,7 +1816,11 @@ export default function CommissionAndTaxPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await agentIncentiveService.getList({ page, size });
+      const response = await agentIncentiveService.getList({
+        page,
+        size,
+        active: agencyStatusFilter === "active",
+      });
       setAgentIncentives(response.incentives || []);
       setAgentIncentiveTotal(response.total || 0);
       setAgentIncentiveTotalPages(
@@ -2038,9 +2041,16 @@ export default function CommissionAndTaxPage() {
             search={agencyCommissionSearch}
             onSearchChange={setAgencyCommissionSearch}
             statusFilter={agencyStatusFilter}
-            onStatusFilterChange={setAgencyStatusFilter}
-            activeCount={agencyActiveCount}
-            inactiveCount={agencyInactiveCount}
+            onStatusFilterChange={(value) => {
+              setAgentIncentivePage(0);
+              setAgencyStatusFilter(value);
+            }}
+            activeCount={
+              agencyStatusFilter === "active" ? agentIncentiveTotal : undefined
+            }
+            inactiveCount={
+              agencyStatusFilter === "inactive" ? agentIncentiveTotal : undefined
+            }
             onAdd={() => setShowAgencyIncentiveModal(true)}
             error={error}
             isLoading={isLoading}

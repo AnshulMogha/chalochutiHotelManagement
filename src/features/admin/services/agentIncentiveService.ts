@@ -115,6 +115,7 @@ export const agentIncentiveService = {
   getList: async (params?: {
     page?: number;
     size?: number;
+    active?: boolean;
   }): Promise<AgentIncentiveListResponse> => {
     const response = await apiClient.get<
       ApiSuccessResponse<AgentIncentive[] | AgentIncentiveListResponse>
