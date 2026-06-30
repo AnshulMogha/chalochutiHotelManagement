@@ -34,7 +34,7 @@ const ROOM_THEMES = [
     nameBg: 'bg-indigo-50/70',
     nameText: 'text-indigo-900',
     dot: 'bg-indigo-500',
-    divider: 'border-t-indigo-200',
+    divider: 'border-t-indigo-600',
     expandedBg: 'bg-indigo-50/30',
     chip: 'bg-indigo-100 text-indigo-700 border-indigo-200',
   },
@@ -43,7 +43,7 @@ const ROOM_THEMES = [
     nameBg: 'bg-emerald-50/70',
     nameText: 'text-emerald-900',
     dot: 'bg-emerald-500',
-    divider: 'border-t-emerald-200',
+    divider: 'border-t-emerald-600',
     expandedBg: 'bg-emerald-50/30',
     chip: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   },
@@ -52,7 +52,7 @@ const ROOM_THEMES = [
     nameBg: 'bg-amber-50/70',
     nameText: 'text-amber-900',
     dot: 'bg-amber-500',
-    divider: 'border-t-amber-200',
+    divider: 'border-t-amber-600',
     expandedBg: 'bg-amber-50/40',
     chip: 'bg-amber-100 text-amber-700 border-amber-200',
   },
@@ -61,7 +61,7 @@ const ROOM_THEMES = [
     nameBg: 'bg-rose-50/70',
     nameText: 'text-rose-900',
     dot: 'bg-rose-500',
-    divider: 'border-t-rose-200',
+    divider: 'border-t-rose-600',
     expandedBg: 'bg-rose-50/30',
     chip: 'bg-rose-100 text-rose-700 border-rose-200',
   },
@@ -70,7 +70,7 @@ const ROOM_THEMES = [
     nameBg: 'bg-violet-50/70',
     nameText: 'text-violet-900',
     dot: 'bg-violet-500',
-    divider: 'border-t-violet-200',
+    divider: 'border-t-violet-600',
     expandedBg: 'bg-violet-50/30',
     chip: 'bg-violet-100 text-violet-700 border-violet-200',
   },
@@ -79,7 +79,7 @@ const ROOM_THEMES = [
     nameBg: 'bg-cyan-50/70',
     nameText: 'text-cyan-900',
     dot: 'bg-cyan-500',
-    divider: 'border-t-cyan-200',
+    divider: 'border-t-cyan-600',
     expandedBg: 'bg-cyan-50/30',
     chip: 'bg-cyan-100 text-cyan-700 border-cyan-200',
   },
@@ -744,7 +744,7 @@ export const RoomTypesGrid = ({
         <Fragment key={room.roomId}>
         <div
           className={`grid grid-cols-[280px_repeat(7,1fr)] ${
-            roomIndex > 0 ? `border-t-2 ${theme.divider}` : ''
+            roomIndex > 0 ? `border-t-8 ${theme.divider}` : ''
           } bg-white hover:bg-slate-50/50 transition-colors duration-150`}
         >
           {/* Room Name Column */}

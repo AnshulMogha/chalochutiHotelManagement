@@ -3,7 +3,7 @@
  *
  * Displays rooms with rate plans in accordion format.
  * New API structure: rooms → ratePlans → days
- * 
+ *
  * UI Flow:
  * - Shows list of Rooms
  * - User clicks a Room to expand
@@ -12,10 +12,10 @@
  * - Only one room expanded at a time (accordion behavior)
  */
 
-import { useMemo, useState, useRef } from 'react';
-import { useNavigate } from 'react-router';
-import { ROUTES } from '@/constants';
-import type { KeyboardEvent } from 'react';
+import { useMemo, useState, useRef } from "react";
+import { useNavigate } from "react-router";
+import { ROUTES } from "@/constants";
+import type { KeyboardEvent } from "react";
 import {
   parseISO,
   format,
@@ -24,43 +24,108 @@ import {
   isBefore,
   isWeekend,
   eachDayOfInterval,
-} from 'date-fns';
-import { ChevronDown, ChevronRight, AlertTriangle, X, User, Users, Calendar, Clock, UserPlus, Baby, Link2, Plus } from 'lucide-react';
-import type { RatesRoom, RoomRatePlan, RoomRateDay } from '../type';
-import { getDayData, formatTimeForInput, formatRate } from '../utils/rateHelpers';
-import type { ChildAgePolicyResponse } from '@/features/admin/services/adminService';
+} from "date-fns";
+import {
+  ChevronDown,
+  ChevronRight,
+  AlertTriangle,
+  X,
+  User,
+  Users,
+  Calendar,
+  Clock,
+  UserPlus,
+  Baby,
+  Link2,
+  Plus,
+} from "lucide-react";
+import type { RatesRoom, RoomRatePlan, RoomRateDay } from "../type";
+import {
+  getDayData,
+  formatTimeForInput,
+  formatRate,
+} from "../utils/rateHelpers";
+import type { ChildAgePolicyResponse } from "@/features/admin/services/adminService";
 
 /* ----------------------------------
    Date Helpers
 ----------------------------------- */
 
 const getDateType = (date: Date) => {
-  if (isWeekend(date)) return 'WEEKEND';
-  return 'NORMAL';
+  if (isWeekend(date)) return "WEEKEND";
+  return "NORMAL";
 };
 
-const getDateHeaderClasses = (date: Date, isSelected: boolean, isPastDate: boolean) => {
-  if (isPastDate) return 'bg-slate-50 text-slate-300 cursor-not-allowed';
+const getDateHeaderClasses = (
+  date: Date,
+  isSelected: boolean,
+  isPastDate: boolean,
+) => {
+  if (isPastDate) return "bg-slate-50 text-slate-300 cursor-not-allowed";
   const type = getDateType(date);
 
   switch (type) {
-    case 'WEEKEND':
+    case "WEEKEND":
       return isSelected
-        ? 'bg-blue-600 text-white shadow-sm'
-        : 'bg-green-50/80 text-green-700 hover:bg-green-100/80';
+        ? "bg-blue-600 text-white shadow-sm"
+        : "bg-green-50/80 text-green-700 hover:bg-green-100/80";
     default:
       return isSelected
-        ? 'bg-blue-600 text-white shadow-sm'
-        : 'bg-white text-slate-600 hover:bg-slate-50 border-r border-slate-100';
+        ? "bg-blue-600 text-white shadow-sm"
+        : "bg-white text-slate-600 hover:bg-slate-50 border-r border-slate-100";
   }
 };
 
 const getSelectedColumnBg = (date: Date) => {
   const type = getDateType(date);
-  return type === 'WEEKEND'
-    ? 'bg-green-50/30'
-    : 'bg-slate-50/50';
+  return type === "WEEKEND" ? "bg-green-50/30" : "bg-slate-50/50";
 };
+
+/**
+ * Per-rate-plan colour themes, cycled by the rate plan's index within a room.
+ * The same index yields the same colour across different rooms, and these hues
+ * are intentionally kept separate from the room-type palette (indigo, emerald,
+ * amber, rose, violet, cyan) so rate plans never look like rooms.
+ * Full class strings are used so Tailwind can detect them at build time.
+ */
+const RATE_PLAN_THEMES = [
+  {
+    headerBg: "bg-orange-100",
+    text: "text-orange-900",
+    dot: "bg-orange-500",
+    borderB: "border-b-orange-500",
+  },
+  {
+    headerBg: "bg-teal-100",
+    text: "text-teal-900",
+    dot: "bg-teal-500",
+    borderB: "border-b-teal-500",
+  },
+  {
+    headerBg: "bg-fuchsia-100",
+    text: "text-fuchsia-900",
+    dot: "bg-fuchsia-500",
+    borderB: "border-b-fuchsia-500",
+  },
+  {
+    headerBg: "bg-lime-100",
+    text: "text-lime-900",
+    dot: "bg-lime-500",
+    borderB: "border-b-lime-500",
+  },
+  {
+    headerBg: "bg-sky-100",
+    text: "text-sky-900",
+    dot: "bg-sky-500",
+    borderB: "border-b-sky-500",
+  },
+  {
+    headerBg: "bg-pink-100",
+    text: "text-pink-900",
+    dot: "bg-pink-500",
+    borderB: "border-b-pink-500",
+  },
+] as const;
 
 /* ----------------------------------
    Component
@@ -123,7 +188,7 @@ interface RatePlansGridProps {
     paidChildCharge?: number,
     minStay?: number | null | undefined,
     maxStay?: number | null | undefined,
-    cutoffTime?: string | null | undefined
+    cutoffTime?: string | null | undefined,
   ) => void;
   onActiveDateChange: (date: Date) => void;
   isLocked?: boolean;
@@ -196,7 +261,7 @@ export const RatePlansGrid = ({
     const paidMaxAge = childPolicy.paidStayMaxAge;
 
     // Validate age values before using them
-    if (typeof freeMaxAge !== 'number' || typeof paidMaxAge !== 'number') {
+    if (typeof freeMaxAge !== "number" || typeof paidMaxAge !== "number") {
       return baseLabel;
     }
     if (isNaN(freeMaxAge) || isNaN(paidMaxAge)) {
@@ -218,11 +283,17 @@ export const RatePlansGrid = ({
   // Accordion state: only one room expanded at a time
   const [expandedRoomId, setExpandedRoomId] = useState<number | null>(null);
   // Track local input values: key = `${ratePlanId}-${roomId}-${date}`
-  const [localValues, setLocalValues] = useState<Map<string, string>>(new Map());
+  const [localValues, setLocalValues] = useState<Map<string, string>>(
+    new Map(),
+  );
   // Track which room/rate plan has "Rate and Restrictions" expanded: key = `${ratePlanId}-${roomId}`
-  const [expandedRateRestrictions, setExpandedRateRestrictions] = useState<Set<string>>(new Set());
+  const [expandedRateRestrictions, setExpandedRateRestrictions] = useState<
+    Set<string>
+  >(new Set());
   // Track selected option (Extra Rates or Restrictions): key = `${ratePlanId}-${roomId}`
-  const [selectedOption, setSelectedOption] = useState<Map<string, 'extra-rates' | 'restrictions'>>(new Map());
+  const [selectedOption, setSelectedOption] = useState<
+    Map<string, "extra-rates" | "restrictions">
+  >(new Map());
 
   // Generate dates array from API's from/to dates
   const dates = useMemo(() => {
@@ -231,7 +302,7 @@ export const RatePlansGrid = ({
       const end = parseISO(toDate);
       return eachDayOfInterval({ start, end });
     } catch (error) {
-      console.error('Error parsing dates:', error);
+      console.error("Error parsing dates:", error);
       return [];
     }
   }, [fromDate, toDate]);
@@ -268,7 +339,11 @@ export const RatePlansGrid = ({
     });
   };
 
-  const selectOption = (ratePlanId: number, roomId: number, option: 'extra-rates' | 'restrictions') => {
+  const selectOption = (
+    ratePlanId: number,
+    roomId: number,
+    option: "extra-rates" | "restrictions",
+  ) => {
     const key = `${ratePlanId}-${roomId}`;
     setSelectedOption((prev) => {
       const next = new Map(prev);
@@ -310,9 +385,11 @@ export const RatePlansGrid = ({
   };
 
   // Get base rate value for display (treat 0 as empty)
-  const getBaseRateValue = (baseRate: number | null | undefined): string | number => {
+  const getBaseRateValue = (
+    baseRate: number | null | undefined,
+  ): string | number => {
     if (baseRate === null || baseRate === undefined || baseRate === 0) {
-      return '';
+      return "";
     }
     return baseRate;
   };
@@ -322,42 +399,76 @@ export const RatePlansGrid = ({
     ratePlanId: number,
     roomId: number,
     dateStr: string,
-    field: 'baseRate' | 'singleOccupancyRate' | 'extraAdultCharge' | 'paidChildCharge' | 'minStay' | 'maxStay' | 'cutoffTime',
-    dayData: RoomRateDay | null
+    field:
+      | "baseRate"
+      | "singleOccupancyRate"
+      | "extraAdultCharge"
+      | "paidChildCharge"
+      | "minStay"
+      | "maxStay"
+      | "cutoffTime",
+    dayData: RoomRateDay | null,
   ): number | string | null => {
-    if (activeEdit?.ratePlanId === ratePlanId &&
+    if (
+      activeEdit?.ratePlanId === ratePlanId &&
       activeEdit?.roomId === roomId &&
-      activeEdit?.date === dateStr) {
-      if (field === 'baseRate' && activeEdit.baseRate !== undefined) return activeEdit.baseRate;
-      if (field === 'singleOccupancyRate' && activeEdit.singleOccupancyRate !== undefined) return activeEdit.singleOccupancyRate;
-      if (field === 'extraAdultCharge' && activeEdit.extraAdultCharge !== undefined) return activeEdit.extraAdultCharge;
-      if (field === 'paidChildCharge' && activeEdit.paidChildCharge !== undefined) return activeEdit.paidChildCharge;
-      if (field === 'minStay' && activeEdit.minStay !== undefined) return activeEdit.minStay;
-      if (field === 'maxStay' && activeEdit.maxStay !== undefined) return activeEdit.maxStay;
-      if (field === 'cutoffTime' && activeEdit.cutoffTime !== undefined) return activeEdit.cutoffTime;
+      activeEdit?.date === dateStr
+    ) {
+      if (field === "baseRate" && activeEdit.baseRate !== undefined)
+        return activeEdit.baseRate;
+      if (
+        field === "singleOccupancyRate" &&
+        activeEdit.singleOccupancyRate !== undefined
+      )
+        return activeEdit.singleOccupancyRate;
+      if (
+        field === "extraAdultCharge" &&
+        activeEdit.extraAdultCharge !== undefined
+      )
+        return activeEdit.extraAdultCharge;
+      if (
+        field === "paidChildCharge" &&
+        activeEdit.paidChildCharge !== undefined
+      )
+        return activeEdit.paidChildCharge;
+      if (field === "minStay" && activeEdit.minStay !== undefined)
+        return activeEdit.minStay;
+      if (field === "maxStay" && activeEdit.maxStay !== undefined)
+        return activeEdit.maxStay;
+      if (field === "cutoffTime" && activeEdit.cutoffTime !== undefined)
+        return activeEdit.cutoffTime;
     }
-    if (field === 'baseRate') return dayData?.baseRate ?? 0;
-    if (field === 'singleOccupancyRate') return dayData?.singleOccupancyRate ?? null;
-    if (field === 'extraAdultCharge') return dayData?.extraAdultCharge ?? 0;
-    if (field === 'paidChildCharge') return dayData?.paidChildCharge ?? 0;
-    if (field === 'minStay') return inventoryDaysByDate?.[dateStr]?.minStay ?? dayData?.minStay ?? null;
-    if (field === 'maxStay') return inventoryDaysByDate?.[dateStr]?.maxStay ?? dayData?.maxStay ?? null;
-    if (field === 'cutoffTime') return dayData?.cutoffTime ?? null;
+    if (field === "baseRate") return dayData?.baseRate ?? 0;
+    if (field === "singleOccupancyRate")
+      return dayData?.singleOccupancyRate ?? null;
+    if (field === "extraAdultCharge") return dayData?.extraAdultCharge ?? 0;
+    if (field === "paidChildCharge") return dayData?.paidChildCharge ?? 0;
+    if (field === "minStay")
+      return (
+        inventoryDaysByDate?.[dateStr]?.minStay ?? dayData?.minStay ?? null
+      );
+    if (field === "maxStay")
+      return (
+        inventoryDaysByDate?.[dateStr]?.maxStay ?? dayData?.maxStay ?? null
+      );
+    if (field === "cutoffTime") return dayData?.cutoffTime ?? null;
     return 0;
   };
 
   // Check if rate plan has any missing base rates
   const hasMissingBaseRates = (ratePlan: RoomRatePlan): boolean => {
-    return ratePlan.days.some((day) =>
-      day.baseRate === 0 || day.baseRate === null || day.baseRate === undefined
+    return ratePlan.days.some(
+      (day) =>
+        day.baseRate === 0 ||
+        day.baseRate === null ||
+        day.baseRate === undefined,
     );
   };
 
   const showSingleOccupancyRow = (ratePlan: RoomRatePlan): boolean => {
-    if (variant === 'embedded') return true;
+    if (variant === "embedded") return true;
     return ratePlan.days.some(
-      (day) =>
-        day.singleOccupancyRate !== undefined || (day.baseRate ?? 0) > 0,
+      (day) => day.singleOccupancyRate !== undefined || (day.baseRate ?? 0) > 0,
     );
   };
 
@@ -370,31 +481,55 @@ export const RatePlansGrid = ({
     canEdit: boolean,
   ) => {
     if (!isSelected || canEdit || !dayData) return;
-    const baseRate = getCurrentValue(ratePlanId, roomId, dateStr, 'baseRate', dayData) as number;
+    const baseRate = getCurrentValue(
+      ratePlanId,
+      roomId,
+      dateStr,
+      "baseRate",
+      dayData,
+    ) as number;
     const singleOccupancyRate = getCurrentValue(
       ratePlanId,
       roomId,
       dateStr,
-      'singleOccupancyRate',
+      "singleOccupancyRate",
       dayData,
     ) as number | null;
     const extraAdultCharge = getCurrentValue(
       ratePlanId,
       roomId,
       dateStr,
-      'extraAdultCharge',
+      "extraAdultCharge",
       dayData,
     ) as number;
     const paidChildCharge = getCurrentValue(
       ratePlanId,
       roomId,
       dateStr,
-      'paidChildCharge',
+      "paidChildCharge",
       dayData,
     ) as number;
-    const minStay = getCurrentValue(ratePlanId, roomId, dateStr, 'minStay', dayData) as number | null;
-    const maxStay = getCurrentValue(ratePlanId, roomId, dateStr, 'maxStay', dayData) as number | null;
-    const cutoffTime = getCurrentValue(ratePlanId, roomId, dateStr, 'cutoffTime', dayData) as string | null;
+    const minStay = getCurrentValue(
+      ratePlanId,
+      roomId,
+      dateStr,
+      "minStay",
+      dayData,
+    ) as number | null;
+    const maxStay = getCurrentValue(
+      ratePlanId,
+      roomId,
+      dateStr,
+      "maxStay",
+      dayData,
+    ) as number | null;
+    const cutoffTime = getCurrentValue(
+      ratePlanId,
+      roomId,
+      dateStr,
+      "cutoffTime",
+      dayData,
+    ) as string | null;
     onUpdate(
       ratePlanId,
       roomId,
@@ -445,13 +580,13 @@ export const RatePlansGrid = ({
                 `}
               >
                 <span className="text-[9px] font-semibold uppercase mb-1 tracking-wider opacity-75">
-                  {format(date, 'EEE')}
+                  {format(date, "EEE")}
                 </span>
                 <span className="text-2xl font-bold tabular-nums">
-                  {format(date, 'd')}
+                  {format(date, "d")}
                 </span>
                 <span className="text-[9px] font-semibold uppercase mt-0.5 opacity-75">
-                  {format(date, 'MMM')}
+                  {format(date, "MMM")}
                 </span>
               </button>
             );
@@ -466,8 +601,8 @@ export const RatePlansGrid = ({
         return (
           <div
             key={room.roomId}
-            className={`${roomIndex > 0 ? 'border-t border-slate-200' : ''}`}
-            style={{ position: 'relative', overflow: 'visible' }}
+            className={`${roomIndex > 0 ? "border-t border-slate-200" : ""}`}
+            style={{ position: "relative", overflow: "visible" }}
           >
             {/* Room Header Row - Clickable */}
             {!hideRoomHeader && (
@@ -477,9 +612,14 @@ export const RatePlansGrid = ({
                   toggleRoom(room.roomId);
                 }}
                 className={`w-full bg-gray-100 hover:bg-gray-200 transition-all duration-150 group`}
-                style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`, display: 'grid' }}
+                style={{
+                  gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`,
+                  display: "grid",
+                }}
               >
-                <div className={`flex items-start px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60`}>
+                <div
+                  className={`flex items-start px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60`}
+                >
                   {isExpanded ? (
                     <ChevronDown className="w-5 h-5 mr-3 mt-0.5 shrink-0 text-slate-600 transition-transform group-hover:translate-y-0.5" />
                   ) : (
@@ -493,73 +633,63 @@ export const RatePlansGrid = ({
                 {dates.map((date, i) => (
                   <div
                     key={i}
-                    className={`border-r border-slate-200 last:border-r-0 transition-colors duration-150 ${isSameDay(date, activeDate)
+                    className={`border-r border-slate-200 last:border-r-0 transition-colors duration-150 ${
+                      isSameDay(date, activeDate)
                         ? getSelectedColumnBg(date)
-                        : ''
-                      }`}
+                        : ""
+                    }`}
                   />
                 ))}
               </button>
             )}
 
             {/* Expanded Content - Rate Plans for this Room */}
-            {isExpanded && room.ratePlans.map((ratePlan, ratePlanIndex) => {
-              const hasMissingRates = hasMissingBaseRates(ratePlan);
+            {isExpanded &&
+              room.ratePlans.map((ratePlan, ratePlanIndex) => {
+                const hasMissingRates = hasMissingBaseRates(ratePlan);
+                const planTheme =
+                  RATE_PLAN_THEMES[ratePlanIndex % RATE_PLAN_THEMES.length];
 
-              return (
-                <div key={ratePlan.ratePlanId} className="border-t border-slate-200">
-                  {/* Rate Plan Header */}
-                  <div className="bg-blue-100/50 border-b border-slate-200 px-6 py-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm text-slate-800">
-                        {ratePlan.plan_code
-                          ? `${ratePlan.ratePlanName} (${ratePlan.plan_code})`
-                          : ratePlan.ratePlanName}
-                      </span>
-                      {onOpenLinkRatePlans &&
-                        (ratePlan.isLinkEnable === false ? (
-                          <button
-                            type="button"
-                            aria-label="Create linked rates for this rate plan"
-                            disabled={!hotelId}
-                            title={
-                              hotelId
-                                ? undefined
-                                : "Hotel is required to create a rate plan link"
-                            }
-                            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-green-200 bg-white px-2.5 py-1 text-sm font-semibold text-green-600 shadow-sm transition-colors hover:bg-green-50 hover:text-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (!hotelId || !onOpenLinkRatePlans) return;
-                              onOpenLinkRatePlans({
-                                roomId: room.roomId,
-                                roomName: room.roomName,
-                                currentRatePlanId: ratePlan.ratePlanId,
-                                currentRatePlanName: ratePlan.ratePlanName,
-                                isLinkEnable: ratePlan.isLinkEnable,
-                              });
-                            }}
-                          >
-                            <Plus
-                              className="h-3.5 w-3.5 shrink-0"
-                              strokeWidth={2.5}
-                              aria-hidden
-                            />
-                            Add LinkRate
-                          </button>
-                        ) : (
-                          isLinkAllowedForRoomAndCalendar(
-                            calendarIsLinkEnable,
-                            room,
-                          ) && (
+                const isLastRatePlan =
+                  ratePlanIndex === room.ratePlans.length - 1;
+
+                return (
+                  <div
+                    key={ratePlan.ratePlanId}
+                    className={`border-t border-slate-200 ${
+                      isLastRatePlan ? "" : `border-b-2 ${planTheme.borderB}`
+                    }`}
+                  >
+                    {/* Rate Plan Header */}
+                    <div
+                      className={`${planTheme.headerBg} border-b border-slate-200 px-6 py-3`}
+                    >
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`shrink-0 w-3 h-3 rounded-full ${planTheme.dot}`}
+                          aria-hidden="true"
+                        />
+                        <span className={`font-bold text-base ${planTheme.text}`}>
+                          {ratePlan.plan_code
+                            ? `${ratePlan.ratePlanName} (${ratePlan.plan_code})`
+                            : ratePlan.ratePlanName}
+                        </span>
+                        {onOpenLinkRatePlans &&
+                          (ratePlan.isLinkEnable === false ? (
                             <button
                               type="button"
-                              aria-label="Update linked rates for this rate plan"
-                              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-sm font-medium text-blue-800 shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                              aria-label="Create linked rates for this rate plan"
+                              disabled={!hotelId}
+                              title={
+                                hotelId
+                                  ? undefined
+                                  : "Hotel is required to create a rate plan link"
+                              }
+                              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-green-200 bg-white px-2.5 py-1 text-sm font-semibold text-green-600 shadow-sm transition-colors hover:bg-green-50 hover:text-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
+                                if (!hotelId || !onOpenLinkRatePlans) return;
                                 onOpenLinkRatePlans({
                                   roomId: room.roomId,
                                   roomName: room.roomName,
@@ -569,227 +699,129 @@ export const RatePlansGrid = ({
                                 });
                               }}
                             >
-                              <Link2
+                              <Plus
                                 className="h-3.5 w-3.5 shrink-0"
-                                strokeWidth={2.25}
+                                strokeWidth={2.5}
                                 aria-hidden
                               />
-                              Update LinkRate
+                              Add LinkRate
                             </button>
-                          )
-                        ))}
-                      {hotelId ? (
-                        <button
-                          type="button"
-                          aria-label="Add single day derived rate for this rate plan"
-                          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-sm font-semibold text-[#2A3170] shadow-sm transition-colors hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2A3170] focus-visible:ring-offset-1"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const q = new URLSearchParams({
-                              hotelId,
-                              roomId: String(room.roomId),
-                              ratePlanId: String(ratePlan.ratePlanId),
-                              returnSection: inventorySection,
-                            });
-                            navigate(
-                              `${ROUTES.HOTEL_RATES_ADD_SINGLE_DERIVED}?${q.toString()}`,
-                            );
-                          }}
-                        >
-                          Single Day Rate
-                        </button>
-                      ) : null}
-                      {/* {hasMissingRates && (
+                          ) : (
+                            isLinkAllowedForRoomAndCalendar(
+                              calendarIsLinkEnable,
+                              room,
+                            ) && (
+                              <button
+                                type="button"
+                                aria-label="Update linked rates for this rate plan"
+                                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-sm font-medium text-blue-800 shadow-sm transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  onOpenLinkRatePlans({
+                                    roomId: room.roomId,
+                                    roomName: room.roomName,
+                                    currentRatePlanId: ratePlan.ratePlanId,
+                                    currentRatePlanName: ratePlan.ratePlanName,
+                                    isLinkEnable: ratePlan.isLinkEnable,
+                                  });
+                                }}
+                              >
+                                <Link2
+                                  className="h-3.5 w-3.5 shrink-0"
+                                  strokeWidth={2.25}
+                                  aria-hidden
+                                />
+                                Update LinkRate
+                              </button>
+                            )
+                          ))}
+                        {hotelId ? (
+                          <button
+                            type="button"
+                            aria-label="Add single day derived rate for this rate plan"
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-sm font-semibold text-[#2A3170] shadow-sm transition-colors hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2A3170] focus-visible:ring-offset-1"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const q = new URLSearchParams({
+                                hotelId,
+                                roomId: String(room.roomId),
+                                ratePlanId: String(ratePlan.ratePlanId),
+                                returnSection: inventorySection,
+                              });
+                              navigate(
+                                `${ROUTES.HOTEL_RATES_ADD_SINGLE_DERIVED}?${q.toString()}`,
+                              );
+                            }}
+                          >
+                            Single Day Rate
+                          </button>
+                        ) : null}
+                        {/* {hasMissingRates && (
                         <AlertTriangle className="w-4 h-4 text-amber-600" />
                       )} */}
-                    </div>
-                    {hasMissingRates && (
-                      <p className="text-xs text-amber-700 mt-1">
-                        Some dates have missing base rates
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Base Rate Row */}
-                  <div
-                    className="grid bg-white hover:bg-slate-50/30 transition-colors duration-150"
-                    style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
-                  >
-                    <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600">
-                        <Users className="w-4 h-4" />
                       </div>
-                      <div>
-                        <span className="text-md font-semibold text-slate-900">
-                          Base Rate
-                        </span>
-                      </div>
+                      {hasMissingRates && (
+                        <p className="text-xs text-amber-700 mt-1">
+                          Some dates have missing base rates
+                        </p>
+                      )}
                     </div>
 
-                    {dates.map((date, i) => {
-                      const isSelected = isSameDay(date, activeDate);
-                      const dateStr = format(date, 'yyyy-MM-dd');
-                      const dayData = getDayData(ratePlan.days, dateStr);
-                      const baseRate = dayData?.baseRate ?? 0;
-
-                      const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}`;
-                      const localValue = localValues.get(cellKey);
-                      const displayValue = localValue !== undefined
-                        ? localValue
-                        : getBaseRateValue(baseRate);
-
-                      const isThisCellEdited = activeEdit?.ratePlanId === ratePlan.ratePlanId &&
-                        activeEdit?.roomId === room.roomId &&
-                        activeEdit?.date === dateStr;
-                      const canEdit = isSelected && (!isLocked || isThisCellEdited);
-
-                      const hasRate = baseRate > 0;
-                      const displayBaseRate = baseRate || 0;
-                      const isNotSet = baseRate === 0 || baseRate === null || baseRate === undefined;
-
-                      return (
-                        <div
-                          key={i}
-                          className={`
-                            border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
-                            transition-colors duration-150
-                            ${isSelected ? getSelectedColumnBg(date) : ''}
-                          `}
-                        >
-                          <input
-                            type="number"
-                            value={displayValue}
-                            min={1}
-                            readOnly={!canEdit}
-                            onFocus={() =>
-                              primeRateCellEdit(
-                                ratePlan.ratePlanId,
-                                room.roomId,
-                                dateStr,
-                                dayData,
-                                isSelected,
-                                canEdit,
-                              )
-                            }
-                            onChange={(e) => {
-                              if (canEdit) {
-                                const inputValue = parsePositiveRateInput(e.target.value);
-                                const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
-                                const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
-                                const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
-                                const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
-                                const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
-                                const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
-                                if (inputValue !== undefined) {
-                                  onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, inputValue, singleOccupancyRate, extraAdultCharge, paidChildCharge, minStay, maxStay, cutoffTime);
-                                }
-                                setLocalValues((prev) => {
-                                  const next = new Map(prev);
-                                  const displayInput =
-                                    e.target.value === "" ||
-                                    inputValue !== undefined
-                                      ? e.target.value
-                                      : "";
-                                  next.set(cellKey, displayInput);
-                                  return next;
-                                });
-                              }
-                            }}
-                            onBlur={() => {
-                              if (isSelected) {
-                                setLocalValues((prev) => {
-                                  const next = new Map(prev);
-                                  next.delete(cellKey);
-                                  return next;
-                                });
-                              }
-                            }}
-                            onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                              if (!isSelected || e.key !== 'Enter') return;
-                              e.preventDefault();
-                              e.currentTarget.blur();
-                            }}
-                            className={`
-                              w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
-                              tabular-nums
-                              ${canEdit
-                                ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600'
-                                : 'cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400'}
-                              ${hasRate && canEdit ? 'text-emerald-700' : ''}
-                              ${!hasRate && canEdit ? 'text-rose-600' : ''}
-                              focus:outline-none
-                            `}
-                            placeholder={isNotSet ? '-' : undefined}
-                          />
-
-                          <div className="flex flex-col items-center mt-2.5 gap-0.5">
-                            <span className={`
-                              text-[10px] font-medium uppercase tracking-wide
-                              ${hasRate ? 'text-emerald-600' : 'text-rose-500'}
-                            `}>
-                              {hasRate ? `${displayBaseRate} Set` : 'Not Set'}
-                            </span>
-                            {isLocked && !isThisCellEdited && isSelected && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
-                                <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                </svg>
-                                Locked
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Single Occupancy Rate Row (single-derived); always shown in embedded inventory view */}
-                  {showSingleOccupancyRow(ratePlan) && (
+                    {/* Base Rate Row */}
                     <div
-                      className="grid border-t border-slate-100 bg-slate-50/40 hover:bg-slate-50/50 transition-colors duration-150"
-                      style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
+                      className="grid bg-white hover:bg-slate-50/30 transition-colors duration-150"
+                      style={{
+                        gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`,
+                      }}
                     >
-                      <div className="flex items-center gap-3 px-6 py-3 border-r border-slate-200 bg-slate-50/70">
-                        <div className="flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-500">
-                          <User className="w-4 h-4" />
+                      <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600">
+                          <Users className="w-4 h-4" />
                         </div>
                         <div>
                           <span className="text-md font-semibold text-slate-900">
-                            Single Adult Rate
+                            Base Rate
                           </span>
                         </div>
                       </div>
 
                       {dates.map((date, i) => {
                         const isSelected = isSameDay(date, activeDate);
-                        const dateStr = format(date, 'yyyy-MM-dd');
+                        const dateStr = format(date, "yyyy-MM-dd");
                         const dayData = getDayData(ratePlan.days, dateStr);
-                        const singleRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
+                        const baseRate = dayData?.baseRate ?? 0;
 
-                        const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-singleOccupancy`;
+                        const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}`;
                         const localValue = localValues.get(cellKey);
-                        const displayValue = localValue !== undefined
-                          ? localValue
-                          : (singleRate !== null && singleRate !== undefined && singleRate > 0 ? singleRate.toString() : '');
+                        const displayValue =
+                          localValue !== undefined
+                            ? localValue
+                            : getBaseRateValue(baseRate);
 
-                        const isThisCellEdited = activeEdit?.ratePlanId === ratePlan.ratePlanId &&
+                        const isThisCellEdited =
+                          activeEdit?.ratePlanId === ratePlan.ratePlanId &&
                           activeEdit?.roomId === room.roomId &&
                           activeEdit?.date === dateStr;
-                        const canEdit = isSelected && (!isLocked || isThisCellEdited);
+                        const canEdit =
+                          isSelected && (!isLocked || isThisCellEdited);
 
-                        const hasRate = singleRate !== null && singleRate !== undefined && singleRate > 0;
-                        const displaySingleRate = singleRate || 0;
-                        const isNotSet = singleRate === null || singleRate === undefined || singleRate === 0;
+                        const hasRate = baseRate > 0;
+                        const displayBaseRate = baseRate || 0;
+                        const isNotSet =
+                          baseRate === 0 ||
+                          baseRate === null ||
+                          baseRate === undefined;
 
                         return (
                           <div
                             key={i}
                             className={`
-                              border-r border-slate-200 last:border-r-0 px-3 py-3 flex flex-col items-center justify-center
-                              transition-colors duration-150
-                              ${isSelected ? getSelectedColumnBg(date) : ''}
-                            `}
+                            border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
+                            transition-colors duration-150
+                            ${isSelected ? getSelectedColumnBg(date) : ""}
+                          `}
                           >
                             <input
                               type="number"
@@ -808,15 +840,64 @@ export const RatePlansGrid = ({
                               }
                               onChange={(e) => {
                                 if (canEdit) {
-                                  const inputValue = parsePositiveRateInput(e.target.value);
-                                  const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
-                                  const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
-                                  const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
-                                  const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
-                                  const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
-                                  const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
+                                  const inputValue = parsePositiveRateInput(
+                                    e.target.value,
+                                  );
+                                  const singleOccupancyRate = getCurrentValue(
+                                    ratePlan.ratePlanId,
+                                    room.roomId,
+                                    dateStr,
+                                    "singleOccupancyRate",
+                                    dayData,
+                                  ) as number | null;
+                                  const extraAdultCharge = getCurrentValue(
+                                    ratePlan.ratePlanId,
+                                    room.roomId,
+                                    dateStr,
+                                    "extraAdultCharge",
+                                    dayData,
+                                  ) as number;
+                                  const paidChildCharge = getCurrentValue(
+                                    ratePlan.ratePlanId,
+                                    room.roomId,
+                                    dateStr,
+                                    "paidChildCharge",
+                                    dayData,
+                                  ) as number;
+                                  const minStay = getCurrentValue(
+                                    ratePlan.ratePlanId,
+                                    room.roomId,
+                                    dateStr,
+                                    "minStay",
+                                    dayData,
+                                  ) as number | null;
+                                  const maxStay = getCurrentValue(
+                                    ratePlan.ratePlanId,
+                                    room.roomId,
+                                    dateStr,
+                                    "maxStay",
+                                    dayData,
+                                  ) as number | null;
+                                  const cutoffTime = getCurrentValue(
+                                    ratePlan.ratePlanId,
+                                    room.roomId,
+                                    dateStr,
+                                    "cutoffTime",
+                                    dayData,
+                                  ) as string | null;
                                   if (inputValue !== undefined) {
-                                    onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, inputValue, extraAdultCharge, paidChildCharge, minStay ?? undefined, maxStay ?? undefined, cutoffTime ?? undefined);
+                                    onUpdate(
+                                      ratePlan.ratePlanId,
+                                      room.roomId,
+                                      dateStr,
+                                      inputValue,
+                                      singleOccupancyRate,
+                                      extraAdultCharge,
+                                      paidChildCharge,
+                                      minStay,
+                                      maxStay,
+                                      cutoffTime,
+                                    );
                                   }
                                   setLocalValues((prev) => {
                                     const next = new Map(prev);
@@ -839,35 +920,49 @@ export const RatePlansGrid = ({
                                   });
                                 }
                               }}
-                              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                                if (!isSelected || e.key !== 'Enter') return;
+                              onKeyDown={(
+                                e: KeyboardEvent<HTMLInputElement>,
+                              ) => {
+                                if (!isSelected || e.key !== "Enter") return;
                                 e.preventDefault();
                                 e.currentTarget.blur();
                               }}
                               className={`
-                                w-20 h-10 border rounded-lg font-medium text-base text-center transition-all duration-150
-                                tabular-nums
-                                ${canEdit
-                                  ? 'ring-2 ring-blue-500/30 border-blue-500/20 shadow-sm bg-white focus:ring-blue-500/50 focus:border-blue-500'
-                                  : 'cursor-not-allowed bg-slate-50/60 border-slate-200/60 text-slate-400'}
-                                ${hasRate && canEdit ? 'text-emerald-600' : ''}
-                                ${!hasRate && canEdit ? 'text-slate-500' : ''}
-                                focus:outline-none
-                              `}
-                              placeholder={isNotSet ? '-' : undefined}
+                              w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
+                              tabular-nums
+                              ${
+                                canEdit
+                                  ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
+                                  : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"
+                              }
+                              ${hasRate && canEdit ? "text-emerald-700" : ""}
+                              ${!hasRate && canEdit ? "text-rose-600" : ""}
+                              focus:outline-none
+                            `}
+                              placeholder={isNotSet ? "-" : undefined}
                             />
 
                             <div className="flex flex-col items-center mt-2.5 gap-0.5">
-                              <span className={`
-                                text-[10px] font-medium uppercase tracking-wide
-                                ${hasRate ? 'text-emerald-600' : 'text-rose-500'}
-                              `}>
-                                {hasRate ? `${displaySingleRate} Set` : 'Not Set'}
+                              <span
+                                className={`
+                              text-[10px] font-medium uppercase tracking-wide
+                              ${hasRate ? "text-emerald-600" : "text-rose-500"}
+                            `}
+                              >
+                                {hasRate ? `${displayBaseRate} Set` : "Not Set"}
                               </span>
                               {isLocked && !isThisCellEdited && isSelected && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
-                                  <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                  <svg
+                                    className="w-2.5 h-2.5"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                      clipRule="evenodd"
+                                    />
                                   </svg>
                                   Locked
                                 </span>
@@ -877,158 +972,150 @@ export const RatePlansGrid = ({
                         );
                       })}
                     </div>
-                  )}
 
-                  {/* Rate and Restrictions Button with Dropdown */}
-                  <div className={`border-t border-slate-200 bg-slate-50/30`}
-                    style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`, display: 'grid', position: 'relative', zIndex: 1, overflow: 'visible' }}>
-                    <div className="relative flex items-center gap-2 px-6 py-3 border-r border-slate-200" style={{ zIndex: 1000 }}>
-                      <div className="relative" style={{ zIndex: 1001 }}>
-                        <button
-                          type="button"
-                          className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 hover:border-slate-400 transition-colors flex items-center gap-2"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (hideRestrictions) {
-                              toggleExtraRatesOnly(ratePlan.ratePlanId, room.roomId);
-                              return;
-                            }
-                            toggleRateRestrictions(ratePlan.ratePlanId, room.roomId);
-                          }}
-                        >
-                          {hideRestrictions ? "Extra Rates" : "Rate and Restrictions"}
-                          <ChevronDown
-                            className={`w-4 h-4 transition-transform ${
-                              hideRestrictions
-                                ? selectedOption.get(`${ratePlan.ratePlanId}-${room.roomId}`) === "extra-rates"
-                                  ? "rotate-180"
-                                  : ""
-                                : expandedRateRestrictions.has(`${ratePlan.ratePlanId}-${room.roomId}`)
-                                  ? "rotate-180"
-                                  : ""
-                            }`}
-                          />
-                        </button>
-
-                        {!hideRestrictions &&
-                          expandedRateRestrictions.has(`${ratePlan.ratePlanId}-${room.roomId}`) && (
-                          <div
-                            className="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded-md shadow-xl min-w-[180px]"
-                            style={{ zIndex: 9999 }}
-                          >
-                            <button
-                              type="button"
-                              className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors first:rounded-t-md"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                selectOption(ratePlan.ratePlanId, room.roomId, 'extra-rates');
-                              }}
-                            >
-                              Extra Rates
-                            </button>
-                            {!hideRestrictions && (
-                              <button
-                                type="button"
-                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors last:rounded-b-md border-t border-slate-200"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  selectOption(ratePlan.ratePlanId, room.roomId, 'restrictions');
-                                }}
-                              >
-                                Restrictions
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {selectedOption.get(`${ratePlan.ratePlanId}-${room.roomId}`) && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            closeRateRestrictions(ratePlan.ratePlanId, room.roomId);
-                          }}
-                          className="p-1.5 hover:bg-slate-200 rounded transition-colors flex items-center justify-center"
-                          aria-label="Close Rate and Restrictions section"
-                        >
-                          <X className="w-4 h-4 text-slate-600" />
-                        </button>
-                      )}
-                    </div>
-                    {dates.map((date, i) => (
+                    {/* Single Occupancy Rate Row (single-derived); always shown in embedded inventory view */}
+                    {showSingleOccupancyRow(ratePlan) && (
                       <div
-                        key={i}
-                        className="border-r border-slate-200 last:border-r-0"
-                      />
-                    ))}
-                  </div>
-
-                  {/* Extra Rates Rows */}
-                  {selectedOption.get(`${ratePlan.ratePlanId}-${room.roomId}`) === 'extra-rates' && (
-                    <>
-                      {/* Extra Adult Charge Row */}
-                      <div
-                        className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
-                        style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
+                        className="grid border-t border-slate-100 bg-slate-50/40 hover:bg-slate-50/50 transition-colors duration-150"
+                        style={{
+                          gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`,
+                        }}
                       >
-                        <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-600">
-                            <UserPlus className="w-4 h-4" />
+                        <div className="flex items-center gap-3 px-6 py-3 border-r border-slate-200 bg-slate-50/70">
+                          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-500">
+                            <User className="w-4 h-4" />
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-slate-900">
-                              Extra Adult Charge
+                          <div>
+                            <span className="text-md font-semibold text-slate-900">
+                              Single Adult Rate
                             </span>
                           </div>
                         </div>
 
                         {dates.map((date, i) => {
                           const isSelected = isSameDay(date, activeDate);
-                          const dateStr = format(date, 'yyyy-MM-dd');
+                          const dateStr = format(date, "yyyy-MM-dd");
                           const dayData = getDayData(ratePlan.days, dateStr);
-                          const extraAdultCharge = dayData?.extraAdultCharge ?? 0;
+                          const singleRate = getCurrentValue(
+                            ratePlan.ratePlanId,
+                            room.roomId,
+                            dateStr,
+                            "singleOccupancyRate",
+                            dayData,
+                          ) as number | null;
 
-                          const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-extraAdult`;
+                          const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-singleOccupancy`;
                           const localValue = localValues.get(cellKey);
-                          const displayValue = localValue !== undefined
-                            ? localValue
-                            : (extraAdultCharge > 0 ? extraAdultCharge.toString() : '');
+                          const displayValue =
+                            localValue !== undefined
+                              ? localValue
+                              : singleRate !== null &&
+                                  singleRate !== undefined &&
+                                  singleRate > 0
+                                ? singleRate.toString()
+                                : "";
 
-                          const isThisCellEdited = activeEdit?.ratePlanId === ratePlan.ratePlanId &&
+                          const isThisCellEdited =
+                            activeEdit?.ratePlanId === ratePlan.ratePlanId &&
                             activeEdit?.roomId === room.roomId &&
                             activeEdit?.date === dateStr;
-                          const canEdit = isSelected && (!isLocked || isThisCellEdited);
+                          const canEdit =
+                            isSelected && (!isLocked || isThisCellEdited);
+
+                          const hasRate =
+                            singleRate !== null &&
+                            singleRate !== undefined &&
+                            singleRate > 0;
+                          const displaySingleRate = singleRate || 0;
+                          const isNotSet =
+                            singleRate === null ||
+                            singleRate === undefined ||
+                            singleRate === 0;
 
                           return (
                             <div
                               key={i}
                               className={`
-                                border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
-                                transition-colors duration-150
-                                ${isSelected ? getSelectedColumnBg(date) : ''}
-                              `}
+                              border-r border-slate-200 last:border-r-0 px-3 py-3 flex flex-col items-center justify-center
+                              transition-colors duration-150
+                              ${isSelected ? getSelectedColumnBg(date) : ""}
+                            `}
                             >
                               <input
                                 type="number"
                                 value={displayValue}
                                 min={1}
                                 readOnly={!canEdit}
+                                onFocus={() =>
+                                  primeRateCellEdit(
+                                    ratePlan.ratePlanId,
+                                    room.roomId,
+                                    dateStr,
+                                    dayData,
+                                    isSelected,
+                                    canEdit,
+                                  )
+                                }
                                 onChange={(e) => {
                                   if (canEdit) {
-                                    const inputValue = parsePositiveRateInput(e.target.value);
-                                    const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
-                                    const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
-                                    const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
-                                    const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
-                                    const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
-                                    const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
+                                    const inputValue = parsePositiveRateInput(
+                                      e.target.value,
+                                    );
+                                    const baseRate = getCurrentValue(
+                                      ratePlan.ratePlanId,
+                                      room.roomId,
+                                      dateStr,
+                                      "baseRate",
+                                      dayData,
+                                    ) as number;
+                                    const extraAdultCharge = getCurrentValue(
+                                      ratePlan.ratePlanId,
+                                      room.roomId,
+                                      dateStr,
+                                      "extraAdultCharge",
+                                      dayData,
+                                    ) as number;
+                                    const paidChildCharge = getCurrentValue(
+                                      ratePlan.ratePlanId,
+                                      room.roomId,
+                                      dateStr,
+                                      "paidChildCharge",
+                                      dayData,
+                                    ) as number;
+                                    const minStay = getCurrentValue(
+                                      ratePlan.ratePlanId,
+                                      room.roomId,
+                                      dateStr,
+                                      "minStay",
+                                      dayData,
+                                    ) as number | null;
+                                    const maxStay = getCurrentValue(
+                                      ratePlan.ratePlanId,
+                                      room.roomId,
+                                      dateStr,
+                                      "maxStay",
+                                      dayData,
+                                    ) as number | null;
+                                    const cutoffTime = getCurrentValue(
+                                      ratePlan.ratePlanId,
+                                      room.roomId,
+                                      dateStr,
+                                      "cutoffTime",
+                                      dayData,
+                                    ) as string | null;
                                     if (inputValue !== undefined) {
-                                      onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, singleOccupancyRate ?? undefined, inputValue, paidChildCharge, minStay ?? undefined, maxStay ?? undefined, cutoffTime ?? undefined);
+                                      onUpdate(
+                                        ratePlan.ratePlanId,
+                                        room.roomId,
+                                        dateStr,
+                                        baseRate,
+                                        inputValue,
+                                        extraAdultCharge,
+                                        paidChildCharge,
+                                        minStay ?? undefined,
+                                        maxStay ?? undefined,
+                                        cutoffTime ?? undefined,
+                                      );
                                     }
                                     setLocalValues((prev) => {
                                       const next = new Map(prev);
@@ -1051,78 +1138,236 @@ export const RatePlansGrid = ({
                                     });
                                   }
                                 }}
-                                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                                  if (!isSelected || e.key !== 'Enter') return;
+                                onKeyDown={(
+                                  e: KeyboardEvent<HTMLInputElement>,
+                                ) => {
+                                  if (!isSelected || e.key !== "Enter") return;
                                   e.preventDefault();
                                   e.currentTarget.blur();
                                 }}
                                 className={`
-                                  w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
-                                  tabular-nums
-                                  ${canEdit
-                                    ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600'
-                                    : 'cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400'}
-                                  ${extraAdultCharge > 0 && canEdit ? 'text-emerald-700' : ''}
-                                  ${!extraAdultCharge && canEdit ? 'text-rose-600' : ''}
-                                  focus:outline-none
-                                `}
-                                placeholder={canEdit ? '' : '—'}
+                                w-20 h-10 border rounded-lg font-medium text-base text-center transition-all duration-150
+                                tabular-nums
+                                ${
+                                  canEdit
+                                    ? "ring-2 ring-blue-500/30 border-blue-500/20 shadow-sm bg-white focus:ring-blue-500/50 focus:border-blue-500"
+                                    : "cursor-not-allowed bg-slate-50/60 border-slate-200/60 text-slate-400"
+                                }
+                                ${hasRate && canEdit ? "text-emerald-600" : ""}
+                                ${!hasRate && canEdit ? "text-slate-500" : ""}
+                                focus:outline-none
+                              `}
+                                placeholder={isNotSet ? "-" : undefined}
                               />
 
                               <div className="flex flex-col items-center mt-2.5 gap-0.5">
-                                <span className={`
-                                  text-[10px] font-medium uppercase tracking-wide
-                                  ${extraAdultCharge > 0 ? 'text-emerald-600' : 'text-rose-500'}
-                                `}>
-                                  {extraAdultCharge > 0 ? `${extraAdultCharge} Set` : 'Not Set'}
+                                <span
+                                  className={`
+                                text-[10px] font-medium uppercase tracking-wide
+                                ${hasRate ? "text-emerald-600" : "text-rose-500"}
+                              `}
+                                >
+                                  {hasRate
+                                    ? `${displaySingleRate} Set`
+                                    : "Not Set"}
                                 </span>
-                                {isLocked && !isThisCellEdited && isSelected && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
-                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                    </svg>
-                                    Locked
-                                  </span>
-                                )}
+                                {isLocked &&
+                                  !isThisCellEdited &&
+                                  isSelected && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                      <svg
+                                        className="w-2.5 h-2.5"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                      Locked
+                                    </span>
+                                  )}
                               </div>
                             </div>
                           );
                         })}
                       </div>
+                    )}
 
-                      {/* Paid Child Charge Row - Conditionally rendered */}
-                      {!hidePaidChildCharge && (
+                    {/* Rate and Restrictions Button with Dropdown */}
+                    <div
+                      className={`border-t border-slate-200 bg-slate-50/30`}
+                      style={{
+                        gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`,
+                        display: "grid",
+                        position: "relative",
+                        zIndex: 1,
+                        overflow: "visible",
+                      }}
+                    >
+                      <div
+                        className="relative flex items-center gap-2 px-6 py-3 border-r border-slate-200"
+                        style={{ zIndex: 1000 }}
+                      >
+                        <div className="relative" style={{ zIndex: 1001 }}>
+                          <button
+                            type="button"
+                            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 hover:border-slate-400 transition-colors flex items-center gap-2"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (hideRestrictions) {
+                                toggleExtraRatesOnly(
+                                  ratePlan.ratePlanId,
+                                  room.roomId,
+                                );
+                                return;
+                              }
+                              toggleRateRestrictions(
+                                ratePlan.ratePlanId,
+                                room.roomId,
+                              );
+                            }}
+                          >
+                            {hideRestrictions
+                              ? "Extra Rates"
+                              : "Rate and Restrictions"}
+                            <ChevronDown
+                              className={`w-4 h-4 transition-transform ${
+                                hideRestrictions
+                                  ? selectedOption.get(
+                                      `${ratePlan.ratePlanId}-${room.roomId}`,
+                                    ) === "extra-rates"
+                                    ? "rotate-180"
+                                    : ""
+                                  : expandedRateRestrictions.has(
+                                        `${ratePlan.ratePlanId}-${room.roomId}`,
+                                      )
+                                    ? "rotate-180"
+                                    : ""
+                              }`}
+                            />
+                          </button>
+
+                          {!hideRestrictions &&
+                            expandedRateRestrictions.has(
+                              `${ratePlan.ratePlanId}-${room.roomId}`,
+                            ) && (
+                              <div
+                                className="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded-md shadow-xl min-w-[180px]"
+                                style={{ zIndex: 9999 }}
+                              >
+                                <button
+                                  type="button"
+                                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors first:rounded-t-md"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    selectOption(
+                                      ratePlan.ratePlanId,
+                                      room.roomId,
+                                      "extra-rates",
+                                    );
+                                  }}
+                                >
+                                  Extra Rates
+                                </button>
+                                {!hideRestrictions && (
+                                  <button
+                                    type="button"
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors last:rounded-b-md border-t border-slate-200"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      selectOption(
+                                        ratePlan.ratePlanId,
+                                        room.roomId,
+                                        "restrictions",
+                                      );
+                                    }}
+                                  >
+                                    Restrictions
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                        </div>
+
+                        {selectedOption.get(
+                          `${ratePlan.ratePlanId}-${room.roomId}`,
+                        ) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              closeRateRestrictions(
+                                ratePlan.ratePlanId,
+                                room.roomId,
+                              );
+                            }}
+                            className="p-1.5 hover:bg-slate-200 rounded transition-colors flex items-center justify-center"
+                            aria-label="Close Rate and Restrictions section"
+                          >
+                            <X className="w-4 h-4 text-slate-600" />
+                          </button>
+                        )}
+                      </div>
+                      {dates.map((date, i) => (
+                        <div
+                          key={i}
+                          className="border-r border-slate-200 last:border-r-0"
+                        />
+                      ))}
+                    </div>
+
+                    {/* Extra Rates Rows */}
+                    {selectedOption.get(
+                      `${ratePlan.ratePlanId}-${room.roomId}`,
+                    ) === "extra-rates" && (
+                      <>
+                        {/* Extra Adult Charge Row */}
                         <div
                           className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
-                          style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
+                          style={{
+                            gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`,
+                          }}
                         >
                           <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
-                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-pink-50 text-pink-600">
-                              <Baby className="w-4 h-4" />
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-600">
+                              <UserPlus className="w-4 h-4" />
                             </div>
                             <div className="flex flex-col">
                               <span className="text-sm font-semibold text-slate-900">
-                                {getPaidChildChargeLabel()}
+                                Extra Adult Charge
                               </span>
                             </div>
                           </div>
 
                           {dates.map((date, i) => {
                             const isSelected = isSameDay(date, activeDate);
-                            const dateStr = format(date, 'yyyy-MM-dd');
+                            const dateStr = format(date, "yyyy-MM-dd");
                             const dayData = getDayData(ratePlan.days, dateStr);
-                            const paidChildCharge = dayData?.paidChildCharge ?? 0;
+                            const extraAdultCharge =
+                              dayData?.extraAdultCharge ?? 0;
 
-                            const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-paidChild`;
+                            const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-extraAdult`;
                             const localValue = localValues.get(cellKey);
-                            const displayValue = localValue !== undefined
-                              ? localValue
-                              : (paidChildCharge > 0 ? paidChildCharge.toString() : '');
+                            const displayValue =
+                              localValue !== undefined
+                                ? localValue
+                                : extraAdultCharge > 0
+                                  ? extraAdultCharge.toString()
+                                  : "";
 
-                            const isThisCellEdited = activeEdit?.ratePlanId === ratePlan.ratePlanId &&
+                            const isThisCellEdited =
+                              activeEdit?.ratePlanId === ratePlan.ratePlanId &&
                               activeEdit?.roomId === room.roomId &&
                               activeEdit?.date === dateStr;
-                            const canEdit = isSelected && (!isLocked || isThisCellEdited);
+                            const canEdit =
+                              isSelected && (!isLocked || isThisCellEdited);
 
                             return (
                               <div
@@ -1130,7 +1375,7 @@ export const RatePlansGrid = ({
                                 className={`
                                 border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                                 transition-colors duration-150
-                                ${isSelected ? getSelectedColumnBg(date) : ''}
+                                ${isSelected ? getSelectedColumnBg(date) : ""}
                               `}
                               >
                                 <input
@@ -1140,15 +1385,65 @@ export const RatePlansGrid = ({
                                   readOnly={!canEdit}
                                   onChange={(e) => {
                                     if (canEdit) {
-                                      const inputValue = parsePositiveRateInput(e.target.value);
-                                      const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
-                                      const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
-                                      const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
-                                      const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
-                                      const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
-                                      const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
+                                      const inputValue = parsePositiveRateInput(
+                                        e.target.value,
+                                      );
+                                      const baseRate = getCurrentValue(
+                                        ratePlan.ratePlanId,
+                                        room.roomId,
+                                        dateStr,
+                                        "baseRate",
+                                        dayData,
+                                      ) as number;
+                                      const singleOccupancyRate =
+                                        getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "singleOccupancyRate",
+                                          dayData,
+                                        ) as number | null;
+                                      const paidChildCharge = getCurrentValue(
+                                        ratePlan.ratePlanId,
+                                        room.roomId,
+                                        dateStr,
+                                        "paidChildCharge",
+                                        dayData,
+                                      ) as number;
+                                      const minStay = getCurrentValue(
+                                        ratePlan.ratePlanId,
+                                        room.roomId,
+                                        dateStr,
+                                        "minStay",
+                                        dayData,
+                                      ) as number | null;
+                                      const maxStay = getCurrentValue(
+                                        ratePlan.ratePlanId,
+                                        room.roomId,
+                                        dateStr,
+                                        "maxStay",
+                                        dayData,
+                                      ) as number | null;
+                                      const cutoffTime = getCurrentValue(
+                                        ratePlan.ratePlanId,
+                                        room.roomId,
+                                        dateStr,
+                                        "cutoffTime",
+                                        dayData,
+                                      ) as string | null;
                                       if (inputValue !== undefined) {
-                                        onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, singleOccupancyRate ?? undefined, extraAdultCharge, inputValue, minStay ?? undefined, maxStay ?? undefined, cutoffTime ?? undefined);
+                                        onUpdate(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          baseRate,
+                                          singleOccupancyRate ?? undefined,
+                                          inputValue,
+                                          paidChildCharge,
+                                          minStay ?? undefined,
+                                          maxStay ?? undefined,
+                                          cutoffTime ?? undefined,
+                                        );
                                       }
                                       setLocalValues((prev) => {
                                         const next = new Map(prev);
@@ -1171,391 +1466,873 @@ export const RatePlansGrid = ({
                                       });
                                     }
                                   }}
-                                  onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                                    if (!isSelected || e.key !== 'Enter') return;
+                                  onKeyDown={(
+                                    e: KeyboardEvent<HTMLInputElement>,
+                                  ) => {
+                                    if (!isSelected || e.key !== "Enter")
+                                      return;
                                     e.preventDefault();
                                     e.currentTarget.blur();
                                   }}
                                   className={`
                                   w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                                   tabular-nums
-                                  ${canEdit
-                                      ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600'
-                                      : 'cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400'}
-                                  ${paidChildCharge > 0 && canEdit ? 'text-emerald-700' : ''}
-                                  ${!paidChildCharge && canEdit ? 'text-rose-600' : ''}
+                                  ${
+                                    canEdit
+                                      ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
+                                      : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"
+                                  }
+                                  ${extraAdultCharge > 0 && canEdit ? "text-emerald-700" : ""}
+                                  ${!extraAdultCharge && canEdit ? "text-rose-600" : ""}
                                   focus:outline-none
                                 `}
-                                  placeholder={canEdit ? '' : '—'}
+                                  placeholder={canEdit ? "" : "—"}
                                 />
 
                                 <div className="flex flex-col items-center mt-2.5 gap-0.5">
-                                  <span className={`
+                                  <span
+                                    className={`
                                   text-[10px] font-medium uppercase tracking-wide
-                                  ${paidChildCharge > 0 ? 'text-emerald-600' : 'text-rose-500'}
-                                `}>
-                                    {paidChildCharge > 0 ? `${paidChildCharge} Set` : 'Not Set'}
+                                  ${extraAdultCharge > 0 ? "text-emerald-600" : "text-rose-500"}
+                                `}
+                                  >
+                                    {extraAdultCharge > 0
+                                      ? `${extraAdultCharge} Set`
+                                      : "Not Set"}
                                   </span>
-                                  {isLocked && !isThisCellEdited && isSelected && (
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
-                                      <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                      </svg>
-                                      Locked
-                                    </span>
-                                  )}
+                                  {isLocked &&
+                                    !isThisCellEdited &&
+                                    isSelected && (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                        <svg
+                                          className="w-2.5 h-2.5"
+                                          fill="currentColor"
+                                          viewBox="0 0 20 20"
+                                        >
+                                          <path
+                                            fillRule="evenodd"
+                                            d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                            clipRule="evenodd"
+                                          />
+                                        </svg>
+                                        Locked
+                                      </span>
+                                    )}
                                 </div>
                               </div>
                             );
                           })}
                         </div>
-                      )}
-                    </>
-                  )}
 
-                  {/* Restrictions Rows */}
-                  {!hideRestrictions &&
-                    selectedOption.get(`${ratePlan.ratePlanId}-${room.roomId}`) === 'restrictions' && (
-                    <>
-                      {/* Minimum Length of Stay Row */}
-                      <div
-                        className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
-                        style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
-                      >
-                        <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-50 text-amber-600">
-                            <Calendar className="w-4 h-4" />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-slate-900">
-                              Minimum Length of Stay
-                            </span>
-                          </div>
-                        </div>
-
-                        {dates.map((date, i) => {
-                          const isSelected = isSameDay(date, activeDate);
-                          const dateStr = format(date, 'yyyy-MM-dd');
-                          const dayData = getDayData(ratePlan.days, dateStr);
-                          const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
-
-                          const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-minStay`;
-                          const localValue = localValues.get(cellKey);
-                          const displayValue = localValue !== undefined
-                            ? localValue
-                            : (minStay !== null && minStay !== undefined ? minStay.toString() : '');
-
-                          const isThisCellEdited = activeEdit?.ratePlanId === ratePlan.ratePlanId &&
-                            activeEdit?.roomId === room.roomId &&
-                            activeEdit?.date === dateStr;
-                          const canEdit = isSelected && (!isLocked || isThisCellEdited);
-
-                          return (
-                            <div
-                              key={i}
-                              className={`
-                                border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
-                                transition-colors duration-150
-                                ${isSelected ? getSelectedColumnBg(date) : ''}
-                              `}
-                            >
-                              <input
-                                type="number"
-                                value={displayValue}
-                                readOnly={!canEdit}
-                                onChange={(e) => {
-                                  if (canEdit) {
-                                    const inputValue = e.target.value === '' ? null : Number(e.target.value);
-                                    const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
-                                    const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
-                                    const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
-                                    const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
-                                    const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
-                                    const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
-                                    onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, singleOccupancyRate ?? undefined, extraAdultCharge, paidChildCharge, inputValue ?? undefined, maxStay ?? undefined, cutoffTime ?? undefined);
-                                    setLocalValues((prev) => {
-                                      const next = new Map(prev);
-                                      next.set(cellKey, e.target.value);
-                                      return next;
-                                    });
-                                  }
-                                }}
-                                onBlur={() => {
-                                  if (isSelected) {
-                                    setLocalValues((prev) => {
-                                      const next = new Map(prev);
-                                      next.delete(cellKey);
-                                      return next;
-                                    });
-                                  }
-                                }}
-                                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                                  if (!isSelected || e.key !== 'Enter') return;
-                                  e.preventDefault();
-                                  e.currentTarget.blur();
-                                }}
-                                className={`
-                                  w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
-                                  tabular-nums
-                                  ${canEdit
-                                    ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600'
-                                    : 'cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400'}
-                                  ${minStay !== null && minStay !== undefined && canEdit ? 'text-emerald-700' : ''}
-                                  ${(minStay === null || minStay === undefined) && canEdit ? 'text-rose-600' : ''}
-                                  focus:outline-none
-                                `}
-                                placeholder={canEdit ? '0' : '—'}
-                                min="0"
-                              />
-
-                              <div className="flex flex-col items-center mt-2.5 gap-0.5">
-                                <span className={`
-                                  text-[10px] font-medium uppercase tracking-wide
-                                  ${minStay !== null && minStay !== undefined ? 'text-emerald-600' : 'text-rose-500'}
-                                `}>
-                                  {minStay !== null && minStay !== undefined ? `${minStay} Set` : 'Not Set'}
+                        {/* Paid Child Charge Row - Conditionally rendered */}
+                        {!hidePaidChildCharge && (
+                          <div
+                            className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
+                            style={{
+                              gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`,
+                            }}
+                          >
+                            <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-pink-50 text-pink-600">
+                                <Baby className="w-4 h-4" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-semibold text-slate-900">
+                                  {getPaidChildChargeLabel()}
                                 </span>
-                                {isLocked && !isThisCellEdited && isSelected && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
-                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                    </svg>
-                                    Locked
-                                  </span>
-                                )}
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
 
-                      {/* Maximum Length of Stay Row */}
-                      <div
-                        className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
-                        style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
-                      >
-                        <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-50 text-purple-600">
-                            <Calendar className="w-4 h-4" />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-slate-900">
-                              Maximum Length of Stay
-                            </span>
-                          </div>
-                        </div>
+                            {dates.map((date, i) => {
+                              const isSelected = isSameDay(date, activeDate);
+                              const dateStr = format(date, "yyyy-MM-dd");
+                              const dayData = getDayData(
+                                ratePlan.days,
+                                dateStr,
+                              );
+                              const paidChildCharge =
+                                dayData?.paidChildCharge ?? 0;
 
-                        {dates.map((date, i) => {
-                          const isSelected = isSameDay(date, activeDate);
-                          const dateStr = format(date, 'yyyy-MM-dd');
-                          const dayData = getDayData(ratePlan.days, dateStr);
-                          const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
+                              const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-paidChild`;
+                              const localValue = localValues.get(cellKey);
+                              const displayValue =
+                                localValue !== undefined
+                                  ? localValue
+                                  : paidChildCharge > 0
+                                    ? paidChildCharge.toString()
+                                    : "";
 
-                          const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-maxStay`;
-                          const localValue = localValues.get(cellKey);
-                          const displayValue = localValue !== undefined
-                            ? localValue
-                            : (maxStay !== null && maxStay !== undefined ? maxStay.toString() : '');
+                              const isThisCellEdited =
+                                activeEdit?.ratePlanId ===
+                                  ratePlan.ratePlanId &&
+                                activeEdit?.roomId === room.roomId &&
+                                activeEdit?.date === dateStr;
+                              const canEdit =
+                                isSelected && (!isLocked || isThisCellEdited);
 
-                          const isThisCellEdited = activeEdit?.ratePlanId === ratePlan.ratePlanId &&
-                            activeEdit?.roomId === room.roomId &&
-                            activeEdit?.date === dateStr;
-                          const canEdit = isSelected && (!isLocked || isThisCellEdited);
-
-                          return (
-                            <div
-                              key={i}
-                              className={`
+                              return (
+                                <div
+                                  key={i}
+                                  className={`
                                 border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                                 transition-colors duration-150
-                                ${isSelected ? getSelectedColumnBg(date) : ''}
+                                ${isSelected ? getSelectedColumnBg(date) : ""}
                               `}
-                            >
-                              <input
-                                type="number"
-                                value={displayValue}
-                                readOnly={!canEdit}
-                                onChange={(e) => {
-                                  if (canEdit) {
-                                    const inputValue = e.target.value === '' ? null : Number(e.target.value);
-                                    const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
-                                    const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
-                                    const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
-                                    const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
-                                    const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
-                                    const cutoffTime = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'cutoffTime', dayData) as string | null;
-                                    onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, singleOccupancyRate ?? undefined, extraAdultCharge, paidChildCharge, minStay ?? undefined, inputValue ?? undefined, cutoffTime ?? undefined);
-                                    setLocalValues((prev) => {
-                                      const next = new Map(prev);
-                                      next.set(cellKey, e.target.value);
-                                      return next;
-                                    });
-                                  }
-                                }}
-                                onBlur={() => {
-                                  if (isSelected) {
-                                    setLocalValues((prev) => {
-                                      const next = new Map(prev);
-                                      next.delete(cellKey);
-                                      return next;
-                                    });
-                                  }
-                                }}
-                                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                                  if (!isSelected || e.key !== 'Enter') return;
-                                  e.preventDefault();
-                                  e.currentTarget.blur();
-                                }}
-                                className={`
+                                >
+                                  <input
+                                    type="number"
+                                    value={displayValue}
+                                    min={1}
+                                    readOnly={!canEdit}
+                                    onChange={(e) => {
+                                      if (canEdit) {
+                                        const inputValue =
+                                          parsePositiveRateInput(
+                                            e.target.value,
+                                          );
+                                        const baseRate = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "baseRate",
+                                          dayData,
+                                        ) as number;
+                                        const singleOccupancyRate =
+                                          getCurrentValue(
+                                            ratePlan.ratePlanId,
+                                            room.roomId,
+                                            dateStr,
+                                            "singleOccupancyRate",
+                                            dayData,
+                                          ) as number | null;
+                                        const extraAdultCharge =
+                                          getCurrentValue(
+                                            ratePlan.ratePlanId,
+                                            room.roomId,
+                                            dateStr,
+                                            "extraAdultCharge",
+                                            dayData,
+                                          ) as number;
+                                        const minStay = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "minStay",
+                                          dayData,
+                                        ) as number | null;
+                                        const maxStay = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "maxStay",
+                                          dayData,
+                                        ) as number | null;
+                                        const cutoffTime = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "cutoffTime",
+                                          dayData,
+                                        ) as string | null;
+                                        if (inputValue !== undefined) {
+                                          onUpdate(
+                                            ratePlan.ratePlanId,
+                                            room.roomId,
+                                            dateStr,
+                                            baseRate,
+                                            singleOccupancyRate ?? undefined,
+                                            extraAdultCharge,
+                                            inputValue,
+                                            minStay ?? undefined,
+                                            maxStay ?? undefined,
+                                            cutoffTime ?? undefined,
+                                          );
+                                        }
+                                        setLocalValues((prev) => {
+                                          const next = new Map(prev);
+                                          const displayInput =
+                                            e.target.value === "" ||
+                                            inputValue !== undefined
+                                              ? e.target.value
+                                              : "";
+                                          next.set(cellKey, displayInput);
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      if (isSelected) {
+                                        setLocalValues((prev) => {
+                                          const next = new Map(prev);
+                                          next.delete(cellKey);
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    onKeyDown={(
+                                      e: KeyboardEvent<HTMLInputElement>,
+                                    ) => {
+                                      if (!isSelected || e.key !== "Enter")
+                                        return;
+                                      e.preventDefault();
+                                      e.currentTarget.blur();
+                                    }}
+                                    className={`
                                   w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                                   tabular-nums
-                                  ${canEdit
-                                    ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600'
-                                    : 'cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400'}
-                                  ${maxStay !== null && maxStay !== undefined && canEdit ? 'text-emerald-700' : ''}
-                                  ${(maxStay === null || maxStay === undefined) && canEdit ? 'text-rose-600' : ''}
+                                  ${
+                                    canEdit
+                                      ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
+                                      : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"
+                                  }
+                                  ${paidChildCharge > 0 && canEdit ? "text-emerald-700" : ""}
+                                  ${!paidChildCharge && canEdit ? "text-rose-600" : ""}
                                   focus:outline-none
                                 `}
-                                placeholder={canEdit ? '0' : '—'}
-                                min="0"
-                              />
+                                    placeholder={canEdit ? "" : "—"}
+                                  />
 
-                              <div className="flex flex-col items-center mt-2.5 gap-0.5">
-                                <span className={`
+                                  <div className="flex flex-col items-center mt-2.5 gap-0.5">
+                                    <span
+                                      className={`
                                   text-[10px] font-medium uppercase tracking-wide
-                                  ${maxStay !== null && maxStay !== undefined ? 'text-emerald-600' : 'text-rose-500'}
-                                `}>
-                                  {maxStay !== null && maxStay !== undefined ? `${maxStay} Set` : 'Not Set'}
+                                  ${paidChildCharge > 0 ? "text-emerald-600" : "text-rose-500"}
+                                `}
+                                    >
+                                      {paidChildCharge > 0
+                                        ? `${paidChildCharge} Set`
+                                        : "Not Set"}
+                                    </span>
+                                    {isLocked &&
+                                      !isThisCellEdited &&
+                                      isSelected && (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                          <svg
+                                            className="w-2.5 h-2.5"
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                          >
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                              clipRule="evenodd"
+                                            />
+                                          </svg>
+                                          Locked
+                                        </span>
+                                      )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Restrictions Rows */}
+                    {!hideRestrictions &&
+                      selectedOption.get(
+                        `${ratePlan.ratePlanId}-${room.roomId}`,
+                      ) === "restrictions" && (
+                        <>
+                          {/* Minimum Length of Stay Row */}
+                          <div
+                            className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
+                            style={{
+                              gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`,
+                            }}
+                          >
+                            <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-50 text-amber-600">
+                                <Calendar className="w-4 h-4" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-semibold text-slate-900">
+                                  Minimum Length of Stay
                                 </span>
-                                {isLocked && !isThisCellEdited && isSelected && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
-                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                    </svg>
-                                    Locked
-                                  </span>
-                                )}
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
 
-                      {/* Cutoff Time Row */}
-                      <div
-                        className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
-                        style={{ gridTemplateColumns: `280px repeat(${numColumns}, 1fr)` }}
-                      >
-                        <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-cyan-50 text-cyan-600">
-                            <Clock className="w-4 h-4" />
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-slate-900">
-                              Cutoff Time
-                            </span>
-                          </div>
-                        </div>
+                            {dates.map((date, i) => {
+                              const isSelected = isSameDay(date, activeDate);
+                              const dateStr = format(date, "yyyy-MM-dd");
+                              const dayData = getDayData(
+                                ratePlan.days,
+                                dateStr,
+                              );
+                              const minStay = getCurrentValue(
+                                ratePlan.ratePlanId,
+                                room.roomId,
+                                dateStr,
+                                "minStay",
+                                dayData,
+                              ) as number | null;
 
-                        {dates.map((date, i) => {
-                          const isSelected = isSameDay(date, activeDate);
-                          const dateStr = format(date, 'yyyy-MM-dd');
-                          const dayData = getDayData(ratePlan.days, dateStr);
-                          const cutoffTime = dayData?.cutoffTime ?? null;
+                              const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-minStay`;
+                              const localValue = localValues.get(cellKey);
+                              const displayValue =
+                                localValue !== undefined
+                                  ? localValue
+                                  : minStay !== null && minStay !== undefined
+                                    ? minStay.toString()
+                                    : "";
 
-                          const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-cutoffTime`;
-                          const localValue = localValues.get(cellKey);
-                          const displayValue = localValue !== undefined
-                            ? localValue
-                            : formatTimeForInput(cutoffTime);
+                              const isThisCellEdited =
+                                activeEdit?.ratePlanId ===
+                                  ratePlan.ratePlanId &&
+                                activeEdit?.roomId === room.roomId &&
+                                activeEdit?.date === dateStr;
+                              const canEdit =
+                                isSelected && (!isLocked || isThisCellEdited);
 
-                          const isThisCellEdited = activeEdit?.ratePlanId === ratePlan.ratePlanId &&
-                            activeEdit?.roomId === room.roomId &&
-                            activeEdit?.date === dateStr;
-                          const canEdit = isSelected && (!isLocked || isThisCellEdited);
-
-                          return (
-                            <div
-                              key={i}
-                              className={`
+                              return (
+                                <div
+                                  key={i}
+                                  className={`
                                 border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                                 transition-colors duration-150
-                                ${isSelected ? getSelectedColumnBg(date) : ''}
+                                ${isSelected ? getSelectedColumnBg(date) : ""}
                               `}
-                            >
-                              <input
-                                type="time"
-                                value={displayValue}
-                                readOnly={!canEdit}
-                                onChange={(e) => {
-                                  if (canEdit) {
-                                    const inputValue = e.target.value === '' ? null : e.target.value;
-                                    const baseRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'baseRate', dayData) as number;
-                                    const singleOccupancyRate = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'singleOccupancyRate', dayData) as number | null;
-                                    const extraAdultCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'extraAdultCharge', dayData) as number;
-                                    const paidChildCharge = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'paidChildCharge', dayData) as number;
-                                    const minStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'minStay', dayData) as number | null;
-                                    const maxStay = getCurrentValue(ratePlan.ratePlanId, room.roomId, dateStr, 'maxStay', dayData) as number | null;
-                                    onUpdate(ratePlan.ratePlanId, room.roomId, dateStr, baseRate, singleOccupancyRate ?? undefined, extraAdultCharge, paidChildCharge, minStay ?? undefined, maxStay ?? undefined, inputValue ?? undefined);
-                                    setLocalValues((prev) => {
-                                      const next = new Map(prev);
-                                      next.set(cellKey, e.target.value);
-                                      return next;
-                                    });
+                                >
+                                  <input
+                                    type="number"
+                                    value={displayValue}
+                                    readOnly={!canEdit}
+                                    onChange={(e) => {
+                                      if (canEdit) {
+                                        const inputValue =
+                                          e.target.value === ""
+                                            ? null
+                                            : Number(e.target.value);
+                                        const baseRate = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "baseRate",
+                                          dayData,
+                                        ) as number;
+                                        const singleOccupancyRate =
+                                          getCurrentValue(
+                                            ratePlan.ratePlanId,
+                                            room.roomId,
+                                            dateStr,
+                                            "singleOccupancyRate",
+                                            dayData,
+                                          ) as number | null;
+                                        const extraAdultCharge =
+                                          getCurrentValue(
+                                            ratePlan.ratePlanId,
+                                            room.roomId,
+                                            dateStr,
+                                            "extraAdultCharge",
+                                            dayData,
+                                          ) as number;
+                                        const paidChildCharge = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "paidChildCharge",
+                                          dayData,
+                                        ) as number;
+                                        const maxStay = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "maxStay",
+                                          dayData,
+                                        ) as number | null;
+                                        const cutoffTime = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "cutoffTime",
+                                          dayData,
+                                        ) as string | null;
+                                        onUpdate(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          baseRate,
+                                          singleOccupancyRate ?? undefined,
+                                          extraAdultCharge,
+                                          paidChildCharge,
+                                          inputValue ?? undefined,
+                                          maxStay ?? undefined,
+                                          cutoffTime ?? undefined,
+                                        );
+                                        setLocalValues((prev) => {
+                                          const next = new Map(prev);
+                                          next.set(cellKey, e.target.value);
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      if (isSelected) {
+                                        setLocalValues((prev) => {
+                                          const next = new Map(prev);
+                                          next.delete(cellKey);
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    onKeyDown={(
+                                      e: KeyboardEvent<HTMLInputElement>,
+                                    ) => {
+                                      if (!isSelected || e.key !== "Enter")
+                                        return;
+                                      e.preventDefault();
+                                      e.currentTarget.blur();
+                                    }}
+                                    className={`
+                                  w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
+                                  tabular-nums
+                                  ${
+                                    canEdit
+                                      ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
+                                      : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"
                                   }
-                                }}
-                                onBlur={() => {
-                                  if (isSelected) {
-                                    setLocalValues((prev) => {
-                                      const next = new Map(prev);
-                                      next.delete(cellKey);
-                                      return next;
-                                    });
+                                  ${minStay !== null && minStay !== undefined && canEdit ? "text-emerald-700" : ""}
+                                  ${(minStay === null || minStay === undefined) && canEdit ? "text-rose-600" : ""}
+                                  focus:outline-none
+                                `}
+                                    placeholder={canEdit ? "0" : "—"}
+                                    min="0"
+                                  />
+
+                                  <div className="flex flex-col items-center mt-2.5 gap-0.5">
+                                    <span
+                                      className={`
+                                  text-[10px] font-medium uppercase tracking-wide
+                                  ${minStay !== null && minStay !== undefined ? "text-emerald-600" : "text-rose-500"}
+                                `}
+                                    >
+                                      {minStay !== null && minStay !== undefined
+                                        ? `${minStay} Set`
+                                        : "Not Set"}
+                                    </span>
+                                    {isLocked &&
+                                      !isThisCellEdited &&
+                                      isSelected && (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                          <svg
+                                            className="w-2.5 h-2.5"
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                          >
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                              clipRule="evenodd"
+                                            />
+                                          </svg>
+                                          Locked
+                                        </span>
+                                      )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Maximum Length of Stay Row */}
+                          <div
+                            className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
+                            style={{
+                              gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`,
+                            }}
+                          >
+                            <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-50 text-purple-600">
+                                <Calendar className="w-4 h-4" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-semibold text-slate-900">
+                                  Maximum Length of Stay
+                                </span>
+                              </div>
+                            </div>
+
+                            {dates.map((date, i) => {
+                              const isSelected = isSameDay(date, activeDate);
+                              const dateStr = format(date, "yyyy-MM-dd");
+                              const dayData = getDayData(
+                                ratePlan.days,
+                                dateStr,
+                              );
+                              const maxStay = getCurrentValue(
+                                ratePlan.ratePlanId,
+                                room.roomId,
+                                dateStr,
+                                "maxStay",
+                                dayData,
+                              ) as number | null;
+
+                              const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-maxStay`;
+                              const localValue = localValues.get(cellKey);
+                              const displayValue =
+                                localValue !== undefined
+                                  ? localValue
+                                  : maxStay !== null && maxStay !== undefined
+                                    ? maxStay.toString()
+                                    : "";
+
+                              const isThisCellEdited =
+                                activeEdit?.ratePlanId ===
+                                  ratePlan.ratePlanId &&
+                                activeEdit?.roomId === room.roomId &&
+                                activeEdit?.date === dateStr;
+                              const canEdit =
+                                isSelected && (!isLocked || isThisCellEdited);
+
+                              return (
+                                <div
+                                  key={i}
+                                  className={`
+                                border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
+                                transition-colors duration-150
+                                ${isSelected ? getSelectedColumnBg(date) : ""}
+                              `}
+                                >
+                                  <input
+                                    type="number"
+                                    value={displayValue}
+                                    readOnly={!canEdit}
+                                    onChange={(e) => {
+                                      if (canEdit) {
+                                        const inputValue =
+                                          e.target.value === ""
+                                            ? null
+                                            : Number(e.target.value);
+                                        const baseRate = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "baseRate",
+                                          dayData,
+                                        ) as number;
+                                        const singleOccupancyRate =
+                                          getCurrentValue(
+                                            ratePlan.ratePlanId,
+                                            room.roomId,
+                                            dateStr,
+                                            "singleOccupancyRate",
+                                            dayData,
+                                          ) as number | null;
+                                        const extraAdultCharge =
+                                          getCurrentValue(
+                                            ratePlan.ratePlanId,
+                                            room.roomId,
+                                            dateStr,
+                                            "extraAdultCharge",
+                                            dayData,
+                                          ) as number;
+                                        const paidChildCharge = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "paidChildCharge",
+                                          dayData,
+                                        ) as number;
+                                        const minStay = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "minStay",
+                                          dayData,
+                                        ) as number | null;
+                                        const cutoffTime = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "cutoffTime",
+                                          dayData,
+                                        ) as string | null;
+                                        onUpdate(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          baseRate,
+                                          singleOccupancyRate ?? undefined,
+                                          extraAdultCharge,
+                                          paidChildCharge,
+                                          minStay ?? undefined,
+                                          inputValue ?? undefined,
+                                          cutoffTime ?? undefined,
+                                        );
+                                        setLocalValues((prev) => {
+                                          const next = new Map(prev);
+                                          next.set(cellKey, e.target.value);
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      if (isSelected) {
+                                        setLocalValues((prev) => {
+                                          const next = new Map(prev);
+                                          next.delete(cellKey);
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    onKeyDown={(
+                                      e: KeyboardEvent<HTMLInputElement>,
+                                    ) => {
+                                      if (!isSelected || e.key !== "Enter")
+                                        return;
+                                      e.preventDefault();
+                                      e.currentTarget.blur();
+                                    }}
+                                    className={`
+                                  w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
+                                  tabular-nums
+                                  ${
+                                    canEdit
+                                      ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
+                                      : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"
                                   }
-                                }}
-                                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                                  if (!isSelected || e.key !== 'Enter') return;
-                                  e.preventDefault();
-                                  e.currentTarget.blur();
-                                }}
-                                className={`
+                                  ${maxStay !== null && maxStay !== undefined && canEdit ? "text-emerald-700" : ""}
+                                  ${(maxStay === null || maxStay === undefined) && canEdit ? "text-rose-600" : ""}
+                                  focus:outline-none
+                                `}
+                                    placeholder={canEdit ? "0" : "—"}
+                                    min="0"
+                                  />
+
+                                  <div className="flex flex-col items-center mt-2.5 gap-0.5">
+                                    <span
+                                      className={`
+                                  text-[10px] font-medium uppercase tracking-wide
+                                  ${maxStay !== null && maxStay !== undefined ? "text-emerald-600" : "text-rose-500"}
+                                `}
+                                    >
+                                      {maxStay !== null && maxStay !== undefined
+                                        ? `${maxStay} Set`
+                                        : "Not Set"}
+                                    </span>
+                                    {isLocked &&
+                                      !isThisCellEdited &&
+                                      isSelected && (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                          <svg
+                                            className="w-2.5 h-2.5"
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                          >
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                              clipRule="evenodd"
+                                            />
+                                          </svg>
+                                          Locked
+                                        </span>
+                                      )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Cutoff Time Row */}
+                          <div
+                            className="grid border-t border-slate-200 bg-white hover:bg-slate-50/30 transition-colors duration-150"
+                            style={{
+                              gridTemplateColumns: `280px repeat(${numColumns}, 1fr)`,
+                            }}
+                          >
+                            <div className="flex items-center gap-3 px-6 py-4 border-r border-slate-200 bg-slate-50/60">
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-cyan-50 text-cyan-600">
+                                <Clock className="w-4 h-4" />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-semibold text-slate-900">
+                                  Cutoff Time
+                                </span>
+                              </div>
+                            </div>
+
+                            {dates.map((date, i) => {
+                              const isSelected = isSameDay(date, activeDate);
+                              const dateStr = format(date, "yyyy-MM-dd");
+                              const dayData = getDayData(
+                                ratePlan.days,
+                                dateStr,
+                              );
+                              const cutoffTime = dayData?.cutoffTime ?? null;
+
+                              const cellKey = `${ratePlan.ratePlanId}-${room.roomId}-${dateStr}-cutoffTime`;
+                              const localValue = localValues.get(cellKey);
+                              const displayValue =
+                                localValue !== undefined
+                                  ? localValue
+                                  : formatTimeForInput(cutoffTime);
+
+                              const isThisCellEdited =
+                                activeEdit?.ratePlanId ===
+                                  ratePlan.ratePlanId &&
+                                activeEdit?.roomId === room.roomId &&
+                                activeEdit?.date === dateStr;
+                              const canEdit =
+                                isSelected && (!isLocked || isThisCellEdited);
+
+                              return (
+                                <div
+                                  key={i}
+                                  className={`
+                                border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
+                                transition-colors duration-150
+                                ${isSelected ? getSelectedColumnBg(date) : ""}
+                              `}
+                                >
+                                  <input
+                                    type="time"
+                                    value={displayValue}
+                                    readOnly={!canEdit}
+                                    onChange={(e) => {
+                                      if (canEdit) {
+                                        const inputValue =
+                                          e.target.value === ""
+                                            ? null
+                                            : e.target.value;
+                                        const baseRate = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "baseRate",
+                                          dayData,
+                                        ) as number;
+                                        const singleOccupancyRate =
+                                          getCurrentValue(
+                                            ratePlan.ratePlanId,
+                                            room.roomId,
+                                            dateStr,
+                                            "singleOccupancyRate",
+                                            dayData,
+                                          ) as number | null;
+                                        const extraAdultCharge =
+                                          getCurrentValue(
+                                            ratePlan.ratePlanId,
+                                            room.roomId,
+                                            dateStr,
+                                            "extraAdultCharge",
+                                            dayData,
+                                          ) as number;
+                                        const paidChildCharge = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "paidChildCharge",
+                                          dayData,
+                                        ) as number;
+                                        const minStay = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "minStay",
+                                          dayData,
+                                        ) as number | null;
+                                        const maxStay = getCurrentValue(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          "maxStay",
+                                          dayData,
+                                        ) as number | null;
+                                        onUpdate(
+                                          ratePlan.ratePlanId,
+                                          room.roomId,
+                                          dateStr,
+                                          baseRate,
+                                          singleOccupancyRate ?? undefined,
+                                          extraAdultCharge,
+                                          paidChildCharge,
+                                          minStay ?? undefined,
+                                          maxStay ?? undefined,
+                                          inputValue ?? undefined,
+                                        );
+                                        setLocalValues((prev) => {
+                                          const next = new Map(prev);
+                                          next.set(cellKey, e.target.value);
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      if (isSelected) {
+                                        setLocalValues((prev) => {
+                                          const next = new Map(prev);
+                                          next.delete(cellKey);
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    onKeyDown={(
+                                      e: KeyboardEvent<HTMLInputElement>,
+                                    ) => {
+                                      if (!isSelected || e.key !== "Enter")
+                                        return;
+                                      e.preventDefault();
+                                      e.currentTarget.blur();
+                                    }}
+                                    className={`
                                   w-24 h-11 border rounded-lg font-semibold text-sm text-center transition-all duration-150
                                   tabular-nums
-                                  ${canEdit
-                                    ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600'
-                                    : 'cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400'}
-                                  ${cutoffTime !== null && cutoffTime !== undefined && canEdit ? 'text-emerald-700' : ''}
-                                  ${(cutoffTime === null || cutoffTime === undefined) && canEdit ? 'text-rose-600' : ''}
+                                  ${
+                                    canEdit
+                                      ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
+                                      : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"
+                                  }
+                                  ${cutoffTime !== null && cutoffTime !== undefined && canEdit ? "text-emerald-700" : ""}
+                                  ${(cutoffTime === null || cutoffTime === undefined) && canEdit ? "text-rose-600" : ""}
                                   focus:outline-none
                                 `}
-                                placeholder={canEdit ? 'HH:mm' : '—'}
-                              />
+                                    placeholder={canEdit ? "HH:mm" : "—"}
+                                  />
 
-                              <div className="flex flex-col items-center mt-2.5 gap-0.5">
-                                <span className={`
+                                  <div className="flex flex-col items-center mt-2.5 gap-0.5">
+                                    <span
+                                      className={`
                                   text-[10px] font-medium uppercase tracking-wide
-                                  ${cutoffTime !== null && cutoffTime !== undefined ? 'text-emerald-600' : 'text-rose-500'}
-                                `}>
-                                  {cutoffTime !== null && cutoffTime !== undefined ? formatTimeForInput(cutoffTime) + ' Set' : 'Not Set'}
-                                </span>
-                                {isLocked && !isThisCellEdited && isSelected && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
-                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                    </svg>
-                                    Locked
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
+                                  ${cutoffTime !== null && cutoffTime !== undefined ? "text-emerald-600" : "text-rose-500"}
+                                `}
+                                    >
+                                      {cutoffTime !== null &&
+                                      cutoffTime !== undefined
+                                        ? formatTimeForInput(cutoffTime) +
+                                          " Set"
+                                        : "Not Set"}
+                                    </span>
+                                    {isLocked &&
+                                      !isThisCellEdited &&
+                                      isSelected && (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
+                                          <svg
+                                            className="w-2.5 h-2.5"
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                          >
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                              clipRule="evenodd"
+                                            />
+                                          </svg>
+                                          Locked
+                                        </span>
+                                      )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                  </div>
+                );
+              })}
           </div>
         );
       })}
