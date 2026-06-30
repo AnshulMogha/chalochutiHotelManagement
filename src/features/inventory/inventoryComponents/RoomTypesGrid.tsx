@@ -22,6 +22,69 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
    Helpers & Styling Logic
 ----------------------------------- */
 
+/**
+ * Per-room-type colour themes. Each room type (cycled by index) gets a distinct
+ * accent bar, name-column tint, label colour and a matching tint for its nested
+ * meal plans so the groups are easy to tell apart.
+ * Full class strings are used so Tailwind can detect them at build time.
+ */
+const ROOM_THEMES = [
+  {
+    accent: 'border-l-indigo-500',
+    nameBg: 'bg-indigo-50/70',
+    nameText: 'text-indigo-900',
+    dot: 'bg-indigo-500',
+    divider: 'border-t-indigo-200',
+    expandedBg: 'bg-indigo-50/30',
+    chip: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  },
+  {
+    accent: 'border-l-emerald-500',
+    nameBg: 'bg-emerald-50/70',
+    nameText: 'text-emerald-900',
+    dot: 'bg-emerald-500',
+    divider: 'border-t-emerald-200',
+    expandedBg: 'bg-emerald-50/30',
+    chip: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  },
+  {
+    accent: 'border-l-amber-500',
+    nameBg: 'bg-amber-50/70',
+    nameText: 'text-amber-900',
+    dot: 'bg-amber-500',
+    divider: 'border-t-amber-200',
+    expandedBg: 'bg-amber-50/40',
+    chip: 'bg-amber-100 text-amber-700 border-amber-200',
+  },
+  {
+    accent: 'border-l-rose-500',
+    nameBg: 'bg-rose-50/70',
+    nameText: 'text-rose-900',
+    dot: 'bg-rose-500',
+    divider: 'border-t-rose-200',
+    expandedBg: 'bg-rose-50/30',
+    chip: 'bg-rose-100 text-rose-700 border-rose-200',
+  },
+  {
+    accent: 'border-l-violet-500',
+    nameBg: 'bg-violet-50/70',
+    nameText: 'text-violet-900',
+    dot: 'bg-violet-500',
+    divider: 'border-t-violet-200',
+    expandedBg: 'bg-violet-50/30',
+    chip: 'bg-violet-100 text-violet-700 border-violet-200',
+  },
+  {
+    accent: 'border-l-cyan-500',
+    nameBg: 'bg-cyan-50/70',
+    nameText: 'text-cyan-900',
+    dot: 'bg-cyan-500',
+    divider: 'border-t-cyan-200',
+    expandedBg: 'bg-cyan-50/30',
+    chip: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+  },
+] as const;
+
 const getDateType = (date: Date) => {
   if (isWeekend(date)) return 'WEEKEND';
   return 'NORMAL';
@@ -666,6 +729,7 @@ export const RoomTypesGrid = ({
 
       {/* Room Rows */}
       {rooms.map((room, roomIndex) => {
+        const theme = ROOM_THEMES[roomIndex % ROOM_THEMES.length];
         const inventoryDaysByDate = room.days.reduce<
           Record<string, { minStay: number | null; maxStay: number | null }>
         >((acc, day) => {
@@ -680,11 +744,13 @@ export const RoomTypesGrid = ({
         <Fragment key={room.roomId}>
         <div
           className={`grid grid-cols-[280px_repeat(7,1fr)] ${
-            roomIndex > 0 ? 'border-t border-slate-200' : ''
+            roomIndex > 0 ? `border-t-2 ${theme.divider}` : ''
           } bg-white hover:bg-slate-50/50 transition-colors duration-150`}
         >
           {/* Room Name Column */}
-          <div className="flex items-start gap-2 px-6 py-4 font-bold text-sm text-slate-900 border-r border-slate-200 bg-slate-50/60">
+          <div
+            className={`flex items-start gap-2 px-5 py-4 font-bold text-sm border-r border-slate-200 border-l-4 ${theme.accent} ${theme.nameBg} ${theme.nameText}`}
+          >
             <button
               type="button"
               onClick={() => onToggleExpand(room.roomId)}
@@ -697,6 +763,7 @@ export const RoomTypesGrid = ({
                 <ChevronRight className="w-4 h-4" />
               )}
             </button>
+            <span className={`mt-1 shrink-0 w-2.5 h-2.5 rounded-full ${theme.dot}`} aria-hidden="true" />
             <span className="min-w-0 flex-1 break-words text-left leading-snug">
               {room.roomName}
             </span>
@@ -717,6 +784,7 @@ export const RoomTypesGrid = ({
 
             const availableValue = dayData?.available ?? 0;
             const totalValue = dayData?.total ?? 0;
+            const soldValue = dayData?.sold ?? 0;
             
             // Display priority logic (evaluate in exact order)
             const isNotSet = totalValue === 0;
@@ -949,6 +1017,9 @@ export const RoomTypesGrid = ({
                       <span className="text-[10px] font-medium uppercase tracking-wide text-emerald-600">
                         {availableValue} LEFT
                       </span>
+                      <span className="text-[10px] font-medium uppercase tracking-wide text-rose-500">
+                        {soldValue} SOLD
+                      </span>
                       {isLocked && !isThisCellEdited && isColumnSelected && !isUpdating && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
                           <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
@@ -967,7 +1038,13 @@ export const RoomTypesGrid = ({
 
         {/* Expanded Content: render existing Rate Plans component (unchanged) */}
         {expandedRoomIds.has(room.roomId) && (
-          <div className="border-t border-slate-200 bg-slate-50/30 relative z-0">
+          <div className={`border-t border-slate-200 border-l-4 ${theme.accent} ${theme.expandedBg} relative z-0`}>
+            <div className="flex items-center gap-2 px-5 pt-3 pb-1">
+              <span className={`shrink-0 w-2 h-2 rounded-full ${theme.dot}`} aria-hidden="true" />
+              <span className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${theme.chip}`}>
+                Meal plans · {room.roomName}
+              </span>
+            </div>
             {loadingRatePlansByRoomId[room.roomId] ? (
               <div className="px-6 py-4 text-sm font-medium text-slate-500">
                 Loading rate plans...

@@ -758,8 +758,14 @@ export function SleepingArrangementStep({
                 handleBaseAdultsChange(baseAdults),
               onDecrement: handleDecrementBaseAdults,
               onIncrement: handleIncrementBaseAdults,
-              description:
-                "Ideal number of adults supported by the standard sleeping arrangement.",
+              description: (
+                <>
+                  Ideal number of adults supported by the standard sleeping
+                  arrangement. If you set this parameter to 1, then when a guest
+                  selects 2 as the number of guests on the B2C portal, the second
+                  guest&apos;s rate will be charged as an Extra Adult.
+                </>
+              ),
             },
             {
               key: "maxAdults",
@@ -787,8 +793,19 @@ export function SleepingArrangementStep({
                   <span className="font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
                     Free
                   </span>{" "}
-                  children that can be accommodated in the room, As per the
+                  children that can be accommodated in the room, as per the
                   Child age policy.
+                  <ul className="mt-1 list-disc space-y-1 pl-4">
+                    <li>
+                      If this field is set to 0, the child charge will be
+                      calculated according to the configured Child Policy.
+                    </li>
+                    <li>
+                      If this field is set to 1, one child stays free regardless
+                      of the age-based Child Policy. Any additional children will
+                      be charged according to the Child Policy.
+                    </li>
+                  </ul>
                 </>
               ),
             },
@@ -817,40 +834,45 @@ export function SleepingArrangementStep({
                 "Maximum number of guests that can be accommodated in this room.",
             },
           ].map((item) => (
-            <div key={item.key}>
-              <div className="flex items-center justify-between mb-1">
+            <div
+              key={item.key}
+              className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4 last:border-b-0 last:pb-0"
+            >
+              <div className="flex-1 min-w-0">
                 <label className="text-sm font-medium text-gray-700">
                   {item.label}
                 </label>
-                {item.error && <p className="text-xs text-red-500">{item.error}</p>}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={item.onDecrement}
-                    className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-md hover:bg-gray-50"
-                  >
-                    <Minus className="w-4 h-4" />
-                  </button>
-                  <Input
-                    type="number"
-                    value={item.value}
-                    error={item.error&&" "}
-                    onChange={(e) => item.onChange(Number(e.target.value))}
-                    className="w-16 text-center"
-                    min="0"
-                  />
-                  <button
-                    type="button"
-                    onClick={item.onIncrement}
-                    className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-md hover:bg-gray-50"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
+                <div className="mt-1 text-xs leading-relaxed text-gray-500">
+                  {item.description}
                 </div>
+                {item.error && (
+                  <p className="mt-1 text-xs text-red-500">{item.error}</p>
+                )}
               </div>
-             
-              <p className="text-xs text-gray-500">{item.description}</p>
-              
+              <div className="flex shrink-0 items-center gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={item.onDecrement}
+                  className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <Input
+                  type="number"
+                  value={item.value}
+                  error={item.error && " "}
+                  onChange={(e) => item.onChange(Number(e.target.value))}
+                  className="w-16 text-center"
+                  min="0"
+                />
+                <button
+                  type="button"
+                  onClick={item.onIncrement}
+                  className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>

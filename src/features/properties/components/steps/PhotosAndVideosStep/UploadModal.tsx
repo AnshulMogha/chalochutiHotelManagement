@@ -10,6 +10,7 @@ interface UploadModalProps {
   isUploading?: boolean;
 }
 
+const MIN_IMAGE_SIZE_BYTES = 500 * 1024;
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
 const MAX_FILES_PER_UPLOAD = 10;
@@ -95,6 +96,11 @@ export function UploadModal({
 
       if (isVideo && !(ALLOWED_VIDEO_MIME_TYPES.has(file.type) || isAllowedVideoExt)) {
         invalid.push(`${file.name}: only mp4/webm/mov videos are allowed`);
+        return;
+      }
+
+      if (isImage && file.size < MIN_IMAGE_SIZE_BYTES) {
+        invalid.push(`${file.name}: image must be larger than 500 KB`);
         return;
       }
 
@@ -238,7 +244,7 @@ export function UploadModal({
             <div className="rounded-lg border border-blue-100 bg-blue-50/80 px-3 py-2.5 text-xs text-blue-900">
               <p className="mb-1 font-semibold">Images</p>
               <p className="text-blue-800">jpg, jpeg, png, webp</p>
-              <p className="mt-1 text-blue-700">Max 5 MB each</p>
+              <p className="mt-1 text-blue-700">Min 500 KB &middot; Max 5 MB each</p>
             </div>
             <div className="rounded-lg border border-indigo-100 bg-indigo-50/80 px-3 py-2.5 text-xs text-indigo-900">
               <p className="mb-1 font-semibold">Videos</p>
