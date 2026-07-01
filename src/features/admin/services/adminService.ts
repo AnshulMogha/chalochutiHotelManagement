@@ -552,6 +552,7 @@ export interface PromotionListItem {
   roomNights: number | null;
   revenue: number | null;
   lastModified: string;
+  applyChannel?: string;
 }
 
 export interface PromotionListResponse {
@@ -1591,6 +1592,7 @@ export const adminService = {
       page?: number;
       size?: number;
       status?: "DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED";
+      applyChannel?: string;
     },
   ): Promise<PromotionListResponse> => {
     const response = await apiClient.get<

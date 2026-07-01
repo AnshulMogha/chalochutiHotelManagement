@@ -85,13 +85,6 @@ export default function PromotionsPage() {
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
   const [promotionSearch, setPromotionSearch] = useState("");
-  const [statusCounts, setStatusCounts] = useState({
-    all: 0,
-    draft: 0,
-    active: 0,
-    paused: 0,
-    expired: 0,
-  });
   const navigate = useNavigate();
   const hotelId = searchParams.get("hotelId");
   const { showToast } = useToast();
@@ -111,11 +104,6 @@ export default function PromotionsPage() {
       loadPromotions();
     }
   }, [activeTab, hotelId, myPromotionsSubTab, page, pageSize]);
-
-  useEffect(() => {
-    if (activeTab !== "my-promotions" || !hotelId) return;
-    loadStatusCounts();
-  }, [activeTab, hotelId]);
 
   useEffect(() => {
     setPage(0);
@@ -140,6 +128,7 @@ export default function PromotionsPage() {
         page,
         size: pageSize,
         status: statusParamMap[myPromotionsSubTab],
+        applyChannel: "B2C",
       });
       setPromotions(response.content || response.data || []);
       setTotalPages(response.totalPages || 0);
@@ -156,44 +145,6 @@ export default function PromotionsPage() {
       setHasPrevious(false);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadStatusCounts = async () => {
-    if (!hotelId) return;
-    try {
-      const [all, draft, active, paused, expired] = await Promise.all([
-        adminService.getPromotions(hotelId, { page: 0, size: 1 }),
-        adminService.getPromotions(hotelId, {
-          page: 0,
-          size: 1,
-          status: "DRAFT",
-        }),
-        adminService.getPromotions(hotelId, {
-          page: 0,
-          size: 1,
-          status: "ACTIVE",
-        }),
-        adminService.getPromotions(hotelId, {
-          page: 0,
-          size: 1,
-          status: "PAUSED",
-        }),
-        adminService.getPromotions(hotelId, {
-          page: 0,
-          size: 1,
-          status: "EXPIRED",
-        }),
-      ]);
-      setStatusCounts({
-        all: all.totalElements || 0,
-        draft: draft.totalElements || 0,
-        active: active.totalElements || 0,
-        paused: paused.totalElements || 0,
-        expired: expired.totalElements || 0,
-      });
-    } catch (error) {
-      console.error("Error loading promotion status counts:", error);
     }
   };
 
@@ -226,7 +177,6 @@ export default function PromotionsPage() {
       );
       // Reload promotions list
       loadPromotions();
-      loadStatusCounts();
     } catch (error: any) {
       console.error("Error updating promotion status:", error);
       showToast(
@@ -255,6 +205,20 @@ export default function PromotionsPage() {
         return "bg-red-50 text-red-700 border-red-200";
       default:
         return "bg-gray-50 text-gray-700 border-gray-200";
+    }
+  };
+
+  const getApplyChannelLabel = (channel?: string) => {
+    switch (channel) {
+      case "B2C":
+        return "B2C";
+      case "B2B":
+        return "B2B";
+      case "PACKAGE":
+      case "BUNDLED_RATES":
+        return "Bundled Rates";
+      default:
+        return channel || "—";
     }
   };
 
@@ -322,6 +286,10 @@ export default function PromotionsPage() {
       const typeLabel = getPromotionTypeLabel(promotion.promotionType).toLowerCase();
       const status = (promotion.status ?? "").toLowerCase();
       const offerType = (promotion.offerType ?? "").toLowerCase();
+      const applyChannel = (promotion.applyChannel ?? "").toLowerCase();
+      const applyChannelLabel = getApplyChannelLabel(
+        promotion.applyChannel,
+      ).toLowerCase();
       const discount = String(promotion.discountAllUsers ?? "").toLowerCase();
       const expiring = (promotion.expiringLabel ?? "").toLowerCase();
       const lastModified = promotion.lastModified
@@ -339,6 +307,8 @@ export default function PromotionsPage() {
         typeLabel.includes(q) ||
         status.includes(q) ||
         offerType.includes(q) ||
+        applyChannel.includes(q) ||
+        applyChannelLabel.includes(q) ||
         discount.includes(q) ||
         expiring.includes(q) ||
         lastModified.includes(q)
@@ -346,7 +316,8 @@ export default function PromotionsPage() {
     });
   }, [promotions, promotionSearch]);
 
-  const activeCount = statusCounts.active;
+  const subTabCount =
+    myPromotionsSubTab === "all" ? totalElements : undefined;
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -367,9 +338,9 @@ export default function PromotionsPage() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              {activeCount > 0 && (
+              {myPromotionsSubTab === "active" && totalElements > 0 && (
                 <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-semibold rounded-full">
-                  {activeCount} ACTIVE
+                  {totalElements} ACTIVE
                 </span>
               )}
               <Button
@@ -491,19 +462,31 @@ export default function PromotionsPage() {
             >
               <TabsList className="bg-white border border-gray-200">
                 <TabsTrigger value="all" className="text-sm">
-                  All ({statusCounts.all})
+                  All{subTabCount !== undefined ? ` (${subTabCount})` : ""}
                 </TabsTrigger>
                 <TabsTrigger value="draft" className="text-sm">
-                  Draft ({statusCounts.draft})
+                  Draft
+                  {myPromotionsSubTab === "draft"
+                    ? ` (${totalElements})`
+                    : ""}
                 </TabsTrigger>
                 <TabsTrigger value="active" className="text-sm">
-                  Active ({statusCounts.active})
+                  Active
+                  {myPromotionsSubTab === "active"
+                    ? ` (${totalElements})`
+                    : ""}
                 </TabsTrigger>
                 <TabsTrigger value="paused" className="text-sm">
-                  Paused ({statusCounts.paused})
+                  Paused
+                  {myPromotionsSubTab === "paused"
+                    ? ` (${totalElements})`
+                    : ""}
                 </TabsTrigger>
                 <TabsTrigger value="expired" className="text-sm">
-                  Expired ({statusCounts.expired})
+                  Expired
+                  {myPromotionsSubTab === "expired"
+                    ? ` (${totalElements})`
+                    : ""}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -569,6 +552,9 @@ export default function PromotionsPage() {
                         Type
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
+                        Apply Channel
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
                         Discount
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
@@ -614,6 +600,11 @@ export default function PromotionsPage() {
                               </span>
                             );
                           })()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-700 border border-slate-200">
+                            {getApplyChannelLabel(promotion.applyChannel)}
+                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-700">
