@@ -26,6 +26,56 @@ function normalizeSingleOccupancyRate(
   return value ?? null;
 }
 
+/** Blocks minus / scientific-notation keys on numeric inventory and rate inputs. */
+export function blockNegativeNumberKey(e: {
+  key: string;
+  preventDefault: () => void;
+}): void {
+  if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+    e.preventDefault();
+  }
+}
+
+/** Parses a rate field: empty = undefined; must be finite and > 0. */
+export function parsePositiveRateInput(rawValue: string): number | undefined {
+  if (rawValue === '' || rawValue.includes('-')) {
+    return undefined;
+  }
+
+  const parsed = Number(rawValue);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+/** Inventory total: empty → 0; negatives are rejected. */
+export function parseNonNegativeInventoryInput(rawValue: string): number {
+  if (rawValue === '' || rawValue.includes('-')) {
+    return 0;
+  }
+
+  const parsed = Number(rawValue);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0;
+  }
+
+  return parsed;
+}
+
+/**
+ * Returns a safe display string for inventory local state,
+ * or null when the keystroke should be ignored (e.g. minus sign).
+ */
+export function sanitizeNonNegativeDisplayInput(
+  rawValue: string,
+): string | null {
+  if (rawValue === '') return '';
+  if (rawValue.includes('-')) return null;
+
+  const parsed = Number(rawValue);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+
+  return rawValue;
+}
+
 /** Original day row before inline edits (from calendar snapshot ref). */
 export function getOriginalRateDay(
   rooms: RatesRoom[],
@@ -40,10 +90,12 @@ export function getOriginalRateDay(
 
 /**
  * PUT /hotel/rates/single-derived — include only rate fields that differ from the snapshot.
+ * When `forceSave` is true (explicit Save Changes), include provided rate fields even if unchanged.
  */
 export function buildSingleDerivedRateUpdatePayload(
   input: SingleDerivedRateUpdateInput,
   originalDay: RoomRateDay | null | undefined,
+  options?: { forceSave?: boolean },
 ): UpdateSingleRateRequest | null {
   const currency = originalDay?.currency ?? 'INR';
   const payload: UpdateSingleRateRequest = {
@@ -60,6 +112,32 @@ export function buildSingleDerivedRateUpdatePayload(
   const origPaid = originalDay?.paidChildCharge ?? 0;
 
   const newBase = input.baseRate || 0;
+
+  if (options?.forceSave) {
+    if (newBase > 0) {
+      payload.baseRate = newBase;
+    }
+    if (input.singleOccupancyRate !== undefined) {
+      payload.singleOccupancyRate = normalizeSingleOccupancyRate(
+        input.singleOccupancyRate,
+      );
+    }
+    if (input.extraAdultCharge !== undefined) {
+      payload.extraAdultCharge = input.extraAdultCharge;
+    }
+    if (input.paidChildCharge !== undefined) {
+      payload.paidChildCharge = input.paidChildCharge;
+    }
+
+    const hasAnyField =
+      payload.baseRate !== undefined ||
+      payload.singleOccupancyRate !== undefined ||
+      payload.extraAdultCharge !== undefined ||
+      payload.paidChildCharge !== undefined;
+
+    return hasAnyField ? payload : null;
+  }
+
   if (newBase !== origBase) {
     payload.baseRate = newBase;
   }

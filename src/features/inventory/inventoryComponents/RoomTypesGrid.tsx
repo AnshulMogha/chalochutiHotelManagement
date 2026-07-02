@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState, type MouseEvent } from 'react';
 import {
   addDays,
   format,
@@ -13,6 +13,9 @@ import {
   formatInventoryCutoffDisplay,
   formatTimeForDisplay,
   isInventoryCutoffConfigured,
+  blockNegativeNumberKey,
+  parseNonNegativeInventoryInput,
+  sanitizeNonNegativeDisplayInput,
 } from '../utils/rateHelpers';
 import type { ChildAgePolicyResponse } from '@/features/admin/services/adminService';
 import { RatePlansGrid, type OpenLinkRatePlansContext } from './RatePlansGrid';
@@ -124,8 +127,16 @@ interface RoomTypesGridProps {
   onUpdate: (roomId: number, dateStr: string, value: number) => void;
   onActiveDateChange: (date: Date) => void;
   isLocked: boolean;
+  isRateLocked?: boolean;
+  isReadOnly?: boolean;
   activeEdit: { roomId: number; date: string } | null;
   updatingCells: Set<string>;
+  blockingDates?: Set<string>;
+  onToggleInventoryBlock?: (
+    dateStr: string,
+    nextStatus: 'OPEN' | 'CLOSED',
+    dayData: InventoryDay,
+  ) => void;
   // Expand/collapse integration for the existing Rate Plans component
   expandedRoomIds: Set<number>;
   onToggleExpand: (roomId: number) => void;
@@ -191,8 +202,12 @@ export const RoomTypesGrid = ({
   onUpdate,
   onActiveDateChange,
   isLocked,
+  isRateLocked = false,
+  isReadOnly = false,
   activeEdit,
   updatingCells,
+  blockingDates,
+  onToggleInventoryBlock,
   expandedRoomIds,
   onToggleExpand,
   rateRoomsByRoomId,
@@ -222,6 +237,170 @@ export const RoomTypesGrid = ({
   }, [baseDate]);
 
   const today = startOfToday();
+
+  const isPastDateCell = (date: Date) =>
+    isBefore(date, today) && !isSameDay(date, today);
+
+  const activateDateForCell = (date: Date) => {
+    if (isPastDateCell(date)) return;
+    if (!isSameDay(date, activeDate)) {
+      onActiveDateChange(date);
+    }
+  };
+
+  const handleCellMouseDown = (
+    e: MouseEvent<HTMLInputElement>,
+    date: Date,
+  ) => {
+    if (isPastDateCell(date) || isSameDay(date, activeDate)) return;
+    e.preventDefault();
+    onActiveDateChange(date);
+    window.setTimeout(() => e.currentTarget.focus(), 0);
+  };
+
+  const handleCellWrapperMouseDown = (date: Date) => {
+    activateDateForCell(date);
+  };
+
+  const handleInventoryInputChange = (
+    rawValue: string,
+    cellKey: string,
+    roomId: number,
+    dateStr: string,
+    canEdit: boolean,
+    isUpdating: boolean,
+  ) => {
+    if (!canEdit || isUpdating) return;
+
+    const sanitizedDisplay = sanitizeNonNegativeDisplayInput(rawValue);
+    if (sanitizedDisplay === null) return;
+
+    setLocalValues((prev) => {
+      const next = new Map(prev);
+      next.set(cellKey, sanitizedDisplay);
+      return next;
+    });
+
+    onUpdate(
+      roomId,
+      dateStr,
+      parseNonNegativeInventoryInput(sanitizedDisplay),
+    );
+  };
+
+  const primeInventoryCellEdit = (
+    roomId: number,
+    dateStr: string,
+    totalValue: number,
+    isClosed: boolean,
+    isThisCellEdited: boolean,
+  ) => {
+    if (isClosed) return;
+    if (!isLocked || isThisCellEdited) return;
+    onUpdate(roomId, dateStr, totalValue);
+  };
+
+  const handleInventoryCellMouseDown = (
+    e: MouseEvent<HTMLInputElement>,
+    date: Date,
+    roomId: number,
+    dateStr: string,
+    totalValue: number,
+    isClosed: boolean,
+    isThisCellEdited: boolean,
+  ) => {
+    if (isPastDateCell(date)) return;
+    if (!isSameDay(date, activeDate)) {
+      e.preventDefault();
+      onActiveDateChange(date);
+      window.setTimeout(() => {
+        e.currentTarget.focus();
+        primeInventoryCellEdit(
+          roomId,
+          dateStr,
+          totalValue,
+          isClosed,
+          isThisCellEdited,
+        );
+      }, 0);
+      return;
+    }
+    primeInventoryCellEdit(
+      roomId,
+      dateStr,
+      totalValue,
+      isClosed,
+      isThisCellEdited,
+    );
+  };
+
+  const handleInventoryCellFocus = (
+    date: Date,
+    roomId: number,
+    dateStr: string,
+    totalValue: number,
+    isClosed: boolean,
+    isThisCellEdited: boolean,
+  ) => {
+    activateDateForCell(date);
+    primeInventoryCellEdit(
+      roomId,
+      dateStr,
+      totalValue,
+      isClosed,
+      isThisCellEdited,
+    );
+  };
+
+  const canToggleInventoryBlock =
+    !isReadOnly && !isLocked && !!onToggleInventoryBlock;
+
+  const renderInventoryBlockButton = (
+    dateStr: string,
+    dayData: InventoryDay | undefined,
+    isColumnSelected: boolean,
+    isClosed: boolean,
+  ) => {
+    if (!canToggleInventoryBlock || !dayData) return null;
+    if (!isClosed && !isColumnSelected) return null;
+
+    const isBlocking = blockingDates?.has(dateStr) ?? false;
+
+    if (isClosed) {
+      return (
+        <button
+          type="button"
+          disabled={isBlocking}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleInventoryBlock!(dateStr, 'OPEN', dayData);
+          }}
+          className="text-[10px] font-bold uppercase tracking-wide text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Click to unblock inventory"
+        >
+          {isBlocking ? 'Unblocking…' : 'BLOCKED'}
+        </button>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        disabled={isBlocking}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleInventoryBlock!(dateStr, 'CLOSED', dayData);
+        }}
+        className="text-[10px] font-bold uppercase tracking-wide text-slate-600 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+        title="Click to block inventory"
+      >
+        {isBlocking ? 'Blocking…' : 'BLOCK'}
+      </button>
+    );
+  };
+
   const firstRoom = rooms[0] ?? null;
   const firstRoomRateData = firstRoom ? rateRoomsByRoomId[firstRoom.roomId] : undefined;
   const firstRoomFirstRatePlan = firstRoomRateData?.ratePlans?.[0];
@@ -369,6 +548,7 @@ export const RoomTypesGrid = ({
               return (
                 <div
                   key={i}
+                  onMouseDown={() => handleCellWrapperMouseDown(date)}
                   className={`
                     border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                     transition-colors duration-150
@@ -379,6 +559,8 @@ export const RoomTypesGrid = ({
                     type="number"
                     value={displayValue}
                     readOnly={!canEdit}
+                    onMouseDown={(e) => handleCellMouseDown(e, date)}
+                    onFocus={() => activateDateForCell(date)}
                     onChange={(e) => {
                       if (!canEdit || !firstRoom || !firstRoomFirstRatePlan) return;
                       const inputValue =
@@ -472,6 +654,7 @@ export const RoomTypesGrid = ({
               return (
                 <div
                   key={i}
+                  onMouseDown={() => handleCellWrapperMouseDown(date)}
                   className={`
                     border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                     transition-colors duration-150
@@ -482,6 +665,8 @@ export const RoomTypesGrid = ({
                     type="number"
                     value={displayValue}
                     readOnly={!canEdit}
+                    onMouseDown={(e) => handleCellMouseDown(e, date)}
+                    onFocus={() => activateDateForCell(date)}
                     onChange={(e) => {
                       if (!canEdit || !firstRoom || !firstRoomFirstRatePlan) return;
                       const inputValue =
@@ -633,6 +818,7 @@ export const RoomTypesGrid = ({
               return (
                 <div
                   key={i}
+                  onMouseDown={() => handleCellWrapperMouseDown(date)}
                   className={`
                     border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                     transition-colors duration-150
@@ -642,6 +828,7 @@ export const RoomTypesGrid = ({
                   <button
                     type="button"
                     disabled={!canEdit}
+                    onMouseDown={() => handleCellWrapperMouseDown(date)}
                     onClick={() => {
                       if (!canEdit || !firstRoom) return;
                       onCommonRestrictionUpdate?.(firstRoom.roomId, dateStr, {
@@ -693,6 +880,7 @@ export const RoomTypesGrid = ({
               return (
                 <div
                   key={i}
+                  onMouseDown={() => handleCellWrapperMouseDown(date)}
                   className={`
                     border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                     transition-colors duration-150
@@ -702,6 +890,7 @@ export const RoomTypesGrid = ({
                   <button
                     type="button"
                     disabled={!canEdit}
+                    onMouseDown={() => handleCellWrapperMouseDown(date)}
                     onClick={() => {
                       if (!canEdit || !firstRoom) return;
                       onCommonRestrictionUpdate?.(firstRoom.roomId, dateStr, {
@@ -777,7 +966,10 @@ export const RoomTypesGrid = ({
             const isClosed = dayData?.status === 'CLOSED';
             
             const isThisCellEdited = activeEdit?.roomId === room.roomId && activeEdit?.date === dateStr;
-            const canEdit = !isClosed && isColumnSelected && (!isLocked || isThisCellEdited);
+            const canEdit =
+              !isClosed &&
+              isColumnSelected &&
+              (!isLocked || isThisCellEdited);
             
             const cellKey = `${room.roomId}-${dateStr}`;
             const isUpdating = updatingCells.has(cellKey);
@@ -799,6 +991,7 @@ export const RoomTypesGrid = ({
             return (
               <div
                 key={dateStr}
+                onMouseDown={() => handleCellWrapperMouseDown(date)}
                 className={`
                   border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                   transition-colors duration-150
@@ -837,8 +1030,18 @@ export const RoomTypesGrid = ({
                       "
                     />
                     <div className="flex flex-col items-center mt-2.5 gap-0.5">
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-rose-600">
-                        BLOCKED
+                      {renderInventoryBlockButton(
+                        dateStr,
+                        dayData,
+                        isColumnSelected,
+                        true,
+                      ) ?? (
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-rose-600">
+                          BLOCKED
+                        </span>
+                      )}
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-rose-500">
+                        {soldValue} SOLD
                       </span>
                     </div>
                   </>
@@ -851,19 +1054,36 @@ export const RoomTypesGrid = ({
                       placeholder={canEdit ? undefined : '-'}
                       readOnly={!canEdit || isUpdating}
                       disabled={isUpdating}
+                      onMouseDown={(e) =>
+                        handleInventoryCellMouseDown(
+                          e,
+                          date,
+                          room.roomId,
+                          dateStr,
+                          totalValue,
+                          isClosed,
+                          isThisCellEdited,
+                        )
+                      }
+                      onFocus={() =>
+                        handleInventoryCellFocus(
+                          date,
+                          room.roomId,
+                          dateStr,
+                          totalValue,
+                          isClosed,
+                          isThisCellEdited,
+                        )
+                      }
                       onChange={(e) => {
-                        if (canEdit && !isUpdating) {
-                          const rawValue = e.target.value;
-                          // Store raw string value for display (allows empty string)
-                          setLocalValues((prev) => {
-                            const next = new Map(prev);
-                            next.set(cellKey, rawValue);
-                            return next;
-                          });
-                          // Convert to number only when updating parent state (empty string becomes 0)
-                          const numericValue = rawValue === '' ? 0 : Math.max(0, Number(rawValue) || 0);
-                          onUpdate(room.roomId, dateStr, numericValue);
-                        }
+                        handleInventoryInputChange(
+                          e.target.value,
+                          cellKey,
+                          room.roomId,
+                          dateStr,
+                          canEdit,
+                          isUpdating,
+                        );
                       }}
                       onBlur={() => {
                         if (isColumnSelected) {
@@ -876,12 +1096,14 @@ export const RoomTypesGrid = ({
                         }
                       }}
                       onKeyDown={(e) => {
+                        blockNegativeNumberKey(e);
                         // Enter key does NOT call API - only updates local state
                         // API is called ONLY when Save Changes button is clicked
                         if (canEdit && !isUpdating && isThisCellEdited && e.key === 'Enter') {
                           e.currentTarget.blur();
                         }
                       }}
+                      min={0}
                       className={`
                         w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                         tabular-nums
@@ -896,13 +1118,22 @@ export const RoomTypesGrid = ({
                       <span className="text-[10px] font-medium uppercase tracking-wide text-rose-500">
                         NOT SET
                       </span>
-                      {isLocked && !isThisCellEdited && isColumnSelected && !isUpdating && (
+                      {isLocked &&
+                        !isThisCellEdited &&
+                        isColumnSelected &&
+                        !isUpdating && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
                           <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                           </svg>
                           Locked
                         </span>
+                      )}
+                      {renderInventoryBlockButton(
+                        dateStr,
+                        dayData,
+                        isColumnSelected,
+                        false,
                       )}
                     </div>
                   </>
@@ -914,17 +1145,36 @@ export const RoomTypesGrid = ({
                       value={displayValue}
                       readOnly={!canEdit || isUpdating}
                       disabled={isUpdating}
+                      onMouseDown={(e) =>
+                        handleInventoryCellMouseDown(
+                          e,
+                          date,
+                          room.roomId,
+                          dateStr,
+                          totalValue,
+                          isClosed,
+                          isThisCellEdited,
+                        )
+                      }
+                      onFocus={() =>
+                        handleInventoryCellFocus(
+                          date,
+                          room.roomId,
+                          dateStr,
+                          totalValue,
+                          isClosed,
+                          isThisCellEdited,
+                        )
+                      }
                       onChange={(e) => {
-                        if (canEdit && !isUpdating) {
-                          const rawValue = e.target.value;
-                          setLocalValues((prev) => {
-                            const next = new Map(prev);
-                            next.set(cellKey, rawValue);
-                            return next;
-                          });
-                          const numericValue = rawValue === '' ? 0 : Math.max(0, Number(rawValue) || 0);
-                          onUpdate(room.roomId, dateStr, numericValue);
-                        }
+                        handleInventoryInputChange(
+                          e.target.value,
+                          cellKey,
+                          room.roomId,
+                          dateStr,
+                          canEdit,
+                          isUpdating,
+                        );
                       }}
                       onBlur={() => {
                         if (isColumnSelected) {
@@ -936,10 +1186,12 @@ export const RoomTypesGrid = ({
                         }
                       }}
                       onKeyDown={(e) => {
+                        blockNegativeNumberKey(e);
                         if (canEdit && !isUpdating && isThisCellEdited && e.key === 'Enter') {
                           e.currentTarget.blur();
                         }
                       }}
+                      min={0}
                       className={`
                         w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                         tabular-nums
@@ -954,13 +1206,22 @@ export const RoomTypesGrid = ({
                       <span className="text-[10px] font-medium uppercase tracking-wide text-rose-500">
                         SOLD OUT
                       </span>
-                      {isLocked && !isThisCellEdited && isColumnSelected && !isUpdating && (
+                      {isLocked &&
+                        !isThisCellEdited &&
+                        isColumnSelected &&
+                        !isUpdating && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
                           <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                           </svg>
                           Locked
                         </span>
+                      )}
+                      {renderInventoryBlockButton(
+                        dateStr,
+                        dayData,
+                        isColumnSelected,
+                        false,
                       )}
                     </div>
                   </>
@@ -972,19 +1233,36 @@ export const RoomTypesGrid = ({
                       value={displayValue}
                       readOnly={!canEdit || isUpdating}
                       disabled={isUpdating}
+                      onMouseDown={(e) =>
+                        handleInventoryCellMouseDown(
+                          e,
+                          date,
+                          room.roomId,
+                          dateStr,
+                          totalValue,
+                          isClosed,
+                          isThisCellEdited,
+                        )
+                      }
+                      onFocus={() =>
+                        handleInventoryCellFocus(
+                          date,
+                          room.roomId,
+                          dateStr,
+                          totalValue,
+                          isClosed,
+                          isThisCellEdited,
+                        )
+                      }
                       onChange={(e) => {
-                        if (canEdit && !isUpdating) {
-                          const rawValue = e.target.value;
-                          // Store raw string value for display (allows empty string)
-                          setLocalValues((prev) => {
-                            const next = new Map(prev);
-                            next.set(cellKey, rawValue);
-                            return next;
-                          });
-                          // Convert to number only when updating parent state (empty string becomes 0)
-                          const numericValue = rawValue === '' ? 0 : Math.max(0, Number(rawValue) || 0);
-                          onUpdate(room.roomId, dateStr, numericValue);
-                        }
+                        handleInventoryInputChange(
+                          e.target.value,
+                          cellKey,
+                          room.roomId,
+                          dateStr,
+                          canEdit,
+                          isUpdating,
+                        );
                       }}
                       onBlur={() => {
                         if (isColumnSelected) {
@@ -997,12 +1275,14 @@ export const RoomTypesGrid = ({
                         }
                       }}
                       onKeyDown={(e) => {
+                        blockNegativeNumberKey(e);
                         // Enter key does NOT call API - only updates local state
                         // API is called ONLY when Save Changes button is clicked
                         if (canEdit && !isUpdating && isThisCellEdited && e.key === 'Enter') {
                           e.currentTarget.blur();
                         }
                       }}
+                      min={0}
                       className={`
                         w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                         tabular-nums
@@ -1014,19 +1294,28 @@ export const RoomTypesGrid = ({
                       `}
                     />
                     <div className="flex flex-col items-center mt-2.5 gap-0.5">
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-emerald-600">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">
                         {availableValue} LEFT
                       </span>
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-rose-500">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-rose-500">
                         {soldValue} SOLD
                       </span>
-                      {isLocked && !isThisCellEdited && isColumnSelected && !isUpdating && (
+                      {isLocked &&
+                        !isThisCellEdited &&
+                        isColumnSelected &&
+                        !isUpdating && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-amber-700 font-medium uppercase tracking-wide bg-amber-50/80 border border-amber-200/60">
                           <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                           </svg>
                           Locked
                         </span>
+                      )}
+                      {renderInventoryBlockButton(
+                        dateStr,
+                        dayData,
+                        isColumnSelected,
+                        false,
                       )}
                     </div>
                   </>
@@ -1062,7 +1351,7 @@ export const RoomTypesGrid = ({
                 forcedExpandedRoomId={room.roomId}
                 onUpdate={onRatePlanUpdate}
                 onActiveDateChange={onActiveDateChange}
-                isLocked={isLocked}
+                isLocked={isRateLocked}
                 activeEdit={activeRateEdit}
                 hidePaidChildCharge={hidePaidChildCharge}
                 childPolicy={childPolicy}

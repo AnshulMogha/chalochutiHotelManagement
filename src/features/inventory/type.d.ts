@@ -106,7 +106,7 @@ export interface RoomRatePlan {
   plan_code?: string | null;
   /** When false, hide this rate plan row from the calendar. */
   ratePlanActive?: boolean;
-  /** When false, hide the link control for this rate plan row. */
+  /** When true, this rate plan is linked as a slave to a master plan (rates are read-only). */
   isLinkEnable?: boolean;
   days: RoomRateDay[];
 }

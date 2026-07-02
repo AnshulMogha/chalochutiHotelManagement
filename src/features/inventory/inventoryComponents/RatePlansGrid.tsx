@@ -15,7 +15,7 @@
 import { useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { ROUTES } from "@/constants";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 import {
   parseISO,
   format,
@@ -44,6 +44,8 @@ import {
   getDayData,
   formatTimeForInput,
   formatRate,
+  blockNegativeNumberKey,
+  parsePositiveRateInput,
 } from "../utils/rateHelpers";
 import type { ChildAgePolicyResponse } from "@/features/admin/services/adminService";
 
@@ -149,6 +151,24 @@ function isLinkAllowedForRoomAndCalendar(
   if (calendarIsLinkEnable === false) return false;
   if (room.isLinkEnable === false) return false;
   return true;
+}
+
+const LINKED_SLAVE_RATE_TOOLTIP =
+  "This plan is linked, to make changes, update the Parent meal plan";
+
+/** When true, this rate plan is a linked slave; its rates are derived from the master plan. */
+function isSlaveLinkedRatePlan(ratePlan: RoomRatePlan): boolean {
+  return ratePlan.isLinkEnable === true;
+}
+
+function isRateCellEditable(
+  ratePlan: RoomRatePlan,
+  isSelected: boolean,
+  isLocked: boolean,
+  isThisCellEdited: boolean,
+): boolean {
+  if (isSlaveLinkedRatePlan(ratePlan)) return false;
+  return isSelected && (!isLocked || isThisCellEdited);
 }
 
 interface RatePlansGridProps {
@@ -272,14 +292,6 @@ export const RatePlansGrid = ({
     return `${baseLabel} (${minAge} – ${paidMaxAge} years)`;
   };
 
-  const parsePositiveRateInput = (rawValue: string): number | undefined => {
-    if (rawValue === "") {
-      return undefined;
-    }
-
-    const parsed = Number(rawValue);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-  };
   // Accordion state: only one room expanded at a time
   const [expandedRoomId, setExpandedRoomId] = useState<number | null>(null);
   // Track local input values: key = `${ratePlanId}-${roomId}-${date}`
@@ -478,9 +490,9 @@ export const RatePlansGrid = ({
     dateStr: string,
     dayData: RoomRateDay | null,
     isSelected: boolean,
-    canEdit: boolean,
+    isSlaveLinked: boolean,
   ) => {
-    if (!isSelected || canEdit || !dayData) return;
+    if (!isSelected || !dayData || isSlaveLinked) return;
     const baseRate = getCurrentValue(
       ratePlanId,
       roomId,
@@ -542,6 +554,54 @@ export const RatePlansGrid = ({
       maxStay ?? undefined,
       cutoffTime ?? undefined,
     );
+  };
+
+  const isPastDateCell = (date: Date) =>
+    isBefore(date, today) && !isSameDay(date, today);
+
+  const handleRateCellMouseDown = (
+    e: MouseEvent<HTMLInputElement>,
+    date: Date,
+  ) => {
+    if (isPastDateCell(date) || isSameDay(date, activeDate)) return;
+    e.preventDefault();
+    onActiveDateChange(date);
+    const el = e.currentTarget;
+    window.setTimeout(() => el.focus(), 0);
+  };
+
+  const activateDateForCell = (date: Date) => {
+    if (isPastDateCell(date)) return;
+    if (!isSameDay(date, activeDate)) {
+      onActiveDateChange(date);
+    }
+  };
+
+  const handleGridCellMouseDown = (
+    e: MouseEvent<HTMLInputElement>,
+    date: Date,
+  ) => {
+    if (isPastDateCell(date) || isSameDay(date, activeDate)) return;
+    e.preventDefault();
+    onActiveDateChange(date);
+    window.setTimeout(() => e.currentTarget.focus(), 0);
+  };
+
+  const handleGridCellFocus = (date: Date) => {
+    activateDateForCell(date);
+  };
+
+  const handleRateCellFocus = (
+    date: Date,
+    ratePlanId: number,
+    roomId: number,
+    dateStr: string,
+    dayData: RoomRateDay | null,
+    isSlaveLinked: boolean,
+  ) => {
+    if (isPastDateCell(date)) return;
+    activateDateForCell(date);
+    primeRateCellEdit(ratePlanId, roomId, dateStr, dayData, true, isSlaveLinked);
   };
 
   const numColumns = dates.length;
@@ -652,6 +712,7 @@ export const RatePlansGrid = ({
 
                 const isLastRatePlan =
                   ratePlanIndex === room.ratePlans.length - 1;
+                const isSlaveLinked = isSlaveLinkedRatePlan(ratePlan);
 
                 return (
                   <div
@@ -804,8 +865,12 @@ export const RatePlansGrid = ({
                           activeEdit?.ratePlanId === ratePlan.ratePlanId &&
                           activeEdit?.roomId === room.roomId &&
                           activeEdit?.date === dateStr;
-                        const canEdit =
-                          isSelected && (!isLocked || isThisCellEdited);
+                        const canEdit = isRateCellEditable(
+                          ratePlan,
+                          isSelected,
+                          isLocked,
+                          isThisCellEdited,
+                        );
 
                         const hasRate = baseRate > 0;
                         const displayBaseRate = baseRate || 0;
@@ -817,6 +882,10 @@ export const RatePlansGrid = ({
                         return (
                           <div
                             key={i}
+                            onMouseDown={() => activateDateForCell(date)}
+                            title={
+                              isSlaveLinked ? LINKED_SLAVE_RATE_TOOLTIP : undefined
+                            }
                             className={`
                             border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                             transition-colors duration-150
@@ -828,18 +897,25 @@ export const RatePlansGrid = ({
                               value={displayValue}
                               min={1}
                               readOnly={!canEdit}
+                              title={
+                                isSlaveLinked
+                                  ? LINKED_SLAVE_RATE_TOOLTIP
+                                  : undefined
+                              }
+                              onMouseDown={(e) => handleRateCellMouseDown(e, date)}
                               onFocus={() =>
-                                primeRateCellEdit(
+                                handleRateCellFocus(
+                                  date,
                                   ratePlan.ratePlanId,
                                   room.roomId,
                                   dateStr,
                                   dayData,
-                                  isSelected,
-                                  canEdit,
+                                  isSlaveLinked,
                                 )
                               }
                               onChange={(e) => {
                                 if (canEdit) {
+                                  if (e.target.value.includes("-")) return;
                                   const inputValue = parsePositiveRateInput(
                                     e.target.value,
                                   );
@@ -923,6 +999,7 @@ export const RatePlansGrid = ({
                               onKeyDown={(
                                 e: KeyboardEvent<HTMLInputElement>,
                               ) => {
+                                blockNegativeNumberKey(e);
                                 if (!isSelected || e.key !== "Enter") return;
                                 e.preventDefault();
                                 e.currentTarget.blur();
@@ -1019,8 +1096,12 @@ export const RatePlansGrid = ({
                             activeEdit?.ratePlanId === ratePlan.ratePlanId &&
                             activeEdit?.roomId === room.roomId &&
                             activeEdit?.date === dateStr;
-                          const canEdit =
-                            isSelected && (!isLocked || isThisCellEdited);
+                          const canEdit = isRateCellEditable(
+                            ratePlan,
+                            isSelected,
+                            isLocked,
+                            isThisCellEdited,
+                          );
 
                           const hasRate =
                             singleRate !== null &&
@@ -1035,6 +1116,12 @@ export const RatePlansGrid = ({
                           return (
                             <div
                               key={i}
+                              onMouseDown={() => activateDateForCell(date)}
+                              title={
+                                isSlaveLinked
+                                  ? LINKED_SLAVE_RATE_TOOLTIP
+                                  : undefined
+                              }
                               className={`
                               border-r border-slate-200 last:border-r-0 px-3 py-3 flex flex-col items-center justify-center
                               transition-colors duration-150
@@ -1046,18 +1133,25 @@ export const RatePlansGrid = ({
                                 value={displayValue}
                                 min={1}
                                 readOnly={!canEdit}
+                                title={
+                                  isSlaveLinked
+                                    ? LINKED_SLAVE_RATE_TOOLTIP
+                                    : undefined
+                                }
+                                onMouseDown={(e) => handleRateCellMouseDown(e, date)}
                                 onFocus={() =>
-                                  primeRateCellEdit(
+                                  handleRateCellFocus(
+                                    date,
                                     ratePlan.ratePlanId,
                                     room.roomId,
                                     dateStr,
                                     dayData,
-                                    isSelected,
-                                    canEdit,
+                                    isSlaveLinked,
                                   )
                                 }
                                 onChange={(e) => {
                                   if (canEdit) {
+                                    if (e.target.value.includes("-")) return;
                                     const inputValue = parsePositiveRateInput(
                                       e.target.value,
                                     );
@@ -1141,6 +1235,7 @@ export const RatePlansGrid = ({
                                 onKeyDown={(
                                   e: KeyboardEvent<HTMLInputElement>,
                                 ) => {
+                                  blockNegativeNumberKey(e);
                                   if (!isSelected || e.key !== "Enter") return;
                                   e.preventDefault();
                                   e.currentTarget.blur();
@@ -1366,12 +1461,22 @@ export const RatePlansGrid = ({
                               activeEdit?.ratePlanId === ratePlan.ratePlanId &&
                               activeEdit?.roomId === room.roomId &&
                               activeEdit?.date === dateStr;
-                            const canEdit =
-                              isSelected && (!isLocked || isThisCellEdited);
+                            const canEdit = isRateCellEditable(
+                              ratePlan,
+                              isSelected,
+                              isLocked,
+                              isThisCellEdited,
+                            );
 
                             return (
                               <div
                                 key={i}
+                                onMouseDown={() => activateDateForCell(date)}
+                                title={
+                                  isSlaveLinked
+                                    ? LINKED_SLAVE_RATE_TOOLTIP
+                                    : undefined
+                                }
                                 className={`
                                 border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                                 transition-colors duration-150
@@ -1383,8 +1488,25 @@ export const RatePlansGrid = ({
                                   value={displayValue}
                                   min={1}
                                   readOnly={!canEdit}
+                                  title={
+                                    isSlaveLinked
+                                      ? LINKED_SLAVE_RATE_TOOLTIP
+                                      : undefined
+                                  }
+                                  onMouseDown={(e) => handleRateCellMouseDown(e, date)}
+                                  onFocus={() =>
+                                    handleRateCellFocus(
+                                      date,
+                                      ratePlan.ratePlanId,
+                                      room.roomId,
+                                      dateStr,
+                                      dayData,
+                                      isSlaveLinked,
+                                    )
+                                  }
                                   onChange={(e) => {
                                     if (canEdit) {
+                                      if (e.target.value.includes("-")) return;
                                       const inputValue = parsePositiveRateInput(
                                         e.target.value,
                                       );
@@ -1469,6 +1591,7 @@ export const RatePlansGrid = ({
                                   onKeyDown={(
                                     e: KeyboardEvent<HTMLInputElement>,
                                   ) => {
+                                    blockNegativeNumberKey(e);
                                     if (!isSelected || e.key !== "Enter")
                                       return;
                                     e.preventDefault();
@@ -1567,12 +1690,22 @@ export const RatePlansGrid = ({
                                   ratePlan.ratePlanId &&
                                 activeEdit?.roomId === room.roomId &&
                                 activeEdit?.date === dateStr;
-                              const canEdit =
-                                isSelected && (!isLocked || isThisCellEdited);
+                              const canEdit = isRateCellEditable(
+                                ratePlan,
+                                isSelected,
+                                isLocked,
+                                isThisCellEdited,
+                              );
 
                               return (
                                 <div
                                   key={i}
+                                  onMouseDown={() => activateDateForCell(date)}
+                                  title={
+                                    isSlaveLinked
+                                      ? LINKED_SLAVE_RATE_TOOLTIP
+                                      : undefined
+                                  }
                                   className={`
                                 border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                                 transition-colors duration-150
@@ -1584,8 +1717,25 @@ export const RatePlansGrid = ({
                                     value={displayValue}
                                     min={1}
                                     readOnly={!canEdit}
+                                    title={
+                                      isSlaveLinked
+                                        ? LINKED_SLAVE_RATE_TOOLTIP
+                                        : undefined
+                                    }
+                                    onMouseDown={(e) => handleRateCellMouseDown(e, date)}
+                                    onFocus={() =>
+                                      handleRateCellFocus(
+                                        date,
+                                        ratePlan.ratePlanId,
+                                        room.roomId,
+                                        dateStr,
+                                        dayData,
+                                        isSlaveLinked,
+                                      )
+                                    }
                                     onChange={(e) => {
                                       if (canEdit) {
+                                        if (e.target.value.includes("-")) return;
                                         const inputValue =
                                           parsePositiveRateInput(
                                             e.target.value,
@@ -1672,6 +1822,7 @@ export const RatePlansGrid = ({
                                     onKeyDown={(
                                       e: KeyboardEvent<HTMLInputElement>,
                                     ) => {
+                                      blockNegativeNumberKey(e);
                                       if (!isSelected || e.key !== "Enter")
                                         return;
                                       e.preventDefault();
@@ -1789,6 +1940,7 @@ export const RatePlansGrid = ({
                               return (
                                 <div
                                   key={i}
+                                  onMouseDown={() => activateDateForCell(date)}
                                   className={`
                                 border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                                 transition-colors duration-150
@@ -1799,6 +1951,8 @@ export const RatePlansGrid = ({
                                     type="number"
                                     value={displayValue}
                                     readOnly={!canEdit}
+                                    onMouseDown={(e) => handleGridCellMouseDown(e, date)}
+                                    onFocus={() => handleGridCellFocus(date)}
                                     onChange={(e) => {
                                       if (canEdit) {
                                         const inputValue =
@@ -1880,6 +2034,7 @@ export const RatePlansGrid = ({
                                     onKeyDown={(
                                       e: KeyboardEvent<HTMLInputElement>,
                                     ) => {
+                                      blockNegativeNumberKey(e);
                                       if (!isSelected || e.key !== "Enter")
                                         return;
                                       e.preventDefault();
@@ -1989,6 +2144,7 @@ export const RatePlansGrid = ({
                               return (
                                 <div
                                   key={i}
+                                  onMouseDown={() => activateDateForCell(date)}
                                   className={`
                                 border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                                 transition-colors duration-150
@@ -1999,6 +2155,8 @@ export const RatePlansGrid = ({
                                     type="number"
                                     value={displayValue}
                                     readOnly={!canEdit}
+                                    onMouseDown={(e) => handleGridCellMouseDown(e, date)}
+                                    onFocus={() => handleGridCellFocus(date)}
                                     onChange={(e) => {
                                       if (canEdit) {
                                         const inputValue =
@@ -2080,6 +2238,7 @@ export const RatePlansGrid = ({
                                     onKeyDown={(
                                       e: KeyboardEvent<HTMLInputElement>,
                                     ) => {
+                                      blockNegativeNumberKey(e);
                                       if (!isSelected || e.key !== "Enter")
                                         return;
                                       e.preventDefault();
@@ -2181,6 +2340,7 @@ export const RatePlansGrid = ({
                               return (
                                 <div
                                   key={i}
+                                  onMouseDown={() => activateDateForCell(date)}
                                   className={`
                                 border-r border-slate-200 last:border-r-0 px-3 py-4 flex flex-col items-center justify-center
                                 transition-colors duration-150
@@ -2191,6 +2351,8 @@ export const RatePlansGrid = ({
                                     type="time"
                                     value={displayValue}
                                     readOnly={!canEdit}
+                                    onMouseDown={(e) => handleGridCellMouseDown(e, date)}
+                                    onFocus={() => handleGridCellFocus(date)}
                                     onChange={(e) => {
                                       if (canEdit) {
                                         const inputValue =
@@ -2272,6 +2434,7 @@ export const RatePlansGrid = ({
                                     onKeyDown={(
                                       e: KeyboardEvent<HTMLInputElement>,
                                     ) => {
+                                      blockNegativeNumberKey(e);
                                       if (!isSelected || e.key !== "Enter")
                                         return;
                                       e.preventDefault();

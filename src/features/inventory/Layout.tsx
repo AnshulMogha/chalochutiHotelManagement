@@ -8,7 +8,7 @@ import { NavigationTabs } from "./inventoryComponents/NavigationTabs";
 import { RoomTypesGrid } from "./inventoryComponents/RoomTypesGrid";
 import { SaveCancelButtons } from "./inventoryComponents/SaveCancelButtons";
 import { TAB_OPTIONS } from "@/data/dummyData";
-import type { InventoryRoom, RatesRoom } from "./type";
+import type { InventoryDay, InventoryRoom, RatesRoom } from "./type";
 import { inventoryService } from "./services/inventoryService";
 import {
   rateService,
@@ -328,6 +328,7 @@ export default function Layout() {
 
   // Track updating state per cell: key = `${roomId}-${dateStr}`
   const [updatingCells, setUpdatingCells] = useState<Set<string>>(new Set());
+  const [blockingDates, setBlockingDates] = useState<Set<string>>(new Set());
   
   // Store previous values for reverting on error: key = `${roomId}-${dateStr}`
   const previousValuesRef = useRef<Map<string, number>>(new Map());
@@ -341,8 +342,13 @@ export default function Layout() {
   // Flag to prevent API calls when canceling
   const isCancelingRef = useRef(false);
 
-  const hasChanges =
-    activeEdit !== null || activeRateEdit !== null || activeRestrictionEdit !== null;
+  const hasInventoryChanges =
+    activeEdit !== null || activeRestrictionEdit !== null;
+  const hasRateChanges =
+    activeRateEdit !== null || activeRestrictionEdit !== null;
+  const hasChanges = hasInventoryChanges || hasRateChanges;
+  const isInventoryLocked = isReadOnly || hasInventoryChanges;
+  const isRateLocked = isReadOnly || hasInventoryChanges || hasRateChanges;
 
   // Reset all changes when switching between room-types and rate-plans tabs
   useEffect(() => {
@@ -933,6 +939,56 @@ export default function Layout() {
     }));
   };
 
+  const handleToggleInventoryBlock = async (
+    dateStr: string,
+    nextStatus: "OPEN" | "CLOSED",
+    dayData: InventoryDay,
+  ) => {
+    if (!hotelId || isReadOnly) return;
+    if (blockingDates.has(dateStr)) return;
+
+    setBlockingDates((prev) => new Set(prev).add(dateStr));
+    try {
+      await inventoryService.bulkUpdateRestrictions(hotelId, {
+        from: dateStr,
+        to: dateStr,
+        status: nextStatus,
+        cta: null,
+        ctd: null,
+        minStay: dayData.minStay ?? null,
+        maxStay: dayData.maxStay ?? null,
+      });
+
+      const refreshed = await inventoryService.getCalendar(
+        hotelId,
+        fromDate,
+        toDate,
+      );
+      setRooms(refreshed);
+      originalRoomsRef.current = JSON.parse(JSON.stringify(refreshed));
+      setActiveEdit(null);
+
+      showToast(
+        nextStatus === "OPEN"
+          ? "Inventory unblocked successfully"
+          : "Inventory blocked successfully",
+        "success",
+      );
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to update inventory status";
+      showToast(errorMessage, "error");
+    } finally {
+      setBlockingDates((prev) => {
+        const next = new Set(prev);
+        next.delete(dateStr);
+        return next;
+      });
+    }
+  };
+
   const handleSingleRestrictionUpdate = async (
     roomId: number,
     date: string,
@@ -1000,24 +1056,30 @@ export default function Layout() {
     const previousMaxStay = inventoryDayData?.maxStay ?? null;
     const previousCutoffTime = dayData?.cutoffTime ?? null;
 
-    const payload = buildSingleDerivedRateUpdatePayload(
-      {
-        roomId,
-        ratePlanId,
-        customerType: currentCustomerType,
-        date,
-        baseRate,
-        singleOccupancyRate,
-        extraAdultCharge,
-        paidChildCharge,
-      },
-      getOriginalRateDay(
-        originalRateRoomsRef.current,
-        roomId,
-        ratePlanId,
-        date,
-      ),
+    const originalDay = getOriginalRateDay(
+      originalRateRoomsRef.current,
+      roomId,
+      ratePlanId,
+      date,
     );
+    const rateInput = {
+      roomId,
+      ratePlanId,
+      customerType: currentCustomerType,
+      date,
+      baseRate,
+      singleOccupancyRate,
+      extraAdultCharge,
+      paidChildCharge,
+    };
+
+    let payload = buildSingleDerivedRateUpdatePayload(rateInput, originalDay);
+
+    if (!payload) {
+      payload = buildSingleDerivedRateUpdatePayload(rateInput, originalDay, {
+        forceSave: true,
+      });
+    }
 
     if (!payload) {
       setActiveRateEdit(null);
@@ -1230,9 +1292,13 @@ export default function Layout() {
                   activeDate={activeDate}
                   onUpdate={handleAvailabilityUpdate}
                   onActiveDateChange={setActiveDate}
-                  isLocked={isReadOnly || hasChanges}
+                  isLocked={isInventoryLocked}
+                  isRateLocked={isRateLocked}
+                  isReadOnly={isReadOnly}
                   activeEdit={activeEdit}
                   updatingCells={updatingCells}
+                  blockingDates={blockingDates}
+                  onToggleInventoryBlock={handleToggleInventoryBlock}
                   expandedRoomIds={expandedRoomIds}
                   onToggleExpand={toggleRoomExpand}
                   rateRoomsByRoomId={rateRoomsByRoomId}
@@ -1263,7 +1329,7 @@ export default function Layout() {
                     customerType={currentCustomerType}
                     onUpdate={handleRatePlanUpdate}
                     onActiveDateChange={setActiveDate}
-                    isLocked={isReadOnly || hasChanges}
+                    isLocked={isRateLocked}
                     activeEdit={activeRateEdit}
                     hidePaidChildCharge={childPolicyNotFound}
                     childPolicy={childPolicy}
