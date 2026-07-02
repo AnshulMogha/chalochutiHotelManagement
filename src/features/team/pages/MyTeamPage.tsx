@@ -660,8 +660,10 @@ function PermissionsModal({
   member,
 }: PermissionsModalProps) {
   const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [isLoadingPerms, setIsLoadingPerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [loadWarning, setLoadWarning] = useState<string | null>(null);
   const memberRoles = member?.roles?.length ? member.roles : member?.role ? [member.role] : [];
   const isHotelManager = memberRoles.includes("HOTEL_MANAGER");
   const isFrontDesk = memberRoles.includes("FRONT_DESK_EXEC");
@@ -687,33 +689,60 @@ function PermissionsModal({
     [isAccountant, isFrontDesk, isHotelManager],
   );
 
+  const hydratePermissions = (
+    existingPermissions: Permission[] = [],
+  ): Permission[] =>
+    visiblePermissionModules.map((module) => {
+      const existing = existingPermissions.find((p) => p.module === module.value);
+      const basePermission =
+        existing || { module: module.value, canView: false, canEdit: false };
+      if (
+        VIEW_ONLY_MODULES.includes(module.value) ||
+        (isAccountant && ACCOUNTANT_ALLOWED_MODULES.includes(module.value))
+      ) {
+        return { ...basePermission, canEdit: false };
+      }
+      return basePermission;
+    });
+
   useEffect(() => {
-    if (member?.permissions) {
-      const existingPermissions = member.permissions;
-      const allPermissions: Permission[] = visiblePermissionModules.map((module) => {
-        const existing = existingPermissions.find(
-          (p) => p.module === module.value,
-        );
-        const basePermission =
-          existing || { module: module.value, canView: false, canEdit: false };
-        if (
-          VIEW_ONLY_MODULES.includes(module.value) ||
-          (isAccountant && ACCOUNTANT_ALLOWED_MODULES.includes(module.value))
-        ) {
-          return { ...basePermission, canEdit: false };
+    if (!isOpen || !member?.userId) return;
+
+    let cancelled = false;
+
+    (async () => {
+      setIsLoadingPerms(true);
+      setApiError(null);
+      setLoadWarning(null);
+
+      const fallbackPermissions = hydratePermissions(member.permissions || []);
+      if (!cancelled) {
+        setPermissions(fallbackPermissions);
+      }
+
+      try {
+        const profile = await adminService.getUserById(member.userId);
+        if (!cancelled) {
+          setPermissions(hydratePermissions(profile.permissions || []));
         }
-        return basePermission;
-      });
-      setPermissions(allPermissions);
-    } else {
-      setPermissions(
-        visiblePermissionModules.map((module) => ({
-          module: module.value,
-          canView: false,
-          canEdit: false,
-        })),
-      );
-    }
+      } catch (error) {
+        console.error("Error loading user permissions:", error);
+        if (!cancelled) {
+          setPermissions(fallbackPermissions);
+          setLoadWarning(
+            "Could not load current permissions (you can still set and save them).",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingPerms(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [member, isOpen, isHotelManager, isAccountant, visiblePermissionModules]);
 
   const handleToggleView = (module: PermissionModule) => {
@@ -848,6 +877,17 @@ function PermissionsModal({
             </div>
           )}
 
+          {loadWarning && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-amber-800">{loadWarning}</p>
+            </div>
+          )}
+
+          {isLoadingPerms ? (
+            <div className="flex items-center justify-center py-12">
+              <LoadingSpinner />
+            </div>
+          ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3">
               {visiblePermissionModules.map((module) => {
@@ -914,6 +954,7 @@ function PermissionsModal({
               })}
             </div>
           </div>
+          )}
 
           <div className="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-gray-200">
             <Button type="button" variant="outline" onClick={onClose}>
@@ -923,7 +964,7 @@ function PermissionsModal({
               type="button"
               variant="primary"
               onClick={handleSave}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isLoadingPerms}
             >
               {isSubmitting ? "Saving..." : "Save Permissions"}
             </Button>
