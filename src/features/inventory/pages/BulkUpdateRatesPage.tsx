@@ -29,6 +29,7 @@ import {
 import {
   rateService,
   type BulkUpdateRatesRequest,
+  type HotelRatePlanListItem,
 } from "../services/rateService";
 import { mapHotelRoomUuidsToNumericRoomIds } from "../utils/mapHotelRoomUuidsToNumericRoomIds";
 import {
@@ -44,6 +45,11 @@ import {
   type B2bRateFieldKey,
   validateB2bPricingConfig,
 } from "../utils/rateHelpers";
+import {
+  LINKED_SLAVE_RATE_TOOLTIP,
+  buildBulkRatePlanLinkKey,
+  buildRatePlanLinkMetaMap,
+} from "../utils/ratePlanLinkHelpers";
 import {
   adminService,
   type HotelRoom,
@@ -384,6 +390,9 @@ export default function BulkUpdateRatesPage() {
   const [ratePlansByRoom, setRatePlansByRoom] = useState<
     Record<string, AdminRatePlan[]>
   >({});
+  const [hotelRatePlans, setHotelRatePlans] = useState<HotelRatePlanListItem[]>(
+    [],
+  );
   const [expandedRooms, setExpandedRooms] = useState<Set<string>>(new Set());
   const [expandedRatePlans, setExpandedRatePlans] = useState<Set<string>>(
     new Set(),
@@ -515,6 +524,66 @@ export default function BulkUpdateRatesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hotelId]);
 
+  useEffect(() => {
+    if (!hotelId) return;
+
+    let cancelled = false;
+
+    const fetchHotelRatePlans = async () => {
+      try {
+        const plans = await rateService.getHotelRatePlans(hotelId);
+        if (!cancelled) {
+          setHotelRatePlans(plans);
+        }
+      } catch (error) {
+        console.error("Error fetching hotel rate plan links:", error);
+      }
+    };
+
+    void fetchHotelRatePlans();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hotelId]);
+
+  const ratePlanLinkMetaByKey = useMemo(() => {
+    const roomUuidByNumericId: Record<number, string> = {};
+    for (const [roomUuid, numericRoomId] of Object.entries(roomIdMapping)) {
+      roomUuidByNumericId[numericRoomId] = roomUuid;
+    }
+    return buildRatePlanLinkMetaMap(hotelRatePlans, roomUuidByNumericId);
+  }, [hotelRatePlans, roomIdMapping]);
+
+  useEffect(() => {
+    setExpandedRatePlans((prev) => {
+      if (prev.size === 0) return prev;
+
+      const next = new Set<string>();
+      for (const key of prev) {
+        const lastDash = key.lastIndexOf("-");
+        if (lastDash <= 0) continue;
+        const roomId = key.slice(0, lastDash);
+        const ratePlanId = Number(key.slice(lastDash + 1));
+        if (
+          Number.isFinite(ratePlanId) &&
+          !ratePlanLinkMetaByKey.get(
+            buildBulkRatePlanLinkKey(roomId, ratePlanId),
+          )?.isSlave
+        ) {
+          next.add(key);
+        }
+      }
+
+      return next.size === prev.size ? prev : next;
+    });
+  }, [ratePlanLinkMetaByKey]);
+
+  const getRatePlanLinkMeta = (roomUUID: string, ratePlanId: number) =>
+    ratePlanLinkMetaByKey.get(
+      buildBulkRatePlanLinkKey(roomUUID, ratePlanId),
+    );
+
   // Fetch rooms on mount
   useEffect(() => {
     if (!hotelId) {
@@ -615,6 +684,10 @@ export default function BulkUpdateRatesPage() {
   };
 
   const toggleRatePlan = (roomId: string, ratePlanId: number) => {
+    if (getRatePlanLinkMeta(roomId, ratePlanId)?.isSlave) {
+      return;
+    }
+
     const key = `${roomId}-${ratePlanId}`;
     const newExpanded = new Set(expandedRatePlans);
     if (newExpanded.has(key)) {
@@ -642,6 +715,10 @@ export default function BulkUpdateRatesPage() {
     field: keyof RoomRateData,
     value: number | string | null | undefined,
   ) => {
+    if (getRatePlanLinkMeta(roomUUID, ratePlanId)?.isSlave) {
+      return;
+    }
+
     const key = `${roomUUID}-${ratePlanId}`;
     const numericRoomId = roomIdMapping[roomUUID];
 
@@ -778,6 +855,9 @@ export default function BulkUpdateRatesPage() {
             "Skipping entry without valid numericRoomId or ratePlanId:",
             data,
           );
+          return false;
+        }
+        if (getRatePlanLinkMeta(data.roomUUID, data.ratePlanId)?.isSlave) {
           return false;
         }
         // Check if at least one field has a value
@@ -972,7 +1052,11 @@ export default function BulkUpdateRatesPage() {
     state: B2bB2cPricingState,
     setState: React.Dispatch<React.SetStateAction<B2bB2cPricingState>>,
     fieldError?: string,
-  ) => (
+    inputsDisabled = false,
+  ) => {
+    const fieldDisabled = isSubmitting || inputsDisabled;
+
+    return (
     <div
       className={`mt-4 pt-4 border space-y-3 rounded-lg px-4 py-3 ${
         fieldError
@@ -1001,7 +1085,7 @@ export default function BulkUpdateRatesPage() {
                 : "",
             }));
           }}
-          disabled={isSubmitting}
+          disabled={fieldDisabled}
           aria-invalid={Boolean(fieldError)}
           aria-describedby={fieldError ? `${fieldKey}-b2b-error` : undefined}
           className={`${b2bB2cInputClassName} ${
@@ -1038,7 +1122,7 @@ export default function BulkUpdateRatesPage() {
             }
             placeholder="Enter fixed amount"
             min="0"
-            disabled={isSubmitting}
+            disabled={fieldDisabled}
             className={b2bB2cInputClassName}
           />
           {getB2bPricingModeHint(state.mode) && (
@@ -1073,7 +1157,7 @@ export default function BulkUpdateRatesPage() {
             min="0"
             max="100"
             step="0.01"
-            disabled={isSubmitting}
+            disabled={fieldDisabled}
             className={b2bB2cInputClassName}
           />
           {getB2bPricingModeHint(state.mode) && (
@@ -1084,7 +1168,8 @@ export default function BulkUpdateRatesPage() {
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   if (loadingRooms) {
     return (
@@ -1452,8 +1537,14 @@ export default function BulkUpdateRatesPage() {
                     ) : (
                       ratePlans.map((ratePlan) => {
                         const ratePlanKey = `${room.roomId}-${ratePlan.ratePlanId}`;
+                        const linkMeta = getRatePlanLinkMeta(
+                          room.roomId,
+                          ratePlan.ratePlanId,
+                        );
+                        const isSlavePlan = linkMeta?.isSlave ?? false;
                         const isRatePlanExpanded =
-                          expandedRatePlans.has(ratePlanKey);
+                          !isSlavePlan && expandedRatePlans.has(ratePlanKey);
+                        const inputDisabled = isSubmitting || isSlavePlan;
 
                         return (
                           <div
@@ -1461,34 +1552,76 @@ export default function BulkUpdateRatesPage() {
                             className="border border-slate-200/60 rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-md transition-all"
                           >
                             {/* Rate Plan Header */}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                toggleRatePlan(room.roomId, ratePlan.ratePlanId)
-                              }
-                              className="w-full flex items-center justify-between p-5 bg-white hover:bg-slate-50/50 transition-all duration-200 border-b border-slate-200/60"
-                            >
-                              <div className="flex items-center gap-3">
-                                <IconBadge icon={Tag} color="amber" size="sm" />
-                                <div className="text-left">
-                                  <h4 className="text-base font-bold text-slate-900">
-                                    {ratePlan.ratePlanName}
-                                  </h4>
-                                  <p className="text-sm text-slate-500 font-medium">
-                                    {ratePlan.mealPlan}
-                                  </p>
+                            {isSlavePlan ? (
+                              <div
+                                title={LINKED_SLAVE_RATE_TOOLTIP}
+                                className="w-full flex items-center justify-between p-5 bg-slate-50 border-b border-slate-200/60 cursor-not-allowed"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <IconBadge icon={Tag} color="amber" size="sm" />
+                                  <div className="text-left">
+                                    <h4 className="text-base font-bold text-slate-600">
+                                      {ratePlan.ratePlanName}
+                                    </h4>
+                                    <p className="text-sm text-slate-500 font-medium">
+                                      {ratePlan.mealPlan}
+                                    </p>
+                                    {linkMeta?.masterLabel && (
+                                      <p className="text-sm text-amber-700 font-medium mt-0.5">
+                                        Linked to: {linkMeta.masterLabel}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                              {isRatePlanExpanded ? (
-                                <ChevronUp className="w-5 h-5 text-slate-600 transition-transform" />
-                              ) : (
-                                <ChevronDown className="w-5 h-5 text-slate-600 transition-transform" />
-                              )}
-                            </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  toggleRatePlan(room.roomId, ratePlan.ratePlanId)
+                                }
+                                className="w-full flex items-center justify-between p-5 bg-white hover:bg-slate-50/50 transition-all duration-200 border-b border-slate-200/60"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <IconBadge icon={Tag} color="amber" size="sm" />
+                                  <div className="text-left">
+                                    <h4 className="text-base font-bold text-slate-900">
+                                      {ratePlan.ratePlanName}
+                                    </h4>
+                                    <p className="text-sm text-slate-500 font-medium">
+                                      {ratePlan.mealPlan}
+                                    </p>
+                                  </div>
+                                </div>
+                                {isRatePlanExpanded ? (
+                                  <ChevronUp className="w-5 h-5 text-slate-600 transition-transform" />
+                                ) : (
+                                  <ChevronDown className="w-5 h-5 text-slate-600 transition-transform" />
+                                )}
+                              </button>
+                            )}
 
                             {/* Rate Plan Form */}
                             {isRatePlanExpanded && (
-                              <div className="p-6 bg-slate-50/30 space-y-6">
+                              <div
+                                className="p-6 bg-slate-50/30 space-y-6"
+                                title={
+                                  isSlavePlan
+                                    ? LINKED_SLAVE_RATE_TOOLTIP
+                                    : undefined
+                                }
+                              >
+                                {isSlavePlan && (
+                                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                    This plan is linked to{" "}
+                                    <span className="font-semibold">
+                                      {linkMeta?.masterLabel ??
+                                        "its parent meal plan"}
+                                    </span>
+                                    . Update the parent meal plan to change
+                                    rates.
+                                  </div>
+                                )}
                                 {/* Section: Rate */}
                                 <div className="bg-emerald-50/60 rounded-xl p-6 border border-emerald-200/70 shadow-sm">
                                   <SectionHeading
@@ -1522,7 +1655,12 @@ export default function BulkUpdateRatesPage() {
                                         }
                                         placeholder=""
                                         min="1"
-                                        disabled={isSubmitting}
+                                        disabled={inputDisabled}
+                                        title={
+                                          isSlavePlan
+                                            ? LINKED_SLAVE_RATE_TOOLTIP
+                                            : undefined
+                                        }
                                         className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                       />
                                       {showNettRate &&
@@ -1557,6 +1695,7 @@ export default function BulkUpdateRatesPage() {
                                           baseRateB2bPricing,
                                           setBaseRateB2bPricing,
                                           b2bPricingFieldErrors.baseRate,
+                                          isSlavePlan,
                                         )}
                                     </div>
 
@@ -1584,7 +1723,12 @@ export default function BulkUpdateRatesPage() {
                                         }
                                         placeholder=""
                                         min="1"
-                                        disabled={isSubmitting}
+                                        disabled={inputDisabled}
+                                        title={
+                                          isSlavePlan
+                                            ? LINKED_SLAVE_RATE_TOOLTIP
+                                            : undefined
+                                        }
                                         className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                       />
                                       {showB2bDualPricing &&
@@ -1599,6 +1743,7 @@ export default function BulkUpdateRatesPage() {
                                           singleAdultRateB2bPricing,
                                           setSingleAdultRateB2bPricing,
                                           b2bPricingFieldErrors.singleOccupancyRate,
+                                          isSlavePlan,
                                         )}
                                     </div>
                                   </div>
@@ -1648,7 +1793,12 @@ export default function BulkUpdateRatesPage() {
                                           }
                                           placeholder=""
                                           min="1"
-                                          disabled={isSubmitting}
+                                          disabled={inputDisabled}
+                                          title={
+                                            isSlavePlan
+                                              ? LINKED_SLAVE_RATE_TOOLTIP
+                                              : undefined
+                                          }
                                           className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                         />
                                         {showB2bDualPricing &&
@@ -1663,6 +1813,7 @@ export default function BulkUpdateRatesPage() {
                                             extraAdultChargeB2bPricing,
                                             setExtraAdultChargeB2bPricing,
                                             b2bPricingFieldErrors.extraAdultCharge,
+                                            isSlavePlan,
                                           )}
                                         {showNettRate &&
                                           getFormValue(
@@ -1733,7 +1884,12 @@ export default function BulkUpdateRatesPage() {
                                           }
                                           placeholder=""
                                           min="1"
-                                          disabled={isSubmitting}
+                                          disabled={inputDisabled}
+                                          title={
+                                            isSlavePlan
+                                              ? LINKED_SLAVE_RATE_TOOLTIP
+                                              : undefined
+                                          }
                                           className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                         />
                                         {showB2bDualPricing &&
@@ -1748,6 +1904,7 @@ export default function BulkUpdateRatesPage() {
                                             paidChildChargeB2bPricing,
                                             setPaidChildChargeB2bPricing,
                                             b2bPricingFieldErrors.paidChildCharge,
+                                            isSlavePlan,
                                           )}
                                         {showNettRate &&
                                           getFormValue(

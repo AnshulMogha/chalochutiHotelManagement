@@ -389,41 +389,22 @@ export default function MissingRatesPage() {
                           <p className="font-semibold text-slate-900">
                             {room.roomName}
                           </p>
-                          <p className="text-xs text-slate-500">
-                            ID: {room.roomId}
-                          </p>
                         </div>
 
                         <div className="px-4 py-3">
                           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-rose-600">
                             Missing:
                           </p>
-                          <div className="overflow-hidden rounded-lg border border-slate-200">
-                            <table className="w-full text-sm">
-                              <thead className="bg-slate-50 text-left">
-                                <tr>
-                                  <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    Rate plan
-                                  </th>
-                                  <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                    ID
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100">
-                                {room.missingRatePlans.map((plan) => (
-                                  <tr key={plan.ratePlanId}>
-                                    <td className="px-3 py-2.5 font-medium text-slate-800">
-                                      {plan.ratePlanName}
-                                    </td>
-                                    <td className="px-3 py-2.5 tabular-nums text-slate-500">
-                                      {plan.ratePlanId}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
+                          <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
+                            {room.missingRatePlans.map((plan) => (
+                              <li
+                                key={plan.ratePlanId}
+                                className="px-3 py-2.5 text-sm font-medium text-slate-800"
+                              >
+                                {plan.ratePlanName}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       </div>
                     ))}

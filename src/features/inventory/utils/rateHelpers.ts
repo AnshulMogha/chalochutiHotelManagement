@@ -46,6 +46,16 @@ export function parsePositiveRateInput(rawValue: string): number | undefined {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+/** Read-only grid cell cursor: pointer on other dates so users can switch the active column. */
+export function getReadOnlyGridCellCursor(
+  isPastDate: boolean,
+  isColumnSelected: boolean,
+): string {
+  if (isPastDate) return "cursor-not-allowed";
+  if (!isColumnSelected) return "cursor-pointer";
+  return "cursor-not-allowed";
+}
+
 /** Inventory total: empty → 0; negatives are rejected. */
 export function parseNonNegativeInventoryInput(rawValue: string): number {
   if (rawValue === '' || rawValue.includes('-')) {

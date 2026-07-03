@@ -106,9 +106,33 @@ export interface RoomRatePlan {
   plan_code?: string | null;
   /** When false, hide this rate plan row from the calendar. */
   ratePlanActive?: boolean;
-  /** When true, this rate plan is linked as a slave to a master plan (rates are read-only). */
-  isLinkEnable?: boolean;
+  /** When true, this rate plan is a linked slave (rates derived from master). */
+  isSlave?: boolean;
+  /** Link relationship from the rates calendar API. */
+  ratePlanLink?: RatePlanLinkInfo | null;
   days: RoomRateDay[];
+}
+
+export type RatePlanLinkRole = "MASTER" | "SLAVE" | "BOTH";
+
+export interface RatePlanLinkPeer {
+  linkId: number;
+  ratePlanId: number;
+  ratePlanName: string;
+  plan_code?: string | null;
+  roomId: number;
+  roomName: string;
+  adjustmentType: "PERCENTAGE" | "FIXED";
+  adjustmentDirection: "LOWER" | "HIGHER";
+  adjustmentValue: number;
+  linkExtraGuestRates: boolean;
+  copyRestrictions: boolean;
+}
+
+export interface RatePlanLinkInfo {
+  role: RatePlanLinkRole;
+  slaves: RatePlanLinkPeer[];
+  masters: RatePlanLinkPeer[];
 }
 
 export interface RoomRateDay {

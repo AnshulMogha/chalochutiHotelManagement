@@ -52,6 +52,8 @@ interface LinkRatePlansSheetProps {
   existingLinkRecord: RatePlanLinkRecord | null;
   /** True while fetching existing link config. */
   linkConfigLoading: boolean;
+  /** When true, skip blank form reset while existing link data is loading. */
+  isUpdateMode?: boolean;
   onConfirm?: (payload: LinkRatePlansConfirmPayload) => void | Promise<void>;
   /** Called to DELETE /hotel/rate-plan/link/{id}; shown only when an existing link is loaded. */
   onRemoveLink?: (linkId: number) => void | Promise<void>;
@@ -130,6 +132,7 @@ export function LinkRatePlansSheet({
   masterRatePlanId,
   existingLinkRecord,
   linkConfigLoading,
+  isUpdateMode = false,
   onConfirm,
   onRemoveLink,
   onInvalid,
@@ -149,7 +152,7 @@ export function LinkRatePlansSheet({
   const [restrictionsLink, setRestrictionsLink] = useState<YesNo>("YES");
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || isUpdateMode) return;
     setIsSubmitting(false);
     setIsRemovingLink(false);
     setDirection("LOWER");
@@ -161,7 +164,7 @@ export function LinkRatePlansSheet({
     setExtraGuestAmount("0");
     setExtraGuestUnit("PERCENT");
     setRestrictionsLink("YES");
-  }, [open]);
+  }, [open, isUpdateMode]);
 
   useEffect(() => {
     if (!open || linkConfigLoading || !existingLinkRecord) return;

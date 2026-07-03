@@ -1,7 +1,7 @@
 import { apiClient } from "@/services/api/client";
 import { API_ENDPOINTS } from "@/constants";
 import type { ApiSuccessResponse } from "@/services/api/types/api";
-import type { RatesData } from "../type";
+import type { RatePlanLinkInfo, RatesData } from "../type";
 
 const RATE_PLAN_DISPLAY_ORDER: Record<string, number> = {
   EP: 0,
@@ -117,6 +117,8 @@ export interface LinkRatePlanLinkApiPayload {
   copyRestrictions?: boolean;
 }
 
+import type { RatePlanLinkInfo } from "../type";
+
 export interface HotelRatePlanListItem {
   ratePlanId: number;
   ratePlanName: string;
@@ -125,6 +127,10 @@ export interface HotelRatePlanListItem {
   mealPlan?: string | null;
   paymentMode?: string | null;
   active?: boolean;
+  isSlave?: boolean;
+  /** Link role from GET /hotel/{hotelId}/rate-plans (MASTER, SLAVE, BOTH). */
+  role?: string | null;
+  ratePlanLink?: RatePlanLinkInfo | null;
 }
 
 export interface HotelRatePlansByRoomResponse {
@@ -142,6 +148,9 @@ export interface HotelRatePlansByRoomResponse {
       mealPlan?: string | null;
       paymentMode?: string | null;
       active?: boolean;
+      isSlave?: boolean;
+      role?: string | null;
+      ratePlanLink?: RatePlanLinkInfo | null;
     }>;
   }>;
 }
@@ -303,6 +312,9 @@ export const rateService = {
           mealPlan: rp.mealPlan ?? null,
           paymentMode: rp.paymentMode ?? null,
           active: rp.active,
+          isSlave: rp.isSlave,
+          role: rp.role ?? rp.ratePlanLink?.role ?? null,
+          ratePlanLink: rp.ratePlanLink ?? null,
         })),
       );
     };
@@ -330,7 +342,15 @@ export const rateService = {
       ApiSuccessResponse<RatePlanLinkRecord[]>
     >(API_ENDPOINTS.RATES.GET_RATE_PLAN_LINKS_BY_MASTER(masterRatePlanId));
     const raw = response.data;
-    return Array.isArray(raw) ? raw : [];
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((item) => {
+        const linkId = (item as RatePlanLinkRecord & { linkId?: number }).linkId;
+        const id = item.id ?? linkId;
+        if (id == null) return null;
+        return { ...item, id };
+      })
+      .filter((item): item is RatePlanLinkRecord => item != null);
   },
 
   updateRatePlanLink: async (

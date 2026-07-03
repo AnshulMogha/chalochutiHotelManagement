@@ -38,15 +38,30 @@ import {
   Baby,
   Link2,
   Plus,
+  Eye,
 } from "lucide-react";
-import type { RatesRoom, RoomRatePlan, RoomRateDay } from "../type";
+import type {
+  RatesRoom,
+  RoomRatePlan,
+  RoomRateDay,
+  RatePlanLinkPeer,
+  RatePlanLinkRole,
+} from "../type";
+import { RatePlanSlavesDialog } from "./RatePlanSlavesDialog";
 import {
   getDayData,
   formatTimeForInput,
   formatRate,
   blockNegativeNumberKey,
   parsePositiveRateInput,
+  getReadOnlyGridCellCursor,
 } from "../utils/rateHelpers";
+import {
+  LINKED_SLAVE_RATE_TOOLTIP,
+  formatLinkedMasterLabel,
+  formatRatePlanLinkAdjustment,
+  isSlaveLinkedRatePlan,
+} from "../utils/ratePlanLinkHelpers";
 import type { ChildAgePolicyResponse } from "@/features/admin/services/adminService";
 
 /* ----------------------------------
@@ -70,11 +85,11 @@ const getDateHeaderClasses = (
     case "WEEKEND":
       return isSelected
         ? "bg-blue-600 text-white shadow-sm"
-        : "bg-green-50/80 text-green-700 hover:bg-green-100/80";
+        : "bg-green-50/80 text-green-700 hover:bg-green-100/80 cursor-pointer";
     default:
       return isSelected
         ? "bg-blue-600 text-white shadow-sm"
-        : "bg-white text-slate-600 hover:bg-slate-50 border-r border-slate-100";
+        : "bg-white text-slate-600 hover:bg-slate-50 border-r border-slate-100 cursor-pointer";
   }
 };
 
@@ -133,17 +148,20 @@ const RATE_PLAN_THEMES = [
    Component
 ----------------------------------- */
 
+export type LinkRatePlanMode = "add" | "update";
+
 export interface OpenLinkRatePlansContext {
   roomId: number;
   roomName: string;
   /** Plan row that opened the sheet; excluded from base-plan dropdown. */
   currentRatePlanId: number;
   currentRatePlanName: string;
-  /** When true, load existing link config from GET /hotel/rate-plan/link. */
-  isLinkEnable?: boolean;
+  isSlave?: boolean;
+  /** Whether the user opened add vs update link flow. */
+  linkMode: LinkRatePlanMode;
 }
 
-/** Calendar + room must allow linking; rate-plan `isLinkEnable` is handled in the UI separately. */
+/** Calendar + room must allow linking; rate-plan link role controls link actions. */
 function isLinkAllowedForRoomAndCalendar(
   calendarIsLinkEnable: boolean | undefined,
   room: RatesRoom,
@@ -153,12 +171,44 @@ function isLinkAllowedForRoomAndCalendar(
   return true;
 }
 
-const LINKED_SLAVE_RATE_TOOLTIP =
-  "This plan is linked, to make changes, update the Parent meal plan";
+function normalizeLinkRole(ratePlan: RoomRatePlan): RatePlanLinkRole | null {
+  const role = ratePlan.ratePlanLink?.role;
+  if (!role) return null;
+  const normalized = role.toUpperCase();
+  if (
+    normalized === "MASTER" ||
+    normalized === "SLAVE" ||
+    normalized === "BOTH"
+  ) {
+    return normalized as RatePlanLinkRole;
+  }
+  return null;
+}
 
-/** When true, this rate plan is a linked slave; its rates are derived from the master plan. */
-function isSlaveLinkedRatePlan(ratePlan: RoomRatePlan): boolean {
-  return ratePlan.isLinkEnable === true;
+function isMasterLinkPlan(ratePlan: RoomRatePlan): boolean {
+  const role = normalizeLinkRole(ratePlan);
+  return role === "MASTER" || role === "BOTH";
+}
+
+function canShowAddLinkRateButton(ratePlan: RoomRatePlan): boolean {
+  if (isMasterLinkPlan(ratePlan)) return false;
+  const role = normalizeLinkRole(ratePlan);
+  if (role === "SLAVE") return false;
+  return !ratePlan.isSlave;
+}
+
+function canShowUpdateLinkRateButton(ratePlan: RoomRatePlan): boolean {
+  if (isMasterLinkPlan(ratePlan)) return false;
+  const role = normalizeLinkRole(ratePlan);
+  if (role === "SLAVE") return true;
+  return ratePlan.isSlave === true;
+}
+
+function canShowViewSlavesButton(ratePlan: RoomRatePlan): boolean {
+  return (
+    isMasterLinkPlan(ratePlan) &&
+    (ratePlan.ratePlanLink?.slaves?.length ?? 0) > 0
+  );
 }
 
 function isRateCellEditable(
@@ -268,6 +318,15 @@ export const RatePlansGrid = ({
   inventoryDaysByDate,
 }: RatePlansGridProps) => {
   const navigate = useNavigate();
+  const [slavesDialogState, setSlavesDialogState] = useState<{
+    open: boolean;
+    masterPlanLabel: string;
+    slaves: RatePlanLinkPeer[];
+  }>({
+    open: false,
+    masterPlanLabel: "",
+    slaves: [],
+  });
 
   // Helper function to generate paid child charge label.
   // Age range is appended only when a valid child policy exists.
@@ -613,6 +672,7 @@ export const RatePlansGrid = ({
       : "border border-slate-200 rounded-xl overflow-visible shadow-md bg-white";
 
   return (
+    <>
     <div className={containerClassName}>
       {/* Header Row */}
       {!hideDateHeader && (
@@ -713,6 +773,7 @@ export const RatePlansGrid = ({
                 const isLastRatePlan =
                   ratePlanIndex === room.ratePlans.length - 1;
                 const isSlaveLinked = isSlaveLinkedRatePlan(ratePlan);
+                const linkedMaster = ratePlan.ratePlanLink?.masters?.[0];
 
                 return (
                   <div
@@ -736,42 +797,71 @@ export const RatePlansGrid = ({
                             : ratePlan.ratePlanName}
                         </span>
                         {onOpenLinkRatePlans &&
-                          (ratePlan.isLinkEnable === false ? (
-                            <button
-                              type="button"
-                              aria-label="Create linked rates for this rate plan"
-                              disabled={!hotelId}
-                              title={
-                                hotelId
-                                  ? undefined
-                                  : "Hotel is required to create a rate plan link"
-                              }
-                              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-green-200 bg-white px-2.5 py-1 text-sm font-semibold text-green-600 shadow-sm transition-colors hover:bg-green-50 hover:text-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                if (!hotelId || !onOpenLinkRatePlans) return;
-                                onOpenLinkRatePlans({
-                                  roomId: room.roomId,
-                                  roomName: room.roomName,
-                                  currentRatePlanId: ratePlan.ratePlanId,
-                                  currentRatePlanName: ratePlan.ratePlanName,
-                                  isLinkEnable: ratePlan.isLinkEnable,
-                                });
-                              }}
-                            >
-                              <Plus
-                                className="h-3.5 w-3.5 shrink-0"
-                                strokeWidth={2.5}
-                                aria-hidden
-                              />
-                              Add LinkRate
-                            </button>
-                          ) : (
-                            isLinkAllowedForRoomAndCalendar(
-                              calendarIsLinkEnable,
-                              room,
-                            ) && (
+                          isLinkAllowedForRoomAndCalendar(
+                            calendarIsLinkEnable,
+                            room,
+                          ) && (
+                          <>
+                            {canShowViewSlavesButton(ratePlan) && (
+                              <button
+                                type="button"
+                                aria-label="View linked slave rate plans"
+                                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-violet-200 bg-white px-2.5 py-1 text-sm font-semibold text-violet-700 shadow-sm transition-colors hover:bg-violet-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  const masterPlanLabel = ratePlan.plan_code
+                                    ? `${ratePlan.ratePlanName} (${ratePlan.plan_code})`
+                                    : ratePlan.ratePlanName;
+                                  setSlavesDialogState({
+                                    open: true,
+                                    masterPlanLabel,
+                                    slaves: ratePlan.ratePlanLink?.slaves ?? [],
+                                  });
+                                }}
+                              >
+                                <Eye
+                                  className="h-3.5 w-3.5 shrink-0"
+                                  strokeWidth={2.25}
+                                  aria-hidden
+                                />
+                                View Slaves
+                              </button>
+                            )}
+                            {canShowAddLinkRateButton(ratePlan) && (
+                              <button
+                                type="button"
+                                aria-label="Create linked rates for this rate plan"
+                                disabled={!hotelId}
+                                title={
+                                  hotelId
+                                    ? undefined
+                                    : "Hotel is required to create a rate plan link"
+                                }
+                                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-green-200 bg-white px-2.5 py-1 text-sm font-semibold text-green-600 shadow-sm transition-colors hover:bg-green-50 hover:text-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (!hotelId || !onOpenLinkRatePlans) return;
+                                  onOpenLinkRatePlans({
+                                    roomId: room.roomId,
+                                    roomName: room.roomName,
+                                    currentRatePlanId: ratePlan.ratePlanId,
+                                    currentRatePlanName: ratePlan.ratePlanName,
+                                    isSlave: ratePlan.isSlave,
+                                    linkMode: "add",
+                                  });
+                                }}
+                              >
+                                <Plus
+                                  className="h-3.5 w-3.5 shrink-0"
+                                  strokeWidth={2.5}
+                                  aria-hidden
+                                />
+                                Add LinkRate
+                              </button>
+                            )}
+                            {canShowUpdateLinkRateButton(ratePlan) && (
                               <button
                                 type="button"
                                 aria-label="Update linked rates for this rate plan"
@@ -784,7 +874,8 @@ export const RatePlansGrid = ({
                                     roomName: room.roomName,
                                     currentRatePlanId: ratePlan.ratePlanId,
                                     currentRatePlanName: ratePlan.ratePlanName,
-                                    isLinkEnable: ratePlan.isLinkEnable,
+                                    isSlave: ratePlan.isSlave,
+                                    linkMode: "update",
                                   });
                                 }}
                               >
@@ -795,8 +886,9 @@ export const RatePlansGrid = ({
                                 />
                                 Update LinkRate
                               </button>
-                            )
-                          ))}
+                            )}
+                          </>
+                        )}
                         {hotelId ? (
                           <button
                             type="button"
@@ -819,6 +911,18 @@ export const RatePlansGrid = ({
                             Single Day Rate
                           </button>
                         ) : null}
+                        {isSlaveLinked && linkedMaster && (
+                          <span
+                            className="inline-flex shrink-0 items-center gap-2 rounded-md border border-amber-200 bg-amber-50/90 px-2.5 py-1 text-sm text-amber-900"
+                            title={LINKED_SLAVE_RATE_TOOLTIP}
+                          >
+                            <span className="font-semibold">Parent:</span>
+                            <span>{formatLinkedMasterLabel(linkedMaster)}</span>
+                            <span className="text-amber-700">
+                              · {formatRatePlanLinkAdjustment(linkedMaster)}
+                            </span>
+                          </span>
+                        )}
                         {/* {hasMissingRates && (
                         <AlertTriangle className="w-4 h-4 text-amber-600" />
                       )} */}
@@ -1010,7 +1114,7 @@ export const RatePlansGrid = ({
                               ${
                                 canEdit
                                   ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
-                                  : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"
+                                  : `${getReadOnlyGridCellCursor(isPastDateCell(date), isSelected)} bg-slate-50/80 border-slate-200/80 text-slate-400`
                               }
                               ${hasRate && canEdit ? "text-emerald-700" : ""}
                               ${!hasRate && canEdit ? "text-rose-600" : ""}
@@ -1246,7 +1350,7 @@ export const RatePlansGrid = ({
                                 ${
                                   canEdit
                                     ? "ring-2 ring-blue-500/30 border-blue-500/20 shadow-sm bg-white focus:ring-blue-500/50 focus:border-blue-500"
-                                    : "cursor-not-allowed bg-slate-50/60 border-slate-200/60 text-slate-400"
+                                    : `${getReadOnlyGridCellCursor(isPastDateCell(date), isSelected)} bg-slate-50/60 border-slate-200/60 text-slate-400`
                                 }
                                 ${hasRate && canEdit ? "text-emerald-600" : ""}
                                 ${!hasRate && canEdit ? "text-slate-500" : ""}
@@ -1603,7 +1707,7 @@ export const RatePlansGrid = ({
                                   ${
                                     canEdit
                                       ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
-                                      : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"
+                                      : `${getReadOnlyGridCellCursor(isPastDateCell(date), isSelected)} bg-slate-50/80 border-slate-200/80 text-slate-400`
                                   }
                                   ${extraAdultCharge > 0 && canEdit ? "text-emerald-700" : ""}
                                   ${!extraAdultCharge && canEdit ? "text-rose-600" : ""}
@@ -1834,7 +1938,7 @@ export const RatePlansGrid = ({
                                   ${
                                     canEdit
                                       ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
-                                      : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"
+                                      : `${getReadOnlyGridCellCursor(isPastDateCell(date), isSelected)} bg-slate-50/80 border-slate-200/80 text-slate-400`
                                   }
                                   ${paidChildCharge > 0 && canEdit ? "text-emerald-700" : ""}
                                   ${!paidChildCharge && canEdit ? "text-rose-600" : ""}
@@ -2046,7 +2150,7 @@ export const RatePlansGrid = ({
                                   ${
                                     canEdit
                                       ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
-                                      : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"
+                                      : `${getReadOnlyGridCellCursor(isPastDateCell(date), isSelected)} bg-slate-50/80 border-slate-200/80 text-slate-400`
                                   }
                                   ${minStay !== null && minStay !== undefined && canEdit ? "text-emerald-700" : ""}
                                   ${(minStay === null || minStay === undefined) && canEdit ? "text-rose-600" : ""}
@@ -2250,7 +2354,7 @@ export const RatePlansGrid = ({
                                   ${
                                     canEdit
                                       ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
-                                      : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"
+                                      : `${getReadOnlyGridCellCursor(isPastDateCell(date), isSelected)} bg-slate-50/80 border-slate-200/80 text-slate-400`
                                   }
                                   ${maxStay !== null && maxStay !== undefined && canEdit ? "text-emerald-700" : ""}
                                   ${(maxStay === null || maxStay === undefined) && canEdit ? "text-rose-600" : ""}
@@ -2446,7 +2550,7 @@ export const RatePlansGrid = ({
                                   ${
                                     canEdit
                                       ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
-                                      : "cursor-not-allowed bg-slate-50/80 border-slate-200/80 text-slate-400"
+                                      : `${getReadOnlyGridCellCursor(isPastDateCell(date), isSelected)} bg-slate-50/80 border-slate-200/80 text-slate-400`
                                   }
                                   ${cutoffTime !== null && cutoffTime !== undefined && canEdit ? "text-emerald-700" : ""}
                                   ${(cutoffTime === null || cutoffTime === undefined) && canEdit ? "text-rose-600" : ""}
@@ -2500,5 +2604,14 @@ export const RatePlansGrid = ({
         );
       })}
     </div>
+    <RatePlanSlavesDialog
+      open={slavesDialogState.open}
+      onOpenChange={(open) =>
+        setSlavesDialogState((prev) => ({ ...prev, open }))
+      }
+      masterPlanLabel={slavesDialogState.masterPlanLabel}
+      slaves={slavesDialogState.slaves}
+    />
+  </>
   );
 };

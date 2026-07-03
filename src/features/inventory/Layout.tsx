@@ -35,8 +35,10 @@ import {
 import {
   filterLinkableRatePlans,
   findRatePlanByIdAndRoom,
+  getLinkedRatePlanKeysFromCalendar,
   ratePlansToSelectOptions,
 } from "./utils/filterLinkableRatePlans";
+import { resolveRatePlanLinkRecord } from "./utils/resolveRatePlanLinkRecord";
 import { formatApiClientError } from "@/services/api/formatApiClientError";
 import { useAuth } from "@/hooks";
 import { canEditModule } from "@/lib/permissions";
@@ -159,6 +161,7 @@ export default function Layout() {
 
   const linkSheetBaseOptions = useMemo(() => {
     const base = ratePlansToSelectOptions(linkFilteredRatePlans);
+    const linkMode = linkRatePlansContext?.linkMode ?? "add";
     const masterId = linkExistingRecord?.masterRatePlanId;
     const masterRoomId =
       linkExistingRecord?.masterRoomId ??
@@ -175,6 +178,12 @@ export default function Layout() {
         masterRoomId,
         masterRoomName,
       );
+      if (rp && linkMode === "update") {
+        const role = (rp.role ?? rp.ratePlanLink?.role)?.toUpperCase();
+        if (role === "SLAVE" || role === "BOTH" || rp.isSlave === true) {
+          return base;
+        }
+      }
       const label = rp
         ? `${rp.ratePlanName} (${rp.roomName || "Unknown room"})`
         : `Plan #${masterId}`;
@@ -187,6 +196,7 @@ export default function Layout() {
     linkExistingRecord,
     linkRatePlansContext?.roomId,
     linkRatePlansContext?.roomName,
+    linkRatePlansContext?.linkMode,
   ]);
 
   const openLinkRatePlansFromGrid = (ctx: OpenLinkRatePlansContext) => {
@@ -221,7 +231,7 @@ export default function Layout() {
 
     let cancelled = false;
     const shouldFetchExistingLink =
-      linkRatePlansContext.isLinkEnable === true;
+      linkRatePlansContext.linkMode === "update";
     setLinkRpLoading(true);
     setLinkRecordLoading(shouldFetchExistingLink);
     setLinkRpError(false);
@@ -232,7 +242,13 @@ export default function Layout() {
         const clickedRatePlanId = linkRatePlansContext.currentRatePlanId;
         const all = await rateService.getHotelRatePlans(hotelId);
         if (cancelled) return;
-        const filtered = filterLinkableRatePlans(all, clickedRatePlanId);
+        const linkMode = linkRatePlansContext.linkMode;
+        const filtered = filterLinkableRatePlans(
+          all,
+          clickedRatePlanId,
+          getLinkedRatePlanKeysFromCalendar(rateRooms, linkMode),
+          linkMode,
+        );
         setLinkAllRatePlans(all);
         setLinkFilteredRatePlans(filtered);
 
@@ -241,40 +257,10 @@ export default function Layout() {
           return;
         }
 
-        const linksForClickedAsMaster =
-          await rateService.getRatePlanLinksByMaster(clickedRatePlanId).catch(
-            () => [],
-          );
-        if (cancelled) return;
-        let matchLink =
-          linksForClickedAsMaster.find(
-            (l) =>
-              l.masterRatePlanId === clickedRatePlanId && l.active !== false,
-          ) ??
-          linksForClickedAsMaster.find(
-            (l) => l.masterRatePlanId === clickedRatePlanId,
-          ) ??
-          null;
-        // New backend mapping: clicked row is slave; search links by each possible master.
-        if (!matchLink && filtered.length > 0) {
-          const linksByMaster = await Promise.all(
-            filtered.map((rp) =>
-              rateService.getRatePlanLinksByMaster(rp.ratePlanId).catch(
-                () => [],
-              ),
-            ),
-          );
-          const flattened = linksByMaster.flat();
-          matchLink =
-            flattened.find(
-              (l) =>
-                l.slaveRatePlanId === clickedRatePlanId && l.active !== false,
-            ) ??
-            flattened.find(
-              (l) => l.slaveRatePlanId === clickedRatePlanId,
-            ) ??
-            null;
-        }
+        const matchLink = await resolveRatePlanLinkRecord(
+          clickedRatePlanId,
+          all,
+        );
         if (cancelled) return;
         setLinkExistingRecord(matchLink);
       } catch (err: unknown) {
@@ -305,7 +291,8 @@ export default function Layout() {
     linkRatePlansContext?.roomId,
     linkRatePlansContext?.roomName,
     linkRatePlansContext?.currentRatePlanId,
-    linkRatePlansContext?.isLinkEnable,
+    linkRatePlansContext?.linkMode,
+    rateRooms,
     // showToast omitted: not referentially stable from useToast
   ]);
 
@@ -1368,6 +1355,7 @@ export default function Layout() {
         masterRatePlanId={linkRatePlansContext?.currentRatePlanId ?? 0}
         existingLinkRecord={linkExistingRecord}
         linkConfigLoading={linkRecordLoading}
+        isUpdateMode={linkRatePlansContext?.linkMode === "update"}
         onInvalid={() => {
           setLinkSheetApiError("Please choose a base rate plan.");
         }}
