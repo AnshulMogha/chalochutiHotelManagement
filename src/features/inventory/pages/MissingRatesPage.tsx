@@ -302,7 +302,9 @@ export default function MissingRatesPage() {
                         className={[
                           "relative flex min-h-[88px] flex-col rounded-xl border px-2 py-2 text-left transition-all",
                           !inMonth && "pointer-events-none opacity-30",
-                          inMonth && !hasGap && "border-slate-100 bg-white text-slate-400",
+                          inMonth &&
+                            !hasGap &&
+                            "border-emerald-100 bg-emerald-50/80 text-slate-700",
                           inMonth &&
                             hasGap &&
                             !isSelected &&
@@ -313,9 +315,6 @@ export default function MissingRatesPage() {
                           .filter(Boolean)
                           .join(" ")}
                       >
-                        {hasGap && inMonth && (
-                          <AlertTriangle className="absolute right-2 top-2 h-4 w-4 text-rose-500" />
-                        )}
                         <span
                           className={[
                             "text-lg font-bold tabular-nums",

@@ -12,18 +12,11 @@ export function buildLinkedRatePlanKey(
 
 export function isLinkedRatePlanForBaseSelection(
   ratePlan: Pick<RoomRatePlan, "ratePlanLink" | "isSlave">,
-  mode: LinkRatePlanFilterMode = "update",
+  _mode: LinkRatePlanFilterMode = "update",
 ): boolean {
   const role = ratePlan.ratePlanLink?.role?.toUpperCase();
-  if (mode === "add") {
-    return role === "SLAVE" || role === "BOTH" || ratePlan.isSlave === true;
-  }
-  return (
-    role === "MASTER" ||
-    role === "SLAVE" ||
-    role === "BOTH" ||
-    ratePlan.isSlave === true
-  );
+  // Slaves cannot be chosen as a base plan; masters remain selectable so slaves can switch parent.
+  return role === "SLAVE" || role === "BOTH" || ratePlan.isSlave === true;
 }
 
 /** Keys for rate plans excluded from the base-plan dropdown. */
@@ -53,18 +46,10 @@ function getHotelRatePlanLinkRole(
 /** True when the rate plan should be hidden from the base-plan dropdown. */
 export function shouldExcludeRatePlanFromBaseDropdown(
   ratePlan: Pick<HotelRatePlanListItem, "role" | "ratePlanLink" | "isSlave">,
-  mode: LinkRatePlanFilterMode,
+  _mode: LinkRatePlanFilterMode,
 ): boolean {
   const role = getHotelRatePlanLinkRole(ratePlan);
-  if (mode === "add") {
-    return role === "SLAVE" || role === "BOTH" || ratePlan.isSlave === true;
-  }
-  return (
-    role === "MASTER" ||
-    role === "SLAVE" ||
-    role === "BOTH" ||
-    ratePlan.isSlave === true
-  );
+  return role === "SLAVE" || role === "BOTH" || ratePlan.isSlave === true;
 }
 
 /** @deprecated Use shouldExcludeRatePlanFromBaseDropdown with mode instead. */
