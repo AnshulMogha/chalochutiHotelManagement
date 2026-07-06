@@ -38,32 +38,39 @@ export function RatePlanSlavesDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
+        <DialogHeader className="shrink-0">
           <DialogTitle>Linked slave rate plans</DialogTitle>
           <DialogDescription>
             Meal plans linked to{" "}
             <span className="font-medium text-slate-700">{masterPlanLabel}</span>
+            {slaves.length > 0 ? (
+              <span className="ml-1 text-slate-400">({slaves.length})</span>
+            ) : null}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mt-4 space-y-3">
-          {slaves.length === 0 ? (
-            <p className="text-sm text-slate-500">No slave rate plans linked.</p>
-          ) : (
-            slaves.map((slave) => (
-              <div
-                key={slave.linkId}
-                className="rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3"
-              >
-                <p className="font-semibold text-slate-900">
-                  {formatSlaveLabel(slave)}
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  Adjustment: {formatAdjustment(slave)}
-                </p>
-              </div>
-            ))
-          )}
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+          <div className="space-y-3">
+            {slaves.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No slave rate plans linked.
+              </p>
+            ) : (
+              slaves.map((slave) => (
+                <div
+                  key={slave.linkId}
+                  className="rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3"
+                >
+                  <p className="font-semibold text-slate-900">
+                    {formatSlaveLabel(slave)}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Adjustment: {formatAdjustment(slave)}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
