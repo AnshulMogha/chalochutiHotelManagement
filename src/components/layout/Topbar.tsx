@@ -23,6 +23,7 @@ import {
   getStoredSelectedHotelId,
   setStoredSelectedHotelId,
 } from "@/lib/selectedHotelStorage";
+import { DateTimeWatch } from "./DateTimeWatch";
 
 interface TopbarProps {
   onSidebarToggle?: () => void;
@@ -178,12 +179,11 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white shadow-sm">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 w-full shrink-0 border-b border-gray-200 bg-white shadow-sm">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          {/* Left Side - Sidebar Toggle + Logo */}
+          {/* Left Side - Sidebar Toggle + Logo (mobile only) */}
           <div className="flex items-center gap-3">
-            {/* Sidebar Toggle Button - All Screens */}
             <button
               onClick={onSidebarToggle}
               className="p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#2f3d95] focus:ring-offset-2 focus:ring-offset-white"
@@ -197,8 +197,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
               )}
             </button>
 
-            {/* Company Logo Section */}
-            <Link to="/" className="flex items-center gap-3 group">
+            <Link to="/" className="flex items-center gap-3 group lg:hidden">
               <img
                 src={logo}
                 alt="Chalochutti"
@@ -220,6 +219,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
 
           {/* Profile Section - Right Side */}
           <div className="flex items-center gap-4">
+            <DateTimeWatch />
             {user?.roles?.length ? (
               <div className="hidden md:flex items-center">
                 <RoleBadge roles={user.roles} maxVisible={1} />

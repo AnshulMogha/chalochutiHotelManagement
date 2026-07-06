@@ -7,24 +7,76 @@ import {
   type RejectedHotelItem,
   type ReviewRemark,
 } from "../services/adminService";
-import { Button, ExportButton, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
-import { Eye, Calendar, User, Building2, X } from "lucide-react";
+import { Button, ExportButton, Tabs, TabsContent, TabsList, TabsTrigger, DataTable } from "@/components/ui";
+import {
+  Eye,
+  Calendar,
+  User,
+  Building2,
+  X,
+  Loader2,
+  AlertCircle,
+  Hash,
+  MapPin,
+  MessageSquare,
+  Clock,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 import { ROUTES } from "@/constants";
-import { LoadingSpinner } from "@/components/ui";
-import { DataGrid, GridToolbar } from "@mui/x-data-grid";
-import type { GridColDef } from "@mui/x-data-grid";
-import type { GridPaginationModel } from "@mui/x-data-grid";
-import { Box } from "@mui/material";
+import type { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
 import { useAuth } from "@/hooks/useAuth";
 import {
   isZonalHotelReviewerRole,
   isQcReviewerRole,
 } from "@/constants/roles";
+import { cn } from "@/lib/utils";
+import { HotelReviewTableToolbar } from "../components/HotelReviewTableToolbar";
+import {
+  HotelReviewColumnHeader,
+  HotelReviewBadge,
+  getRemarkTone,
+  hotelReviewTableGridSx,
+} from "../components/hotelReviewTableUi";
 
 type HotelReviewFetchMode = "super_admin" | "qc" | "zonal";
 type ReviewBucket = "pending" | "approved" | "rejected";
 const REVIEW_CONTEXT_KEY = "hotel-review-context";
+
+const REVIEW_TABS: {
+  value: ReviewBucket;
+  label: string;
+  icon: typeof Clock;
+}[] = [
+  { value: "pending", label: "Pending", icon: Clock },
+  { value: "approved", label: "Approved", icon: CheckCircle2 },
+  { value: "rejected", label: "Rejected", icon: XCircle },
+];
+
+const REVIEW_TAB_STYLES: Record<
+  ReviewBucket,
+  { active: string; idle: string; iconActive: string; iconIdle: string }
+> = {
+  pending: {
+    active: "bg-amber-500 text-white shadow-sm",
+    idle: "text-amber-800 hover:bg-amber-100/80",
+    iconActive: "text-white",
+    iconIdle: "text-amber-600",
+  },
+  approved: {
+    active: "bg-emerald-600 text-white shadow-sm",
+    idle: "text-emerald-800 hover:bg-emerald-100/80",
+    iconActive: "text-white",
+    iconIdle: "text-emerald-600",
+  },
+  rejected: {
+    active: "bg-rose-600 text-white shadow-sm",
+    idle: "text-rose-800 hover:bg-rose-100/80",
+    iconActive: "text-white",
+    iconIdle: "text-rose-600",
+  },
+};
 
 function getHotelReviewFetchMode(
   roles: string[] | undefined,
@@ -217,77 +269,100 @@ export default function HotelReviewListPage() {
       field: "hotelName",
       headerName: "Hotel Name",
       flex: 1.5,
-      minWidth: 200,
+      minWidth: 180,
+      renderHeader: () => (
+        <HotelReviewColumnHeader icon={Building2} label="Hotel Name" />
+      ),
       renderCell: (params) => (
-        <div className="flex items-center gap-3 w-full">
-          <div className="w-10 h-10 rounded-lg bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
-            <Building2 className="w-5 h-5 text-white" />
-          </div>
-          <div className="text-sm font-semibold text-gray-900 truncate">
-            {params.value}
-          </div>
-        </div>
+        <span className="truncate text-sm font-semibold text-gray-900">
+          {params.value}
+        </span>
       ),
     },
     {
       field: "hotelCity",
       headerName: "Hotel City",
       flex: 0.9,
-      minWidth: 150,
-      renderCell: (params) => (
-        <div className="text-sm text-gray-700">{params.value || "-"}</div>
+      minWidth: 130,
+      renderHeader: () => (
+        <HotelReviewColumnHeader icon={MapPin} label="Hotel City" />
       ),
+      renderCell: (params) =>
+        params.value ? (
+          <HotelReviewBadge className="bg-violet-50 text-violet-700 ring-violet-200">
+            {params.value}
+          </HotelReviewBadge>
+        ) : (
+          <span className="text-sm text-gray-400">—</span>
+        ),
     },
     {
       field: "hotelCode",
       headerName: "Hotel Code",
       flex: 0.8,
-      minWidth: 150,
+      minWidth: 130,
+      renderHeader: () => (
+        <HotelReviewColumnHeader icon={Hash} label="Hotel Code" />
+      ),
       renderCell: (params) => (
-        <div className="text-sm text-gray-600 font-mono">{params.value}</div>
+        <HotelReviewBadge className="bg-indigo-50 font-mono text-indigo-700 ring-indigo-200">
+          {params.value}
+        </HotelReviewBadge>
       ),
     },
     {
       field: "requestedBy",
       headerName: "Submitted By",
       flex: 1,
-      minWidth: 200,
+      minWidth: 160,
+      renderHeader: () => (
+        <HotelReviewColumnHeader icon={User} label="Submitted By" />
+      ),
       renderCell: (params) => (
-        <div className="flex items-center text-sm text-gray-600 min-w-0">
-          <User className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
-          <span className="truncate">{params.value}</span>
-        </div>
+        <HotelReviewBadge
+          className="bg-slate-50 font-normal text-slate-600 ring-slate-200"
+          title={params.value}
+        >
+          {params.value}
+        </HotelReviewBadge>
       ),
     },
     {
       field: "submittedAt",
       headerName: "Submitted At",
       flex: 1,
-      minWidth: 180,
+      minWidth: 140,
+      renderHeader: () => (
+        <HotelReviewColumnHeader icon={Calendar} label="Submitted At" />
+      ),
       renderCell: (params) => (
-        <div className="flex items-center text-sm text-gray-600 whitespace-nowrap">
-          <Calendar className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
-          <span>{formatDate(params.value)}</span>
-        </div>
+        <span className="whitespace-nowrap text-sm font-medium text-slate-600">
+          {formatDate(params.value)}
+        </span>
       ),
     },
     {
       field: "qcRemarks",
       headerName: "QC/Zonal Remark",
       flex: 1.3,
-      minWidth: 260,
+      minWidth: 220,
       sortable: false,
+      renderHeader: () => (
+        <HotelReviewColumnHeader icon={MessageSquare} label="QC/Zonal Remark" />
+      ),
       renderCell: (params) => {
         const latest = getLatestReviewRemark(params.row);
         if (!latest) {
-          return <span className="text-sm text-gray-400">-</span>;
+          return <span className="text-sm text-gray-400">—</span>;
         }
         const allRemarks = params.row.qcRemarks ?? [];
+        const tone = getRemarkTone(latest);
         return (
-          <div className="min-w-0 leading-tight py-1">
+          <div className="min-w-0 py-0.5 leading-tight">
             <button
               type="button"
-              onClick={() =>
+              onClick={(e) => {
+                e.stopPropagation();
                 setRemarkModalData({
                   hotelName: String(params.row.hotelName || "Hotel"),
                   remarks: [...allRemarks].sort(
@@ -295,14 +370,24 @@ export default function HotelReviewListPage() {
                       new Date(b.remarkedAt).getTime() -
                       new Date(a.remarkedAt).getTime(),
                   ),
-                })
-              }
-              className="text-left text-sm text-gray-800 hover:text-blue-700 hover:underline"
+                });
+              }}
+              className="group text-left"
               title={latest.remark}
             >
-              {truncateRemark(latest.remark)}
+              <span
+                className={cn(
+                  "inline-flex max-w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold ring-1 transition-opacity group-hover:opacity-80",
+                  tone.className,
+                )}
+              >
+                <span
+                  className={cn("h-1.5 w-1.5 shrink-0 rounded-full", tone.dotClass)}
+                />
+                <span className="truncate">{truncateRemark(latest.remark, 48)}</span>
+              </span>
             </button>
-            <p className="text-xs text-gray-500">
+            <p className="mt-1 text-[11px] text-slate-400">
               {formatDate(latest.remarkedAt)}
             </p>
           </div>
@@ -313,16 +398,19 @@ export default function HotelReviewListPage() {
       field: "actions",
       headerName: "Actions",
       flex: 0.5,
-      minWidth: 100,
+      minWidth: 80,
       sortable: false,
       filterable: false,
       align: "right",
       headerAlign: "right",
+      renderHeader: () => (
+        <HotelReviewColumnHeader icon={Eye} label="Actions" />
+      ),
       renderCell: (params) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
             persistReviewContext(activeTab as ReviewBucket, String(params.row.hotelId));
             const q = new URLSearchParams({
               draftId: String(params.row.hotelId),
@@ -333,260 +421,176 @@ export default function HotelReviewListPage() {
               state: { reviewTab: activeTab },
             });
           }}
-          className="gap-2"
+          className="rounded-lg border border-[#2f3d95]/25 bg-[#eef2ff] px-3 py-1 text-xs font-semibold text-[#2f3d95] transition-colors hover:border-[#2f3d95] hover:bg-[#2f3d95] hover:text-white"
         >
-          <Eye className="w-4 h-4" />
           View
-        </Button>
+        </button>
       ),
     },
   ];
 
-  const renderTable = (hotels: (HotelReviewItem | ApprovedHotelItem | RejectedHotelItem)[]) => {
-    if (hotels.length === 0) {
-      const emptyMessages = {
-        pending: {
-          title: "No hotels pending review",
-          description: "All hotel requests have been processed",
-        },
-        approved: {
-          title: "No approved hotels",
-          description: "No hotels have been approved yet",
-        },
-        rejected: {
-          title: "No rejected hotels",
-          description: "No hotels have been rejected yet",
-        },
-      };
-      const message = emptyMessages[activeTab as keyof typeof emptyMessages] || emptyMessages.pending;
-
-      return (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-16 text-center">
-          <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-600 text-lg font-medium mb-2">{message.title}</p>
-          <p className="text-gray-500 text-sm">{message.description}</p>
-        </div>
-      );
-    }
-
-    return (
-      <Box 
-        sx={{ 
-          width: "100%",
-          borderRadius: "12px",
-          overflow: "hidden",
-        }} 
-        className="bg-white border border-gray-200 shadow-md"
-      >
-        <DataGrid
-          rows={hotels}
-          columns={columns}
-          getRowId={(row) => row.hotelId}
-          autoHeight
-          pageSizeOptions={[10, 20, 50, 100]}
-          paginationMode="server"
-          paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
-          rowCount={getCurrentTotalRows()}
-          slots={{
-            toolbar: GridToolbar,
-          }}
-          slotProps={{
-            toolbar: {
-              showQuickFilter: true,
-              quickFilterProps: { debounceMs: 500 },
-              csvOptions: {
-                fileName: `hotel-review-${activeTab}-${new Date().toISOString().split('T')[0]}`,
-                delimiter: ',',
-                utf8WithBom: true,
-              },
-              printOptions: {
-                disableToolbarButton: false,
-              },
-              exportOptions: {
-                formatOptions: {
-                  utf8WithBom: true,
-                },
-              },
-            },
-          }}
-          sx={{
-            border: "none",
-            borderRadius: "12px",
-            "& .MuiDataGrid-columnHeaders": {
-              backgroundColor: "#2f3d95 !important",
-              color: "white !important",
-              fontSize: "0.875rem",
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              minHeight: "56px !important",
-              "& .MuiDataGrid-columnHeaderTitle": {
-                fontWeight: 700,
-                fontSize: "0.875rem",
-                color: "white !important",
-              },
-              "& .MuiDataGrid-iconButtonContainer": {
-                color: "white !important",
-              },
-            },
-            "& .MuiDataGrid-columnHeader": {
-              padding: "14px 16px",
-              backgroundColor: "#2f3d95 !important",
-              color: "white !important",
-              "&:focus": {
-                outline: "none",
-              },
-              "&:focus-within": {
-                outline: "none",
-              },
-              "&:hover .MuiDataGrid-iconButtonContainer": {
-                opacity: 0,
-              },
-              "& .MuiDataGrid-iconButtonContainer": {
-                opacity: 0,
-                transition: "opacity 0.2s",
-              },
-              "&.MuiDataGrid-columnHeader--sorted .MuiDataGrid-iconButtonContainer": {
-                opacity: 1,
-                "& .MuiDataGrid-sortIcon": {
-                  color: "#10b981 !important",
-                  fontSize: "0.875rem",
-                  width: "16px",
-                  height: "16px",
-                },
-              },
-              "& .MuiDataGrid-sortIcon": {
-                color: "#10b981 !important",
-                fontSize: "0.875rem",
-                width: "16px",
-                height: "16px",
-              },
-            },
-            "& .MuiDataGrid-row": {
-              "&:hover": {
-                backgroundColor: "#eff6ff",
-              },
-              "&:nth-of-type(even)": {
-                backgroundColor: "#fafafa",
-                "&:hover": {
-                  backgroundColor: "#eff6ff",
-                },
-              },
-            },
-            "& .MuiDataGrid-cell": {
-              borderBottom: "1px solid #e5e7eb",
-              padding: "14px 16px",
-              fontSize: "0.875rem",
-              display: "flex",
-              alignItems: "center",
-              "&:focus": {
-                outline: "none",
-              },
-              "&:focus-within": {
-                outline: "none",
-              },
-            },
-            "& .MuiDataGrid-footerContainer": {
-              borderTop: "1px solid #e5e7eb",
-              padding: "12px 16px",
-              backgroundColor: "white",
-            },
-            "& .MuiDataGrid-toolbarContainer": {
-              padding: "12px 16px",
-              backgroundColor: "#f9fafb",
-              borderBottom: "1px solid #e5e7eb",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              "& .MuiButton-root": {
-                textTransform: "none",
-              },
-            },
-            "& .MuiDataGrid-main": {
-              overflowX: "hidden",
-            },
-            "& .MuiDataGrid-columnHeadersInner": {
-              backgroundColor: "#2f3d95 !important",
-            },
-            "& .MuiDataGrid-columnHeaders .MuiDataGrid-filler": {
-              backgroundColor: "#2f3d95 !important",
-            },
-          }}
-        />
-      </Box>
-    );
+  const emptyMessages: Record<
+    ReviewBucket,
+    { title: string; description: string }
+  > = {
+    pending: {
+      title: "No hotels pending review",
+      description: "All hotel requests have been processed",
+    },
+    approved: {
+      title: "No approved hotels",
+      description: "No hotels have been approved yet",
+    },
+    rejected: {
+      title: "No rejected hotels",
+      description: "No hotels have been rejected yet",
+    },
   };
 
-  if (isLoading) {
+  const renderPanel = (
+    hotels: (HotelReviewItem | ApprovedHotelItem | RejectedHotelItem)[],
+  ) => {
+    const message = emptyMessages[activeTab as ReviewBucket];
+
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>Retry</Button>
-        </div>
-      </div>
-    );
-  }
-
-  const currentHotels = getCurrentHotels();
-
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Hotel Review Queue
-          </h1>
-          <p className="text-gray-600">
-            Review and approve or reject hotel onboarding requests
-          </p>
-        </div>
-        {currentHotels.length > 0 && (
-          <ExportButton
-            onExportCSV={handleExportCSV}
-            onExportExcel={handleExportExcel}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm">
+        {isLoading ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-4">
+            <Loader2 className="mb-3 h-9 w-9 animate-spin text-[#2f3d95]" />
+            <p className="text-sm font-medium text-gray-600">Loading hotels...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+            <AlertCircle className="mb-3 h-10 w-10 text-red-400" />
+            <p className="mb-3 text-sm font-medium text-red-600">{error}</p>
+            <Button
+              onClick={() => window.location.reload()}
+              variant="primary"
+              className="text-sm"
+            >
+              Retry
+            </Button>
+          </div>
+        ) : hotels.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
+              <Building2 className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="mb-1 text-lg font-semibold text-gray-900">
+              {message.title}
+            </h3>
+            <p className="max-w-sm text-sm text-gray-500">{message.description}</p>
+          </div>
+        ) : (
+          <DataTable
+            rows={hotels}
+            columns={columns}
+            getRowId={(row) => row.hotelId}
+            rowHeight={64}
+            pageSizeOptions={[10, 20, 50, 100]}
+            paginationMode="server"
+            paginationModel={paginationModel}
+            onPaginationModelChange={setPaginationModel}
+            rowCount={getCurrentTotalRows()}
+            showToolbar
+            fillContainer
+            slots={{ toolbar: HotelReviewTableToolbar }}
+            slotProps={{
+              toolbar: {
+                showQuickFilter: false,
+              },
+            }}
+            exportFileName={`hotel-review-${activeTab}-${new Date().toISOString().split("T")[0]}`}
+            sx={hotelReviewTableGridSx}
+            className="h-full rounded-none border-0 shadow-none"
           />
         )}
       </div>
+    );
+  };
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(nextTab) => {
-          persistReviewContext(nextTab as ReviewBucket);
-          setActiveTab(nextTab);
-          setPaginationModel((prev) => ({ ...prev, page: 0 }));
-        }}
-        className="w-full"
-      >
-        <TabsList className="inline-flex w-auto mb-6">
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected</TabsTrigger>
-        </TabsList>
+  const currentHotels = getCurrentHotels();
+  const currentTotal = getCurrentTotalRows();
 
-        <TabsContent value="pending">
-          {renderTable(pendingHotels)}
-        </TabsContent>
+  return (
+    <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden">
+      <div className="container mx-auto flex h-full min-h-0 flex-1 flex-col px-4 py-4">
+        <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
+          <h1 className="text-xl font-bold tracking-tight text-gray-900">
+            Hotel Review
+            {!isLoading && (
+              <span className="ml-1.5 font-bold text-gray-900">
+                ({currentTotal} hotel{currentTotal !== 1 ? "s" : ""})
+              </span>
+            )}
+          </h1>
+          {currentHotels.length > 0 && !isLoading && (
+            <ExportButton
+              onExportCSV={handleExportCSV}
+              onExportExcel={handleExportExcel}
+            />
+          )}
+        </div>
 
-        <TabsContent value="approved">
-          {renderTable(approvedHotels)}
-        </TabsContent>
+        <Tabs
+          value={activeTab}
+          onValueChange={(nextTab) => {
+            persistReviewContext(nextTab as ReviewBucket);
+            setActiveTab(nextTab);
+            setPaginationModel((prev) => ({ ...prev, page: 0 }));
+          }}
+          className="flex min-h-0 flex-1 flex-col gap-3"
+        >
+          <TabsList className="inline-flex h-auto w-full shrink-0 flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 sm:w-auto">
+            {REVIEW_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.value;
+              const styles = REVIEW_TAB_STYLES[tab.value];
+              return (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className={cn(
+                    "gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150",
+                    isActive ? styles.active : styles.idle,
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      isActive ? styles.iconActive : styles.iconIdle,
+                    )}
+                    strokeWidth={2.25}
+                  />
+                  {tab.label}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
 
-        <TabsContent value="rejected">
-          {renderTable(rejectedHotels)}
-        </TabsContent>
-      </Tabs>
+          <TabsContent
+            value="pending"
+            className="mt-0 flex min-h-0 flex-1 flex-col"
+          >
+            {renderPanel(pendingHotels)}
+          </TabsContent>
 
-      {remarkModalData && (
+          <TabsContent
+            value="approved"
+            className="mt-0 flex min-h-0 flex-1 flex-col"
+          >
+            {renderPanel(approvedHotels)}
+          </TabsContent>
+
+          <TabsContent
+            value="rejected"
+            className="mt-0 flex min-h-0 flex-1 flex-col"
+          >
+            {renderPanel(rejectedHotels)}
+          </TabsContent>
+        </Tabs>
+
+        {remarkModalData && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
           onClick={() => setRemarkModalData(null)}
@@ -672,6 +676,7 @@ export default function HotelReviewListPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

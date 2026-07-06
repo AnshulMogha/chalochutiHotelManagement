@@ -1,10 +1,13 @@
 import { DataGrid, type DataGridProps, GridToolbar } from "@mui/x-data-grid";
-import { Box } from "@mui/material";
+import { Box, type SxProps, type Theme } from "@mui/material";
 
 export interface DataTableProps extends Omit<DataGridProps, "sx"> {
   className?: string;
   showToolbar?: boolean;
   exportFileName?: string;
+  /** Fill parent height; only row area scrolls (header/footer stay fixed). */
+  fillContainer?: boolean;
+  sx?: SxProps<Theme>;
 }
 
 const THEME_COLOR = "#2f3d95";
@@ -121,10 +124,48 @@ const defaultSx = {
   },
 };
 
+const fillContainerSx = {
+  display: "flex",
+  flexDirection: "column",
+  height: "100%",
+  minHeight: 0,
+  "& .MuiDataGrid-root": {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    minHeight: 0,
+    border: "none",
+  },
+  "& .MuiDataGrid-toolbarContainer": {
+    flexShrink: 0,
+  },
+  "& .MuiDataGrid-columnHeaders": {
+    flexShrink: 0,
+  },
+  "& .MuiDataGrid-main": {
+    flex: "1 1 auto",
+    minHeight: 0,
+    width: "100%",
+    overflow: "hidden",
+  },
+  "& .MuiDataGrid-virtualScroller": {
+    minHeight: 0,
+  },
+  "& .MuiDataGrid-footerContainer": {
+    flexShrink: 0,
+    position: "sticky",
+    bottom: 0,
+    zIndex: 2,
+    backgroundColor: "white",
+  },
+};
+
 export function DataTable({
   className = "",
   showToolbar = true,
   exportFileName,
+  fillContainer = false,
+  sx,
   slots,
   slotProps,
   ...props
@@ -164,17 +205,25 @@ export function DataTable({
     <Box
       sx={{
         width: "100%",
+        height: fillContainer ? "100%" : "auto",
         borderRadius: "12px",
         overflow: "hidden",
+        display: fillContainer ? "flex" : "block",
+        flexDirection: fillContainer ? "column" : undefined,
+        minHeight: fillContainer ? 0 : undefined,
       }}
       className={`bg-white border border-gray-200 shadow-md ${className}`}
     >
       <DataGrid
         {...props}
-        autoHeight
+        autoHeight={!fillContainer}
         slots={defaultSlots}
         slotProps={defaultSlotProps}
-        sx={defaultSx}
+        sx={{
+          ...defaultSx,
+          ...(fillContainer ? fillContainerSx : {}),
+          ...sx,
+        }}
       />
     </Box>
   );

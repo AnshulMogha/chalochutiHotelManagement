@@ -1,18 +1,26 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
 import { Phone, Smartphone, Mail, Globe, PhoneCall, User } from "lucide-react";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { adminService } from "@/features/admin/services/adminService";
 import { useAuth } from "@/hooks";
 import { isSuperAdmin } from "@/constants/roles";
+import { FormFieldLabel } from "@/components/ui/FormFieldLabel";
+import {
+  BasicInfoFormCard,
+  BasicInfoFormDivider,
+  BasicInfoFormLoading,
+  BasicInfoFormPanel,
+} from "./basicInfoFormUi";
 
 interface PropertyContactDetailsTabProps {
   hotelId: string;
 }
 
-export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTabProps) {
+export function PropertyContactDetailsTab({
+  hotelId,
+}: PropertyContactDetailsTabProps) {
   const { user } = useAuth();
   const isSuperAdminUser = isSuperAdmin(user?.roles);
   /** Super Admin uses admin contact APIs; hotel roles use /hotel/.../contact. */
@@ -112,7 +120,8 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
     if (!formData.hotelPhone.trim()) {
       newErrors.hotelPhone = "Hotel phone is required";
     } else if (!validatePhoneWithDashes(formData.hotelPhone)) {
-      newErrors.hotelPhone = "Phone number must have at least 10 digits (dashes allowed)";
+      newErrors.hotelPhone =
+        "Phone number must have at least 10 digits (dashes allowed)";
     }
 
     if (!formData.hotelMobile.trim()) {
@@ -128,32 +137,41 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
     }
 
     if (formData.phoneList.trim() && !validatePhoneList(formData.phoneList)) {
-      newErrors.phoneList = "All phone numbers must have at least 10 digits (dashes allowed, comma-separated)";
+      newErrors.phoneList =
+        "All phone numbers must have at least 10 digits (dashes allowed, comma-separated)";
     }
 
     if (formData.websiteList.trim()) {
       // Validate comma-separated URLs
       const websites = formData.websiteList.split(",").map((w) => w.trim());
-      const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i;
-      const invalidWebsites = websites.filter((website) => !urlPattern.test(website));
+      const urlPattern =
+        /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i;
+      const invalidWebsites = websites.filter(
+        (website) => !urlPattern.test(website),
+      );
       if (invalidWebsites.length > 0) {
-        newErrors.websiteList = "Please enter valid website URLs (comma-separated)";
+        newErrors.websiteList =
+          "Please enter valid website URLs (comma-separated)";
       }
     }
 
     if (formData.emailList.trim()) {
       // Validate comma-separated emails
       const emails = formData.emailList.split(",").map((e) => e.trim());
-      const invalidEmails = emails.filter((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+      const invalidEmails = emails.filter(
+        (email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+      );
       if (invalidEmails.length > 0) {
-        newErrors.emailList = "Please enter valid email addresses (comma-separated)";
+        newErrors.emailList =
+          "Please enter valid email addresses (comma-separated)";
       }
     }
 
     if (!formData.customerCareNumber.trim()) {
       newErrors.customerCareNumber = "Customer care number is required";
     } else if (!validateCustomerCareList(formData.customerCareNumber)) {
-      newErrors.customerCareNumber = "All numbers must have at least 10 digits (dashes allowed, comma-separated)";
+      newErrors.customerCareNumber =
+        "All numbers must have at least 10 digits (dashes allowed, comma-separated)";
     }
 
     setErrors(newErrors);
@@ -174,7 +192,7 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate form before submitting
     if (!validateForm()) {
       return;
@@ -227,13 +245,7 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
   };
 
   if (isLoading) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <p className="text-gray-500">Loading contact details...</p>
-        </div>
-      </div>
-    );
+    return <BasicInfoFormLoading message="Loading contact details..." />;
   }
 
   return (
@@ -244,215 +256,239 @@ export function PropertyContactDetailsTab({ hotelId }: PropertyContactDetailsTab
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left Column */}
-          <div className="space-y-6">
-            <div>
-              <Label htmlFor="hotelPhone">
-                Hotel Phone <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="hotelPhone"
-                type="tel"
-                value={formData.hotelPhone}
-                onChange={(e) => handleChange("hotelPhone", e.target.value.replace(/[^\d-]/g, ""))}
-                error={errors.hotelPhone}
-                icon={<Phone className="w-4 h-4 text-green-500" />}
-                required
-              />
+      <BasicInfoFormCard>
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <div>
+                <FormFieldLabel icon={Phone} theme="green" htmlFor="hotelPhone" required>
+                  Hotel Phone
+                </FormFieldLabel>
+                <Input
+                  id="hotelPhone"
+                  type="tel"
+                  value={formData.hotelPhone}
+                  onChange={(e) =>
+                    handleChange(
+                      "hotelPhone",
+                      e.target.value.replace(/[^\d-]/g, ""),
+                    )
+                  }
+                  error={errors.hotelPhone}
+                  required
+                />
+              </div>
+
+              <div>
+                <FormFieldLabel icon={Smartphone} theme="emerald" htmlFor="hotelMobile" required>
+                  Hotel Mobile
+                </FormFieldLabel>
+                <Input
+                  id="hotelMobile"
+                  type="tel"
+                  value={formData.hotelMobile}
+                  onChange={(e) =>
+                    handleChange(
+                      "hotelMobile",
+                      e.target.value.replace(/\D/g, ""),
+                    )
+                  }
+                  error={errors.hotelMobile}
+                  maxLength={10}
+                  required
+                />
+                {!errors.hotelMobile && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Please provide mobile number where you would like to receive
+                    communications (SMS/WhatsApp)
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <FormFieldLabel icon={Mail} theme="blue" htmlFor="hotelEmail" required>
+                  Hotel Email
+                </FormFieldLabel>
+                <Input
+                  id="hotelEmail"
+                  type="email"
+                  value={formData.hotelEmail}
+                  onChange={(e) => handleChange("hotelEmail", e.target.value)}
+                  error={errors.hotelEmail}
+                  required
+                />
+              </div>
             </div>
 
-            <div>
-              <Label htmlFor="hotelMobile">
-                Hotel Mobile <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="hotelMobile"
-                type="tel"
-                value={formData.hotelMobile}
-                onChange={(e) => handleChange("hotelMobile", e.target.value.replace(/\D/g, ""))}
-                error={errors.hotelMobile}
-                icon={<Smartphone className="w-4 h-4 text-emerald-500" />}
-                maxLength={10}
-                required
-              />
-              {!errors.hotelMobile && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Please provide mobile number where you would like to receive communications (SMS/WhatsApp)
-                </p>
-              )}
-            </div>
+            <div className="space-y-6">
+              <div>
+                <FormFieldLabel icon={Phone} theme="green" htmlFor="phoneList">
+                  Phone List
+                </FormFieldLabel>
+                <Input
+                  id="phoneList"
+                  type="tel"
+                  value={formData.phoneList}
+                  onChange={(e) =>
+                    handleChange(
+                      "phoneList",
+                      e.target.value.replace(/[^\d,-]/g, ""),
+                    )
+                  }
+                  error={errors.phoneList}
+                />
+                {!errors.phoneList && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Separate two phone numbers with comma ','
+                  </p>
+                )}
+              </div>
 
-            <div>
-              <Label htmlFor="hotelEmail">
-                Hotel Email <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="hotelEmail"
-                type="email"
-                value={formData.hotelEmail}
-                onChange={(e) => handleChange("hotelEmail", e.target.value)}
-                error={errors.hotelEmail}
-                icon={<Mail className="w-4 h-4 text-blue-500" />}
-                required
-              />
+              <div>
+                <FormFieldLabel icon={Globe} theme="cyan" htmlFor="websiteList">
+                  Website List
+                </FormFieldLabel>
+                <Input
+                  id="websiteList"
+                  value={formData.websiteList}
+                  onChange={(e) => handleChange("websiteList", e.target.value)}
+                  error={errors.websiteList}
+                  placeholder="www.example.com"
+                />
+                {!errors.websiteList && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Separate two urls with comma ','
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <FormFieldLabel icon={Mail} theme="blue" htmlFor="emailList">
+                  Email List
+                </FormFieldLabel>
+                <Input
+                  id="emailList"
+                  type="text"
+                  value={formData.emailList}
+                  onChange={(e) => handleChange("emailList", e.target.value)}
+                  error={errors.emailList}
+                  placeholder="email1@example.com, email2@example.com"
+                />
+                {!errors.emailList && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Separate two emails with comma ','
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Right Column */}
-          <div className="space-y-6">
-            <div>
-              <Label htmlFor="phoneList">
-                Phone List
-              </Label>
-              <Input
-                id="phoneList"
-                type="tel"
-                value={formData.phoneList}
-                onChange={(e) => handleChange("phoneList", e.target.value.replace(/[^\d,-]/g, ""))}
-                error={errors.phoneList}
-                icon={<Phone className="w-4 h-4 text-green-500" />}
-              />
-              {!errors.phoneList && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Separate two phone numbers with comma ','
-                </p>
-              )}
-            </div>
+          <BasicInfoFormDivider />
 
-            <div>
-              <Label htmlFor="websiteList">
-                Website List
-              </Label>
-              <Input
-                id="websiteList"
-                value={formData.websiteList}
-                onChange={(e) => handleChange("websiteList", e.target.value)}
-                error={errors.websiteList}
-                icon={<Globe className="w-4 h-4 text-cyan-500" />}
-                placeholder="www.example.com"
-              />
-              {!errors.websiteList && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Separate two urls with comma ','
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="emailList">
-                Email List
-              </Label>
-              <Input
-                id="emailList"
-                type="text"
-                value={formData.emailList}
-                onChange={(e) => handleChange("emailList", e.target.value)}
-                error={errors.emailList}
-                icon={<Mail className="w-4 h-4 text-blue-500" />}
-                placeholder="email1@example.com, email2@example.com"
-              />
-              {!errors.emailList && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Separate two emails with comma ','
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Owner Contact Information */}
-        <div className="mt-8">
-          <div className="rounded-lg border border-gray-200 p-4 bg-gray-50/50">
-            <div className="flex items-center gap-2 mb-3">
-              <User className="w-4 h-4 text-indigo-600" />
-              <h3 className="text-sm font-semibold text-gray-900">Owner Contact</h3>
-            </div>
+          <BasicInfoFormPanel className="border-violet-100 bg-violet-50/30">
             {!isSuperAdminUser && (
-              <p className="text-xs text-gray-500 mb-3">
+              <p className="mb-4 text-xs text-gray-500">
                 View only. Only Super Admin can edit owner details.
               </p>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="ownerFirstname">Owner First Name</Label>
-                <Input
-                  id="ownerFirstname"
-                  value={formData.ownerFirstname}
-                  onChange={(e) => handleChange("ownerFirstname", e.target.value)}
-                  disabled={!isSuperAdminUser || isSaving}
-                />
-              </div>
+                <FormFieldLabel icon={User} theme="violet" htmlFor="ownerFirstname">
+                  Owner First Name
+                </FormFieldLabel>
+                  <Input
+                    id="ownerFirstname"
+                    value={formData.ownerFirstname}
+                    onChange={(e) =>
+                      handleChange("ownerFirstname", e.target.value)
+                    }
+                    disabled={!isSuperAdminUser || isSaving}
+                  />
+                </div>
               <div>
-                <Label htmlFor="ownerLastname">Owner Last Name</Label>
-                <Input
-                  id="ownerLastname"
-                  value={formData.ownerLastname}
-                  onChange={(e) => handleChange("ownerLastname", e.target.value)}
-                  disabled={!isSuperAdminUser || isSaving}
-                />
-              </div>
+                <FormFieldLabel icon={User} theme="violet" htmlFor="ownerLastname">
+                  Owner Last Name
+                </FormFieldLabel>
+                  <Input
+                    id="ownerLastname"
+                    value={formData.ownerLastname}
+                    onChange={(e) =>
+                      handleChange("ownerLastname", e.target.value)
+                    }
+                    disabled={!isSuperAdminUser || isSaving}
+                  />
+                </div>
               <div>
-                <Label htmlFor="ownerEmail">Owner Email</Label>
-                <Input
-                  id="ownerEmail"
-                  type="email"
-                  value={formData.ownerEmail}
-                  onChange={(e) => handleChange("ownerEmail", e.target.value)}
-                  icon={<Mail className="w-4 h-4 text-blue-500" />}
-                  disabled={!isSuperAdminUser || isSaving}
-                />
-              </div>
+                <FormFieldLabel icon={Mail} theme="blue" htmlFor="ownerEmail">
+                  Owner Email
+                </FormFieldLabel>
+                  <Input
+                    id="ownerEmail"
+                    type="email"
+                    value={formData.ownerEmail}
+                    onChange={(e) => handleChange("ownerEmail", e.target.value)}
+                    disabled={!isSuperAdminUser || isSaving}
+                  />
+                </div>
               <div>
-                <Label htmlFor="ownerPhone">Owner Phone</Label>
-                <Input
-                  id="ownerPhone"
-                  type="tel"
-                  value={formData.ownerPhone}
-                  onChange={(e) =>
-                    handleChange("ownerPhone", e.target.value.replace(/[^\d-]/g, ""))
-                  }
-                  icon={<Phone className="w-4 h-4 text-green-500" />}
-                  disabled={!isSuperAdminUser || isSaving}
-                />
-              </div>
+                <FormFieldLabel icon={Phone} theme="green" htmlFor="ownerPhone">
+                  Owner Phone
+                </FormFieldLabel>
+                  <Input
+                    id="ownerPhone"
+                    type="tel"
+                    value={formData.ownerPhone}
+                    onChange={(e) =>
+                      handleChange(
+                        "ownerPhone",
+                        e.target.value.replace(/[^\d-]/g, ""),
+                      )
+                    }
+                    disabled={!isSuperAdminUser || isSaving}
+                  />
+                </div>
             </div>
-          </div>
-        </div>
+          </BasicInfoFormPanel>
 
-        {/* Customer Care Information */}
-        <div className="mt-8 space-y-4">
+          <BasicInfoFormDivider />
+
           <div>
-            <Label htmlFor="customerCareNumber">
-              Customer Care Number <span className="text-red-500">*</span>
-            </Label>
+            <FormFieldLabel icon={PhoneCall} theme="orange" htmlFor="customerCareNumber" required>
+              Customer Care Number
+            </FormFieldLabel>
               <Input
                 id="customerCareNumber"
                 type="tel"
                 value={formData.customerCareNumber}
-                onChange={(e) => handleChange("customerCareNumber", e.target.value.replace(/[^\d,-]/g, ""))}
+                onChange={(e) =>
+                  handleChange(
+                    "customerCareNumber",
+                    e.target.value.replace(/[^\d,-]/g, ""),
+                  )
+                }
                 error={errors.customerCareNumber}
-                icon={<PhoneCall className="w-4 h-4 text-orange-500" />}
                 required
               />
-            {!errors.customerCareNumber && (
-              <p className="text-xs text-gray-500 mt-1">
-                Please provide mobile number where you would like to receive communications (SMS/WhatsApp). Separate two phone numbers with comma ','.
-              </p>
-            )}
+              {!errors.customerCareNumber && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Please provide mobile number where you would like to receive
+                  communications (SMS/WhatsApp). Separate two phone numbers with
+                  comma ','.
+                </p>
+              )}
           </div>
-        </div>
 
-        <div className="flex justify-end mt-8">
-          <Button type="submit" disabled={isSaving} className="bg-blue-500 hover:bg-blue-600">
-            {isSaving ? "Saving..." : "SAVE"}
-          </Button>
-        </div>
-      </form>
-      </div>
+          <div className="mt-8 flex justify-end border-t border-slate-100 pt-6">
+            <Button
+              type="submit"
+              disabled={isSaving}
+              className="bg-blue-500 hover:bg-blue-600"
+            >
+              {isSaving ? "Saving..." : "SAVE"}
+            </Button>
+          </div>
+        </form>
+      </BasicInfoFormCard>
     </>
   );
 }
-

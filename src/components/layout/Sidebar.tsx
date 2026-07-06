@@ -1,4 +1,6 @@
 import { cn } from "@/lib/utils";
+import { Link } from "react-router";
+import logo from "@/assets/originallogo.webp";
 import { ROUTES, hasAnyRole, ROLES } from "@/constants";
 import {
   isHotelBdRole,
@@ -111,11 +113,11 @@ const getNavItems = (user: User | null): NavItem[] => {
         path: ROUTES.ADMIN.HOTEL_REVIEW,
         icon: ClipboardCheck,
       },
-      {
-        label: "Document Review",
-        path: ROUTES.ADMIN.DOCUMENT_REVIEW,
-        icon: FileText,
-      },
+      // {
+      //   label: "Document Review",
+      //   path: ROUTES.ADMIN.DOCUMENT_REVIEW,
+      //   icon: FileText,
+      // },
     );
     return items;
   }
@@ -371,11 +373,11 @@ const getNavItems = (user: User | null): NavItem[] => {
         path: ROUTES.ADMIN.COMMISSION_AND_TAX,
         icon: Percent,
       },
-      {
-        label: "Document Review",
-        path: ROUTES.ADMIN.DOCUMENT_REVIEW,
-        icon: FileText,
-      },
+      // {
+      //   label: "Document Review",
+      //   path: ROUTES.ADMIN.DOCUMENT_REVIEW,
+      //   icon: FileText,
+      // },
       {
         label: "Travel Partners",
         path: ROUTES.ADMIN.TRAVEL_PARTNERS,
@@ -437,7 +439,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       {/* Mobile Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300"
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 lg:hidden"
           onClick={onToggle}
           aria-hidden="true"
         />
@@ -446,19 +448,52 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-16 bottom-4 h-[calc(100vh-4rem-1rem)] z-50 bg-[#2f3d95] border-r border-[#253075] transition-all duration-300 ease-in-out shadow-xl",
-          // Above main content (rates/inventory grids use low z-index); below topbar (z-50)
-          "lg:top-20 lg:h-[calc(100vh-5rem-1rem)] lg:z-45 lg:left-4 lg:rounded-xl",
-          "overflow-x-hidden overflow-y-auto",
+          "fixed inset-y-0 left-0 z-50 flex h-screen flex-col overflow-x-hidden transition-all duration-300 ease-in-out",
+          "border-r border-white/10 bg-linear-to-b from-[#2f3d95] via-[#283585] to-[#1f2a72]",
+          "shadow-[0_20px_50px_-12px_rgba(15,23,42,0.55)]",
           isOpen
-            ? "translate-x-0 w-64 rounded-r-xl"
-            : "-translate-x-full lg:translate-x-0 lg:w-20",
+            ? "w-64 translate-x-0"
+            : "-translate-x-full w-64 lg:w-20 lg:translate-x-0",
         )}
       >
-        <div className="flex flex-col h-full min-w-0">
-          {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 bg-transparent relative lg:px-3">
-            <ul className="space-y-1 min-w-0">
+        <div className="relative flex h-full min-w-0 flex-col">
+          <div
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.14),transparent_42%)]"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute -left-8 top-24 h-28 w-28 rounded-full bg-cyan-400/10 blur-2xl"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute -right-6 bottom-20 h-32 w-32 rounded-full bg-fuchsia-400/10 blur-2xl"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute right-4 top-1/2 h-24 w-24 -translate-y-1/2 rounded-full bg-sky-400/8 blur-2xl"
+            aria-hidden="true"
+          />
+
+          <div className="relative z-10 border-b border-white/10 px-3 py-3">
+            <Link
+              to={ROUTES.PROPERTIES.LIST}
+              className="flex items-center justify-center"
+            >
+              <div className="rounded-lg bg-white px-2.5 py-2 shadow-sm">
+                <img
+                  src={logo}
+                  alt="Chalochutti"
+                  className={cn(
+                    "object-contain",
+                    isOpen ? "h-8 w-auto" : "h-7 w-7",
+                  )}
+                />
+              </div>
+            </Link>
+          </div>
+
+          <nav className="relative flex-1 overflow-y-auto overflow-x-hidden px-2 py-4 lg:px-3">
+            <ul className="min-w-0 space-y-1.5">
               {navItems.map((item) => (
                 <SidebarItem
                   key={item.path}
@@ -469,6 +504,15 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
               ))}
             </ul>
           </nav>
+
+          {isOpen && (
+            <div className="relative border-t border-white/10 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-sky-300 shadow-[0_0_8px_rgba(125,211,252,0.8)]" />
+                <p className="text-[11px] text-white/45">Hotel Management Portal</p>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
     </>

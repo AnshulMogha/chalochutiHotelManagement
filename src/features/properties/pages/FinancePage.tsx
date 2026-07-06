@@ -3,6 +3,7 @@ import { FinanceTab } from "../components/property-info/FinanceTab";
 import { useAuth } from "@/hooks";
 import { canEditModule } from "@/lib/permissions";
 import { ReadOnlySection } from "@/components/ui/ReadOnlySection";
+import { FinanceSectionCard } from "../components/property-info/financeTabUi";
 
 export default function FinancePage() {
   const [searchParams] = useSearchParams();
@@ -12,26 +13,30 @@ export default function FinancePage() {
 
   if (!selectedHotelId) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Finance</h1>
-          <p className="text-gray-500 mt-2">Please select a hotel from the dropdown above to view finance information</p>
+      <div className="container mx-auto px-4 py-4">
+        <div className="mb-4">
+          <h1 className="text-xl font-bold tracking-tight text-gray-900">
+            Finance
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Please select a hotel from the dropdown above to view finance
+            information
+          </p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-          <div className="flex items-center justify-center min-h-[400px]">
+        <FinanceSectionCard theme="emerald">
+          <div className="flex min-h-[400px] items-center justify-center">
             <p className="text-gray-500">No hotel selected</p>
           </div>
-        </div>
+        </FinanceSectionCard>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 pb-4">
       <ReadOnlySection isReadOnly={isReadOnly}>
         <FinanceTab hotelId={selectedHotelId} />
       </ReadOnlySection>
     </div>
   );
 }
-

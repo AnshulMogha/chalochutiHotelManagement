@@ -43,7 +43,9 @@ export interface RateBreakup {
   hotelGrossCharges: number;
   roomChargesBeforePromotion?: number;
   extraAdultChildChargesBeforePromotion?: number;
+  extraAdultChargesBeforePromotion?: number;
   roomCharges: number;
+  extraAdultCount?: number;
   extraAdultChildCharges: number;
   netAccommodationAfterPromotion?: number;
   propertyTaxes: number;
@@ -100,58 +102,60 @@ export interface AdminBookingPricing {
   basePrice: number;
   promotionDiscount?: number;
   priceAfterPromo: number;
-  gstAmount: number;
+  gstAmount?: number;
   serviceFeeAmount?: number;
-  commissionAmount: number;
+  commissionAmount?: number;
   finalPayable: number;
   hotelPayout: number;
   otaGrossRevenue: number;
   otaNetRevenue: number;
   currency: string;
-  rateBreakup: RateBreakup;
+  rateBreakup?: RateBreakup;
 }
 
 export interface AdminBookingFinancials {
   id: number;
   bookingId: number;
   basePrice: number;
+  extraAdultCount?: number;
   extraAdultCharges?: number;
   /** @deprecated prefer extraAdultCharges */
   extraChildCharges?: number;
   promotionDiscount?: number;
   priceAfterPromo: number;
-  gstPercent: number;
-  gstAmount: number;
-  cgstAmount: number;
-  sgstAmount: number;
-  serviceFeeAmount: number;
-  serviceFeeGst: number;
+  gstPercent?: number;
+  gstAmount?: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  serviceFeeAmount?: number;
+  serviceFeeGst?: number;
   effectiveServiceFeePercent?: number;
-  serviceFeeRuleName: string;
+  serviceFeeRuleName?: string;
   serviceFeeRuleId?: string;
-  commissionPercent: number;
-  commissionAmount: number;
-  commissionGst: number;
-  commissionRuleName: string;
+  commissionPercent?: number;
+  commissionAmount?: number;
+  commissionGst?: number;
+  commissionRuleName?: string;
   commissionRuleId?: string;
-  tcsPercent: number;
-  tcsAmount: number;
-  tdsPercent: number;
-  tdsAmount: number;
-  taxRuleName: string;
+  tcsPercent?: number;
+  tcsAmount?: number;
+  tdsPercent?: number;
+  tdsAmount?: number;
+  taxRuleName?: string;
   taxRuleId?: string;
   customerSellingPrice: number;
   finalPayable: number;
   hotelPayout: number;
   otaGrossRevenue: number;
   otaNetRevenue: number;
-  agencyCommission: number;
+  agencyCommission?: number;
+  agencyIncentivePercent?: number;
   selectedCustomerType: string;
   selectedPricingSource: string;
   channelType: string;
   bookingMode: string;
   currencyCode: string;
-  promotionRuleName: string;
+  promotionRuleName?: string;
   pricingEngineVersion?: string;
 }
 
@@ -173,10 +177,11 @@ export interface AdminRoomDayFinancial {
 
 export interface AdminBookingPayment {
   paymentStatus: string;
-  paymentType: string;
-  transactionId: string | null;
-  paidAt: string | null;
-  paidAmount: number;
+  paymentType?: string;
+  transactionId?: string | null;
+  paidAt?: string | null;
+  paidAmount?: number;
+  pendingAmount?: number;
 }
 
 export interface AdminBookingFullDetail {
@@ -187,7 +192,10 @@ export interface AdminBookingFullDetail {
   financials: AdminBookingFinancials;
   roomDayFinancials: AdminRoomDayFinancial[];
   payment: AdminBookingPayment;
-  cancellation: { cancellationPolicy: string | null };
+  cancellation: {
+    cancellationPolicy: string | null;
+    nonRefundable?: boolean;
+  };
   audit: {
     createdAt: string;
     updatedAt: string;
@@ -199,6 +207,9 @@ function normalizeAdminBookingFullDetail(
   data: AdminBookingFullDetail,
 ): AdminBookingFullDetail {
   const fin = data.financials;
+  const rateBreakup = data.pricing.rateBreakup;
+  const extraAdultCount =
+    fin.extraAdultCount ?? rateBreakup?.extraAdultCount ?? undefined;
   const extraAdult =
     fin.extraAdultCharges ?? fin.extraChildCharges ?? undefined;
   return {
@@ -206,14 +217,29 @@ function normalizeAdminBookingFullDetail(
     pricing: {
       ...data.pricing,
       promotionDiscount: data.pricing.promotionDiscount ?? fin.promotionDiscount ?? 0,
+      gstAmount: data.pricing.gstAmount ?? fin.gstAmount ?? 0,
+      commissionAmount:
+        data.pricing.commissionAmount ?? fin.commissionAmount ?? 0,
       serviceFeeAmount:
         data.pricing.serviceFeeAmount ?? fin.serviceFeeAmount ?? undefined,
+      rateBreakup: rateBreakup
+        ? {
+            ...rateBreakup,
+            extraAdultCount:
+              rateBreakup.extraAdultCount ?? extraAdultCount,
+          }
+        : undefined,
     },
     financials: {
       ...fin,
+      extraAdultCount,
       extraAdultCharges: extraAdult,
       pricingEngineVersion:
         fin.pricingEngineVersion ?? data.audit?.pricingEngineVersion,
+    },
+    payment: {
+      ...data.payment,
+      paidAmount: data.payment.paidAmount ?? 0,
     },
   };
 }

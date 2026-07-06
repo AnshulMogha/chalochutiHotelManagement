@@ -10,18 +10,21 @@ import {
 } from "@/constants/roles";
 import {
   BarChart3,
+  BedDouble,
   BookOpen,
-  Building2,
   ClipboardCheck,
   CreditCard,
   FileText,
   Handshake,
   Hotel,
+  Image as ImageIcon,
+  IndianRupee,
   Info,
-  LayoutDashboard,
-  Megaphone,
+  Percent,
+  Sparkles,
   UserRoundCog,
   Users,
+  UtensilsCrossed,
 } from "lucide-react";
 
 const DASHBOARD_LINKS = [
@@ -45,18 +48,18 @@ const DASHBOARD_LINKS = [
     title: "Commission & Tax",
     description: "Configure commission slabs, taxes, and service fees.",
     path: ROUTES.ADMIN.COMMISSION_AND_TAX,
-    icon: CreditCard,
+    icon: Percent,
     color: "from-emerald-500 to-green-600",
     key: "COMMISSION_TAX",
   },
-  {
-    title: "Document Review",
-    description: "Verify and moderate uploaded finance documents.",
-    path: ROUTES.ADMIN.DOCUMENT_REVIEW,
-    icon: FileText,
-    color: "from-amber-500 to-orange-600",
-    key: "DOCUMENT_REVIEW",
-  },
+  // {
+  //   title: "Document Review",
+  //   description: "Verify and moderate uploaded finance documents.",
+  //   path: ROUTES.ADMIN.DOCUMENT_REVIEW,
+  //   icon: FileText,
+  //   color: "from-amber-500 to-orange-600",
+  //   key: "DOCUMENT_REVIEW",
+  // },
   {
     title: "Travel Partners",
     description: "Track and manage travel partner onboarding.",
@@ -93,7 +96,7 @@ const DASHBOARD_LINKS = [
     title: "Rooms & Rate Plans",
     description: "Manage room configurations and rate plans.",
     path: ROUTES.PROPERTY_INFO.ROOMS_RATEPLANS,
-    icon: Building2,
+    icon: BedDouble,
     color: "from-violet-500 to-purple-600",
     key: "PROPERTY_ROOMS_RATEPLANS",
   },
@@ -101,7 +104,7 @@ const DASHBOARD_LINKS = [
     title: "Photos and Videos",
     description: "Maintain hotel and room media assets.",
     path: ROUTES.PROPERTY_INFO.PHOTOS_VIDEOS,
-    icon: Info,
+    icon: ImageIcon,
     color: "from-cyan-500 to-sky-600",
     key: "PROPERTY_PHOTOS_VIDEOS",
   },
@@ -109,7 +112,7 @@ const DASHBOARD_LINKS = [
     title: "Amenities",
     description: "Maintain amenities and food service details.",
     path: ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS,
-    icon: Info,
+    icon: UtensilsCrossed,
     color: "from-emerald-500 to-green-600",
     key: "PROPERTY_AMENITIES_RESTAURANTS",
   },
@@ -133,7 +136,7 @@ const DASHBOARD_LINKS = [
     title: "Rate & Inventory",
     description: "Manage room inventory and rate plans.",
     path: ROUTES.ROOM_INVENTORY.LIST,
-    icon: BarChart3,
+    icon: IndianRupee,
     color: "from-rose-500 to-pink-600",
     key: "RATES_INVENTORY",
   },
@@ -149,7 +152,7 @@ const DASHBOARD_LINKS = [
     title: "Promotions",
     description: "Create and monitor campaign promotions.",
     path: ROUTES.PROMOTIONS.LIST,
-    icon: Megaphone,
+    icon: Sparkles,
     color: "from-indigo-500 to-blue-600",
     key: "OFFERS",
   },
@@ -165,7 +168,7 @@ const DASHBOARD_LINKS = [
     title: "Analytics",
     description: "View insights and platform-level performance trends.",
     path: ROUTES.ANALYTICS.DASHBOARD,
-    icon: LayoutDashboard,
+    icon: BarChart3,
     color: "from-slate-600 to-gray-700",
     key: "ANALYTICS",
   },
@@ -181,12 +184,15 @@ export default function SuperAdminDashboardPage() {
   const isSalesManager = isSalesManagerRole(userRoles);
 
   const visibleCards = DASHBOARD_LINKS.filter((item) => {
-    if (isSuperAdmin) return item.key !== "AGENTS";
+    if (isSuperAdmin) {
+      return item.key !== "AGENTS" && item.key !== "MY_TEAM";
+    }
     if (isZonalSales) return item.key === "TRAVEL_PARTNERS";
     if (isSalesManager) return item.key === "AGENTS";
     if (isReviewer) return item.key === "HOTEL_REVIEW";
     if (isOnboardingReviewer) {
-      return item.key === "HOTEL_REVIEW" || item.key === "DOCUMENT_REVIEW";
+      return item.key === "HOTEL_REVIEW";
+      // || item.key === "DOCUMENT_REVIEW";
     }
 
     if (

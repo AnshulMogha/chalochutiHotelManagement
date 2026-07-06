@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Button, DataTable, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { ApproveRejectModal } from "../components/ApproveRejectModal";
 import { adminService } from "../services/adminService";
 import type {
@@ -13,6 +13,7 @@ import {
   isSuperAdmin,
   isZonalManagerSalesRole,
 } from "@/constants/roles";
+import type { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import {
   Handshake,
   Eye,
@@ -31,8 +32,18 @@ import {
   MessageSquare,
   IdCard,
   Briefcase,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  TravelPartnerBadge,
+  TravelPartnerColumnHeader,
+  TRAVEL_PARTNER_TAB_STYLES,
+  getAgencyTierTone,
+  getTravelPartnerRemarkTone,
+  travelPartnerTableGridSx,
+} from "../components/travelPartnerTableUi";
 
 export type TravelPartnerStatus = "PENDING" | "APPROVED" | "REJECTED";
 
@@ -113,27 +124,31 @@ function mapOnboardingToPartner(
   };
 }
 
-const TAB_CONFIG: Record<
+const PARTNER_TABS: Array<{
+  value: TravelPartnerStatus;
+  label: string;
+  icon: typeof Clock;
+}> = [
+  { value: "PENDING", label: "Pending", icon: Clock },
+  { value: "APPROVED", label: "Approved", icon: CheckCircle },
+  { value: "REJECTED", label: "Rejected", icon: XCircle },
+];
+
+const EMPTY_MESSAGES: Record<
   TravelPartnerStatus,
-  { label: string; icon: typeof Clock; activeClass: string; badgeClass: string }
+  { title: string; description: string }
 > = {
   PENDING: {
-    label: "Pending",
-    icon: Clock,
-    activeClass: "border-amber-600 text-amber-800 bg-amber-100",
-    badgeClass: "bg-amber-200 text-amber-900",
+    title: "No pending partners",
+    description: "New travel partner applications will appear here.",
   },
   APPROVED: {
-    label: "Approved",
-    icon: CheckCircle,
-    activeClass: "border-emerald-700 text-emerald-800 bg-emerald-100",
-    badgeClass: "bg-emerald-200 text-emerald-900",
+    title: "No approved partners",
+    description: "Approved travel partners will appear here.",
   },
   REJECTED: {
-    label: "Rejected",
-    icon: XCircle,
-    activeClass: "border-rose-700 text-rose-800 bg-rose-100",
-    badgeClass: "bg-rose-200 text-rose-900",
+    title: "No rejected partners",
+    description: "Rejected applications will appear here.",
   },
 };
 
@@ -178,12 +193,11 @@ export default function TravelPartnersPage() {
     null,
   );
   const [selectedTier, setSelectedTier] = useState<AgencyTier>("GOLD");
-  const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [totalPages, setTotalPages] = useState(0);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: 20,
+  });
   const [totalElements, setTotalElements] = useState(0);
-  const [hasNext, setHasNext] = useState(false);
-  const [hasPrevious, setHasPrevious] = useState(false);
   const [statusTotals, setStatusTotals] = useState<
     Record<TravelPartnerStatus, number>
   >({
@@ -206,15 +220,12 @@ export default function TravelPartnersPage() {
     setListError(null);
     try {
       const response = await adminService.getTravelAgentOnboardingList({
-        page: currentPage,
-        size: pageSize,
+        page: paginationModel.page,
+        size: paginationModel.pageSize,
         status: activeTab,
       });
       setPartners(response.content.map(mapListItemToPartner));
-      setTotalPages(response.totalPages);
       setTotalElements(response.totalElements);
-      setHasNext(response.hasNext);
-      setHasPrevious(response.hasPrevious);
       setStatusTotals((prev) => ({
         ...prev,
         [activeTab]: response.totalElements,
@@ -226,20 +237,15 @@ export default function TravelPartnersPage() {
           : "Failed to load travel partners";
       setListError(message);
       setPartners([]);
-      setTotalPages(0);
       setTotalElements(0);
-      setHasNext(false);
-      setHasPrevious(false);
     } finally {
       setLoading(false);
     }
-  }, [activeTab, currentPage, pageSize]);
+  }, [activeTab, paginationModel.page, paginationModel.pageSize]);
 
   useEffect(() => {
     fetchPartners();
   }, [fetchPartners]);
-
-  const filtered = partners;
 
   const openPartnerDetail = useCallback(async (partner: TravelPartner) => {
     setSelectedPartner(partner);
@@ -311,257 +317,282 @@ export default function TravelPartnersPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50/50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#2f3d95] text-white">
-              <Handshake className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Travel Partners
-              </h1>
-              <p className="text-sm text-gray-500">
-                Review and approve travel partner applications
-              </p>
-            </div>
+  const columns = useMemo((): GridColDef<TravelPartner>[] => {
+    const cols: GridColDef<TravelPartner>[] = [
+      {
+        field: "name",
+        headerName: "Name",
+        flex: 1.2,
+        minWidth: 160,
+        valueGetter: (_value, row) =>
+          `${row.title ? `${row.title} ` : ""}${row.name}`,
+        renderHeader: () => (
+          <TravelPartnerColumnHeader icon={User} label="Name" />
+        ),
+        renderCell: (params) => (
+          <TravelPartnerBadge className="bg-indigo-50 text-indigo-800 ring-indigo-200">
+            {params.value as string}
+          </TravelPartnerBadge>
+        ),
+      },
+      {
+        field: "email",
+        headerName: "Email",
+        flex: 1.3,
+        minWidth: 180,
+        renderHeader: () => (
+          <TravelPartnerColumnHeader icon={Mail} label="Email" />
+        ),
+        renderCell: (params) => (
+          <TravelPartnerBadge
+            className="bg-sky-50 text-sky-800 ring-sky-200"
+            title={String(params.value ?? "")}
+          >
+            {params.value as string}
+          </TravelPartnerBadge>
+        ),
+      },
+      {
+        field: "agencyNumber",
+        headerName: "Agency No.",
+        flex: 1,
+        minWidth: 130,
+        renderHeader: () => (
+          <TravelPartnerColumnHeader icon={IdCard} label="Agency No." />
+        ),
+        renderCell: (params) => (
+          <TravelPartnerBadge className="bg-violet-50 text-violet-800 ring-violet-200">
+            {params.value as string}
+          </TravelPartnerBadge>
+        ),
+      },
+      {
+        field: "agencyTier",
+        headerName: "Agency Tier",
+        flex: 0.9,
+        minWidth: 120,
+        valueGetter: (_value, row) => formatAgencyTier(row.agencyTier),
+        renderHeader: () => (
+          <TravelPartnerColumnHeader icon={Briefcase} label="Agency Tier" />
+        ),
+        renderCell: (params) => (
+          <TravelPartnerBadge
+            className={getAgencyTierTone(params.row.agencyTier)}
+          >
+            {params.value as string}
+          </TravelPartnerBadge>
+        ),
+      },
+      {
+        field: "appliedAt",
+        headerName: "Applied",
+        flex: 0.8,
+        minWidth: 110,
+        valueGetter: (_value, row) => formatDate(row.appliedAt),
+        renderHeader: () => (
+          <TravelPartnerColumnHeader icon={CalendarDays} label="Applied" />
+        ),
+        renderCell: (params) => (
+          <TravelPartnerBadge className="bg-slate-100 text-slate-700 ring-slate-200">
+            {params.value as string}
+          </TravelPartnerBadge>
+        ),
+      },
+    ];
+
+    if (activeTab !== "PENDING") {
+      cols.push({
+        field: "remarks",
+        headerName: "Remarks",
+        flex: 1.2,
+        minWidth: 160,
+        sortable: false,
+        renderHeader: () => (
+          <TravelPartnerColumnHeader icon={MessageSquare} label="Remarks" />
+        ),
+        renderCell: (params) => (
+          <TravelPartnerBadge
+            className={getTravelPartnerRemarkTone(activeTab)}
+            title={String(params.value ?? "—")}
+          >
+            {(params.value as string) || "—"}
+          </TravelPartnerBadge>
+        ),
+      });
+    }
+
+    cols.push({
+      field: "actions",
+      headerName: "Actions",
+      flex: 0.7,
+      minWidth: 130,
+      sortable: false,
+      filterable: false,
+      align: "right",
+      headerAlign: "right",
+      renderHeader: () => (
+        <TravelPartnerColumnHeader icon={Eye} label="Actions" />
+      ),
+      renderCell: (params) => (
+        <div className="flex items-center justify-end gap-1.5">
+          {activeTab === "APPROVED" && canUpdateTier && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openTierModal(params.row);
+              }}
+              className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+            >
+              Tier
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              void openPartnerDetail(params.row);
+            }}
+            className="rounded-lg border border-[#2f3d95]/25 bg-[#eef2ff] px-3 py-1 text-xs font-semibold text-[#2f3d95] transition-colors hover:border-[#2f3d95] hover:bg-[#2f3d95] hover:text-white"
+          >
+            View
+          </button>
+        </div>
+      ),
+    });
+
+    return cols;
+  }, [activeTab, canUpdateTier, openPartnerDetail, openTierModal]);
+
+  const renderPanel = () => {
+    const message = EMPTY_MESSAGES[activeTab];
+
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm">
+        {loading ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-4">
+            <Loader2 className="mb-3 h-9 w-9 animate-spin text-[#2f3d95]" />
+            <p className="text-sm font-medium text-gray-600">
+              Loading travel partners...
+            </p>
           </div>
+        ) : listError ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+            <AlertCircle className="mb-3 h-10 w-10 text-red-400" />
+            <p className="mb-3 text-sm font-medium text-red-600">{listError}</p>
+            <Button
+              onClick={() => void fetchPartners()}
+              variant="primary"
+              className="text-sm"
+            >
+              Retry
+            </Button>
+          </div>
+        ) : partners.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
+              <Handshake className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="mb-1 text-lg font-semibold text-gray-900">
+              {message.title}
+            </h3>
+            <p className="max-w-sm text-sm text-gray-500">{message.description}</p>
+          </div>
+        ) : (
+          <DataTable
+            rows={partners}
+            columns={columns}
+            getRowId={(row) => row.id}
+            rowHeight={56}
+            pageSizeOptions={[10, 20, 50]}
+            paginationMode="server"
+            paginationModel={paginationModel}
+            onPaginationModelChange={setPaginationModel}
+            rowCount={totalElements}
+            fillContainer
+            sx={travelPartnerTableGridSx}
+            className="h-full rounded-none border-0 shadow-none"
+          />
+        )}
+      </div>
+    );
+  };
+
+  const statusBadgeClass: Record<TravelPartnerStatus, string> = {
+    PENDING: "bg-amber-100 text-amber-800",
+    APPROVED: "bg-emerald-100 text-emerald-800",
+    REJECTED: "bg-rose-100 text-rose-800",
+  };
+
+  return (
+    <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden">
+      <div className="container mx-auto flex h-full min-h-0 flex-1 flex-col px-4 py-4">
+        <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
+          <h1 className="text-xl font-bold tracking-tight text-gray-900">
+            Travel Partners
+            {!loading && (
+              <span className="ml-1.5 font-bold text-gray-900">
+                ({totalElements} partner{totalElements !== 1 ? "s" : ""})
+              </span>
+            )}
+          </h1>
         </div>
 
-        {listError && (
-          <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4">
-            <p className="text-sm text-rose-800">{listError}</p>
-          </div>
-        )}
-
-        {loading && (
-          <div className="mb-6 py-12 text-center text-gray-500 text-sm">
-            Loading travel partners…
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="mb-6 bg-white rounded-t-xl border border-b-0 border-gray-200 shadow-sm">
-          <nav className="flex gap-0" aria-label="Tabs">
-            {(["PENDING", "APPROVED", "REJECTED"] as const).map((tabId) => {
-              const config = TAB_CONFIG[tabId];
-              const Icon = config.icon;
-              const isActive = activeTab === tabId;
+        <Tabs
+          value={activeTab}
+          onValueChange={(nextTab) => {
+            setActiveTab(nextTab as TravelPartnerStatus);
+            setPaginationModel((prev) => ({ ...prev, page: 0 }));
+          }}
+          className="flex min-h-0 flex-1 flex-col gap-3"
+        >
+          <TabsList className="inline-flex h-auto w-full shrink-0 flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 sm:w-auto">
+            {PARTNER_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.value;
+              const styles = TRAVEL_PARTNER_TAB_STYLES[tab.value];
               return (
-                <button
-                  key={tabId}
-                  onClick={() => {
-                    setActiveTab(tabId);
-                    setCurrentPage(0);
-                  }}
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
                   className={cn(
-                    "flex items-center gap-2 px-5 py-3.5 text-sm font-medium rounded-t-lg border-b-2 transition-all",
-                    isActive
-                      ? config.activeClass
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50",
+                    "gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150",
+                    isActive ? styles.active : styles.idle,
                   )}
                 >
-                  <Icon className={cn("h-4 w-4", isActive && "opacity-90")} />
-                  {config.label}
+                  <Icon
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      isActive ? styles.iconActive : styles.iconIdle,
+                    )}
+                    strokeWidth={2.25}
+                  />
+                  {tab.label}
                   <span
                     className={cn(
-                      "ml-1 py-0.5 px-2 rounded-full text-xs font-semibold",
+                      "ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold",
                       isActive
-                        ? config.badgeClass
-                        : "bg-gray-200 text-gray-600",
+                        ? "bg-white/25 text-white"
+                        : "bg-white/80 text-gray-600",
                     )}
                   >
-                    {statusTotals[tabId]}
+                    {statusTotals[tab.value]}
                   </span>
-                </button>
+                </TabsTrigger>
               );
             })}
-          </nav>
-        </div>
+          </TabsList>
 
-        {/* List */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          {filtered.length === 0 ? (
-            (() => {
-              const config = TAB_CONFIG[activeTab];
-              const Icon = config.icon;
-              return (
-                <div className="py-16 text-center">
-                  <div
-                    className={cn(
-                      "mx-auto flex h-14 w-14 items-center justify-center rounded-2xl",
-                      config.badgeClass,
-                    )}
-                  >
-                    <Icon className="h-7 w-7" />
-                  </div>
-                  <p className="mt-4 text-sm font-medium text-gray-700">
-                    No {activeTab.toLowerCase()} partners
-                  </p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {activeTab === "PENDING"
-                      ? "New applications will appear here."
-                      : `No ${activeTab.toLowerCase()} applications yet.`}
-                  </p>
-                </div>
-              );
-            })()
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
-                        <User className="h-3.5 w-3.5" /> Name
-                      </span>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Mail className="h-3.5 w-3.5" /> Email
-                      </span>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
-                        <IdCard className="h-3.5 w-3.5" /> Agency No.
-                      </span>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Briefcase className="h-3.5 w-3.5" /> Agency Tier
-                      </span>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
-                        <CalendarDays className="h-3.5 w-3.5" /> Applied
-                      </span>
-                    </th>
-                    {activeTab !== "PENDING" && (
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        <span className="inline-flex items-center gap-1.5">
-                          <MessageSquare className="h-3.5 w-3.5" /> Remarks
-                        </span>
-                      </th>
-                    )}
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Eye className="h-3.5 w-3.5" /> Action
-                      </span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filtered.map((partner) => (
-                    <tr
-                      key={partner.id}
-                      className={cn(
-                        "hover:bg-gray-50/80 transition-colors",
-                        activeTab === "PENDING" && "hover:bg-amber-100/60",
-                        activeTab === "APPROVED" && "hover:bg-emerald-100/60",
-                        activeTab === "REJECTED" && "hover:bg-rose-100/60",
-                      )}
-                    >
-                      <td className="px-6 py-4">
-                        <span className="font-medium text-gray-900">
-                          {partner.title ? `${partner.title} ` : ""}
-                          {partner.name}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {partner.email}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {partner.agencyNumber}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {formatAgencyTier(partner.agencyTier)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {formatDate(partner.appliedAt)}
-                      </td>
-                      {activeTab !== "PENDING" && (
-                        <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px] truncate">
-                          {partner.remarks ?? "—"}
-                        </td>
-                      )}
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {activeTab === "APPROVED" && canUpdateTier && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                              onClick={() => void openTierModal(partner)}
-                            >
-                              Tier
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 border-gray-300 hover:border-[#2f3d95] hover:bg-[#2f3d95]/5 hover:text-[#2f3d95]"
-                            onClick={() => openPartnerDetail(partner)}
-                          >
-                            <Eye className="h-4 w-4" />
-                            View
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="text-sm text-gray-600">
-            Showing page {totalPages === 0 ? 0 : currentPage + 1} of{" "}
-            {totalPages} ({totalElements} total)
-          </div>
-          <div className="flex items-center gap-2">
-            <label
-              className="text-sm text-gray-600"
-              htmlFor="travel-partner-page-size"
+          {PARTNER_TABS.map((tab) => (
+            <TabsContent
+              key={tab.value}
+              value={tab.value}
+              className="mt-0 flex min-h-0 flex-1 flex-col"
             >
-              Rows:
-            </label>
-            <select
-              id="travel-partner-page-size"
-              className="h-9 rounded-md border border-gray-300 px-2 text-sm"
-              value={pageSize}
-              onChange={(e) => {
-                const nextSize = Number(e.target.value);
-                setPageSize(nextSize);
-                setCurrentPage(0);
-              }}
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!hasPrevious || loading}
-              onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!hasNext || loading}
-              onClick={() => setCurrentPage((prev) => prev + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+              {activeTab === tab.value ? renderPanel() : null}
+            </TabsContent>
+          ))}
+        </Tabs>
       </div>
 
       {/* Detail Modal */}
@@ -607,15 +638,18 @@ export default function TravelPartnersPage() {
                   <span
                     className={cn(
                       "inline-flex items-center gap-1 mt-0.5 text-xs font-medium rounded-full px-2 py-0.5",
-                      TAB_CONFIG[selectedPartner.status].badgeClass,
+                      statusBadgeClass[selectedPartner.status],
                     )}
                   >
                     {(() => {
-                      const Icon = TAB_CONFIG[selectedPartner.status].icon;
+                      const tab = PARTNER_TABS.find(
+                        (t) => t.value === selectedPartner.status,
+                      );
+                      const Icon = tab?.icon ?? Clock;
                       return (
                         <>
                           <Icon className="h-3 w-3" />
-                          {TAB_CONFIG[selectedPartner.status].label}
+                          {tab?.label ?? selectedPartner.status}
                         </>
                       );
                     })()}
@@ -633,39 +667,40 @@ export default function TravelPartnersPage() {
             </div>
 
             {/* Step indicators */}
-            <div className="flex border-b border-gray-200 px-6 bg-gray-50/50">
+            <div className="flex gap-1 border-b border-gray-200 px-4 py-2 bg-slate-50/80">
               <button
                 type="button"
                 onClick={() => setDetailStep(1)}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
                   detailStep === 1
-                    ? "border-blue-600 text-blue-700 bg-white"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-white/50",
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-gray-600 hover:bg-blue-50 hover:text-blue-700",
                 )}
               >
                 <User className="h-4 w-4" />
-                Step 1 – Personal & PAN
+                Personal & PAN
               </button>
               <button
                 type="button"
                 onClick={() => setDetailStep(2)}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
                   detailStep === 2
-                    ? "border-indigo-600 text-indigo-700 bg-white"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-white/50",
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-gray-600 hover:bg-indigo-50 hover:text-indigo-700",
                 )}
               >
                 <Building2 className="h-4 w-4" />
-                Step 2 – Business & Bank
+                Business & Bank
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
               {detailLoading ? (
-                <div className="py-12 text-center text-gray-500 text-sm">
-                  Loading details…
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="mb-3 h-8 w-8 animate-spin text-[#2f3d95]" />
+                  <p className="text-sm text-gray-500">Loading details…</p>
                 </div>
               ) : (
                 <>
@@ -728,7 +763,7 @@ export default function TravelPartnersPage() {
                             <div>
                               <dt className="text-gray-500">Agency tier</dt>
                               <dd className="font-medium text-gray-900">
-                                {selectedPartner.agencyTier ?? "—"}
+                                {formatAgencyTier(selectedPartner.agencyTier)}
                               </dd>
                             </div>
                           </div>
@@ -940,13 +975,19 @@ export default function TravelPartnersPage() {
         title="Reject Partner"
       />
       {showTierModal && tierTargetPartner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-emerald-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-900">Update Tier</h3>
-            <p className="mt-1 text-sm text-gray-600">
-              Update agency tier for {tierTargetPartner.name}.
-            </p>
-            <div className="mt-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-emerald-200 overflow-hidden">
+            <div className="border-b border-emerald-100 bg-emerald-50/60 px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Update Tier</h3>
+              <p className="mt-1 text-sm text-gray-600">
+                Update agency tier for{" "}
+                <span className="font-medium text-gray-900">
+                  {tierTargetPartner.name}
+                </span>
+              </p>
+            </div>
+            <div className="p-6">
+            <div className="mt-0">
               <label
                 htmlFor="agency-tier"
                 className="block text-sm font-medium text-gray-700 mb-1"
@@ -966,7 +1007,7 @@ export default function TravelPartnersPage() {
                 ))}
               </select>
             </div>
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex justify-end gap-2 border-t border-gray-100 pt-4">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -987,6 +1028,7 @@ export default function TravelPartnersPage() {
               >
                 Update Tier
               </Button>
+            </div>
             </div>
           </div>
         </div>

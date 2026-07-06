@@ -21,6 +21,7 @@ import {
   Eye,
   FileText,
   Loader2,
+  PawPrint,
   Pencil,
   Percent,
   Plus,
@@ -29,6 +30,17 @@ import {
   UserCircle2,
   Wallet,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  POLICY_TABS,
+  PolicyCheckboxGrid,
+  PolicyPageLoader,
+  PolicySaveBar,
+  PolicySectionCard,
+  PolicySectionHeader,
+  PolicyTimeField,
+  PolicyToggleOption,
+} from "./policyRulesUi";
 
 interface PolicyAndRulesTabProps {
   hotelId: string;
@@ -1097,11 +1109,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-      </div>
-    );
+    return <PolicyPageLoader message="Loading policies and rules..." />;
   }
 
   return (
@@ -1112,279 +1120,233 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-      <div className="space-y-6 max-w-5xl mx-auto">
-        <div className="flex items-start justify-between flex-col md:flex-row md:items-center gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Policy and Rules</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Manage check-in/check-out times, cancellation, child and meal policies for this hotel.
-            </p>
-          </div>
-        </div>
-
+      <div className="mx-auto max-w-5xl space-y-4">
         <Tabs
           defaultValue="policy"
           value={activeTab}
           onValueChange={setActiveTab}
           className="w-full"
         >
-          <TabsList>
-            <TabsTrigger value="policy">Policy</TabsTrigger>
-            <TabsTrigger value="cancellation">Cancellation Policy</TabsTrigger>
-            <TabsTrigger value="child">Child Policy</TabsTrigger>
-            <TabsTrigger value="payment">Payment Policy</TabsTrigger>
-          </TabsList>
+          <div className="sticky top-0 z-20 -mx-4 mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 bg-gray-50 px-4 py-3">
+            <h1 className="shrink-0 text-xl font-bold tracking-tight text-gray-900">
+              Policy and Rules
+            </h1>
+            <TabsList className="inline-flex h-auto w-full flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 sm:w-auto">
+              {POLICY_TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.value;
+                return (
+                  <TabsTrigger
+                    key={tab.value}
+                    value={tab.value}
+                    className={cn(
+                      "group gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+                      isActive ? tab.active : tab.idle,
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 shrink-0",
+                        isActive ? tab.iconActive : tab.iconIdle,
+                      )}
+                      strokeWidth={2.25}
+                    />
+                    {tab.label}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </div>
 
           <TabsContent value="policy">
-            <div className="space-y-6 mt-2">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Check-in & Check-out Time
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Check-in Time
-              </label>
-              <Input
-                type="time"
-                      value={formState.checkinTime}
-                      onChange={(e) => updateField("checkinTime", e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Check-out Time
-              </label>
-              <Input
-                type="time"
-                      value={formState.checkoutTime}
-                      onChange={(e) =>
-                        updateField("checkoutTime", e.target.value)
-                      }
-              />
-            </div>
+            <div className="mt-0 space-y-3">
+        <PolicySectionCard theme="blue">
+          <PolicySectionHeader
+            icon={CalendarClock}
+            title="Check-in & Check-out Time"
+            theme="blue"
+          />
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <PolicyTimeField
+              label="Check-in Time"
+              value={formState.checkinTime}
+              onChange={(value) => updateField("checkinTime", value)}
+              theme="blue"
+            />
+            <PolicyTimeField
+              label="Check-out Time"
+              value={formState.checkoutTime}
+              onChange={(value) => updateField("checkoutTime", value)}
+              theme="blue"
+            />
           </div>
-                <div className="mt-4 flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="twentyFourCheckin"
-                    checked={formState.twentyFourHourCheckin}
-                    onChange={(e) =>
-                      updateField("twentyFourHourCheckin", e.target.checked)
-                    }
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
-                  />
-                  <label
-                    htmlFor="twentyFourCheckin"
-                    className="text-sm text-gray-700"
-                  >
-                    24-hour check-in available
-                  </label>
-                </div>
-        </div>
+          <div className="mt-3">
+            <PolicyToggleOption
+              id="twentyFourCheckin"
+              label="24-hour check-in available"
+              checked={formState.twentyFourHourCheckin}
+              onChange={(checked) =>
+                updateField("twentyFourHourCheckin", checked)
+              }
+              theme="blue"
+            />
+          </div>
+        </PolicySectionCard>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Guest Profile
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formState.unmarriedCouplesAllowed}
-                      onChange={(e) =>
-                        updateField("unmarriedCouplesAllowed", e.target.checked)
-                      }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
-                    />
-                    <span className="text-sm text-gray-700">
-                      Unmarried couples allowed
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formState.below18Allowed}
-                      onChange={(e) =>
-                        updateField("below18Allowed", e.target.checked)
-                      }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
-                    />
-                    <span className="text-sm text-gray-700">
-                      Guests below 18 allowed
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formState.onlyMaleGroupAllowed}
-                      onChange={(e) =>
-                        updateField("onlyMaleGroupAllowed", e.target.checked)
-                      }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
-                    />
-                    <span className="text-sm text-gray-700">
-                      Only male groups allowed
-                    </span>
-                  </label>
-                </div>
-              </div>
+        <PolicySectionCard theme="violet">
+          <PolicySectionHeader
+            icon={UserCircle2}
+            title="Guest Profile"
+            theme="violet"
+          />
+          <PolicyCheckboxGrid>
+            <PolicyToggleOption
+              label="Unmarried couples allowed"
+              checked={formState.unmarriedCouplesAllowed}
+              onChange={(checked) =>
+                updateField("unmarriedCouplesAllowed", checked)
+              }
+              theme="violet"
+            />
+            <PolicyToggleOption
+              label="Guests below 18 allowed"
+              checked={formState.below18Allowed}
+              onChange={(checked) => updateField("below18Allowed", checked)}
+              theme="violet"
+            />
+            <PolicyToggleOption
+              label="Only male groups allowed"
+              checked={formState.onlyMaleGroupAllowed}
+              onChange={(checked) =>
+                updateField("onlyMaleGroupAllowed", checked)
+              }
+              theme="violet"
+            />
+          </PolicyCheckboxGrid>
+        </PolicySectionCard>
 
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Identity Proofs
-                </h3>
-                <p className="text-sm text-gray-600 mb-3">
-                  Select acceptable identity proofs for check-in.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <PolicySectionCard theme="indigo">
+                <PolicySectionHeader
+                  icon={ShieldCheck}
+                  title="Identity Proofs"
+                  subtitle="Select acceptable identity proofs for check-in."
+                  theme="indigo"
+                />
+                <PolicyCheckboxGrid columns={1}>
                   {ID_PROOF_OPTIONS.map((proof) => {
                     const isSelected = formState.acceptableIdProofs.includes(
-                      proof.value
+                      proof.value,
                     );
                     return (
-                      <label
+                      <PolicyToggleOption
                         key={proof.value}
-                        className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50 transition"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            const updated = e.target.checked
-                              ? [...formState.acceptableIdProofs, proof.value]
-                              : formState.acceptableIdProofs.filter(
-                                  (item) => item !== proof.value
-                                );
-                            updateField("acceptableIdProofs", updated);
-                          }}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {proof.label}
-                        </span>
-                      </label>
+                        label={proof.label}
+                        checked={isSelected}
+                        onChange={(checked) => {
+                          const updated = checked
+                            ? [...formState.acceptableIdProofs, proof.value]
+                            : formState.acceptableIdProofs.filter(
+                                (item) => item !== proof.value,
+                              );
+                          updateField("acceptableIdProofs", updated);
+                        }}
+                        theme="indigo"
+                      />
                     );
                   })}
-                </div>
-              </div>
+                </PolicyCheckboxGrid>
+              </PolicySectionCard>
 
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Property Restrictions
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formState.smokingAllowed}
-                      onChange={(e) =>
-                        updateField("smokingAllowed", e.target.checked)
-                      }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
-                    />
-                    <span className="text-sm text-gray-700">
-                      Smoking allowed
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formState.privatePartiesAllowed}
-                      onChange={(e) =>
-                        updateField("privatePartiesAllowed", e.target.checked)
-                      }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
-                    />
-                    <span className="text-sm text-gray-700">
-                      Private parties allowed
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formState.outsideVisitorsAllowed}
-                      onChange={(e) =>
-                        updateField("outsideVisitorsAllowed", e.target.checked)
-                      }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
-                    />
-                    <span className="text-sm text-gray-700">
-                      Outside visitors allowed
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formState.wheelchairAccessible}
-                      onChange={(e) =>
-                        updateField("wheelchairAccessible", e.target.checked)
-                      }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
-                    />
-                    <span className="text-sm text-gray-700">
-                      Wheelchair accessible
-                    </span>
-                  </label>
-                </div>
-              </div>
+              <PolicySectionCard theme="amber">
+                <PolicySectionHeader
+                  icon={Sparkles}
+                  title="Property Restrictions"
+                  theme="amber"
+                />
+                <PolicyCheckboxGrid>
+                  <PolicyToggleOption
+                    label="Smoking allowed"
+                    checked={formState.smokingAllowed}
+                    onChange={(checked) =>
+                      updateField("smokingAllowed", checked)
+                    }
+                    theme="amber"
+                  />
+                  <PolicyToggleOption
+                    label="Private parties allowed"
+                    checked={formState.privatePartiesAllowed}
+                    onChange={(checked) =>
+                      updateField("privatePartiesAllowed", checked)
+                    }
+                    theme="amber"
+                  />
+                  <PolicyToggleOption
+                    label="Outside visitors allowed"
+                    checked={formState.outsideVisitorsAllowed}
+                    onChange={(checked) =>
+                      updateField("outsideVisitorsAllowed", checked)
+                    }
+                    theme="amber"
+                  />
+                  <PolicyToggleOption
+                    label="Wheelchair accessible"
+                    checked={formState.wheelchairAccessible}
+                    onChange={(checked) =>
+                      updateField("wheelchairAccessible", checked)
+                    }
+                    theme="amber"
+                  />
+                </PolicyCheckboxGrid>
+              </PolicySectionCard>
 
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Pet Policy
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formState.petsAllowed}
-                      onChange={(e) =>
-                        updateField("petsAllowed", e.target.checked)
-                      }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
-                    />
-                    <span className="text-sm text-gray-700">Pets allowed</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formState.petsLivingOnProperty}
-                      onChange={(e) =>
-                        updateField("petsLivingOnProperty", e.target.checked)
-                      }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 rounded"
-                    />
-                    <span className="text-sm text-gray-700">
-                      Pets living on property
-                    </span>
-                  </label>
-                </div>
-              </div>
+              <PolicySectionCard theme="rose">
+                <PolicySectionHeader
+                  icon={PawPrint}
+                  title="Pet Policy"
+                  theme="rose"
+                />
+                <PolicyCheckboxGrid>
+                  <PolicyToggleOption
+                    label="Pets allowed"
+                    checked={formState.petsAllowed}
+                    onChange={(checked) => updateField("petsAllowed", checked)}
+                    theme="rose"
+                  />
+                  <PolicyToggleOption
+                    label="Pets living on property"
+                    checked={formState.petsLivingOnProperty}
+                    onChange={(checked) =>
+                      updateField("petsLivingOnProperty", checked)
+                    }
+                    theme="rose"
+                  />
+                </PolicyCheckboxGrid>
+              </PolicySectionCard>
 
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Custom Policy
-                </h3>
+              <PolicySectionCard theme="slate">
+                <PolicySectionHeader
+                  icon={FileText}
+                  title="Custom Policy"
+                  subtitle="This text will be shared with guests during booking and check-in."
+                  theme="slate"
+                />
                 <Textarea
                   placeholder="Add any additional policy information for guests."
                   value={formState.customPolicyText}
                   onChange={(e) => updateField("customPolicyText", e.target.value)}
                   rows={4}
+                  className="rounded-lg border-slate-200 bg-slate-50/50 focus:border-[#2f3d95] focus:ring-[#2f3d95]/20"
                 />
-                <p className="text-xs text-gray-500 mt-2">
-                  This text will be shared with guests during booking and check-in.
-                </p>
-              </div>
-              <div className="flex justify-end">
+              </PolicySectionCard>
+              <PolicySaveBar>
                 <Button
                   onClick={handleSave}
                   disabled={saving}
-                  className="bg-blue-500 hover:bg-blue-600 text-white"
+                  className="bg-[#2f3d95] hover:bg-[#263578] text-white"
                 >
                   {saving ? "Saving..." : "Save Changes"}
                 </Button>
-              </div>
+              </PolicySaveBar>
             </div>
           </TabsContent>
 
@@ -2070,16 +2032,14 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
           </TabsContent>
 
           <TabsContent value="child">
-            <div className="mt-2 bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-6">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Child Policy
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Define age limits for free and paid child stays.
-          </p>
-        </div>
+            <PolicySectionCard className="mt-0 space-y-6">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <PolicySectionHeader
+                  icon={UserCircle2}
+                  title="Child Policy"
+                  subtitle="Define age limits for free and paid child stays."
+                  theme="violet"
+                />
                 {!childLoading && (
                   <Button
                     variant="outline"
@@ -2146,7 +2106,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                   </div>
                 </div>
               )}
-            </div>
+            </PolicySectionCard>
 
             {isChildPolicyModalOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -2238,17 +2198,14 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
           </TabsContent>
 
           <TabsContent value="payment">
-            <div className="mt-2 rounded-xl border border-teal-100 bg-linear-to-b from-teal-50/40 to-white shadow-sm p-6 space-y-6">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <CreditCard className="w-5 h-5 text-teal-600" />
-                    Payment Policy
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Manage how guests pay for this hotel.
-                  </p>
-                </div>
+            <PolicySectionCard className="mt-0 space-y-6 border-teal-100">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <PolicySectionHeader
+                  icon={CreditCard}
+                  title="Payment Policy"
+                  subtitle="Manage how guests pay for this hotel."
+                  theme="teal"
+                />
                 {!paymentLoading && (
                   <Button
                     variant="outline"
@@ -2338,7 +2295,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                   </div>
                 </div>
               )}
-            </div>
+            </PolicySectionCard>
 
             {isPaymentModalOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm px-4">

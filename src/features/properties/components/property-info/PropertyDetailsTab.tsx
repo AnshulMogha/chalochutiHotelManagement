@@ -1,20 +1,28 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Toggle } from "@/components/ui/Toggle";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { StatusRemarkModal } from "./StatusRemarkModal";
-import { adminService, type HotelBasicInfoResponse } from "@/features/admin/services/adminService";
-import { Building, Tag, Hash, User, Calendar } from "lucide-react";
+import {
+  adminService,
+  type HotelBasicInfoResponse,
+} from "@/features/admin/services/adminService";
+import { Building, Tag, Hash, User, Calendar, Star, Banknote, FileText, Hotel, Power } from "lucide-react";
 import { useAuth } from "@/hooks";
 import { isSuperAdmin } from "@/constants/roles";
 import {
   canEditBasicInfoPropertyDescription,
   canEditBasicInfoPropertyDetails,
 } from "@/lib/permissions";
+import { FormFieldLabel } from "@/components/ui/FormFieldLabel";
+import {
+  BasicInfoFormCard,
+  BasicInfoFormDivider,
+  BasicInfoFormLoading,
+} from "./basicInfoFormUi";
 
 interface PropertyDetailsTabProps {
   hotelId: string;
@@ -30,7 +38,9 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
-  const [hotelData, setHotelData] = useState<HotelBasicInfoResponse | null>(null);
+  const [hotelData, setHotelData] = useState<HotelBasicInfoResponse | null>(
+    null,
+  );
   const [formData, setFormData] = useState({
     name: "",
     displayName: "",
@@ -46,7 +56,9 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
     reason: "",
   });
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [pendingStatus, setPendingStatus] = useState<"LIVE" | "SUSPENDED">("LIVE");
+  const [pendingStatus, setPendingStatus] = useState<"LIVE" | "SUSPENDED">(
+    "LIVE",
+  );
   const { toast, showToast, hideToast } = useToast();
 
   // Generate year options from 50 years ago to current year (to keep dropdown manageable)
@@ -54,11 +66,11 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
     const currentYear = new Date().getFullYear();
     const startYear = currentYear - 50; // Last 50 years
     const years: { value: string; label: string }[] = [];
-    
+
     for (let year = currentYear; year >= startYear; year--) {
       years.push({ value: year.toString(), label: year.toString() });
     }
-    
+
     return years;
   };
 
@@ -212,13 +224,7 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
   };
 
   if (isLoading) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <p className="text-gray-500">Loading property details...</p>
-        </div>
-      </div>
-    );
+    return <BasicInfoFormLoading message="Loading property details..." />;
   }
 
   return (
@@ -230,218 +236,227 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
         onClose={hideToast}
       />
       <div className="space-y-6">
-      {/* Property Profile Form */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Property Profile</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label htmlFor="name">
-                Property Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => handleChange("name", e.target.value)}
-                icon={<Building className="w-4 h-4 text-blue-500" />}
-                readOnly={!canEditPropertyDetails}
-                className={!canEditPropertyDetails ? "bg-gray-50" : ""}
-                required={canEditPropertyDetails}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="displayName">
-                Display Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="displayName"
-                value={formData.displayName}
-                onChange={(e) => handleChange("displayName", e.target.value)}
-                icon={<Tag className="w-4 h-4 text-purple-500" />}
-                readOnly={!canEditPropertyDetails}
-                className={!canEditPropertyDetails ? "bg-gray-50" : ""}
-                required={canEditPropertyDetails}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="propertyType">Property Type <span className="text-red-500">*</span></Label>
-              <Select
-                id="propertyType"
-                value={formData.propertyType}
-                onChange={(e) => handleChange("propertyType", e.target.value)}
-                options={[
-                  { value: "HOTEL", label: "Hotel" },
-                ]}
-                disabled={!canEditPropertyDetails}
-                required={canEditPropertyDetails}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="starRating">
-                Star Rating <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                id="starRating"
-                value={formData.starRating}
-                onChange={(e) => handleChange("starRating", e.target.value)}
-                options={[
-                  { value: "1", label: "1 Star" },
-                  { value: "2", label: "2 Stars" },
-                  { value: "3", label: "3 Stars" },
-                  { value: "4", label: "4 Stars" },
-                  { value: "5", label: "5 Stars" },
-                ]}
-                disabled={!canEditPropertyDetails}
-                required={canEditPropertyDetails}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="yearOfConstruction">
-                Year of Construction <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                id="yearOfConstruction"
-                value={formData.yearOfConstruction}
-                onChange={(e) => handleChange("yearOfConstruction", e.target.value)}
-                options={yearOptions}
-                error={errors.yearOfConstruction}
-                disabled={!canEditPropertyDetails}
-                required={canEditPropertyDetails}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="currency">Currency <span className="text-red-500">*</span></Label>
-              <Select
-                id="currency"
-                value={formData.currency}
-                onChange={(e) => handleChange("currency", e.target.value)}
-                options={[
-                  { value: "INR", label: "Indian Rupee (INR)" },
-                ]}
-                disabled={!canEditPropertyDetails}
-                required={canEditPropertyDetails}
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => handleChange("description", e.target.value)}
-                readOnly={!canEditDescription}
-                className={!canEditDescription ? "bg-gray-50 resize-none" : "resize-none"}
-                rows={4}
-                placeholder="No description available"
-              />
-            </div>
-
-            {isSuperAdminUser && (
-              <div className="md:col-span-2">
-                <Label>Hotel Status</Label>
-                <Toggle
-                  checked={statusData.status === "LIVE"}
-                  onChange={handleToggleChange}
-                  label="Status"
-                  checkedLabel="LIVE"
-                  uncheckedLabel="NOT LIVE"
-                  disabled={isSavingStatus || !canEditPropertyDetails}
+        <BasicInfoFormCard>
+          <form onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <FormFieldLabel icon={Building} theme="blue" htmlFor="name" required={canEditPropertyDetails}>
+                  Property Name
+                </FormFieldLabel>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => handleChange("name", e.target.value)}
+                  readOnly={!canEditPropertyDetails}
+                  className={!canEditPropertyDetails ? "bg-gray-50" : ""}
+                  required={canEditPropertyDetails}
                 />
               </div>
+
+              <div>
+                <FormFieldLabel icon={Tag} theme="purple" htmlFor="displayName" required={canEditPropertyDetails}>
+                  Display Name
+                </FormFieldLabel>
+                <Input
+                  id="displayName"
+                  value={formData.displayName}
+                  onChange={(e) => handleChange("displayName", e.target.value)}
+                  readOnly={!canEditPropertyDetails}
+                  className={!canEditPropertyDetails ? "bg-gray-50" : ""}
+                  required={canEditPropertyDetails}
+                />
+              </div>
+
+              <div>
+                <FormFieldLabel icon={Hotel} theme="indigo" htmlFor="propertyType" required={canEditPropertyDetails}>
+                  Property Type
+                </FormFieldLabel>
+                <Select
+                  id="propertyType"
+                  value={formData.propertyType}
+                  onChange={(e) => handleChange("propertyType", e.target.value)}
+                  options={[{ value: "HOTEL", label: "Hotel" }]}
+                  disabled={!canEditPropertyDetails}
+                  required={canEditPropertyDetails}
+                />
+              </div>
+
+              <div>
+                <FormFieldLabel icon={Star} theme="amber" htmlFor="starRating" required={canEditPropertyDetails}>
+                  Star Rating
+                </FormFieldLabel>
+                <Select
+                  id="starRating"
+                  value={formData.starRating}
+                  onChange={(e) => handleChange("starRating", e.target.value)}
+                  options={[
+                    { value: "1", label: "1 Star" },
+                    { value: "2", label: "2 Stars" },
+                    { value: "3", label: "3 Stars" },
+                    { value: "4", label: "4 Stars" },
+                    { value: "5", label: "5 Stars" },
+                  ]}
+                  disabled={!canEditPropertyDetails}
+                  required={canEditPropertyDetails}
+                />
+              </div>
+
+              <div>
+                <FormFieldLabel icon={Calendar} theme="rose" htmlFor="yearOfConstruction" required={canEditPropertyDetails}>
+                  Year of Construction
+                </FormFieldLabel>
+                <Select
+                  id="yearOfConstruction"
+                  value={formData.yearOfConstruction}
+                  onChange={(e) =>
+                    handleChange("yearOfConstruction", e.target.value)
+                  }
+                  options={yearOptions}
+                  error={errors.yearOfConstruction}
+                  disabled={!canEditPropertyDetails}
+                  required={canEditPropertyDetails}
+                />
+              </div>
+
+              <div>
+                <FormFieldLabel icon={Banknote} theme="emerald" htmlFor="currency" required={canEditPropertyDetails}>
+                  Currency
+                </FormFieldLabel>
+                <Select
+                  id="currency"
+                  value={formData.currency}
+                  onChange={(e) => handleChange("currency", e.target.value)}
+                  options={[{ value: "INR", label: "Indian Rupee (INR)" }]}
+                  disabled={!canEditPropertyDetails}
+                  required={canEditPropertyDetails}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <FormFieldLabel icon={FileText} theme="cyan" htmlFor="description">
+                  Description
+                </FormFieldLabel>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => handleChange("description", e.target.value)}
+                  readOnly={!canEditDescription}
+                  className={
+                    !canEditDescription
+                      ? "bg-gray-50 resize-none rounded-lg"
+                      : "resize-none rounded-lg"
+                  }
+                  rows={4}
+                  placeholder="No description available"
+                />
+              </div>
+
+              {isSuperAdminUser && (
+                <div className="md:col-span-2">
+                  <FormFieldLabel icon={Power} theme="green">
+                    Hotel Status
+                  </FormFieldLabel>
+                  <Toggle
+                    checked={statusData.status === "LIVE"}
+                    onChange={handleToggleChange}
+                    label="Status"
+                    checkedLabel="LIVE"
+                    uncheckedLabel="NOT LIVE"
+                    disabled={isSavingStatus || !canEditPropertyDetails}
+                  />
+                </div>
+              )}
+            </div>
+
+            {canSavePropertyDetails && (
+              <div className="flex justify-end mt-8 pt-6 border-t border-slate-100">
+                <Button
+                  type="submit"
+                  disabled={isSaving}
+                  className="bg-blue-500 hover:bg-blue-600"
+                >
+                  {isSaving
+                    ? "Saving..."
+                    : canEditPropertyDetails
+                      ? "SAVE PROFILE"
+                      : "SAVE DESCRIPTION"}
+                </Button>
+              </div>
             )}
-          </div>
+          </form>
 
-          {canSavePropertyDetails && (
-            <div className="flex justify-end mt-8">
-              <Button
-                type="submit"
-                disabled={isSaving}
-                className="bg-blue-500 hover:bg-blue-600"
-              >
-                {isSaving
-                  ? "Saving..."
-                  : canEditPropertyDetails
-                    ? "SAVE PROFILE"
-                    : "SAVE DESCRIPTION"}
-              </Button>
-            </div>
+          {hotelData && (
+            <>
+              <BasicInfoFormDivider />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <FormFieldLabel icon={Hash} theme="indigo">
+                    Hotel Code
+                  </FormFieldLabel>
+                  <Input
+                    value={hotelData.hotelCode}
+                    readOnly
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div>
+                  <FormFieldLabel icon={User} theme="cyan">
+                    Created By
+                  </FormFieldLabel>
+                  <Input
+                    value={hotelData.createdByEmail}
+                    readOnly
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div>
+                  <FormFieldLabel icon={User} theme="cyan">
+                    Updated By
+                  </FormFieldLabel>
+                  <Input
+                    value={hotelData.updatedByEmail}
+                    readOnly
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div>
+                  <FormFieldLabel icon={Calendar} theme="rose">
+                    Created At
+                  </FormFieldLabel>
+                  <Input
+                    value={new Date(hotelData.createdAt).toLocaleString("en-GB", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })}
+                    readOnly
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div>
+                  <FormFieldLabel icon={Calendar} theme="rose">
+                    Updated At
+                  </FormFieldLabel>
+                  <Input
+                    value={new Date(hotelData.updatedAt).toLocaleString("en-GB", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })}
+                    readOnly
+                    className="bg-gray-50"
+                  />
+                </div>
+              </div>
+            </>
           )}
-        </form>
-      </div>
-
-
-      {/* Additional Information */}
-      {hotelData && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Additional Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label>Hotel Code</Label>
-              <Input 
-                value={hotelData.hotelCode} 
-                readOnly 
-                className="bg-gray-50"
-                icon={<Hash className="w-4 h-4 text-indigo-500" />}
-              />
-            </div>
-            <div>
-              <Label>Created By</Label>
-              <Input 
-                value={hotelData.createdByEmail} 
-                readOnly 
-                className="bg-gray-50"
-                icon={<User className="w-4 h-4 text-cyan-500" />}
-              />
-            </div>
-            <div>
-              <Label>Updated By</Label>
-              <Input 
-                value={hotelData.updatedByEmail} 
-                readOnly 
-                className="bg-gray-50"
-                icon={<User className="w-4 h-4 text-cyan-500" />}
-              />
-            </div>
-            <div>
-              <Label>Created At</Label>
-              <Input 
-                value={new Date(hotelData.createdAt).toLocaleString("en-GB", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: false,
-                })} 
-                readOnly 
-                className="bg-gray-50"
-                icon={<Calendar className="w-4 h-4 text-pink-500" />}
-              />
-            </div>
-            <div>
-              <Label>Updated At</Label>
-              <Input 
-                value={new Date(hotelData.updatedAt).toLocaleString("en-GB", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: false,
-                })} 
-                readOnly 
-                className="bg-gray-50"
-                icon={<Calendar className="w-4 h-4 text-pink-500" />}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+        </BasicInfoFormCard>
       </div>
       {isSuperAdminUser && (
         <StatusRemarkModal
@@ -462,4 +477,3 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
     </>
   );
 }
-

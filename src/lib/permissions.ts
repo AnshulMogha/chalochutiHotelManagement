@@ -148,6 +148,7 @@ export function canViewModule(
   module: PermissionModule,
 ): boolean {
   if (!user) return true;
+  if (isSuperAdmin(user.roles) && module === "MY_TEAM") return false;
   if (hasPermissionBypass(user)) return true;
   if (isHotelBdRole(user.roles)) {
     if (module === "PROPERTY_FINANCE") return false;
@@ -163,6 +164,7 @@ export function canEditModule(
   module: PermissionModule,
 ): boolean {
   if (!user) return true;
+  if (isSuperAdmin(user.roles) && module === "MY_TEAM") return false;
   if (hasPermissionBypass(user)) return true;
   if (isHotelBdRole(user.roles)) {
     if (module === "PROPERTY_FINANCE") return false;

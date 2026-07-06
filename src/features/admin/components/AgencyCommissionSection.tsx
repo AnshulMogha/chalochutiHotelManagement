@@ -8,19 +8,28 @@ import {
   type IncentiveCategory,
   type IncentiveType,
 } from "../services/agentIncentiveService";
+import { cn } from "@/lib/utils";
 import {
   Button,
   Input,
   Select,
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
 } from "@/components/ui";
 import {
   ListStatusFilterTabs,
   type ListStatusFilterValue,
 } from "./ListStatusFilter";
+import {
+  CommissionCellChip,
+  CommissionEmptyState,
+  CommissionFilterBar,
+  CommissionPanelBody,
+  CommissionPaginationFooter,
+  CommissionSearchInput,
+  CommissionTableHead,
+  CommissionTableHeader,
+  CommissionTableWrap,
+  CommissionTh,
+} from "./commissionTaxUi";
 import {
   Plus,
   X,
@@ -31,6 +40,8 @@ import {
   Search,
   Hash,
   Building2,
+  Edit,
+  CheckCircle2,
 } from "lucide-react";
 
 const AGENCY_TIER_OPTIONS = [
@@ -449,115 +460,111 @@ export function AgencyIncentiveRulesPanel({
   onNext,
   onDeactivate,
 }: AgencyIncentiveRulesPanelProps) {
+  const showActions = statusFilter === "active";
+
   return (
-    <Card variant="elevated" className="mb-6 bg-white shadow-lg border border-gray-200">
-      <CardHeader className="border-b border-gray-200 rounded-t-lg">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-gray-900">
-            <Building2 className="w-5 h-5 text-violet-600" />
-            Agency Commission Rules
-          </CardTitle>
-          <Button variant="primary" onClick={onAdd} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Add Agency Commission
-          </Button>
+    <CommissionPanelBody theme="violet">
+      {error && (
+        <div className="mb-2 flex shrink-0 items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-3">
+          <AlertCircle className="w-5 h-5 text-red-600" />
+          <p className="text-sm text-red-700">{error}</p>
         </div>
-      </CardHeader>
-      <CardContent>
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <ListStatusFilterTabs
-            value={statusFilter}
-            onChange={onStatusFilterChange}
-            activeCount={activeCount}
-            inactiveCount={inactiveCount}
-          />
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <Input
-              type="text"
-              placeholder="Search agency commissions..."
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
-        {incentives.length === 0 && statusFilter === "active" ? (
-          <div className="text-center py-12">
-            <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg font-medium mb-2">
-              No agency commissions yet
-            </p>
-            <p className="text-gray-500 text-sm mb-4">
-              Create agent incentive rules by agency tier and booking category
-            </p>
+      )}
+      <CommissionFilterBar>
+        <ListStatusFilterTabs
+          value={statusFilter}
+          onChange={onStatusFilterChange}
+          activeCount={activeCount}
+          inactiveCount={inactiveCount}
+        />
+        <CommissionSearchInput
+          value={search}
+          onChange={onSearchChange}
+          placeholder="Search agency commissions..."
+        />
+        <Button variant="primary" size="sm" onClick={onAdd} className="ml-auto shrink-0 gap-1.5">
+          <Plus className="w-4 h-4" />
+          Add Agency Commission
+        </Button>
+      </CommissionFilterBar>
+      {incentives.length === 0 && statusFilter === "active" ? (
+        <CommissionEmptyState
+          icon={Building2}
+          title="No agency commissions yet"
+          description="Create agent incentive rules by agency tier and booking category"
+          action={
             <Button variant="primary" onClick={onAdd} className="gap-2">
               <Plus className="w-4 h-4" />
               Add Agency Commission
             </Button>
-          </div>
-        ) : statusFilteredCount === 0 ? (
-          <div className="text-center py-12">
-            <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg font-medium mb-2">
-              No {statusFilter === "active" ? "active" : "inactive"} rules
-            </p>
-            <p className="text-gray-500 text-sm">
-              Switch to {statusFilter === "active" ? "Inactive" : "Active"} to view other
-              rules.
-            </p>
-          </div>
-        ) : filteredIncentives.length === 0 ? (
-          <div className="text-center py-12">
-            <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg font-medium mb-2">No matching rules</p>
-            <p className="text-gray-500 text-sm">Try a different search term.</p>
-          </div>
-        ) : (
-          <div className="bg-white border border-gray-200 shadow-md rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-[#2f3d95] border-b-2 border-[#1e2a7a]">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      ID
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Agency tier
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Category
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Basis
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Value
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Effective from
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Effective to
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+          }
+        />
+      ) : statusFilteredCount === 0 ? (
+        <CommissionEmptyState
+          icon={Building2}
+          title={`No ${statusFilter === "active" ? "active" : "inactive"} rules`}
+          description={`Switch to ${statusFilter === "active" ? "Inactive" : "Active"} to view other rules.`}
+        />
+      ) : filteredIncentives.length === 0 ? (
+        <CommissionEmptyState
+          icon={Search}
+          title="No matching rules"
+          description="Try a different search term."
+        />
+      ) : (
+        <CommissionTableWrap
+          footer={
+            <CommissionPaginationFooter
+              pageLabel={`Showing page ${totalPages === 0 ? 0 : page + 1} of ${totalPages} (${total} total)`}
+              pageSize={pageSize}
+              onPageSizeChange={onPageSizeChange}
+              pageSizeId="agency-incentive-page-size"
+              hasPrevious={hasPrevious}
+              hasNext={hasNext}
+              isLoading={isLoading}
+              onPrevious={onPrevious}
+              onNext={onNext}
+            />
+          }
+        >
+          <table className="w-full">
+            <CommissionTableHead>
+              <tr>
+                <CommissionTh>
+                  <CommissionTableHeader icon={Hash} label="ID" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={Building2} label="Agency tier" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={Percent} label="Category" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={IndianRupee} label="Basis" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={Percent} label="Type" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={IndianRupee} label="Value" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={Calendar} label="Effective from" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={Calendar} label="Effective to" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={CheckCircle2} label="Status" />
+                </CommissionTh>
+                {showActions && (
+                  <CommissionTh>
+                    <CommissionTableHeader icon={Edit} label="Actions" />
+                  </CommissionTh>
+                )}
+              </tr>
+            </CommissionTableHead>
+            <tbody className="divide-y divide-gray-100 bg-white">
                   {filteredIncentives.map((row) => {
                     let effectiveFrom = "—";
                     let effectiveTo = "—";
@@ -582,100 +589,68 @@ export function AgencyIncentiveRulesPanel({
                     return (
                       <tr
                         key={row.id}
-                        className="hover:bg-violet-50/50 transition-colors even:bg-gray-50"
+                        className="transition-colors even:bg-slate-50/60 hover:bg-violet-50/50"
                       >
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-700 first:pl-4">
                           <span className="inline-flex items-center gap-2">
-                            <Hash className="w-4 h-4 text-gray-400" />
+                            <CommissionCellChip icon={Hash} theme="slate" />
                             <span className="font-medium" title={row.id}>
                               {row.id.length > 8 ? `${row.id.slice(0, 8)}…` : row.id}
                             </span>
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="whitespace-nowrap px-3 py-2 text-sm font-medium text-gray-900">
                           {row.agencyTier}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-700">
                           {CATEGORY_LABELS[row.incentiveCategory] ?? row.incentiveCategory}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-600">
                           {SOURCE_LABELS[row.incentiveSource] ?? row.incentiveSource}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-700">
                           {row.incentiveType === "PERCENTAGE" ? "Percentage" : "Flat"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                        <td className="whitespace-nowrap px-3 py-2 text-sm font-semibold text-gray-900">
                           {row.incentiveType === "PERCENTAGE"
                             ? `${row.incentiveValue}%`
                             : `₹${Number(row.incentiveValue).toFixed(2)}`}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-700">
                           {effectiveFrom}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-700">
                           {effectiveTo}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td
+                          className={cn(
+                            "whitespace-nowrap px-3 py-2",
+                            !showActions && "last:pr-4",
+                          )}
+                        >
                           <StatusBadge active={row.active} />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={row.active === false}
-                            onClick={() => onDeactivate(row.id)}
-                            className="text-rose-700 border-rose-300 hover:bg-rose-50 disabled:opacity-50"
-                          >
-                            Deactivate
-                          </Button>
-                        </td>
+                        {showActions && (
+                          <td className="whitespace-nowrap px-3 py-2 last:pr-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={row.active === false}
+                              onClick={() => onDeactivate(row.id)}
+                              className="border-rose-300 text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                            >
+                              Deactivate
+                            </Button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-            </div>
-            <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="text-sm text-gray-600">
-                Showing page {totalPages === 0 ? 0 : page + 1} of {totalPages} ({total}{" "}
-                total)
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor="agency-incentive-page-size" className="text-sm text-gray-600">
-                  Rows:
-                </label>
-                <select
-                  id="agency-incentive-page-size"
-                  className="h-9 rounded-md border border-gray-300 px-2 text-sm"
-                  value={pageSize}
-                  onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                </select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!hasPrevious || isLoading}
-                  onClick={onPrevious}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!hasNext || isLoading}
-                  onClick={onNext}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        </CommissionTableWrap>
+      )}
+    </CommissionPanelBody>
   );
 }
 

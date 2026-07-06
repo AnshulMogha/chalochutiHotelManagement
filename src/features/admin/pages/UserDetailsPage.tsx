@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import { Button, LoadingSpinner } from "@/components/ui";
 import { adminService, type User } from "../services/adminService";
 import { ROUTES } from "@/constants";
+import { isSuperAdminExcludedFromUserEdit } from "@/constants/roles";
 import { RoleBadge } from "@/components/ui/badges/RoleBadge";
 import {
   ArrowLeft,
@@ -107,6 +108,8 @@ export default function UserDetailsPage() {
     return `${user.firstName || ""} ${user.lastName || ""}`.trim() || "N/A";
   }, [user]);
 
+  const staffExcludedFromEdit = isSuperAdminExcludedFromUserEdit(user?.roles);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -147,13 +150,15 @@ export default function UserDetailsPage() {
           Back to users
         </Button>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => navigate(ROUTES.ADMIN.USER_EDIT(user.userId))}
-          >
-            Edit user
-          </Button>
+          {!staffExcludedFromEdit && (
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => navigate(ROUTES.ADMIN.USER_EDIT(user.userId))}
+            >
+              Edit user
+            </Button>
+          )}
           {(user.roles || []).some(
             (r) => r === "HOTEL_OWNER" || r === "HOTEL_BD",
           ) && (

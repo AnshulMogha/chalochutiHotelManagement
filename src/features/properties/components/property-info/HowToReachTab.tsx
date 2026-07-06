@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
 import { Input, Button } from "@/components/ui";
-import { MapPin, Navigation, X, Globe, Home, Hash } from "lucide-react";
+import { MapPin, Navigation, X, Globe, Home, Hash, Search } from "lucide-react";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { adminService } from "@/features/admin/services/adminService";
 import { useAuth } from "@/hooks";
 import { isSuperAdmin } from "@/constants/roles";
 import { canEditBasicInfoHowToReach } from "@/lib/permissions";
+import { FormFieldLabel } from "@/components/ui/FormFieldLabel";
+import {
+  BasicInfoFormCard,
+  BasicInfoFormDivider,
+  BasicInfoFormLoading,
+  BasicInfoFormPanel,
+} from "./basicInfoFormUi";
 
 const DEFAULT_CENTER = { lat: 28.6139, lng: 77.209 };
 
@@ -108,7 +115,10 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
     (components: readonly google.maps.GeocoderAddressComponent[]) => {
       components.forEach((comp) => {
         if (comp.types.includes("country")) {
-          setLocationData((prev) => ({ ...prev, country: comp.long_name ?? "" }));
+          setLocationData((prev) => ({
+            ...prev,
+            country: comp.long_name ?? "",
+          }));
         }
         if (comp.types.includes("administrative_area_level_1")) {
           setLocationData((prev) => ({ ...prev, state: comp.long_name ?? "" }));
@@ -117,11 +127,14 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
           setLocationData((prev) => ({ ...prev, city: comp.long_name ?? "" }));
         }
         if (comp.types.includes("postal_code")) {
-          setLocationData((prev) => ({ ...prev, pincode: comp.long_name ?? "" }));
+          setLocationData((prev) => ({
+            ...prev,
+            pincode: comp.long_name ?? "",
+          }));
         }
       });
     },
-    []
+    [],
   );
 
   const reverseGeocode = useCallback(
@@ -144,7 +157,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
         });
       }, 100);
     },
-    [extractAddressComponents]
+    [extractAddressComponents],
   );
 
   const handleSearchInput = (value: string) => {
@@ -182,13 +195,13 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
             setSuggestions([]);
             setShowDropdown(false);
           }
-        }
+        },
       );
     }, 500);
   };
 
   const handleSelectPlace = (
-    prediction: google.maps.places.AutocompletePrediction
+    prediction: google.maps.places.AutocompletePrediction,
   ) => {
     if (!window.google) return;
 
@@ -197,7 +210,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
     setSuggestions([]);
 
     const service = new google.maps.places.PlacesService(
-      document.createElement("div")
+      document.createElement("div"),
     );
 
     service.getDetails(
@@ -223,7 +236,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
 
           reverseGeocode(lat, lng);
         }
-      }
+      },
     );
   };
 
@@ -350,7 +363,8 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
       newErrors.houseBuildingApartmentNo = "Address is required";
     }
     if (!addressData.localityAreaStreetSector.trim()) {
-      newErrors.localityAreaStreetSector = "Locality / Area / Street / Sector is required";
+      newErrors.localityAreaStreetSector =
+        "Locality / Area / Street / Sector is required";
     }
 
     setErrors(newErrors);
@@ -397,13 +411,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
   };
 
   if (isLoading) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <p className="text-gray-500">Loading location information...</p>
-        </div>
-      </div>
-    );
+    return <BasicInfoFormLoading message="Loading location information..." />;
   }
 
   return (
@@ -414,21 +422,16 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+      <BasicInfoFormCard>
         <form onSubmit={handleSubmit}>
-          {/* MAP SECTION */}
-          <div className="border rounded-lg p-4 bg-gray-50 space-y-4 mb-6">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <MapPin className="text-blue-600" />
-                <span className="font-medium">Location on Map</span>
-              </div>
-
+          <BasicInfoFormPanel className="border-cyan-100 bg-cyan-50/20">
+            <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
               {canEditHowToReach && (
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleUseCurrentLocation}
+                  className="border-cyan-200 text-cyan-700 hover:bg-cyan-50"
                 >
                   <Navigation className="w-4 h-4 mr-2" />
                   Use Current Location
@@ -436,24 +439,26 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
               )}
             </div>
             {errors.location_coords && (
-              <p className="text-sm text-red-600 mt-1" role="alert">
+              <p className="mb-3 text-sm text-red-600" role="alert">
                 {errors.location_coords}
               </p>
             )}
 
             <div className="space-y-3">
-              {/* DEBOUNCED ADDRESS SEARCH */}
+              <FormFieldLabel icon={Search} theme="cyan">
+                Search Location
+              </FormFieldLabel>
               <div className="relative" ref={dropdownRef}>
-                <div className="relative w-full rounded-md border bg-white px-3 py-2">
+                <div className="relative w-full rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
                   <input
                     type="text"
                     value={searchValue}
                     onChange={(e) => handleSearchInput(e.target.value)}
-                  placeholder="Search for a location..."
-                  className="w-full outline-none pr-8"
-                  readOnly={!canEditHowToReach}
-                  disabled={!canEditHowToReach}
-                />
+                    placeholder="Search for a location..."
+                    className="w-full outline-none pr-8"
+                    readOnly={!canEditHowToReach}
+                    disabled={!canEditHowToReach}
+                  />
                   {searchValue && (
                     <button
                       onClick={clearSearch}
@@ -497,9 +502,12 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
               </div>
 
               {isLoaded && (
+                <div className="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
                 <GoogleMap
                   mapContainerStyle={{ height: "400px", width: "100%" }}
-                  zoom={locationData.latitude && locationData.longitude ? 14 : 10}
+                  zoom={
+                    locationData.latitude && locationData.longitude ? 14 : 10
+                  }
                   center={{
                     lat: locationData.latitude || DEFAULT_CENTER.lat,
                     lng: locationData.longitude || DEFAULT_CENTER.lng,
@@ -521,18 +529,21 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
                     />
                   )}
                 </GoogleMap>
+                </div>
               )}
             </div>
-          </div>
+          </BasicInfoFormPanel>
 
-          {/* LOCATION FIELDS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <BasicInfoFormDivider />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
               label="Country"
+              labelIcon={Globe}
+              labelIconTheme="cyan"
               value={locationData.country}
               onChange={(e) => handleChange("location_country", e.target.value)}
               error={errors.location_country}
-              icon={<Globe className="w-4 h-4 text-cyan-500" />}
               readOnly={!canEditHowToReach}
               className={!canEditHowToReach ? "bg-gray-50" : ""}
               required={canEditHowToReach}
@@ -540,10 +551,11 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
 
             <Input
               label="State"
+              labelIcon={MapPin}
+              labelIconTheme="rose"
               value={locationData.state}
               onChange={(e) => handleChange("location_state", e.target.value)}
               error={errors.location_state}
-              icon={<MapPin className="w-4 h-4 text-red-500" />}
               readOnly={!canEditHowToReach}
               className={!canEditHowToReach ? "bg-gray-50" : ""}
               required={canEditHowToReach}
@@ -551,12 +563,14 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
 
             <div>
               <div className="mb-1 flex items-center justify-between">
-                <span className="block text-sm font-medium text-gray-700">
+                <FormFieldLabel
+                  icon={MapPin}
+                  theme="rose"
+                  required={canEditHowToReach}
+                  className="mb-0"
+                >
                   City
-                  {canEditHowToReach && (
-                    <span className="ml-1 text-red-500">*</span>
-                  )}
-                </span>
+                </FormFieldLabel>
                 {canEditHowToReach && (
                   <label className="flex w-fit items-center gap-2 text-sm text-gray-600 select-none cursor-pointer">
                     <input
@@ -573,7 +587,6 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
                 value={locationData.city}
                 onChange={(e) => handleChange("location_city", e.target.value)}
                 error={errors.location_city}
-                icon={<MapPin className="w-4 h-4 text-red-500" />}
                 readOnly={!canEditHowToReach || !isCityEditable}
                 className={
                   !canEditHowToReach || !isCityEditable ? "bg-gray-50" : ""
@@ -583,31 +596,35 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
 
             <Input
               label="Pincode"
+              labelIcon={Hash}
+              labelIconTheme="indigo"
               value={locationData.pincode}
               onChange={(e) =>
-                handleChange("location_pincode", e.target.value.replace(/\D/g, ""))
+                handleChange(
+                  "location_pincode",
+                  e.target.value.replace(/\D/g, ""),
+                )
               }
               maxLength={6}
               error={errors.location_pincode}
-              icon={<Hash className="w-4 h-4 text-indigo-500" />}
               readOnly={!canEditHowToReach}
               className={!canEditHowToReach ? "bg-gray-50" : ""}
               required={canEditHowToReach}
             />
           </div>
 
-          {/* ADDRESS FIELDS */}
-          <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Address Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <BasicInfoFormDivider />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
                 label="Address"
+                labelIcon={Home}
+                labelIconTheme="amber"
                 value={addressData.houseBuildingApartmentNo}
                 onChange={(e) =>
                   handleChange("houseBuildingApartmentNo", e.target.value)
                 }
                 error={errors.houseBuildingApartmentNo}
-                icon={<Home className="w-4 h-4 text-amber-500" />}
                 readOnly={!canEditHowToReach}
                 className={!canEditHowToReach ? "bg-gray-50" : ""}
                 required={canEditHowToReach}
@@ -615,12 +632,13 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
 
               <Input
                 label="Locality / Area / Street"
+                labelIcon={MapPin}
+                labelIconTheme="violet"
                 value={addressData.localityAreaStreetSector}
                 onChange={(e) =>
                   handleChange("localityAreaStreetSector", e.target.value)
                 }
                 error={errors.localityAreaStreetSector}
-                icon={<MapPin className="w-4 h-4 text-red-500" />}
                 readOnly={!canEditHowToReach}
                 className={!canEditHowToReach ? "bg-gray-50" : ""}
                 required={canEditHowToReach}
@@ -629,25 +647,29 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
               <div className="md:col-span-2">
                 <Input
                   label="Landmark"
+                  labelIcon={MapPin}
+                  labelIconTheme="orange"
                   value={addressData.landmark}
                   onChange={(e) => handleChange("landmark", e.target.value)}
-                  icon={<MapPin className="w-4 h-4 text-orange-500" />}
                   readOnly={!canEditHowToReach}
                   className={!canEditHowToReach ? "bg-gray-50" : ""}
                 />
               </div>
-            </div>
           </div>
 
           {canEditHowToReach && (
-            <div className="flex justify-end mt-8">
-              <Button type="submit" disabled={isSaving} className="bg-blue-500 hover:bg-blue-600">
+            <div className="mt-8 flex justify-end border-t border-slate-100 pt-6">
+              <Button
+                type="submit"
+                disabled={isSaving}
+                className="bg-blue-500 hover:bg-blue-600"
+              >
                 {isSaving ? "Saving..." : "SAVE"}
               </Button>
             </div>
           )}
         </form>
-      </div>
+      </BasicInfoFormCard>
     </>
   );
 }

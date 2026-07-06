@@ -42,18 +42,26 @@ export default function MainLayout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
-      <Topbar onSidebarToggle={toggleSidebar} isSidebarOpen={isSidebarOpen} />
-      <div className="flex flex-1 overflow-hidden relative">
-        <Sidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
-        <main
-          className={cn(
-            "flex-1 overflow-y-auto bg-gray-50 transition-all duration-300",
-            isSidebarOpen ? "lg:ml-[calc(16rem+1.5rem)]" : "lg:ml-[calc(5rem+1.5rem)]"
-          )}
-        >
-          <Suspense fallback={<LoadingSpinner />}>
-            <Outlet />
+    <div className="h-screen overflow-hidden bg-gray-50">
+      <Sidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
+      <div
+        className={cn(
+          "flex h-screen min-w-0 flex-col transition-[margin] duration-300",
+          isSidebarOpen ? "lg:ml-64" : "lg:ml-20",
+        )}
+      >
+        <Topbar onSidebarToggle={toggleSidebar} isSidebarOpen={isSidebarOpen} />
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gray-50">
+          <Suspense
+            fallback={
+              <div className="flex flex-1 items-center justify-center">
+                <LoadingSpinner />
+              </div>
+            }
+          >
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <Outlet />
+            </div>
           </Suspense>
         </main>
       </div>

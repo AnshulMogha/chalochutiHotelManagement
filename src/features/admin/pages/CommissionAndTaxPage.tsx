@@ -19,6 +19,20 @@ import {
   matchesIncentiveSearch,
 } from "../components/AgencyCommissionSection";
 import {
+  COMMISSION_TAB_STYLES,
+  CommissionCellChip,
+  CommissionEmptyState,
+  CommissionFilterBar,
+  CommissionPanelBody,
+  CommissionPaginationFooter,
+  CommissionSearchInput,
+  CommissionTableHead,
+  CommissionTableHeader,
+  CommissionTableWrap,
+  CommissionTabLoader,
+  CommissionTh,
+} from "../components/commissionTaxUi";
+import {
   ListStatusFilterTabs,
   matchesListStatusFilter,
   type ListStatusFilterValue,
@@ -27,7 +41,7 @@ import {
   adminService,
   type HotelLookupItem,
 } from "../services/adminService";
-import { Button, Input, Select, LoadingSpinner, Card, CardHeader, CardTitle, CardContent, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
+import { Button, Input, Select, LoadingSpinner, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { 
   Plus, 
@@ -58,6 +72,17 @@ const OTA_COMMISSION_SCOPE_OPTIONS = [
 ];
 
 type AdminCommissionTab = "otaCommission" | "agencyCommission" | "tax" | "serviceFee";
+
+const COMMISSION_TABS: {
+  value: AdminCommissionTab;
+  label: string;
+  icon: typeof Percent;
+}[] = [
+  { value: "otaCommission", label: "OTA Commission", icon: Percent },
+  { value: "agencyCommission", label: "Agency Commission", icon: Building2 },
+  { value: "tax", label: "Taxes", icon: Receipt },
+  { value: "serviceFee", label: "Service Fee", icon: IndianRupee },
+];
 
 const COMMISSION_TYPE_OPTIONS = [
   { value: "PERCENTAGE", label: "Percentage" },
@@ -1314,227 +1339,208 @@ function CommissionRulesPanel({
   inactiveCount,
   statusFilteredCount,
 }: CommissionRulesPanelProps) {
+  const pageSizeId = `commission-page-size-${title.replace(/\s+/g, "-").toLowerCase()}`;
+  const showActions = statusFilter === "active";
+
   return (
-    <Card variant="elevated" className="mb-6 bg-white shadow-lg border border-gray-200">
-      <CardHeader className="border-b border-gray-200 rounded-t-lg">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-gray-900">
-            <Percent className="w-5 h-5 text-blue-600" />
-            {title}
-          </CardTitle>
-          <Button variant="primary" onClick={onAdd} className="gap-2">
-            <Plus className="w-4 h-4" />
-            {addLabel}
-          </Button>
+    <CommissionPanelBody theme="blue">
+      {error && (
+        <div className="mb-2 flex shrink-0 items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-3">
+          <AlertCircle className="w-5 h-5 text-red-600" />
+          <p className="text-sm text-red-700">{error}</p>
         </div>
-      </CardHeader>
-      <CardContent>
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <ListStatusFilterTabs
-            value={statusFilter}
-            onChange={onStatusFilterChange}
-            activeCount={activeCount}
-            inactiveCount={inactiveCount}
-          />
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <Input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={commissionSearch}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
-        {commissions.length === 0 && statusFilter === "active" ? (
-          <div className="text-center py-12">
-            <Percent className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg font-medium mb-2">{emptyTitle}</p>
-            <p className="text-gray-500 text-sm mb-4">{emptyDescription}</p>
+      )}
+      <CommissionFilterBar>
+        <ListStatusFilterTabs
+          value={statusFilter}
+          onChange={onStatusFilterChange}
+          activeCount={activeCount}
+          inactiveCount={inactiveCount}
+        />
+        <CommissionSearchInput
+          value={commissionSearch}
+          onChange={onSearchChange}
+          placeholder={searchPlaceholder}
+        />
+        <Button variant="primary" size="sm" onClick={onAdd} className="ml-auto shrink-0 gap-1.5">
+          <Plus className="w-4 h-4" />
+          {addLabel}
+        </Button>
+      </CommissionFilterBar>
+      {commissions.length === 0 && statusFilter === "active" ? (
+        <CommissionEmptyState
+          icon={Percent}
+          title={emptyTitle}
+          description={emptyDescription}
+          action={
             <Button variant="primary" onClick={onAdd} className="gap-2">
               <Plus className="w-4 h-4" />
               {addLabel}
             </Button>
-          </div>
-        ) : statusFilteredCount === 0 ? (
-          <div className="text-center py-12">
-            <Percent className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg font-medium mb-2">
-              No {statusFilter === "active" ? "active" : "inactive"} rules
-            </p>
-            <p className="text-gray-500 text-sm">
-              Switch to {statusFilter === "active" ? "Inactive" : "Active"} to view other
-              rules.
-            </p>
-          </div>
-        ) : filteredCommissions.length === 0 ? (
-          <div className="text-center py-12">
-            <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg font-medium mb-2">No matching rules</p>
-            <p className="text-gray-500 text-sm">Try a different search term.</p>
-          </div>
-        ) : (
-          <div className="bg-white border border-gray-200 shadow-md rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-[#2f3d95] border-b-2 border-[#1e2a7a]">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Scope</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Scope Value</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Value</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Effective From</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredCommissions.map((commission) => {
-                    let effectiveDate = "N/A";
-                    try {
-                      if (commission.effectiveFrom) {
-                        const date = new Date(commission.effectiveFrom);
-                        if (!isNaN(date.getTime())) {
-                          effectiveDate = date.toLocaleDateString("en-GB", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                          });
-                        }
-                      }
-                    } catch {
-                      effectiveDate = "N/A";
+          }
+        />
+      ) : statusFilteredCount === 0 ? (
+        <CommissionEmptyState
+          icon={Percent}
+          title={`No ${statusFilter === "active" ? "active" : "inactive"} rules`}
+          description={`Switch to ${statusFilter === "active" ? "Inactive" : "Active"} to view other rules.`}
+        />
+      ) : filteredCommissions.length === 0 ? (
+        <CommissionEmptyState
+          icon={Search}
+          title="No matching rules"
+          description="Try a different search term."
+        />
+      ) : (
+        <CommissionTableWrap
+          footer={
+            <CommissionPaginationFooter
+              pageLabel={`Showing page ${commissionTotalPages === 0 ? 0 : commissionPage + 1} of ${commissionTotalPages} (${commissionTotal} total)`}
+              pageSize={commissionPageSize}
+              onPageSizeChange={onPageSizeChange}
+              pageSizeId={pageSizeId}
+              hasPrevious={commissionHasPrevious}
+              hasNext={commissionHasNext}
+              isLoading={isLoading}
+              onPrevious={onPrevious}
+              onNext={onNext}
+            />
+          }
+        >
+          <table className="w-full">
+            <CommissionTableHead>
+              <tr>
+                <CommissionTh>
+                  <CommissionTableHeader icon={Hash} label="ID" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={Globe} label="Scope" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={MapPin} label="Scope Value" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={Percent} label="Type" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={IndianRupee} label="Value" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={Calendar} label="Effective From" />
+                </CommissionTh>
+                <CommissionTh>
+                  <CommissionTableHeader icon={CheckCircle2} label="Status" />
+                </CommissionTh>
+                {showActions && (
+                  <CommissionTh>
+                    <CommissionTableHeader icon={Edit} label="Actions" />
+                  </CommissionTh>
+                )}
+              </tr>
+            </CommissionTableHead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {filteredCommissions.map((commission) => {
+                let effectiveDate = "N/A";
+                try {
+                  if (commission.effectiveFrom) {
+                    const date = new Date(commission.effectiveFrom);
+                    if (!isNaN(date.getTime())) {
+                      effectiveDate = date.toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      });
                     }
-                    const scopeValueDisplay =
-                      commission.scope === "AGENCY_TIER"
-                        ? commission.agencyTier || commission.scopeValue || "N/A"
-                        : commission.scopeValue || "N/A";
-                    return (
-                      <tr
-                        key={commission.id}
-                        className="hover:bg-blue-50 transition-colors even:bg-gray-50"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-700">
-                            <Hash className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                            <span className="font-medium" title={commission.id}>
-                              {typeof commission.id === "string" && commission.id.length > 8
-                                ? `${commission.id.substring(0, 8)}...`
-                                : commission.id}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            {commission.scope === "GLOBAL" ? (
-                              <Globe className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
-                            ) : commission.scope === "HOTEL" ? (
-                              <Building2 className="w-4 h-4 mr-2 text-purple-500 flex-shrink-0" />
-                            ) : commission.scope === "CITY" ? (
-                              <MapPin className="w-4 h-4 mr-2 text-green-500 flex-shrink-0" />
-                            ) : (
-                              <Radio className="w-4 h-4 mr-2 text-orange-500 flex-shrink-0" />
-                            )}
-                            <span className="text-sm font-medium text-gray-900">{commission.scope}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-700">{scopeValueDisplay}</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            {commission.commissionType === "PERCENTAGE" ? (
-                              <Percent className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                            ) : (
-                              <IndianRupee className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                            )}
-                            <span className="text-sm text-gray-700">
-                              {commission.commissionType === "PERCENTAGE" ? "Percentage" : "Flat"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-semibold text-gray-900">
-                            {commission.commissionType === "PERCENTAGE"
-                              ? `${commission.commissionValue}%`
-                              : `₹${commission.commissionValue.toFixed(2)}`}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-700">
-                            <Calendar className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                            <span>{effectiveDate}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <StatusBadge active={commission.active} />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={!commission.active}
-                            onClick={() => onDeactivate(commission.id)}
-                            className="text-rose-700 border-rose-300 hover:bg-rose-50 disabled:opacity-50"
-                          >
-                            Deactivate
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="text-sm text-gray-600">
-                Showing page {commissionTotalPages === 0 ? 0 : commissionPage + 1} of{" "}
-                {commissionTotalPages} ({commissionTotal} total)
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor={`commission-page-size-${title}`} className="text-sm text-gray-600">
-                  Rows:
-                </label>
-                <select
-                  id={`commission-page-size-${title}`}
-                  className="h-9 rounded-md border border-gray-300 px-2 text-sm"
-                  value={commissionPageSize}
-                  onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                </select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!commissionHasPrevious || isLoading}
-                  onClick={onPrevious}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!commissionHasNext || isLoading}
-                  onClick={onNext}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                  }
+                } catch {
+                  effectiveDate = "N/A";
+                }
+                const scopeValueDisplay =
+                  commission.scope === "AGENCY_TIER"
+                    ? commission.agencyTier || commission.scopeValue || "N/A"
+                    : commission.scopeValue || "N/A";
+                const scopeTheme =
+                  commission.scope === "GLOBAL"
+                    ? "blue"
+                    : commission.scope === "HOTEL"
+                      ? "violet"
+                      : commission.scope === "CITY"
+                        ? "green"
+                        : "orange";
+                const ScopeIcon =
+                  commission.scope === "GLOBAL"
+                    ? Globe
+                    : commission.scope === "HOTEL"
+                      ? Building2
+                      : commission.scope === "CITY"
+                        ? MapPin
+                        : Radio;
+                return (
+                  <tr
+                    key={commission.id}
+                    className="transition-colors even:bg-slate-50/60 hover:bg-blue-50/50"
+                  >
+                    <td className="whitespace-nowrap px-3 py-2 first:pl-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <CommissionCellChip icon={Hash} theme="slate" />
+                        <span className="font-medium" title={commission.id}>
+                          {typeof commission.id === "string" && commission.id.length > 8
+                            ? `${commission.id.substring(0, 8)}...`
+                            : commission.id}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <CommissionCellChip icon={ScopeIcon} theme={scopeTheme} />
+                        <span className="text-sm font-medium text-gray-900">
+                          {commission.scope}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-700">
+                      {scopeValueDisplay}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-700">
+                      {commission.commissionType === "PERCENTAGE" ? "Percentage" : "Flat"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-sm font-semibold text-gray-900">
+                      {commission.commissionType === "PERCENTAGE"
+                        ? `${commission.commissionValue}%`
+                        : `₹${commission.commissionValue.toFixed(2)}`}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-700">
+                      {effectiveDate}
+                    </td>
+                    <td
+                      className={cn(
+                        "whitespace-nowrap px-3 py-2",
+                        !showActions && "last:pr-4",
+                      )}
+                    >
+                      <StatusBadge active={commission.active} />
+                    </td>
+                    {showActions && (
+                      <td className="whitespace-nowrap px-3 py-2 last:pr-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!commission.active}
+                          onClick={() => onDeactivate(commission.id)}
+                          className="border-rose-300 text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                        >
+                          Deactivate
+                        </Button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </CommissionTableWrap>
+      )}
+    </CommissionPanelBody>
   );
 }
 
@@ -1623,6 +1629,7 @@ export default function CommissionAndTaxPage() {
   const [taxes, setTaxes] = useState<Tax[]>([]);
   const [serviceFees, setServiceFees] = useState<ServiceFee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [tabLoading, setTabLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCommissionModal, setShowCommissionModal] = useState(false);
   const [editingCommission, setEditingCommission] = useState<Commission | null>(null);
@@ -1731,15 +1738,35 @@ export default function CommissionAndTaxPage() {
   });
 
   useEffect(() => {
-    if (activeTab === "otaCommission") {
-      fetchCommissions(commissionPage, commissionPageSize);
-    } else if (activeTab === "agencyCommission") {
-      fetchAgentIncentives(agentIncentivePage, agentIncentivePageSize);
-    } else if (activeTab === "tax") {
-      fetchTaxes();
-    } else {
-      fetchServiceFees();
-    }
+    setTabLoading(true);
+  }, [activeTab]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadActiveTab = async () => {
+      try {
+        if (activeTab === "otaCommission") {
+          await fetchCommissions(commissionPage, commissionPageSize);
+        } else if (activeTab === "agencyCommission") {
+          await fetchAgentIncentives(agentIncentivePage, agentIncentivePageSize);
+        } else if (activeTab === "tax") {
+          await fetchTaxes();
+        } else {
+          await fetchServiceFees();
+        }
+      } finally {
+        if (!cancelled) {
+          setTabLoading(false);
+        }
+      }
+    };
+
+    void loadActiveTab();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     activeTab,
     commissionPage,
@@ -1945,49 +1972,45 @@ export default function CommissionAndTaxPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Commission and Tax Management</h1>
-          <p className="text-gray-600">
-            Manage commission rules and tax configurations
-          </p>
-        </div>
-      </div>
-
+    <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden">
+    <div className="mx-auto flex h-full w-full max-w-7xl min-h-0 flex-1 flex-col px-4 py-3 sm:px-6 lg:px-8">
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as AdminCommissionTab)}
+        className="flex min-h-0 flex-1 flex-col gap-4"
       >
-        <TabsList className="mb-6">
-          <TabsTrigger value="otaCommission" className="gap-2">
-            <Percent className="w-4 h-4" />
-            OTA Commission
-          </TabsTrigger>
-          <TabsTrigger value="agencyCommission" className="gap-2">
-            <Building2 className="w-4 h-4" />
-            Agency Commission
-          </TabsTrigger>
-          <TabsTrigger value="tax" className="gap-2">
-            <Receipt className="w-4 h-4" />
-            Taxes
-          </TabsTrigger>
-          <TabsTrigger value="serviceFee" className="gap-2">
-            <IndianRupee className="w-4 h-4" />
-            Service Fee
-          </TabsTrigger>
+        <TabsList className="inline-flex h-auto w-full shrink-0 flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 sm:w-auto">
+          {COMMISSION_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.value;
+            const styles = COMMISSION_TAB_STYLES[tab.value];
+            return (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                className={cn(
+                  "group gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150",
+                  isActive ? styles.active : styles.idle,
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    isActive ? styles.iconActive : styles.iconIdle,
+                  )}
+                  strokeWidth={2.25}
+                />
+                {tab.label}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
 
-        <TabsContent value="otaCommission">
+        <TabsContent value="otaCommission" className="mt-0 flex min-h-0 flex-1 flex-col">
+          {tabLoading ? (
+            <CommissionTabLoader theme="blue" />
+          ) : (
           <CommissionRulesPanel
             title="OTA Commission Rules"
             addLabel="Add OTA Commission"
@@ -2031,9 +2054,13 @@ export default function CommissionAndTaxPage() {
             }
             statusFilteredCount={otaStatusFiltered.length}
           />
+          )}
         </TabsContent>
 
-        <TabsContent value="agencyCommission">
+        <TabsContent value="agencyCommission" className="mt-0 flex min-h-0 flex-1 flex-col">
+          {tabLoading ? (
+            <CommissionTabLoader theme="violet" />
+          ) : (
           <AgencyIncentiveRulesPanel
             incentives={agentIncentives}
             filteredIncentives={filteredAgentIncentives}
@@ -2073,114 +2100,98 @@ export default function CommissionAndTaxPage() {
               setShowDeactivateAgentIncentiveModal(true);
             }}
           />
+          )}
         </TabsContent>
 
-        <TabsContent value="tax">
-          <Card variant="elevated" className="mb-6 bg-white shadow-lg border border-gray-200">
-            <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200 rounded-t-lg">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-gray-900">
-                  <Receipt className="w-5 h-5 text-green-600" />
-                  Tax Rules
-                </CardTitle>
-                <Button
-                  variant="primary"
-                  onClick={() => setShowTaxModal(true)}
-                  className="gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Tax
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
+        <TabsContent value="tax" className="mt-0 flex min-h-0 flex-1 flex-col">
+          {tabLoading ? (
+            <CommissionTabLoader theme="green" />
+          ) : (
+          <CommissionPanelBody theme="green">
               {error && (
-                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                <div className="mb-2 flex shrink-0 items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-3">
                   <AlertCircle className="w-5 h-5 text-red-600" />
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
               )}
-              {taxes.length > 0 && (
-                <div className="mb-4 flex flex-nowrap items-center gap-3">
-                  <div className="relative w-full max-w-sm shrink-0">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    <Input
-                      type="text"
-                      placeholder="Search taxes..."
-                      value={taxSearch}
-                      onChange={(e) => setTaxSearch(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">State</span>
-                    <select
-                      value={taxStateFilter}
-                      onChange={(e) => setTaxStateFilter(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white min-w-[160px]"
-                    >
-                      <option value="">All states</option>
-                      {taxStates.map((state) => (
-                        <option key={state} value={state}>{state}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-              {taxes.length === 0 ? (
-                <div className="text-center py-12">
-                  <Receipt className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 text-lg font-medium mb-2">
-                    No taxes yet
-                  </p>
-                  <p className="text-gray-500 text-sm mb-4">
-                    Create your first tax rule to get started
-                  </p>
-                  <Button
-                    variant="primary"
-                    onClick={() => setShowTaxModal(true)}
-                    className="gap-2"
+              <CommissionFilterBar>
+                <CommissionSearchInput
+                  value={taxSearch}
+                  onChange={setTaxSearch}
+                  placeholder="Search taxes..."
+                />
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="whitespace-nowrap text-xs font-medium text-gray-700">State</span>
+                  <select
+                    value={taxStateFilter}
+                    onChange={(e) => setTaxStateFilter(e.target.value)}
+                    className="min-w-[140px] rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/20"
                   >
-                    <Plus className="w-4 h-4" />
-                    Add Tax
-                  </Button>
+                    <option value="">All states</option>
+                    {taxStates.map((state) => (
+                      <option key={state} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setShowTaxModal(true)}
+                  className="ml-auto shrink-0 gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Tax
+                </Button>
+              </CommissionFilterBar>
+              {taxes.length === 0 ? (
+                <CommissionEmptyState
+                  icon={Receipt}
+                  title="No taxes yet"
+                  description="Create your first tax rule to get started"
+                  action={
+                    <Button variant="primary" onClick={() => setShowTaxModal(true)} className="gap-2">
+                      <Plus className="w-4 h-4" />
+                      Add Tax
+                    </Button>
+                  }
+                />
               ) : (
-                <div className="bg-white border border-gray-200 shadow-md rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-[#2f3d95] border-b-2 border-[#1e2a7a]">
-                        <tr>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            ID
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Tax Type
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Percentage
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            State Code
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Min Amount
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Max Amount
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Effective From
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                <CommissionTableWrap>
+                  <table className="w-full">
+                    <CommissionTableHead>
+                      <tr>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={Hash} label="ID" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={Receipt} label="Tax Type" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={Percent} label="Percentage" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={MapPin} label="State Code" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={IndianRupee} label="Min Amount" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={IndianRupee} label="Max Amount" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={Calendar} label="Effective From" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={CheckCircle2} label="Status" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={Edit} label="Actions" />
+                        </CommissionTh>
+                      </tr>
+                    </CommissionTableHead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
                         {filteredTaxes.map((tax) => {
                           let effectiveDate = "N/A";
                           try {
@@ -2201,70 +2212,58 @@ export default function CommissionAndTaxPage() {
                           return (
                             <tr
                               key={tax.id}
-                              className="hover:bg-blue-50 transition-colors even:bg-gray-50"
+                              className="transition-colors even:bg-slate-50/60 hover:bg-emerald-50/50"
                             >
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center text-sm text-gray-700">
-                                  <Hash className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
+                              <td className="whitespace-nowrap px-3 py-2 first:pl-4">
+                                <div className="flex items-center gap-2 text-sm text-gray-700">
+                                  <CommissionCellChip icon={Hash} theme="slate" />
                                   <span className="font-medium" title={tax.id}>
-                                    {typeof tax.id === 'string' && tax.id.length > 8
+                                    {typeof tax.id === "string" && tax.id.length > 8
                                       ? `${tax.id.substring(0, 8)}...`
                                       : tax.id}
                                   </span>
                                 </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  <Receipt className="w-4 h-4 mr-2 text-green-500 flex-shrink-0" />
+                              <td className="whitespace-nowrap px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <CommissionCellChip icon={Receipt} theme="green" />
                                   <span className="text-sm font-medium text-gray-900">
                                     {tax.taxType}
                                   </span>
                                 </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  <Percent className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                                  <span className="text-sm font-semibold text-gray-900">
-                                    {tax.percentage}%
-                                  </span>
+                              <td className="whitespace-nowrap px-3 py-2">
+                                <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                                  <CommissionCellChip icon={Percent} theme="cyan" />
+                                  {tax.percentage}%
                                 </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  <MapPin className="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" />
-                                  <span className="text-sm text-gray-700">{tax.stateCode || "N/A"}</span>
+                              <td className="whitespace-nowrap px-3 py-2">
+                                <div className="flex items-center gap-2 text-sm text-gray-700">
+                                  <CommissionCellChip icon={MapPin} theme="blue" />
+                                  {tax.stateCode || "N/A"}
                                 </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  <IndianRupee className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                                  <span className="text-sm text-gray-700">
-                                    {tax.minAmount !== null && tax.minAmount !== undefined 
-                                      ? `₹${tax.minAmount.toFixed(2)}` 
-                                      : "N/A"}
-                                  </span>
+                              <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-700">
+                                {tax.minAmount !== null && tax.minAmount !== undefined
+                                  ? `₹${tax.minAmount.toFixed(2)}`
+                                  : "N/A"}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-700">
+                                {tax.maxAmount !== null && tax.maxAmount !== undefined
+                                  ? `₹${tax.maxAmount.toFixed(2)}`
+                                  : "N/A"}
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-2">
+                                <div className="flex items-center gap-2 text-sm text-gray-700">
+                                  <CommissionCellChip icon={Calendar} theme="amber" />
+                                  {effectiveDate}
                                 </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  <IndianRupee className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                                  <span className="text-sm text-gray-700">
-                                    {tax.maxAmount !== null && tax.maxAmount !== undefined 
-                                      ? `₹${tax.maxAmount.toFixed(2)}` 
-                                      : "N/A"}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center text-sm text-gray-700">
-                                  <Calendar className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                                  <span>{effectiveDate}</span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
+                              <td className="whitespace-nowrap px-3 py-2">
                                 <StatusBadge active={tax.active} />
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
+                              <td className="whitespace-nowrap px-3 py-2 last:pr-4">
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -2273,7 +2272,7 @@ export default function CommissionAndTaxPage() {
                                     setTaxToDeactivate(tax.id);
                                     setShowDeactivateTaxModal(true);
                                   }}
-                                  className="text-rose-700 border-rose-300 hover:bg-rose-50 disabled:opacity-50"
+                                  className="border-rose-300 text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                                 >
                                   Deactivate
                                 </Button>
@@ -2283,126 +2282,143 @@ export default function CommissionAndTaxPage() {
                         })}
                       </tbody>
                     </table>
-                  </div>
-                </div>
+                </CommissionTableWrap>
               )}
-            </CardContent>
-          </Card>
+          </CommissionPanelBody>
+          )}
         </TabsContent>
 
-        <TabsContent value="serviceFee">
-          <Card variant="elevated" className="mb-6 bg-white shadow-lg border border-gray-200">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-fuchsia-50 border-b border-gray-200 rounded-t-lg">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-gray-900">
-                  <IndianRupee className="w-5 h-5 text-purple-600" />
-                  Service Fee Rules
-                </CardTitle>
-                <Button
-                  variant="primary"
-                  onClick={() => setShowServiceFeeModal(true)}
-                  className="gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Service Fee
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
+        <TabsContent value="serviceFee" className="mt-0 flex min-h-0 flex-1 flex-col">
+          {tabLoading ? (
+            <CommissionTabLoader theme="purple" />
+          ) : (
+          <CommissionPanelBody theme="purple">
               {error && (
-                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                <div className="mb-2 flex shrink-0 items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-3">
                   <AlertCircle className="w-5 h-5 text-red-600" />
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
               )}
-              {serviceFees.length > 0 && (
-                <div className="mb-4 flex flex-wrap items-center gap-3">
-                  <ListStatusFilterTabs
-                    value={serviceFeeStatusFilter}
-                    onChange={setServiceFeeStatusFilter}
-                    activeCount={serviceFeeActiveCount}
-                    inactiveCount={serviceFeeInactiveCount}
-                  />
-                  <div className="relative w-full max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    <Input
-                      type="text"
-                      placeholder="Search service fees..."
-                      value={serviceFeeSearch}
-                      onChange={(e) => setServiceFeeSearch(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
-              )}
+              <CommissionFilterBar>
+                <ListStatusFilterTabs
+                  value={serviceFeeStatusFilter}
+                  onChange={setServiceFeeStatusFilter}
+                  activeCount={serviceFeeActiveCount}
+                  inactiveCount={serviceFeeInactiveCount}
+                />
+                <CommissionSearchInput
+                  value={serviceFeeSearch}
+                  onChange={setServiceFeeSearch}
+                  placeholder="Search service fees..."
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setShowServiceFeeModal(true)}
+                  className="ml-auto shrink-0 gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Service Fee
+                </Button>
+              </CommissionFilterBar>
               {serviceFees.length === 0 ? (
-                <div className="text-center py-12">
-                  <IndianRupee className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 text-lg font-medium mb-2">No service fees yet</p>
-                  <p className="text-gray-500 text-sm mb-4">Create your first service fee rule</p>
-                  <Button
-                    variant="primary"
-                    onClick={() => setShowServiceFeeModal(true)}
-                    className="gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Service Fee
-                  </Button>
-                </div>
+                <CommissionEmptyState
+                  icon={IndianRupee}
+                  title="No service fees yet"
+                  description="Create your first service fee rule"
+                  action={
+                    <Button variant="primary" onClick={() => setShowServiceFeeModal(true)} className="gap-2">
+                      <Plus className="w-4 h-4" />
+                      Add Service Fee
+                    </Button>
+                  }
+                />
               ) : serviceFeeStatusFiltered.length === 0 ? (
-                <div className="text-center py-12">
-                  <IndianRupee className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 text-lg font-medium mb-2">
-                    No {serviceFeeStatusFilter === "active" ? "active" : "inactive"} service fee
-                    rules
-                  </p>
-                  <p className="text-gray-500 text-sm">
-                    Switch to{" "}
-                    {serviceFeeStatusFilter === "active" ? "Inactive" : "Active"} to view other
-                    rules.
-                  </p>
-                </div>
+                <CommissionEmptyState
+                  icon={IndianRupee}
+                  title={`No ${serviceFeeStatusFilter === "active" ? "active" : "inactive"} service fee rules`}
+                  description={`Switch to ${serviceFeeStatusFilter === "active" ? "Inactive" : "Active"} to view other rules.`}
+                />
               ) : filteredServiceFees.length === 0 ? (
-                <div className="text-center py-12">
-                  <Search className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 text-lg font-medium mb-2">No matching rules</p>
-                  <p className="text-gray-500 text-sm">Try a different search term.</p>
-                </div>
+                <CommissionEmptyState
+                  icon={Search}
+                  title="No matching rules"
+                  description="Try a different search term."
+                />
               ) : (
-                <div className="bg-white border border-gray-200 shadow-md rounded-lg overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-[#2f3d95] border-b-2 border-[#1e2a7a]">
-                        <tr>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Scope</th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Scope Value</th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Type</th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Fee</th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">GST</th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Effective From</th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredServiceFees.map((fee) => (
-                          <tr key={fee.id} className="hover:bg-blue-50 transition-colors even:bg-gray-50">
-                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{fee.scope}</td>
-                            <td className="px-6 py-4 text-sm text-gray-700">{fee.scopeValue || "N/A"}</td>
-                            <td className="px-6 py-4 text-sm text-gray-700">{fee.calculationType}</td>
-                            <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                              {fee.calculationType === "PERCENTAGE" ? `${fee.feeValue}%` : `₹${Number(fee.feeValue).toFixed(2)}`}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-700">
-                              {fee.gstApplicable ? `${fee.gstRate}%` : "Not Applicable"}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-700">
-                              {fee.effectiveFrom ? new Date(fee.effectiveFrom).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }) : "N/A"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <StatusBadge active={fee.active ?? true} />
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                <CommissionTableWrap>
+                  <table className="w-full">
+                    <CommissionTableHead>
+                      <tr>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={Globe} label="Scope" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={MapPin} label="Scope Value" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={Percent} label="Type" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={IndianRupee} label="Fee" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={Receipt} label="GST" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={Calendar} label="Effective From" />
+                        </CommissionTh>
+                        <CommissionTh>
+                          <CommissionTableHeader icon={CheckCircle2} label="Status" />
+                        </CommissionTh>
+                        {serviceFeeStatusFilter === "active" && (
+                          <CommissionTh>
+                            <CommissionTableHeader icon={Edit} label="Actions" />
+                          </CommissionTh>
+                        )}
+                      </tr>
+                    </CommissionTableHead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {filteredServiceFees.map((fee) => (
+                        <tr
+                          key={fee.id}
+                          className="transition-colors even:bg-slate-50/60 hover:bg-purple-50/50"
+                        >
+                          <td className="px-3 py-2 text-sm font-medium text-gray-900 first:pl-4">
+                            <div className="flex items-center gap-2">
+                              <CommissionCellChip icon={Globe} theme="purple" />
+                              {fee.scope}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-sm text-gray-700">{fee.scopeValue || "N/A"}</td>
+                          <td className="px-3 py-2 text-sm text-gray-700">{fee.calculationType}</td>
+                          <td className="px-3 py-2 text-sm font-semibold text-gray-900">
+                            {fee.calculationType === "PERCENTAGE"
+                              ? `${fee.feeValue}%`
+                              : `₹${Number(fee.feeValue).toFixed(2)}`}
+                          </td>
+                          <td className="px-3 py-2 text-sm text-gray-700">
+                            {fee.gstApplicable ? `${fee.gstRate}%` : "Not Applicable"}
+                          </td>
+                          <td className="px-3 py-2 text-sm text-gray-700">
+                            {fee.effectiveFrom
+                              ? new Date(fee.effectiveFrom).toLocaleDateString("en-GB", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                })
+                              : "N/A"}
+                          </td>
+                          <td
+                            className={cn(
+                              "whitespace-nowrap px-3 py-2",
+                              serviceFeeStatusFilter !== "active" && "last:pr-4",
+                            )}
+                          >
+                            <StatusBadge active={fee.active ?? true} />
+                          </td>
+                          {serviceFeeStatusFilter === "active" && (
+                            <td className="whitespace-nowrap px-3 py-2 last:pr-4">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -2411,20 +2427,20 @@ export default function CommissionAndTaxPage() {
                                   setServiceFeeToDeactivate(fee.id);
                                   setShowDeactivateServiceFeeModal(true);
                                 }}
-                                className="text-rose-700 border-rose-300 hover:bg-rose-50 disabled:opacity-50"
+                                className="border-rose-300 text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                               >
                                 Deactivate
                               </Button>
                             </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CommissionTableWrap>
               )}
-            </CardContent>
-          </Card>
+          </CommissionPanelBody>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -2608,6 +2624,7 @@ export default function CommissionAndTaxPage() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

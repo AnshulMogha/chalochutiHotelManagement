@@ -75,11 +75,16 @@ function formatPercent(value: number | undefined | null): string {
 }
 
 /** Gross property charges excluding service fee (API gross includes service charge). */
+function getServiceFeeAmount(rateBreakup: BookingDetail["rateBreakup"]): number {
+  if (!rateBreakup) return 0;
+  return rateBreakup.serviceFeeIncludingGst ?? rateBreakup.serviceChargeAmount ?? 0;
+}
+
 function getPropertyGrossExcludingServiceFee(
   rateBreakup: BookingDetail["rateBreakup"],
 ): number | undefined {
   if (rateBreakup?.hotelGrossCharges == null) return undefined;
-  const serviceFee = rateBreakup.serviceChargeAmount ?? 0;
+  const serviceFee = getServiceFeeAmount(rateBreakup);
   return Math.max(0, rateBreakup.hotelGrossCharges - serviceFee);
 }
 
@@ -91,8 +96,19 @@ function hasPromotionBreakup(
   const promos = rateBreakup.appliedPromotions?.length ?? 0;
   const before =
     rateBreakup.roomChargesBeforePromotion != null ||
-    rateBreakup.extraAdultChildChargesBeforePromotion != null;
+    rateBreakup.extraAdultChildChargesBeforePromotion != null ||
+    rateBreakup.extraAdultChargesBeforePromotion != null;
   return discount > 0 || promos > 0 || before;
+}
+
+function hasAppliedPromotionDiscount(
+  rateBreakup: BookingDetail["rateBreakup"],
+): boolean {
+  if (!rateBreakup) return false;
+  return (
+    (rateBreakup.promotionDiscount ?? 0) > 0 ||
+    (rateBreakup.appliedPromotions?.length ?? 0) > 0
+  );
 }
 
 function getPricingComputationStyle(value: string | undefined | null): string {
@@ -320,7 +336,12 @@ function HotelBookingDetailPage({
     .toUpperCase()
     .includes("CANCELLED");
   const showPromotionBreakup = hasPromotionBreakup(rateBreakup);
+  const showAppliedPromotions = hasAppliedPromotionDiscount(rateBreakup);
   const propertyGrossExServiceFee = getPropertyGrossExcludingServiceFee(rateBreakup);
+  const serviceFeeAmount = getServiceFeeAmount(rateBreakup);
+  const serviceChargePercent = rateBreakup?.serviceChargePercent;
+  const showServiceCharge =
+    !isPackageRate && serviceFeeAmount > 0;
 
   return (
     <>
@@ -592,6 +613,15 @@ function HotelBookingDetailPage({
                       rateBreakup?.currency,
                     )}
                   />
+                  {rateBreakup?.extraAdultChargesBeforePromotion != null ? (
+                    <RateRow
+                      label="Extra adult (list)"
+                      value={formatCurrency(
+                        rateBreakup.extraAdultChargesBeforePromotion,
+                        rateBreakup?.currency,
+                      )}
+                    />
+                  ) : null}
                   <RateRow
                     label="Extra adult / child (list)"
                     value={formatCurrency(
@@ -600,6 +630,8 @@ function HotelBookingDetailPage({
                       rateBreakup?.currency,
                     )}
                   />
+                  {showAppliedPromotions ? (
+                    <>
                   <div className="bg-violet-50 px-4 py-2 text-xs font-semibold text-violet-700 uppercase tracking-wide border-t border-violet-100">
                     Promotions
                   </div>
@@ -660,6 +692,8 @@ function HotelBookingDetailPage({
                     )}
                     highlight
                   />
+                    </>
+                  ) : null}
                 </>
               )}
 
@@ -697,7 +731,7 @@ function HotelBookingDetailPage({
               />
               <RateRow
                 label={
-                  !isPackageRate && (rateBreakup?.serviceChargeAmount ?? 0) > 0
+                  !isPackageRate && showServiceCharge
                     ? "(A) Property gross charges (1+2+3, excl. service fee)"
                     : "(A) Property gross charges (1+2+3)"
                 }
@@ -707,6 +741,33 @@ function HotelBookingDetailPage({
                 )}
                 highlight
               />
+
+              {showServiceCharge && (
+                <>
+                  <div className="bg-orange-50 px-4 py-2 text-xs font-semibold text-orange-800 uppercase tracking-wide border-t border-orange-100">
+                    Service charges
+                  </div>
+                  <RateRow
+                    label={
+                      serviceChargePercent != null && serviceChargePercent > 0
+                        ? `Service fee @ ${formatPercent(serviceChargePercent)}`
+                        : "Service fee"
+                    }
+                    value={formatCurrency(
+                      serviceFeeAmount,
+                      rateBreakup?.currency,
+                    )}
+                  />
+                  <RateRow
+                    label="Property gross incl. service fee"
+                    value={formatCurrency(
+                      rateBreakup?.hotelGrossCharges,
+                      rateBreakup?.currency,
+                    )}
+                    highlight
+                  />
+                </>
+              )}
 
               {!isPackageRate && (
                 <>

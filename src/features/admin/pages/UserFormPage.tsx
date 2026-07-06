@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button, Input, LoadingSpinner, Select } from "@/components/ui";
 import { ROUTES } from "@/constants";
+import { isSuperAdminExcludedFromUserEdit } from "@/constants/roles";
 import {
   adminService,
   type CreateUserRequest,
@@ -102,6 +103,7 @@ export default function UserFormPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [serverErrorPopup, setServerErrorPopup] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [editUser, setEditUser] = useState<User | null>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -113,7 +115,10 @@ export default function UserFormPage() {
         ]);
         setStates((allStates || []).filter((s) => s.active));
         if (user) {
+          setEditUser(user);
           hydrateFormForEdit(user);
+        } else {
+          setEditUser(null);
         }
       } catch (e: unknown) {
         const err = e as { message?: string };
@@ -307,6 +312,32 @@ export default function UserFormPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (
+    isEdit &&
+    editUser &&
+    isSuperAdminExcludedFromUserEdit(editUser.roles)
+  ) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <p className="text-gray-900 font-medium mb-2">
+          This user cannot be edited from admin
+        </p>
+        <p className="text-gray-600 text-sm mb-4">
+          Hotel managers, accountants, and front desk staff are created and
+          managed under the property account&apos;s My Team. They may appear in
+          the global user list for visibility only.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => navigate(ROUTES.ADMIN.USER_DETAIL(editUser.userId))}
+        >
+          Back to user details
+        </Button>
       </div>
     );
   }

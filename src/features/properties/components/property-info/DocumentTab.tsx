@@ -289,9 +289,6 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                       Verified Date
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Remarks
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -315,11 +312,6 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-600">
                           {formatDateTime(document.verifiedAt)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-600">
-                          {document.remarks || "-"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -586,12 +578,6 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                     </span>
                   </div>
                 </div>
-                {selectedDocument.remarks && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <span className="text-gray-500 text-sm">Remarks:</span>
-                    <p className="text-gray-900 text-sm mt-1 italic">{selectedDocument.remarks}</p>
-                  </div>
-                )}
               </div>
             </div>
           </div>

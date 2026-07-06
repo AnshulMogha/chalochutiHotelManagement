@@ -78,6 +78,11 @@ function formatPercent(value: number | undefined | null): string {
   return `${Number(value.toFixed(4))}%`;
 }
 
+function formatRuleName(name: string | undefined | null): string {
+  if (!name || name.toUpperCase() === "NONE") return "None";
+  return name;
+}
+
 function getBookingStatusStyle(status: string | undefined): string {
   if (!status) return "bg-gray-100 text-gray-700 border-gray-200";
   const s = status.toUpperCase();
@@ -346,6 +351,8 @@ export default function AdminBookingDetailPage({
   const serviceFeeExclGst =
     detail.pricing.serviceFeeAmount ?? detail.financials.serviceFeeAmount ?? 0;
   const serviceFeeInclGst = getServiceFeeFromBreakup(rateBreakup);
+  const extraAdultCount =
+    detail.financials.extraAdultCount ?? rateBreakup?.extraAdultCount;
   const extraAdultCharges =
     detail.financials.extraAdultCharges ?? detail.financials.extraChildCharges;
   const promotionDiscount =
@@ -489,7 +496,7 @@ export default function AdminBookingDetailPage({
             <div className="rounded-xl border border-orange-100 bg-white/70 px-3 py-2.5">
               <p className="text-xs text-gray-500">Rule</p>
               <p className="font-medium text-gray-900">
-                {detail.financials.serviceFeeRuleName || "—"}
+                {formatRuleName(detail.financials.serviceFeeRuleName)}
               </p>
               {detail.financials.effectiveServiceFeePercent != null ? (
                 <p className="text-xs text-gray-500 mt-0.5">
@@ -510,21 +517,21 @@ export default function AdminBookingDetailPage({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <RuleCard
               title="Service fee"
-              ruleName={detail.financials.serviceFeeRuleName}
+              ruleName={formatRuleName(detail.financials.serviceFeeRuleName)}
               percent={detail.financials.effectiveServiceFeePercent}
               amount={serviceFeeInclGst}
               currency={currency}
             />
             <RuleCard
               title="Commission"
-              ruleName={detail.financials.commissionRuleName}
+              ruleName={formatRuleName(detail.financials.commissionRuleName)}
               percent={detail.financials.commissionPercent}
               amount={detail.financials.commissionAmount}
               currency={currency}
             />
             <RuleCard
               title="Tax (GST)"
-              ruleName={detail.financials.taxRuleName}
+              ruleName={formatRuleName(detail.financials.taxRuleName)}
               percent={detail.financials.gstPercent}
               amount={detail.financials.gstAmount}
               currency={currency}
@@ -533,7 +540,7 @@ export default function AdminBookingDetailPage({
           <p className="mt-4 text-xs text-gray-500">
             Promotion:{" "}
             <span className="font-medium text-gray-700">
-              {detail.financials.promotionRuleName || "None"}
+              {formatRuleName(detail.financials.promotionRuleName)}
             </span>
           </p>
         </SectionCard>
@@ -706,11 +713,25 @@ export default function AdminBookingDetailPage({
               <DetailRow
                 label="Paid amount"
                 value={
-                  <span className="text-lg font-bold tabular-nums">
-                    {formatCurrency(detail.payment.paidAmount, currency)}
-                  </span>
+                  detail.payment.paidAmount != null && detail.payment.paidAmount > 0 ? (
+                    <span className="text-lg font-bold tabular-nums">
+                      {formatCurrency(detail.payment.paidAmount, currency)}
+                    </span>
+                  ) : (
+                    "—"
+                  )
                 }
               />
+              {detail.payment.pendingAmount != null ? (
+                <DetailRow
+                  label="Pending amount"
+                  value={
+                    <span className="text-lg font-bold tabular-nums text-amber-700">
+                      {formatCurrency(detail.payment.pendingAmount, currency)}
+                    </span>
+                  }
+                />
+              ) : null}
             </dl>
           </SectionCard>
 
@@ -736,12 +757,28 @@ export default function AdminBookingDetailPage({
               />
               <DetailRow
                 label="Promotion rule"
-                value={detail.financials.promotionRuleName}
+                value={formatRuleName(detail.financials.promotionRuleName)}
               />
               <DetailRow
                 label="Tax rule"
-                value={detail.financials.taxRuleName}
+                value={formatRuleName(detail.financials.taxRuleName)}
               />
+              {detail.financials.agencyIncentivePercent != null ? (
+                <DetailRow
+                  label="Agency incentive"
+                  value={formatPercent(detail.financials.agencyIncentivePercent)}
+                />
+              ) : null}
+              {detail.financials.agencyCommission != null &&
+              detail.financials.agencyCommission > 0 ? (
+                <DetailRow
+                  label="Agency commission"
+                  value={formatCurrency(
+                    detail.financials.agencyCommission,
+                    currency,
+                  )}
+                />
+              ) : null}
             </dl>
           </SectionCard>
 
@@ -751,6 +788,11 @@ export default function AdminBookingDetailPage({
             iconColor="bg-rose-100 text-rose-600"
             title="Cancellation policy"
           >
+            {detail.cancellation.nonRefundable ? (
+              <span className="inline-flex mb-3 px-2.5 py-1 rounded-lg text-xs font-semibold border bg-red-50 text-red-800 border-red-200">
+                Non-refundable
+              </span>
+            ) : null}
             <p className="text-sm text-gray-700 leading-relaxed">
               {detail.cancellation.cancellationPolicy || "—"}
             </p>
@@ -891,6 +933,12 @@ export default function AdminBookingDetailPage({
                 label="Room charges"
                 value={formatCurrency(rateBreakup?.roomCharges, currency)}
               />
+              {extraAdultCount != null ? (
+                <RateRow
+                  label="Extra adult count"
+                  value={String(extraAdultCount)}
+                />
+              ) : null}
               <RateRow
                 label="Extra adult / child"
                 value={formatCurrency(
@@ -927,7 +975,7 @@ export default function AdminBookingDetailPage({
               />
               <RateRow
                 label="Service fee rule"
-                value={detail.financials.serviceFeeRuleName || "—"}
+                value={formatRuleName(detail.financials.serviceFeeRuleName)}
               />
               <RateRow
                 label="Property gross (excl. service fee)"
@@ -1039,6 +1087,12 @@ export default function AdminBookingDetailPage({
                   label="Base price"
                   value={formatCurrency(detail.financials.basePrice, currency)}
                 />
+                {extraAdultCount != null ? (
+                  <DetailRow
+                    label="Extra adult count"
+                    value={String(extraAdultCount)}
+                  />
+                ) : null}
                 <DetailRow
                   label="Extra adult charges"
                   value={formatCurrency(extraAdultCharges, currency)}
@@ -1061,16 +1115,19 @@ export default function AdminBookingDetailPage({
                   )}
                 />
                 <DetailRow
-                  label={`GST (${formatPercent(detail.financials.gstPercent)})`}
+                  label={`GST${detail.financials.gstPercent != null ? ` (${formatPercent(detail.financials.gstPercent)})` : ""}`}
                   value={formatCurrency(detail.financials.gstAmount, currency)}
                 />
-                <DetailRow
-                  label="CGST / SGST"
-                  value={`${formatCurrency(detail.financials.cgstAmount, currency)} / ${formatCurrency(detail.financials.sgstAmount, currency)}`}
-                />
+                {(detail.financials.cgstAmount != null ||
+                  detail.financials.sgstAmount != null) && (
+                  <DetailRow
+                    label="CGST / SGST"
+                    value={`${formatCurrency(detail.financials.cgstAmount, currency)} / ${formatCurrency(detail.financials.sgstAmount, currency)}`}
+                  />
+                )}
                 <DetailRow
                   label="Tax rule"
-                  value={detail.financials.taxRuleName}
+                  value={formatRuleName(detail.financials.taxRuleName)}
                 />
               </dl>
               <dl>
@@ -1096,7 +1153,9 @@ export default function AdminBookingDetailPage({
                   label="Service fee rule"
                   value={
                     <div>
-                      <span>{detail.financials.serviceFeeRuleName}</span>
+                      <span>
+                        {formatRuleName(detail.financials.serviceFeeRuleName)}
+                      </span>
                       {detail.financials.effectiveServiceFeePercent != null ? (
                         <p className="text-xs text-gray-500 mt-0.5">
                           Effective {formatPercent(detail.financials.effectiveServiceFeePercent)}
@@ -1106,7 +1165,7 @@ export default function AdminBookingDetailPage({
                   }
                 />
                 <DetailRow
-                  label={`Commission (${formatPercent(detail.financials.commissionPercent)})`}
+                  label={`Commission${detail.financials.commissionPercent != null ? ` (${formatPercent(detail.financials.commissionPercent)})` : ""}`}
                   value={formatCurrency(
                     detail.financials.commissionAmount,
                     currency,
@@ -1118,26 +1177,34 @@ export default function AdminBookingDetailPage({
                 />
                 <DetailRow
                   label="Commission rule"
-                  value={detail.financials.commissionRuleName}
+                  value={formatRuleName(detail.financials.commissionRuleName)}
                 />
-                <DetailRow
-                  label="Agency commission"
-                  value={formatCurrency(
-                    detail.financials.agencyCommission,
-                    currency,
-                  )}
-                />
+                {detail.financials.agencyIncentivePercent != null ? (
+                  <DetailRow
+                    label="Agency incentive"
+                    value={formatPercent(detail.financials.agencyIncentivePercent)}
+                  />
+                ) : null}
+                {detail.financials.agencyCommission != null ? (
+                  <DetailRow
+                    label="Agency commission"
+                    value={formatCurrency(
+                      detail.financials.agencyCommission,
+                      currency,
+                    )}
+                  />
+                ) : null}
               </dl>
               <dl>
                 <p className="text-xs font-semibold uppercase text-gray-500 mb-2">
                   Tax, payout & OTA
                 </p>
                 <DetailRow
-                  label={`TCS (${formatPercent(detail.financials.tcsPercent)})`}
+                  label={`TCS${detail.financials.tcsPercent != null ? ` (${formatPercent(detail.financials.tcsPercent)})` : ""}`}
                   value={formatCurrency(detail.financials.tcsAmount, currency)}
                 />
                 <DetailRow
-                  label={`TDS (${formatPercent(detail.financials.tdsPercent)})`}
+                  label={`TDS${detail.financials.tdsPercent != null ? ` (${formatPercent(detail.financials.tdsPercent)})` : ""}`}
                   value={formatCurrency(detail.financials.tdsAmount, currency)}
                 />
                 <DetailRow

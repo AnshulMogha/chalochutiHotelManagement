@@ -25,38 +25,55 @@ export function ListStatusFilterTabs({
   inactiveCount,
   className,
 }: ListStatusFilterTabsProps) {
-  const tabs: { id: ListStatusFilterValue; label: string; count?: number }[] = [
-    { id: "active", label: "Active", count: activeCount },
-    { id: "inactive", label: "Inactive", count: inactiveCount },
-  ];
+  const tabConfig: Record<
+    ListStatusFilterValue,
+    { label: string; count?: number; selected: string; idle: string }
+  > = {
+    active: {
+      label: "Active",
+      count: activeCount,
+      selected:
+        "bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/30 font-semibold",
+      idle: "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 hover:ring-1 hover:ring-emerald-200",
+    },
+    inactive: {
+      label: "Inactive",
+      count: inactiveCount,
+      selected:
+        "bg-slate-600 text-white shadow-sm ring-2 ring-slate-600/30 font-semibold",
+      idle: "text-slate-600 hover:bg-slate-100 hover:text-slate-800 hover:ring-1 hover:ring-slate-200",
+    },
+  };
 
   return (
     <div
       className={cn(
-        "inline-flex gap-1 p-1 bg-gray-100 rounded-lg border border-gray-200",
+        "inline-flex gap-1 rounded-lg border border-slate-200 bg-slate-100/90 p-1",
         className,
       )}
       role="tablist"
       aria-label="Filter by status"
     >
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          role="tab"
-          aria-selected={value === tab.id}
-          onClick={() => onChange(tab.id)}
-          className={cn(
-            "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
-            value === tab.id
-              ? "bg-white text-[#2f3d95] shadow-sm"
-              : "text-gray-600 hover:text-gray-900",
-          )}
-        >
-          {tab.label}
-          {tab.count !== undefined ? ` (${tab.count})` : ""}
-        </button>
-      ))}
+      {(Object.keys(tabConfig) as ListStatusFilterValue[]).map((tabId) => {
+        const tab = tabConfig[tabId];
+        const isSelected = value === tabId;
+        return (
+          <button
+            key={tabId}
+            type="button"
+            role="tab"
+            aria-selected={isSelected}
+            onClick={() => onChange(tabId)}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm font-medium transition-all duration-150",
+              isSelected ? tab.selected : tab.idle,
+            )}
+          >
+            {tab.label}
+            {tab.count !== undefined ? ` (${tab.count})` : ""}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -150,9 +150,9 @@ const SpecialAudiencePromotionsPage = lazy(
 const CommissionAndTaxPage = lazy(
   () => import("../features/admin/pages/CommissionAndTaxPage"),
 );
-const DocumentReviewPage = lazy(
-  () => import("../features/admin/pages/DocumentReviewPage"),
-);
+// const DocumentReviewPage = lazy(
+//   () => import("../features/admin/pages/DocumentReviewPage"),
+// );
 const TravelPartnersPage = lazy(
   () => import("../features/admin/pages/TravelPartnersPage"),
 );
@@ -269,10 +269,10 @@ export const routes: RouteObject[] = [
         path: "admin/commission-tax",
         element: <CommissionAndTaxPage />,
       },
-      {
-        path: "admin/document-review",
-        element: <DocumentReviewPage />,
-      },
+      // {
+      //   path: "admin/document-review",
+      //   element: <DocumentReviewPage />,
+      // },
       {
         path: "admin/travel-partners",
         element: <TravelPartnersPage />,

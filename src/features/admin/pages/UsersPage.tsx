@@ -10,8 +10,8 @@ import {
   Button,
   Input,
   Select,
-  LoadingSpinner,
   ExportButton,
+  DataTable,
 } from "@/components/ui";
 import { RoleBadge } from "@/components/ui/badges/RoleBadge";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,6 @@ import {
   Mail,
   Phone,
   MapPinned,
-  Shield,
   ShieldCheck,
   Clock3,
   CalendarDays,
@@ -31,18 +30,29 @@ import {
   XCircle,
   AlertCircle,
   Building2,
+  Loader2,
+  Filter,
+  Shield,
+  Search,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
 import { isSuperAdminExcludedFromUserEdit } from "@/constants/roles";
-import {
-  DataGrid,
-  GridToolbar,
-  type GridPaginationModel,
-  type GridRowParams,
+import type {
+  GridColDef,
+  GridPaginationModel,
+  GridRowParams,
 } from "@mui/x-data-grid";
-import type { GridColDef } from "@mui/x-data-grid";
-import { Box } from "@mui/material";
 import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
+import { UserTableToolbar } from "../components/UserTableToolbar";
+import {
+  UserColumnHeader,
+  UserFilterBar,
+  UserFilterLabel,
+  UserFilterGroup,
+  UserFilterSelect,
+  UserSearchInput,
+  userTableGridSx,
+} from "../components/userTableUi";
 
 /** Roles Super Admin can assign on User Management (create/edit). Not exposed on hotel My Team. */
 const ROLE_OPTIONS = [
@@ -98,7 +108,10 @@ function UserFormModal({
     mode === "edit"
       ? ROLE_OPTIONS
       : ROLE_OPTIONS.filter(
-          (option) => !UPDATE_ONLY_ROLES.has(option.value as CreateUserRequest["roles"][number]),
+          (option) =>
+            !UPDATE_ONLY_ROLES.has(
+              option.value as CreateUserRequest["roles"][number],
+            ),
         );
 
   const [formData, setFormData] = useState<
@@ -681,23 +694,19 @@ export default function UsersPage() {
       field: "user",
       headerName: "User",
       flex: 1,
-      minWidth: 200,
+      minWidth: 180,
+      renderHeader: () => <UserColumnHeader icon={UserIcon} label="User" />,
       renderCell: (params) => {
         const firstName = params.row.firstName || "";
         const lastName = params.row.lastName || "";
         const fullName = `${firstName} ${lastName}`.trim() || "N/A";
         return (
-          <div className="flex items-center gap-3 h-full w-full">
-            <div className="w-10 h-10 rounded-lg bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
-              <UserIcon className="w-5 h-5 text-white" />
+          <div className="flex h-full w-full min-w-0 flex-col justify-center leading-snug">
+            <div className="truncate text-sm font-medium text-gray-900">
+              {fullName}
             </div>
-            <div className="flex flex-col justify-center">
-              <div className="text-sm font-semibold text-gray-900">
-                {fullName}
-              </div>
-              <div className="text-xs text-gray-500">
-                ID: {params.row.userId}
-              </div>
+            <div className="truncate text-xs text-gray-500">
+              ID: {params.row.userId}
             </div>
           </div>
         );
@@ -712,31 +721,28 @@ export default function UsersPage() {
       field: "email",
       headerName: "Email",
       flex: 1,
-      minWidth: 200,
+      minWidth: 180,
+      renderHeader: () => <UserColumnHeader icon={Mail} label="Email" />,
       renderCell: (params) => (
-        <div className="flex items-center h-full w-full text-sm text-gray-600">
-          <Mail className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
-          <span className="truncate">{params.value}</span>
-        </div>
+        <span className="truncate text-sm text-gray-700">{params.value}</span>
       ),
     },
     {
       field: "phoneNumber",
       headerName: "Phone",
       flex: 0.8,
-      minWidth: 150,
+      minWidth: 130,
+      renderHeader: () => <UserColumnHeader icon={Phone} label="Phone" />,
       renderCell: (params) => (
-        <div className="flex items-center h-full w-full text-sm text-gray-600">
-          <Phone className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
-          <span>{params.value || "N/A"}</span>
-        </div>
+        <span className="text-sm text-gray-700">{params.value || "N/A"}</span>
       ),
     },
     {
       field: "roles",
       headerName: "Roles",
       flex: 1,
-      minWidth: 210,
+      minWidth: 200,
+      renderHeader: () => <UserColumnHeader icon={Shield} label="Roles" />,
       renderCell: (params) => (
         <div className="flex items-start h-full w-full py-2">
           <RoleBadge roles={params.value || []} />
@@ -747,7 +753,8 @@ export default function UsersPage() {
       field: "states",
       headerName: "States",
       flex: 1.2,
-      minWidth: 250,
+      minWidth: 220,
+      renderHeader: () => <UserColumnHeader icon={MapPinned} label="States" />,
       renderCell: (params) => {
         const states = (params.row.states || []) as Array<{
           id: number;
@@ -786,9 +793,12 @@ export default function UsersPage() {
       field: "security",
       headerName: "Security",
       flex: 1.1,
-      minWidth: 240,
+      minWidth: 220,
       sortable: false,
       filterable: false,
+      renderHeader: () => (
+        <UserColumnHeader icon={ShieldCheck} label="Security" />
+      ),
       renderCell: (params) => (
         <div className="flex flex-wrap items-center gap-1 py-1">
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
@@ -817,12 +827,12 @@ export default function UsersPage() {
       field: "lastLoginTime",
       headerName: "Last Login",
       flex: 0.9,
-      minWidth: 180,
+      minWidth: 160,
+      renderHeader: () => <UserColumnHeader icon={Clock3} label="Last Login" />,
       renderCell: (params) => (
-        <div className="flex items-center h-full w-full text-sm text-gray-600">
-          <Clock3 className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
-          <span>{formatDateTime(params.row.lastLoginTime)}</span>
-        </div>
+        <span className="text-sm text-gray-700">
+          {formatDateTime(params.row.lastLoginTime)}
+        </span>
       ),
       valueGetter: (value, row) => formatDateTime(row.lastLoginTime),
     },
@@ -830,12 +840,14 @@ export default function UsersPage() {
       field: "createdAt",
       headerName: "Created",
       flex: 0.9,
-      minWidth: 180,
+      minWidth: 160,
+      renderHeader: () => (
+        <UserColumnHeader icon={CalendarDays} label="Created" />
+      ),
       renderCell: (params) => (
-        <div className="flex items-center h-full w-full text-sm text-gray-600">
-          <CalendarDays className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
-          <span>{formatDateTime(params.row.createdAt)}</span>
-        </div>
+        <span className="text-sm text-gray-700">
+          {formatDateTime(params.row.createdAt)}
+        </span>
       ),
       valueGetter: (value, row) => formatDateTime(row.createdAt),
     },
@@ -843,7 +855,10 @@ export default function UsersPage() {
       field: "accountStatus",
       headerName: "Status",
       flex: 0.6,
-      minWidth: 120,
+      minWidth: 110,
+      renderHeader: () => (
+        <UserColumnHeader icon={CheckCircle2} label="Status" />
+      ),
       renderCell: (params) => (
         <div className="flex items-center h-full w-full">
           <StatusBadge status={params.value} />
@@ -854,9 +869,10 @@ export default function UsersPage() {
       field: "actions",
       headerName: "Actions",
       flex: 1,
-      minWidth: 260,
+      minWidth: 240,
       sortable: false,
       filterable: false,
+      renderHeader: () => <UserColumnHeader icon={Edit} label="Actions" />,
       renderCell: (params) => {
         const staffExcluded = isSuperAdminExcludedFromUserEdit(
           params.row.roles,
@@ -935,294 +951,191 @@ export default function UsersPage() {
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <Button onClick={fetchUsers}>Retry</Button>
-        </div>
-      </div>
-    );
-  }
+  const hasActiveFilters =
+    statusFilter !== "" || roleFilter !== "" || emailFilter !== "";
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+    <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden">
+      <div className="container mx-auto flex h-full min-h-0 flex-1 flex-col px-4 py-4">
+        <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
+          <h1 className="text-xl font-bold tracking-tight text-gray-900">
             User Management
+            {!isLoading && (
+              <span className="ml-1.5 font-bold text-gray-900">
+                ({rowCount} user{rowCount !== 1 ? "s" : ""})
+              </span>
+            )}
           </h1>
-          <p className="text-gray-600">Create and manage system users</p>
+          <div className="flex shrink-0 items-center gap-2">
+            {users.length > 0 && (
+              <ExportButton
+                onExportCSV={handleExportCSV}
+                onExportExcel={handleExportExcel}
+              />
+            )}
+            <Button
+              variant="primary"
+              onClick={() => navigate(ROUTES.ADMIN.USER_CREATE)}
+              className="gap-1.5 py-1.5 text-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Create User
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          {users.length > 0 && (
-            <ExportButton
-              onExportCSV={handleExportCSV}
-              onExportExcel={handleExportExcel}
+
+        {successMessage && (
+          <div className="mb-2 flex shrink-0 items-center justify-between rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+            <span>{successMessage}</span>
+            <button
+              type="button"
+              className="text-green-700 hover:text-green-900"
+              onClick={() => setSuccessMessage(null)}
+              aria-label="Dismiss success message"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        <UserFilterBar>
+          <UserFilterLabel icon={Filter} label="Filters" />
+          <UserFilterGroup icon={CheckCircle2} theme="emerald">
+            <UserFilterSelect
+              embedded
+              aria-label="Filter by status"
+              value={statusFilter}
+              onChange={(value) => {
+                setStatusFilter(value);
+                setPaginationModel((prev) => ({ ...prev, page: 0 }));
+              }}
+              options={[{ value: "", label: "All statuses" }, ...STATUS_OPTIONS]}
             />
-          )}
-          <Button
-            variant="primary"
-            onClick={() => navigate(ROUTES.ADMIN.USER_CREATE)}
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Create User
-          </Button>
-        </div>
-      </div>
-
-      <div className="mb-5 grid grid-cols-1 md:grid-cols-4 gap-3 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-        <Select
-          label="Status"
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setPaginationModel((prev) => ({ ...prev, page: 0 }));
-          }}
-          options={[{ value: "", label: "All" }, ...STATUS_OPTIONS]}
-        />
-        <Select
-          label="Role"
-          value={roleFilter}
-          onChange={(e) => {
-            setRoleFilter(e.target.value);
-            setPaginationModel((prev) => ({ ...prev, page: 0 }));
-          }}
-          options={[{ value: "", label: "All" }, ...ROLE_OPTIONS]}
-        />
-        <Input
-          label="Email"
-          type="email"
-          value={emailFilterInput}
-          onChange={(e) => setEmailFilterInput(e.target.value)}
-          onKeyDown={handleEmailSearchKeyDown}
-          placeholder="Search by email"
-          icon={<Mail className="w-4 h-4 text-gray-400" />}
-        />
-        <div className="flex items-end gap-2">
-          <Button type="button" variant="primary" onClick={applyFilters}>
-            Search
-          </Button>
-          <Button type="button" variant="outline" onClick={resetFilters}>
-            Reset
-          </Button>
-        </div>
-      </div>
-
-      {successMessage && (
-        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center justify-between">
-          <span>{successMessage}</span>
+          </UserFilterGroup>
+          <UserFilterGroup icon={Shield} theme="indigo">
+            <UserFilterSelect
+              embedded
+              aria-label="Filter by role"
+              value={roleFilter}
+              onChange={(value) => {
+                setRoleFilter(value);
+                setPaginationModel((prev) => ({ ...prev, page: 0 }));
+              }}
+              options={[{ value: "", label: "All roles" }, ...ROLE_OPTIONS]}
+            />
+          </UserFilterGroup>
+          <UserFilterGroup icon={Mail} theme="sky" className="min-w-[200px] flex-1">
+            <UserSearchInput
+              embedded
+              value={emailFilterInput}
+              onChange={setEmailFilterInput}
+              onKeyDown={handleEmailSearchKeyDown}
+              placeholder="Search by email..."
+            />
+          </UserFilterGroup>
           <button
             type="button"
-            className="text-green-700 hover:text-green-900"
-            onClick={() => setSuccessMessage(null)}
-            aria-label="Dismiss success message"
+            onClick={applyFilters}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#2f3d95] bg-[#2f3d95] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#263578]"
           >
-            <X className="w-4 h-4" />
+            <Search className="h-3.5 w-3.5" />
+            Search
           </button>
-        </div>
-      )}
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="inline-flex h-8 items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
+            >
+              <X className="h-3.5 w-3.5" />
+              Reset
+            </button>
+          )}
+        </UserFilterBar>
 
-      {users.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-16 text-center">
-          <UserIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-600 text-lg font-medium mb-2">No users yet</p>
-          <p className="text-gray-500 text-sm mb-4">
-            Create your first user to get started
-          </p>
-          <Button
-            variant="primary"
-            onClick={() => navigate(ROUTES.ADMIN.USER_CREATE)}
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Create User
-          </Button>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm">
+          {isLoading ? (
+            <div className="flex flex-1 flex-col items-center justify-center px-4">
+              <Loader2 className="mb-3 h-9 w-9 animate-spin text-[#2f3d95]" />
+              <p className="text-sm font-medium text-gray-600">
+                Loading users...
+              </p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+              <AlertCircle className="mb-3 h-10 w-10 text-red-400" />
+              <p className="mb-3 text-sm font-medium text-red-600">{error}</p>
+              <Button
+                onClick={fetchUsers}
+                variant="primary"
+                className="text-sm"
+              >
+                Retry
+              </Button>
+            </div>
+          ) : users.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
+                <UserIcon className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="mb-1 text-lg font-semibold text-gray-900">
+                {hasActiveFilters ? "No users found" : "No users yet"}
+              </h3>
+              <p className="max-w-sm text-sm text-gray-500">
+                {hasActiveFilters
+                  ? "Try adjusting or clearing your filters."
+                  : "Create your first user to get started."}
+              </p>
+              {hasActiveFilters ? (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  <X className="h-4 w-4" />
+                  Clear filters
+                </button>
+              ) : (
+                <Button
+                  variant="primary"
+                  onClick={() => navigate(ROUTES.ADMIN.USER_CREATE)}
+                  className="mt-4 gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create User
+                </Button>
+              )}
+            </div>
+          ) : (
+            <DataTable
+              rows={users}
+              columns={columns}
+              getRowId={(row) => row.userId}
+              getRowHeight={() => "auto"}
+              pageSizeOptions={[10, 20, 50, 100]}
+              paginationMode="server"
+              rowCount={rowCount}
+              paginationModel={paginationModel}
+              onPaginationModelChange={setPaginationModel}
+              onRowClick={(params: GridRowParams<User>) =>
+                navigate(ROUTES.ADMIN.USER_DETAIL(params.row.userId))
+              }
+              disableRowSelectionOnClick
+              showToolbar
+              fillContainer
+              slots={{ toolbar: UserTableToolbar }}
+              slotProps={{
+                toolbar: {
+                  showQuickFilter: false,
+                },
+              }}
+              exportFileName={`users-${new Date().toISOString().split("T")[0]}`}
+              sx={userTableGridSx}
+              className="h-full rounded-none border-0 shadow-none"
+            />
+          )}
         </div>
-      ) : (
-        <Box
-          sx={{
-            width: "100%",
-            borderRadius: "12px",
-            // Keep menus/popups from being clipped by container edges.
-            overflow: "visible",
-          }}
-          className="bg-white border border-gray-200 shadow-md"
-        >
-          <DataGrid
-            rows={users}
-            columns={columns}
-            getRowId={(row) => row.userId}
-            autoHeight
-            getRowHeight={() => "auto"}
-            pageSizeOptions={[5, 10, 20, 50, 100]}
-            paginationMode="server"
-            rowCount={rowCount}
-            paginationModel={paginationModel}
-            onPaginationModelChange={setPaginationModel}
-            onRowClick={(params: GridRowParams<User>) =>
-              navigate(ROUTES.ADMIN.USER_DETAIL(params.row.userId))
-            }
-            disableRowSelectionOnClick
-            slots={{
-              toolbar: GridToolbar,
-            }}
-            slotProps={{
-              toolbar: {
-                showQuickFilter: true,
-                quickFilterProps: { debounceMs: 500 },
-                csvOptions: {
-                  fileName: `users-${new Date().toISOString().split("T")[0]}`,
-                  delimiter: ",",
-                  utf8WithBom: true,
-                },
-                printOptions: {
-                  disableToolbarButton: false,
-                },
-                exportOptions: {
-                  formatOptions: {
-                    utf8WithBom: true,
-                  },
-                },
-              },
-            }}
-            sx={{
-              border: "none",
-              borderRadius: "12px",
-              "& .MuiDataGrid-root": {
-                border: "none",
-              },
-              "& .MuiDataGrid-columnHeaders": {
-                backgroundColor: "#2f3d95 !important",
-                color: "white !important",
-                fontSize: "0.875rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                minHeight: "56px !important",
-                "& .MuiDataGrid-columnHeaderTitleContainer": {
-                  backgroundColor: "#2f3d95 !important",
-                },
-                "& .MuiDataGrid-columnHeaderTitle": {
-                  fontWeight: 700,
-                  fontSize: "0.875rem",
-                  color: "white !important",
-                },
-                "& .MuiDataGrid-iconButtonContainer": {
-                  color: "white !important",
-                },
-              },
-              "& .MuiDataGrid-columnHeader": {
-                padding: "14px 16px",
-                backgroundColor: "#2f3d95 !important",
-                color: "white !important",
-                display: "flex",
-                alignItems: "center",
-                "&:focus": {
-                  outline: "none",
-                },
-                "&:focus-within": {
-                  outline: "none",
-                },
-                "&:hover .MuiDataGrid-iconButtonContainer": {
-                  opacity: 0,
-                },
-                "& .MuiDataGrid-iconButtonContainer": {
-                  opacity: 0,
-                  transition: "opacity 0.2s",
-                },
-                "&.MuiDataGrid-columnHeader--sorted .MuiDataGrid-iconButtonContainer":
-                  {
-                    opacity: 1,
-                    "& .MuiDataGrid-sortIcon": {
-                      color: "#10b981 !important",
-                      fontSize: "0.875rem",
-                      width: "16px",
-                      height: "16px",
-                    },
-                  },
-                "& .MuiDataGrid-sortIcon": {
-                  color: "#10b981 !important",
-                  fontSize: "0.875rem",
-                  width: "16px",
-                  height: "16px",
-                },
-              },
-              "& .MuiDataGrid-row": {
-                cursor: "pointer",
-                "&:hover": {
-                  backgroundColor: "#eff6ff",
-                },
-                "&:nth-of-type(even)": {
-                  backgroundColor: "#fafafa",
-                  "&:hover": {
-                    backgroundColor: "#eff6ff",
-                  },
-                },
-              },
-              "& .MuiDataGrid-cell": {
-                borderBottom: "1px solid #e5e7eb",
-                padding: "14px 16px",
-                fontSize: "0.875rem",
-                display: "flex",
-                alignItems: "center",
-                whiteSpace: "normal",
-                lineHeight: "1.3rem",
-                "&:focus": {
-                  outline: "none",
-                },
-                "&:focus-within": {
-                  outline: "none",
-                },
-              },
-              "& .MuiDataGrid-cell--textLeft": {
-                alignItems: "flex-start",
-              },
-              "& .MuiDataGrid-cell[data-field='actions']": {
-                overflow: "visible",
-              },
-              "& .MuiDataGrid-footerContainer": {
-                borderTop: "1px solid #e5e7eb",
-                padding: "12px 16px",
-                backgroundColor: "white",
-              },
-              "& .MuiDataGrid-toolbarContainer": {
-                padding: "12px 16px",
-                backgroundColor: "#f9fafb",
-                borderBottom: "1px solid #e5e7eb",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                "& .MuiButton-root": {
-                  textTransform: "none",
-                },
-              },
-              "& .MuiDataGrid-main": {
-                overflowX: "auto",
-              },
-              "& .MuiDataGrid-columnHeadersInner": {
-                backgroundColor: "#2f3d95 !important",
-              },
-              "& .MuiDataGrid-columnHeaders .MuiDataGrid-filler": {
-                backgroundColor: "#2f3d95 !important",
-              },
-              "& .MuiDataGrid-menu, & .MuiDataGrid-panel, & .MuiPopper-root": {
-                zIndex: 1700,
-              },
-            }}
-          />
-        </Box>
-      )}
+      </div>
     </div>
   );
 }
