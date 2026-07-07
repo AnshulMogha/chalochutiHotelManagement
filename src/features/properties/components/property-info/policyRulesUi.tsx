@@ -1,6 +1,8 @@
+import { useEffect, useId, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   CalendarClock,
+  ChevronDown,
   CreditCard,
   FileText,
   Loader2,
@@ -269,6 +271,99 @@ export function PolicyCheckboxGrid({
       )}
     >
       {children}
+    </div>
+  );
+}
+
+export function BoundedHourSelect({
+  label,
+  value,
+  onChange,
+  options,
+  formatOption,
+  error,
+  placeholder = "Select",
+}: {
+  label: string;
+  value: number | "";
+  onChange: (hours: number | "") => void;
+  options: number[];
+  formatOption: (hours: number) => string;
+  error?: string;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const listId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const selectedLabel =
+    value === "" ? placeholder : formatOption(Number(value));
+
+  return (
+    <div className="space-y-2" ref={rootRef}>
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <div className="relative">
+        <button
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={listId}
+          className={cn(
+            "flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm",
+            "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+            error && "border-red-500",
+          )}
+          onClick={() => setOpen((prev) => !prev)}
+        >
+          <span className={value === "" ? "text-gray-500" : "text-gray-900"}>
+            {selectedLabel}
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-gray-500 transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </button>
+        {open && (
+          <div
+            id={listId}
+            role="listbox"
+            className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+          >
+            {options.map((hours) => (
+              <button
+                key={hours}
+                type="button"
+                role="option"
+                aria-selected={value === hours}
+                className={cn(
+                  "flex w-full px-3 py-2 text-left text-sm hover:bg-blue-50",
+                  value === hours && "bg-blue-100 font-medium text-blue-900",
+                )}
+                onClick={() => {
+                  onChange(hours);
+                  setOpen(false);
+                }}
+              >
+                {formatOption(hours)}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

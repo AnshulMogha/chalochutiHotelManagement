@@ -398,10 +398,16 @@ export interface UpdateHotelAddressRequest {
   landmark: string;
 }
 
+export type CancellationCreationType = "DEFAULT" | "CUSTOM";
+
 export interface CancellationPolicyPayload {
   policyName: string;
+  creationType?: CancellationCreationType;
   noShowPenaltyType: "NONE" | "PERCENTAGE" | "FIXED";
   noShowPenaltyValue?: number | null;
+  applyChannel?: "B2C" | "B2B" | "BUNDLE";
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
   slabs: {
     fromHours: number;
     toHours: number;
@@ -425,8 +431,12 @@ export interface CancellationPolicy {
   id: number;
   hotelId: string;
   policyName: string;
+  creationType?: CancellationCreationType;
   noShowPenaltyType?: "NONE" | "PERCENTAGE" | "FIXED";
   noShowPenaltyValue?: number | null;
+  applyChannel?: "B2C" | "B2B" | "BUNDLE";
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
   version: number;
   isLatest: boolean;
   status: string;

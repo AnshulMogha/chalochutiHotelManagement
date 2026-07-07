@@ -40,6 +40,7 @@ import {
   PolicySectionHeader,
   PolicyTimeField,
   PolicyToggleOption,
+  BoundedHourSelect,
 } from "./policyRulesUi";
 
 interface PolicyAndRulesTabProps {
@@ -111,19 +112,20 @@ type NoShowPenaltyType = "NONE" | "PERCENTAGE" | "FIXED";
 
 const HOURS_PER_DAY = 24;
 
+const CUSTOM_CONDITION_HOUR_OPTIONS = Array.from(
+  { length: 31 },
+  (_, day) => day * HOURS_PER_DAY,
+);
+
 type RuleDraftState = {
-  fromDays: NumericInput;
   fromHours: NumericInput;
-  toDays: NumericInput;
   toHours: NumericInput;
   penaltyType: SlabPenaltyType;
   penaltyValue: NumericInput;
 };
 
 const EMPTY_RULE_DRAFT: RuleDraftState = {
-  fromDays: "",
   fromHours: "",
-  toDays: "",
   toHours: "",
   penaltyType: "PERCENTAGE",
   penaltyValue: "",
@@ -140,15 +142,6 @@ function splitTotalHoursToDaysAndHours(totalHours: number): {
   };
 }
 
-function combineDaysAndHoursToTotalHours(
-  days: NumericInput,
-  hours: NumericInput,
-): number {
-  const dayCount = days === "" ? 0 : Number(days);
-  const hourCount = hours === "" ? 0 : Number(hours);
-  return dayCount * HOURS_PER_DAY + hourCount;
-}
-
 function formatCancellationDuration(totalHours: number): string {
   const { days, hours } = splitTotalHoursToDaysAndHours(totalHours);
   if (days === 0 && hours === 0) return "0 hrs";
@@ -158,11 +151,51 @@ function formatCancellationDuration(totalHours: number): string {
   return `${parts.join(" ")} (${totalHours} hrs)`;
 }
 
+function formatBeforeCheckinLabel(totalHours: number): string {
+  if (totalHours === 0) return "check-in";
+  const days = Math.floor(totalHours / HOURS_PER_DAY);
+  if (days * HOURS_PER_DAY === totalHours) {
+    return `${days} day${days === 1 ? "" : "s"} before check-in`;
+  }
+  return `${formatCancellationDuration(totalHours)} before check-in`;
+}
+
+function formatEffectiveDatesDisplay(
+  effectiveFrom?: string | null,
+  effectiveTo?: string | null,
+): string {
+  const from = effectiveFrom?.trim();
+  const to = effectiveTo?.trim();
+
+  if (!from && !to) return "Not set";
+  if (from && to) return `${from} to ${to}`;
+  if (from) return `From ${from}`;
+  return `Until ${to}`;
+}
+
 interface CancellationSlabForm {
   fromHours: number;
   toHours: number;
   penaltyType: SlabPenaltyType;
   penaltyValue: number;
+}
+
+function slabsOverlap(
+  a: { fromHours: number; toHours: number },
+  b: { fromHours: number; toHours: number },
+) {
+  return a.fromHours < b.toHours && a.toHours > b.fromHours;
+}
+
+function findOverlappingSlabIndexes(slabs: CancellationSlabForm[]): number[] {
+  for (let i = 0; i < slabs.length; i += 1) {
+    for (let j = i + 1; j < slabs.length; j += 1) {
+      if (slabsOverlap(slabs[i], slabs[j])) {
+        return [i, j];
+      }
+    }
+  }
+  return [];
 }
 
 interface CancellationFormErrors {
@@ -177,6 +210,61 @@ interface RuleDraftErrors {
   penaltyValue?: string;
   overlap?: string;
 }
+
+type CancellationPresetKey =
+  | "FREE_TILL_CHECKIN"
+  | "FREE_24_HOURS"
+  | "FREE_48_HOURS"
+  | "FREE_72_HOURS"
+  | "NON_REFUNDABLE"
+  | "CUSTOM";
+
+const CANCELLATION_PRESET_OPTIONS: {
+  key: CancellationPresetKey;
+  label: string;
+}[] = [
+  {
+    key: "FREE_TILL_CHECKIN",
+    label: "Free cancellation till check-in",
+  },
+  {
+    key: "FREE_24_HOURS",
+    label: "Free cancellation till 24 hours before check-in",
+  },
+  {
+    key: "FREE_48_HOURS",
+    label: "Free cancellation till 48 hours before check-in",
+  },
+  {
+    key: "FREE_72_HOURS",
+    label: "Free cancellation till 72 hours before check-in",
+  },
+  {
+    key: "NON_REFUNDABLE",
+    label: "Non-refundable",
+  },
+  {
+    key: "CUSTOM",
+    label: "Create a custom cancellation policy",
+  },
+];
+
+const getCancellationPresetLabel = (preset: CancellationPresetKey) =>
+  CANCELLATION_PRESET_OPTIONS.find((option) => option.key === preset)?.label ??
+  "Custom cancellation policy";
+
+const normalizeCreationType = (
+  value: unknown,
+): CancellationPolicy["creationType"] => {
+  if (value === "DEFAULT" || value === "CUSTOM") return value;
+  if (typeof value === "string") {
+    const normalized = value.toUpperCase();
+    if (normalized === "DEFAULT" || normalized === "CUSTOM") {
+      return normalized;
+    }
+  }
+  return undefined;
+};
 
 const toBoolean = (value: unknown, fallback = false) => {
   if (typeof value === "boolean") return value;
@@ -322,6 +410,9 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
       policyName: "",
       noShowPenaltyType: "NONE",
       noShowPenaltyValue: null,
+      applyChannel: "B2C",
+      effectiveFrom: null,
+      effectiveTo: null,
       slabs: [],
     });
   const [cancellationLoading, setCancellationLoading] = useState(false);
@@ -338,6 +429,8 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     useState<CancellationFormErrors>({});
   const [showRuleBuilder, setShowRuleBuilder] = useState(false);
   const [editingRuleIndex, setEditingRuleIndex] = useState<number | null>(null);
+  const [cancellationPreset, setCancellationPreset] =
+    useState<CancellationPresetKey>("FREE_24_HOURS");
   const [childPolicy, setChildPolicy] = useState<{
     childrenAllowed: boolean;
     freeStayMaxAge: number;
@@ -402,8 +495,225 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     return "bg-gray-100 text-gray-700";
   };
 
+  const getApplyChannelBadgeClass = (channel?: string) => {
+    switch (channel) {
+      case "B2B":
+        return "bg-violet-100 text-violet-800";
+      case "BUNDLE":
+        return "bg-emerald-100 text-emerald-800";
+      case "B2C":
+      default:
+        return "bg-sky-100 text-sky-800";
+    }
+  };
+
+  const getDefaultSlabsForHours = (hours: number): CancellationSlabForm[] => {
+    if (hours <= 0) {
+      return [
+        {
+          fromHours: 0,
+          toHours: 9999,
+          penaltyType: "PERCENTAGE",
+          penaltyValue: 0,
+        },
+      ];
+    }
+
+    return [
+      {
+        fromHours: hours,
+        toHours: 9999,
+        penaltyType: "PERCENTAGE",
+        penaltyValue: 0,
+      },
+      {
+        fromHours: 0,
+        toHours: hours,
+        penaltyType: "PERCENTAGE",
+        penaltyValue: 100,
+      },
+    ];
+  };
+
+  const getPresetConfig = (preset: CancellationPresetKey) => {
+    switch (preset) {
+      case "FREE_TILL_CHECKIN":
+        return {
+          noShowPenaltyType: "PERCENTAGE" as const,
+          noShowPenaltyValue: 100,
+          slabs: getDefaultSlabsForHours(0),
+        };
+      case "FREE_24_HOURS":
+        return {
+          noShowPenaltyType: "PERCENTAGE" as const,
+          noShowPenaltyValue: 100,
+          slabs: getDefaultSlabsForHours(24),
+        };
+      case "FREE_48_HOURS":
+        return {
+          noShowPenaltyType: "PERCENTAGE" as const,
+          noShowPenaltyValue: 100,
+          slabs: getDefaultSlabsForHours(48),
+        };
+      case "FREE_72_HOURS":
+        return {
+          noShowPenaltyType: "PERCENTAGE" as const,
+          noShowPenaltyValue: 100,
+          slabs: getDefaultSlabsForHours(72),
+        };
+      case "NON_REFUNDABLE":
+        return {
+          noShowPenaltyType: "PERCENTAGE" as const,
+          noShowPenaltyValue: 100,
+          slabs: [
+            {
+              fromHours: 0,
+              toHours: 9999,
+              penaltyType: "PERCENTAGE" as const,
+              penaltyValue: 100,
+            },
+          ],
+        };
+      default:
+        return null;
+    }
+  };
+
+  const isOpenEndedToHours = (toHours: number) => toHours >= 9999;
+
+  const inferPresetFromSlabs = (
+    slabs: CancellationSlabForm[],
+  ): CancellationPresetKey => {
+    const sorted = [...slabs].sort((a, b) => a.fromHours - b.fromHours);
+
+    if (sorted.length === 1) {
+      const slab = sorted[0];
+      if (
+        slab.fromHours === 0 &&
+        isOpenEndedToHours(slab.toHours) &&
+        slab.penaltyType === "PERCENTAGE"
+      ) {
+        if (slab.penaltyValue === 0) return "FREE_TILL_CHECKIN";
+        if (slab.penaltyValue === 100) return "NON_REFUNDABLE";
+      }
+    }
+
+    if (sorted.length === 2) {
+      const [first, second] = sorted;
+      const hours = second.fromHours;
+      const matches =
+        first.fromHours === 0 &&
+        first.toHours === hours &&
+        first.penaltyType === "PERCENTAGE" &&
+        first.penaltyValue === 100 &&
+        isOpenEndedToHours(second.toHours) &&
+        second.penaltyType === "PERCENTAGE" &&
+        second.penaltyValue === 0;
+      if (matches) {
+        if (hours === 24) return "FREE_24_HOURS";
+        if (hours === 48) return "FREE_48_HOURS";
+        if (hours === 72) return "FREE_72_HOURS";
+        if (hours === 0) return "FREE_TILL_CHECKIN";
+      }
+    }
+
+    const freeSlab = sorted.find(
+      (slab) =>
+        slab.penaltyType === "PERCENTAGE" &&
+        slab.penaltyValue === 0 &&
+        isOpenEndedToHours(slab.toHours),
+    );
+    if (freeSlab) {
+      const cutoff = freeSlab.fromHours;
+      if (cutoff === 0) return "FREE_TILL_CHECKIN";
+      if (cutoff === 24) return "FREE_24_HOURS";
+      if (cutoff === 48) return "FREE_48_HOURS";
+      if (cutoff === 72) return "FREE_72_HOURS";
+    }
+
+    const nonRefundableSlab = sorted.find(
+      (slab) =>
+        slab.fromHours === 0 &&
+        isOpenEndedToHours(slab.toHours) &&
+        slab.penaltyType === "PERCENTAGE" &&
+        slab.penaltyValue === 100,
+    );
+    if (nonRefundableSlab) return "NON_REFUNDABLE";
+
+    return "FREE_24_HOURS";
+  };
+
+  const inferCancellationPreset = (
+    slabs: CancellationSlabForm[],
+    noShowPenaltyType: NoShowPenaltyType,
+    noShowPenaltyValue: number | null,
+  ): CancellationPresetKey => {
+    const sorted = [...slabs].sort((a, b) => a.fromHours - b.fromHours);
+    const noShowIs100 =
+      noShowPenaltyType === "PERCENTAGE" && Number(noShowPenaltyValue ?? 0) === 100;
+
+    if (sorted.length === 1) {
+      const slab = sorted[0];
+      if (
+        slab.fromHours === 0 &&
+        isOpenEndedToHours(slab.toHours) &&
+        slab.penaltyType === "PERCENTAGE"
+      ) {
+        if (slab.penaltyValue === 0 && noShowIs100) return "FREE_TILL_CHECKIN";
+        if (slab.penaltyValue === 100 && noShowIs100) return "NON_REFUNDABLE";
+      }
+    }
+
+    if (sorted.length === 2) {
+      const [first, second] = sorted;
+      const hours = second.fromHours;
+      const matches =
+        first.fromHours === 0 &&
+        first.toHours === hours &&
+        first.penaltyType === "PERCENTAGE" &&
+        first.penaltyValue === 100 &&
+        isOpenEndedToHours(second.toHours) &&
+        second.penaltyType === "PERCENTAGE" &&
+        second.penaltyValue === 0 &&
+        noShowIs100;
+      if (matches) {
+        if (hours === 24) return "FREE_24_HOURS";
+        if (hours === 48) return "FREE_48_HOURS";
+        if (hours === 72) return "FREE_72_HOURS";
+      }
+    }
+
+    return "CUSTOM";
+  };
+
+  const resolveCancellationPreset = (
+    creationType: CancellationPolicy["creationType"],
+    slabs: CancellationSlabForm[],
+    noShowPenaltyType: NoShowPenaltyType,
+    noShowPenaltyValue: number | null,
+  ): CancellationPresetKey => {
+    if (creationType === "CUSTOM") return "CUSTOM";
+    if (creationType === "DEFAULT") {
+      return inferPresetFromSlabs(slabs);
+    }
+    return inferCancellationPreset(
+      slabs,
+      noShowPenaltyType,
+      noShowPenaltyValue,
+    );
+  };
+
+  const isCustomCancellationPolicy = (
+    policy: CancellationPolicy,
+    preset: CancellationPresetKey,
+  ) => {
+    if (policy.creationType === "DEFAULT") return false;
+    if (policy.creationType === "CUSTOM") return true;
+    return preset === "CUSTOM";
+  };
+
   const parseNumberInput = (value: string): NumericInput => {
-    if (value === "") return "";
+    if (value.trim() === "") return "";
     const parsed = Number(value);
     return Number.isNaN(parsed) ? "" : parsed;
   };
@@ -458,6 +768,8 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
 
   useEffect(() => {
     // Prevent stale cancellation form/view state when switching hotels
+    const preset = "FREE_24_HOURS";
+    const presetConfig = getPresetConfig(preset);
     setIsCancellationModalOpen(false);
     setSelectedCancellationId(null);
     setViewingCancellationPolicy(null);
@@ -468,10 +780,14 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     setCancellationErrors({});
     setCancellationForm({
       policyName: "",
-      noShowPenaltyType: "NONE",
-      noShowPenaltyValue: null,
-      slabs: [],
+      noShowPenaltyType: presetConfig?.noShowPenaltyType ?? "NONE",
+      noShowPenaltyValue: presetConfig?.noShowPenaltyValue ?? null,
+      applyChannel: "B2C",
+      effectiveFrom: null,
+      effectiveTo: null,
+      slabs: presetConfig?.slabs ?? [],
     });
+    setCancellationPreset(preset);
     setRuleDraft(EMPTY_RULE_DRAFT);
   }, [hotelId]);
 
@@ -730,8 +1046,21 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
           mappedNoShowType === "PERCENTAGE" || mappedNoShowType === "FIXED"
             ? Number(detail.noShowPenaltyValue ?? 0)
             : null,
+        applyChannel: detail.applyChannel ?? "B2C",
+        effectiveFrom: detail.effectiveFrom ?? null,
+        effectiveTo: detail.effectiveTo ?? null,
         slabs: normalizedSlabs,
       });
+      setCancellationPreset(
+        resolveCancellationPreset(
+          normalizeCreationType(detail.creationType),
+          normalizedSlabs,
+          mappedNoShowType,
+          mappedNoShowType === "PERCENTAGE" || mappedNoShowType === "FIXED"
+            ? Number(detail.noShowPenaltyValue ?? 0)
+            : null,
+        ),
+      );
       setCancellationErrors({});
       setRuleDraftErrors({});
       setShowRuleBuilder(false);
@@ -763,12 +1092,18 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
   };
 
   const resetCancellationForm = () => {
+    const preset = "FREE_24_HOURS";
+    const presetConfig = getPresetConfig(preset);
     setCancellationForm({
       policyName: "",
-      noShowPenaltyType: "NONE",
-      noShowPenaltyValue: null,
-      slabs: [],
+      noShowPenaltyType: presetConfig?.noShowPenaltyType ?? "NONE",
+      noShowPenaltyValue: presetConfig?.noShowPenaltyValue ?? null,
+      applyChannel: "B2C",
+      effectiveFrom: null,
+      effectiveTo: null,
+      slabs: presetConfig?.slabs ?? [],
     });
+    setCancellationPreset(preset);
     setRuleDraft(EMPTY_RULE_DRAFT);
     setRuleDraftErrors({});
     setCancellationErrors({});
@@ -795,17 +1130,23 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     ignoreIndex: number | null = editingRuleIndex
   ): RuleDraftErrors => {
     const errors: RuleDraftErrors = {};
-    const from = combineDaysAndHoursToTotalHours(draft.fromDays, draft.fromHours);
-    const to = combineDaysAndHoursToTotalHours(draft.toDays, draft.toHours);
+    if (draft.fromHours === "") {
+      errors.fromHours = "Please select a from time";
+    }
+    if (draft.toHours === "") {
+      errors.toHours = "Please select a to time";
+    }
+    const from = draft.fromHours === "" ? NaN : Number(draft.fromHours);
+    const to = draft.toHours === "" ? NaN : Number(draft.toHours);
     const value = draft.penaltyValue === "" ? NaN : Number(draft.penaltyValue);
 
-    if (Number.isNaN(from) || from < 0) {
+    if (!errors.fromHours && (Number.isNaN(from) || from < 0)) {
       errors.fromHours = "From time must be 0 or greater";
     }
-    if (Number.isNaN(to) || to < 0) {
+    if (!errors.toHours && (Number.isNaN(to) || to < 0)) {
       errors.toHours = "To time must be 0 or greater";
     }
-    if (!Number.isNaN(from) && !Number.isNaN(to) && from >= to) {
+    if (!errors.fromHours && !errors.toHours && !Number.isNaN(from) && !Number.isNaN(to) && from >= to) {
       errors.toHours = "From time must be less than To time";
     }
     if (Number.isNaN(value) || value < 0) {
@@ -817,10 +1158,15 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     if (!errors.fromHours && !errors.toHours) {
       const hasOverlap = cancellationForm.slabs.some(
         (slab, index) =>
-          index !== ignoreIndex && from < slab.toHours && to > slab.fromHours
+          index !== ignoreIndex &&
+          slabsOverlap(
+            { fromHours: from, toHours: to },
+            slab,
+          ),
       );
       if (hasOverlap) {
-        errors.overlap = "Overlapping range found with an existing slab";
+        errors.overlap =
+          "This window overlaps an existing condition. Choose a non-overlapping range.";
       }
     }
     return errors;
@@ -832,11 +1178,8 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     if (Object.keys(errors).length > 0) return;
 
     const nextSlab: CancellationSlabForm = {
-      fromHours: combineDaysAndHoursToTotalHours(
-        ruleDraft.fromDays,
-        ruleDraft.fromHours,
-      ),
-      toHours: combineDaysAndHoursToTotalHours(ruleDraft.toDays, ruleDraft.toHours),
+      fromHours: Number(ruleDraft.fromHours),
+      toHours: Number(ruleDraft.toHours),
       penaltyType: ruleDraft.penaltyType,
       penaltyValue: Number(ruleDraft.penaltyValue),
     };
@@ -863,13 +1206,9 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
   const startEditRule = (index: number) => {
     const slab = cancellationForm.slabs[index];
     if (!slab) return;
-    const fromParts = splitTotalHoursToDaysAndHours(slab.fromHours);
-    const toParts = splitTotalHoursToDaysAndHours(slab.toHours);
     setRuleDraft({
-      fromDays: fromParts.days,
-      fromHours: fromParts.hours,
-      toDays: toParts.days,
-      toHours: toParts.hours,
+      fromHours: slab.fromHours,
+      toHours: slab.toHours,
       penaltyType: slab.penaltyType,
       penaltyValue: slab.penaltyValue,
     });
@@ -896,7 +1235,17 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     if (!cancellationForm.policyName.trim()) {
       errors.policyName = "Policy name is required";
     }
-    if (!cancellationForm.slabs.length) {
+    if (cancellationPreset === "CUSTOM") {
+      if (showRuleBuilder) {
+        errors.slabs =
+          "Save or cancel the condition you are editing before submitting.";
+      } else if (!cancellationForm.slabs.length) {
+        errors.slabs = "Add at least one cancellation rule";
+      } else if (findOverlappingSlabIndexes(cancellationForm.slabs).length > 0) {
+        errors.slabs =
+          "Cancellation windows cannot overlap. Please fix overlapping conditions.";
+      }
+    } else if (!cancellationForm.slabs.length) {
       errors.slabs = "Add at least one cancellation rule";
     }
     if (
@@ -921,12 +1270,16 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     try {
       const payload: CancellationPolicyPayload = {
         policyName: cancellationForm.policyName.trim(),
+        creationType: cancellationPreset === "CUSTOM" ? "CUSTOM" : "DEFAULT",
         noShowPenaltyType: cancellationForm.noShowPenaltyType,
         noShowPenaltyValue:
           cancellationForm.noShowPenaltyType === "PERCENTAGE" ||
           cancellationForm.noShowPenaltyType === "FIXED"
             ? Number(cancellationForm.noShowPenaltyValue ?? 0)
             : null,
+        applyChannel: cancellationForm.applyChannel ?? "B2C",
+        effectiveFrom: cancellationForm.effectiveFrom ?? null,
+        effectiveTo: cancellationForm.effectiveTo ?? null,
         slabs: cancellationForm.slabs.map((slab) => ({
           fromHours: slab.fromHours,
           toHours: slab.toHours,
@@ -1352,15 +1705,71 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
 
           <TabsContent value="cancellation">
             {viewingCancellationPolicy && !cancellationViewLoading ? (
+              (() => {
+                const viewingSlabs: CancellationSlabForm[] = (
+                  viewingCancellationPolicy.slabs || []
+                )
+                  .filter((slab) => slab.toHours > slab.fromHours)
+                  .map((slab) => {
+                    const isFixedByAmount =
+                      slab.penaltyType === "FIXED" ||
+                      (typeof slab.penaltyAmount === "number" &&
+                        slab.penaltyAmount > 0 &&
+                        slab.penaltyType !== "PERCENTAGE");
+                    const penaltyType: SlabPenaltyType = isFixedByAmount
+                      ? "FIXED"
+                      : "PERCENTAGE";
+                    const fallbackPercent =
+                      typeof slab.refundPercent === "number"
+                        ? Math.max(0, Math.min(100, 100 - slab.refundPercent))
+                        : 0;
+                    const penaltyValue =
+                      typeof slab.penaltyValue === "number"
+                        ? slab.penaltyValue
+                        : penaltyType === "FIXED"
+                        ? slab.penaltyAmount ?? 0
+                        : fallbackPercent;
+                    return {
+                      fromHours: slab.fromHours,
+                      toHours: slab.toHours,
+                      penaltyType,
+                      penaltyValue,
+                    };
+                  });
+                const viewingNoShowType = normalizeNoShowType(
+                  viewingCancellationPolicy.noShowPenaltyType,
+                );
+                const viewingNoShowValue =
+                  viewingNoShowType === "PERCENTAGE" ||
+                  viewingNoShowType === "FIXED"
+                    ? Number(viewingCancellationPolicy.noShowPenaltyValue ?? 0)
+                    : null;
+                const viewingPreset = resolveCancellationPreset(
+                  normalizeCreationType(viewingCancellationPolicy.creationType),
+                  viewingSlabs,
+                  viewingNoShowType,
+                  viewingNoShowValue,
+                );
+                const viewingIsCustom = isCustomCancellationPolicy(
+                  {
+                    ...viewingCancellationPolicy,
+                    creationType: normalizeCreationType(
+                      viewingCancellationPolicy.creationType,
+                    ),
+                  },
+                  viewingPreset,
+                );
+
+                return (
               <div className="mt-2 rounded-xl border border-cyan-100 bg-white shadow-sm overflow-hidden">
                 <div className="px-5 py-4 bg-linear-to-r from-cyan-50 to-indigo-50 border-b border-cyan-100 flex items-center justify-between">
                   <div>
                     <h4 className="text-base font-semibold text-gray-900 flex items-center gap-2">
                       <ShieldCheck className="w-5 h-5 text-cyan-700" />
-                      Policy Details
+                      View Cancellation Policy
                     </h4>
                     <p className="text-xs text-gray-600 mt-0.5">
-                      Clear view of selected cancellation configuration.
+                      Read-only view aligned with cancellation create form.
                     </p>
                   </div>
                   <Button
@@ -1410,65 +1819,102 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                         })}
                       </p>
                     </div>
+                    <div className="rounded-lg border border-gray-200 px-3 py-2 bg-slate-50/50">
+                      <p className="text-xs text-gray-500">Apply Channel</p>
+                      <p className="font-medium text-gray-900">
+                        {viewingCancellationPolicy.applyChannel || "B2C"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 px-3 py-2 bg-slate-50/50">
+                      <p className="text-xs text-gray-500">Effective Dates</p>
+                      {!viewingCancellationPolicy.effectiveFrom &&
+                      !viewingCancellationPolicy.effectiveTo ? (
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                          Not set
+                        </span>
+                      ) : (
+                        <p className="font-medium text-gray-900">
+                          {formatEffectiveDatesDisplay(
+                            viewingCancellationPolicy.effectiveFrom,
+                            viewingCancellationPolicy.effectiveTo,
+                          )}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="rounded-lg border border-cyan-100 overflow-hidden">
-                    <div className="grid grid-cols-4 bg-cyan-50 text-xs font-semibold text-cyan-900 px-4 py-2">
-                      <span>From</span>
-                      <span>To</span>
-                      <span>Penalty Type</span>
-                      <span>Value</span>
-                    </div>
-                    <div className="divide-y divide-gray-200">
-                      {[...(viewingCancellationPolicy.slabs || [])]
-                        .sort((a, b) => b.fromHours - a.fromHours)
-                        .map((slab) => (
-                          <div
-                            key={slab.id ?? `${slab.fromHours}-${slab.toHours}-${slab.penaltyType}-${slab.penaltyValue}`}
-                            className="grid grid-cols-4 items-center px-4 py-2 text-sm"
-                          >
-                            <span>{formatCancellationDuration(slab.fromHours)}</span>
-                            <span>{formatCancellationDuration(slab.toHours)}</span>
-                            <span>
-                              <span
-                                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                                  slab.penaltyType === "PERCENTAGE"
-                                    ? "bg-amber-100 text-amber-800"
-                                    : "bg-fuchsia-100 text-fuchsia-800"
-                                }`}
-                              >
-                                {slab.penaltyType === "PERCENTAGE"
-                                  ? "Percentage"
-                                  : "Fixed"}
+                  {viewingIsCustom ? (
+                    <div className="rounded-lg border border-cyan-100 overflow-hidden">
+                      <div className="px-4 py-2 bg-cyan-50 text-xs font-semibold text-cyan-900">
+                        Custom Conditions
+                      </div>
+                      <div className="grid grid-cols-4 bg-cyan-50 text-xs font-semibold text-cyan-900 px-4 py-2">
+                        <span>From</span>
+                        <span>To</span>
+                        <span>Penalty Type</span>
+                        <span>Value</span>
+                      </div>
+                      <div className="divide-y divide-gray-200">
+                        {[...viewingSlabs]
+                          .sort((a, b) => b.fromHours - a.fromHours)
+                          .map((slab) => (
+                            <div
+                              key={`${slab.fromHours}-${slab.toHours}-${slab.penaltyType}-${slab.penaltyValue}`}
+                              className="grid grid-cols-4 items-center px-4 py-2 text-sm"
+                            >
+                              <span>{formatBeforeCheckinLabel(slab.fromHours)}</span>
+                              <span>{formatBeforeCheckinLabel(slab.toHours)}</span>
+                              <span>
+                                <span
+                                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                                    slab.penaltyType === "PERCENTAGE"
+                                      ? "bg-amber-100 text-amber-800"
+                                      : "bg-fuchsia-100 text-fuchsia-800"
+                                  }`}
+                                >
+                                  {slab.penaltyType === "PERCENTAGE"
+                                    ? "Percentage"
+                                    : "Fixed"}
+                                </span>
                               </span>
-                            </span>
-                            <span>
-                              {slab.penaltyType === "PERCENTAGE"
-                                ? `${Number(slab.penaltyValue ?? 0)}%`
-                                : `Rs ${Number(slab.penaltyValue ?? 0)}`}
-                            </span>
-                          </div>
-                        ))}
+                              <span>
+                                {slab.penaltyType === "PERCENTAGE"
+                                  ? `${Number(slab.penaltyValue ?? 0)}%`
+                                  : `Rs ${Number(slab.penaltyValue ?? 0)}`}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-4 space-y-2">
+                      <h4 className="text-sm font-semibold text-blue-900 flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4" />
+                        Cancellation Option
+                      </h4>
+                      <p className="text-sm text-blue-900 font-medium">
+                        {getCancellationPresetLabel(viewingPreset)}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
                     <p className="text-sm font-semibold text-emerald-900 mb-2">
                       Cancellation Summary
                     </p>
                     <div className="space-y-1">
-                      {[...(viewingCancellationPolicy.slabs || [])]
+                      {[...viewingSlabs]
                         .sort((a, b) => b.fromHours - a.fromHours)
                         .map((slab) => (
                           <p
-                            key={`summary-${slab.id ?? `${slab.fromHours}-${slab.toHours}`}`}
+                            key={`summary-${slab.fromHours}-${slab.toHours}`}
                             className="text-sm text-emerald-900"
                           >
                             {slab.fromHours === 0
-                              ? `< ${slab.toHours} hrs`
+                              ? `< ${formatBeforeCheckinLabel(slab.toHours)}`
                               : slab.toHours >= 9999
-                              ? `> ${slab.fromHours} hrs`
-                              : `${slab.fromHours}-${slab.toHours} hrs`}{" "}
+                              ? `> ${formatBeforeCheckinLabel(slab.fromHours)}`
+                              : `${formatBeforeCheckinLabel(slab.fromHours)} to ${formatBeforeCheckinLabel(slab.toHours)}`}{" "}
                             -{" "}
                             {slab.penaltyType === "PERCENTAGE"
                               ? `${Number(slab.penaltyValue ?? 0)}% charge`
@@ -1477,8 +1923,27 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                         ))}
                     </div>
                   </div>
+
+                  <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-4 space-y-3">
+                    <h4 className="text-sm font-semibold text-blue-900 flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4" />
+                      No-show Penalty
+                    </h4>
+                    <div className="rounded-md bg-white/80 border border-blue-200 px-3 py-2 flex items-center justify-between gap-2">
+                      <p className="text-sm text-blue-900 font-medium">No-show</p>
+                      <span className="inline-flex rounded-full bg-blue-100 text-blue-800 px-2.5 py-0.5 text-xs font-semibold">
+                        {viewingNoShowType === "PERCENTAGE"
+                          ? `${Number(viewingNoShowValue ?? 0)}% charge`
+                          : viewingNoShowType === "FIXED"
+                          ? `Rs ${Number(viewingNoShowValue ?? 0)} charge`
+                          : `${NO_SHOW_LABELS[viewingNoShowType]}`}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
+                );
+              })()
             ) : !isCancellationModalOpen ? (
               <div className="mt-2 rounded-xl border border-indigo-100 bg-linear-to-b from-indigo-50/40 to-white shadow-sm p-6 space-y-6">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -1504,9 +1969,10 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
 
               <div className="space-y-4 border border-indigo-100 rounded-xl overflow-hidden shadow-sm bg-white">
                 <div>
-                  <div className="grid grid-cols-4 bg-indigo-50 text-xs font-semibold text-indigo-900 px-4 py-2">
+                  <div className="grid grid-cols-5 bg-indigo-50 text-xs font-semibold text-indigo-900 px-4 py-2">
                     <span>Name</span>
                     <span className="text-center">Rules</span>
+                    <span className="text-center">Apply Channel</span>
                     <span className="text-center">No-show Penalty</span>
                     <span className="text-right">Action</span>
                   </div>
@@ -1530,7 +1996,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                       {cancellationList.map((item) => (
                         <div
                           key={item.id}
-                          className="grid grid-cols-4 items-center px-4 py-3 text-sm hover:bg-indigo-50/40 transition"
+                          className="grid grid-cols-5 items-center px-4 py-3 text-sm hover:bg-indigo-50/40 transition"
                         >
                           <span className="truncate font-medium text-gray-900 flex items-center gap-2">
                             <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
@@ -1538,6 +2004,15 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                           </span>
                           <span className="text-center text-gray-700">
                             {item.slabs.filter((s) => s.toHours > s.fromHours).length}
+                          </span>
+                          <span className="text-center text-gray-700">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getApplyChannelBadgeClass(
+                                item.applyChannel,
+                              )}`}
+                            >
+                              {item.applyChannel || "B2C"}
+                            </span>
                           </span>
                           <span className="text-center text-gray-700">
                             <span
@@ -1633,11 +2108,328 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                             </p>
                           )}
                         </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Apply Channel
+                            </label>
+                            <select
+                              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                              value={cancellationForm.applyChannel ?? "B2C"}
+                              onChange={(e) =>
+                                setCancellationForm((prev) => ({
+                                  ...prev,
+                                  applyChannel: e.target.value as "B2C" | "B2B" | "BUNDLE",
+                                }))
+                              }
+                            >
+                              <option value="B2C">B2C</option>
+                              <option value="B2B">B2B</option>
+                              <option value="BUNDLE">BUNDLE</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Effective From
+                            </label>
+                            <Input
+                              type="date"
+                              value={cancellationForm.effectiveFrom ?? ""}
+                              onChange={(e) =>
+                                setCancellationForm((prev) => ({
+                                  ...prev,
+                                  effectiveFrom: e.target.value || null,
+                                }))
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Effective To
+                            </label>
+                            <Input
+                              type="date"
+                              value={cancellationForm.effectiveTo ?? ""}
+                              min={cancellationForm.effectiveFrom ?? undefined}
+                              onChange={(e) =>
+                                setCancellationForm((prev) => ({
+                                  ...prev,
+                                  effectiveTo: e.target.value || null,
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
                         <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
                           <h4 className="text-sm font-semibold text-blue-900 flex items-center gap-2">
                             <ShieldCheck className="w-4 h-4" />
-                            No-Show Policy
+                            Cancellation Options
                           </h4>
+                          <div className="space-y-2">
+                            {CANCELLATION_PRESET_OPTIONS.map((option) => (
+                              <label
+                                key={option.key}
+                                className={cn(
+                                  "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                                  cancellationPreset === option.key
+                                    ? "border-blue-400 bg-blue-100/60 text-blue-900"
+                                    : "border-blue-100 bg-white text-gray-700 hover:bg-blue-50",
+                                )}
+                              >
+                                <input
+                                  type="radio"
+                                  name="cancellationPreset"
+                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                  checked={cancellationPreset === option.key}
+                                  onChange={() => {
+                                    setCancellationPreset(option.key);
+                                    const presetConfig = getPresetConfig(option.key);
+                                    if (presetConfig) {
+                                      setCancellationForm((prev) => ({
+                                        ...prev,
+                                        noShowPenaltyType: presetConfig.noShowPenaltyType,
+                                        noShowPenaltyValue: presetConfig.noShowPenaltyValue,
+                                        slabs: presetConfig.slabs,
+                                      }));
+                                      setShowRuleBuilder(false);
+                                      setEditingRuleIndex(null);
+                                      setRuleDraft(EMPTY_RULE_DRAFT);
+                                      setRuleDraftErrors({});
+                                    } else if (option.key === "CUSTOM") {
+                                      setCancellationForm((prev) => ({
+                                        ...prev,
+                                        noShowPenaltyType: "PERCENTAGE",
+                                        noShowPenaltyValue: 100,
+                                        slabs: [],
+                                      }));
+                                      setShowRuleBuilder(false);
+                                      setEditingRuleIndex(null);
+                                      setRuleDraft(EMPTY_RULE_DRAFT);
+                                      setRuleDraftErrors({});
+                                    }
+                                  }}
+                                />
+                                <span>{option.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      {cancellationPreset === "CUSTOM" ? (
+                        <div className="rounded-xl border border-indigo-100 bg-white p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-indigo-900 flex items-center gap-2">
+                              <FileText className="w-4 h-4" />
+                              Custom Conditions
+                            </h4>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                              onClick={() => setShowRuleBuilder(true)}
+                            >
+                              <Plus className="w-4 h-4 mr-1" />
+                              Add Condition
+                            </Button>
+                          </div>
+                          <div className="border border-indigo-100 rounded-lg overflow-hidden">
+                            <div className="grid grid-cols-5 bg-indigo-50 text-xs font-semibold text-indigo-900 px-4 py-2">
+                              <span>From</span>
+                              <span>To</span>
+                              <span>Penalty Type</span>
+                              <span>Value</span>
+                              <span className="text-right">Action</span>
+                            </div>
+                            {cancellationForm.slabs.length === 0 ? (
+                              <div className="px-4 py-5 text-sm text-gray-500">
+                                No conditions added yet.
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-gray-200">
+                                {[...cancellationForm.slabs]
+                                  .sort((a, b) => b.fromHours - a.fromHours)
+                                  .map((slab) => {
+                                    const sourceIndex = cancellationForm.slabs.findIndex(
+                                      (item) =>
+                                        item.fromHours === slab.fromHours &&
+                                        item.toHours === slab.toHours &&
+                                        item.penaltyType === slab.penaltyType &&
+                                        item.penaltyValue === slab.penaltyValue
+                                    );
+                                    return (
+                                      <div
+                                        key={`${slab.fromHours}-${slab.toHours}-${slab.penaltyType}-${slab.penaltyValue}`}
+                                        className="grid grid-cols-5 items-center px-4 py-2 text-sm hover:bg-indigo-50/30"
+                                      >
+                                        <span>{formatCancellationDuration(slab.fromHours)}</span>
+                                        <span>{formatCancellationDuration(slab.toHours)}</span>
+                                        <span>{SLAB_TYPE_LABELS[slab.penaltyType]}</span>
+                                        <span>
+                                          {slab.penaltyType === "PERCENTAGE"
+                                            ? `${slab.penaltyValue}%`
+                                            : `Rs ${slab.penaltyValue}`}
+                                        </span>
+                                        <div className="text-right">
+                                          <div className="flex justify-end gap-2">
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => startEditRule(sourceIndex)}
+                                            >
+                                              Edit
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => removeRule(sourceIndex)}
+                                            >
+                                              Delete
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            )}
+                          </div>
+                          {cancellationErrors.slabs && (
+                            <p className="text-xs text-red-600">{cancellationErrors.slabs}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-4">
+                          <p className="text-sm text-indigo-900">
+                            Rule values are auto-applied from selected option. Choose{" "}
+                            <span className="font-semibold">Custom</span> to add multiple conditions.
+                          </p>
+                        </div>
+                      )}
+
+                      {showRuleBuilder && (
+                        <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 space-y-4">
+                          <h4 className="text-sm font-semibold text-sky-900 flex items-center gap-2">
+                            <Plus className="w-4 h-4" />
+                            {editingRuleIndex === null
+                              ? "Add Cancellation Rule"
+                              : "Edit Cancellation Rule"}
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <BoundedHourSelect
+                              label="From (before check-in)"
+                              value={ruleDraft.fromHours}
+                              options={CUSTOM_CONDITION_HOUR_OPTIONS}
+                              formatOption={formatBeforeCheckinLabel}
+                              error={ruleDraftErrors.fromHours}
+                              onChange={(hours) => {
+                                const nextDraft = {
+                                  ...ruleDraft,
+                                  fromHours: hours,
+                                };
+                                setRuleDraft(nextDraft);
+                                setRuleDraftErrors(
+                                  validateRuleDraft(nextDraft, editingRuleIndex),
+                                );
+                              }}
+                            />
+                            <BoundedHourSelect
+                              label="To (before check-in)"
+                              value={ruleDraft.toHours}
+                              options={CUSTOM_CONDITION_HOUR_OPTIONS}
+                              formatOption={formatBeforeCheckinLabel}
+                              error={ruleDraftErrors.toHours}
+                              onChange={(hours) => {
+                                const nextDraft = {
+                                  ...ruleDraft,
+                                  toHours: hours,
+                                };
+                                setRuleDraft(nextDraft);
+                                setRuleDraftErrors(
+                                  validateRuleDraft(nextDraft, editingRuleIndex),
+                                );
+                              }}
+                            />
+                          </div>
+                          {ruleDraftErrors.overlap && (
+                            <p className="text-xs text-red-600">
+                              {ruleDraftErrors.overlap}
+                            </p>
+                          )}
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 mb-2">
+                              Penalty Type
+                            </p>
+                            <div className="flex items-center gap-5">
+                              {(Object.keys(SLAB_TYPE_LABELS) as SlabPenaltyType[]).map(
+                                (type) => (
+                                  <label key={type} className="flex items-center gap-2 text-sm">
+                                    <input
+                                      type="radio"
+                                      checked={ruleDraft.penaltyType === type}
+                                      onChange={() =>
+                                        setRuleDraft((prev) => ({
+                                          ...prev,
+                                          penaltyType: type,
+                                        }))
+                                      }
+                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    {SLAB_TYPE_LABELS[type]}
+                                  </label>
+                                )
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Value {ruleDraft.penaltyType === "PERCENTAGE" ? "(%)" : "(Rs)"}
+                            </label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={ruleDraft.penaltyValue}
+                              onChange={(e) =>
+                                setRuleDraft((prev) => ({
+                                  ...prev,
+                                  penaltyValue: parseNumberInput(e.target.value),
+                                }))
+                              }
+                            />
+                            {ruleDraftErrors.penaltyValue && (
+                              <p className="mt-1 text-xs text-red-600">
+                                {ruleDraftErrors.penaltyValue}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                setShowRuleBuilder(false);
+                                setEditingRuleIndex(null);
+                                setRuleDraft(EMPTY_RULE_DRAFT);
+                                setRuleDraftErrors({});
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button type="button" onClick={saveRule}>
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
+                        <h4 className="text-sm font-semibold text-blue-900 flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4" />
+                          No-show Penalty
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Penalty Type
@@ -1694,279 +2486,6 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                           )}
                         </div>
                       </div>
-                      <div className="rounded-xl border border-indigo-100 bg-white p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-semibold text-indigo-900 flex items-center gap-2">
-                            <FileText className="w-4 h-4" />
-                            Cancellation Rules
-                          </h4>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                            onClick={() => setShowRuleBuilder(true)}
-                          >
-                            <Plus className="w-4 h-4 mr-1" />
-                            Add Rule
-                          </Button>
-                        </div>
-                        <div className="border border-indigo-100 rounded-lg overflow-hidden">
-                          <div className="grid grid-cols-5 bg-indigo-50 text-xs font-semibold text-indigo-900 px-4 py-2">
-                            <span>From</span>
-                            <span>To</span>
-                            <span>Penalty Type</span>
-                            <span>Value</span>
-                            <span className="text-right">Action</span>
-                          </div>
-                          {cancellationForm.slabs.length === 0 ? (
-                            <div className="px-4 py-5 text-sm text-gray-500">
-                              No rules added yet.
-                            </div>
-                          ) : (
-                            <div className="divide-y divide-gray-200">
-                              {[...cancellationForm.slabs]
-                                .sort((a, b) => b.fromHours - a.fromHours)
-                                .map((slab) => {
-                                  const sourceIndex = cancellationForm.slabs.findIndex(
-                                    (item) =>
-                                      item.fromHours === slab.fromHours &&
-                                      item.toHours === slab.toHours &&
-                                      item.penaltyType === slab.penaltyType &&
-                                      item.penaltyValue === slab.penaltyValue
-                                  );
-                                  return (
-                                    <div
-                                      key={`${slab.fromHours}-${slab.toHours}-${slab.penaltyType}-${slab.penaltyValue}`}
-                                      className="grid grid-cols-5 items-center px-4 py-2 text-sm hover:bg-indigo-50/30"
-                                    >
-                                      <span>{formatCancellationDuration(slab.fromHours)}</span>
-                                      <span>{formatCancellationDuration(slab.toHours)}</span>
-                                      <span>{SLAB_TYPE_LABELS[slab.penaltyType]}</span>
-                                      <span>
-                                        {slab.penaltyType === "PERCENTAGE"
-                                          ? `${slab.penaltyValue}%`
-                                          : `Rs ${slab.penaltyValue}`}
-                                      </span>
-                                      <div className="text-right">
-                                        <div className="flex justify-end gap-2">
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => startEditRule(sourceIndex)}
-                                          >
-                                            Edit
-                                          </Button>
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => removeRule(sourceIndex)}
-                                          >
-                                            Delete
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                            </div>
-                          )}
-                        </div>
-                        {cancellationErrors.slabs && (
-                          <p className="text-xs text-red-600">{cancellationErrors.slabs}</p>
-                        )}
-                      </div>
-
-                      {showRuleBuilder && (
-                        <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 space-y-4">
-                          <h4 className="text-sm font-semibold text-sky-900 flex items-center gap-2">
-                            <Plus className="w-4 h-4" />
-                            {editingRuleIndex === null
-                              ? "Add Cancellation Rule"
-                              : "Edit Cancellation Rule"}
-                          </h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="block text-sm font-medium text-gray-700">
-                                From (before check-in)
-                              </label>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="mb-1 block text-xs text-gray-500">
-                                    Days
-                                  </label>
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={ruleDraft.fromDays}
-                                    onChange={(e) =>
-                                      setRuleDraft((prev) => ({
-                                        ...prev,
-                                        fromDays: parseNumberInput(e.target.value),
-                                      }))
-                                    }
-                                    placeholder="0"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="mb-1 block text-xs text-gray-500">
-                                    Hours
-                                  </label>
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={ruleDraft.fromHours}
-                                    onChange={(e) =>
-                                      setRuleDraft((prev) => ({
-                                        ...prev,
-                                        fromHours: parseNumberInput(e.target.value),
-                                      }))
-                                    }
-                                    placeholder="0"
-                                  />
-                                </div>
-                              </div>
-                              <p className="text-xs text-gray-500">
-                                Total:{" "}
-                                {combineDaysAndHoursToTotalHours(
-                                  ruleDraft.fromDays,
-                                  ruleDraft.fromHours,
-                                )}{" "}
-                                hours
-                              </p>
-                              {ruleDraftErrors.fromHours && (
-                                <p className="text-xs text-red-600">
-                                  {ruleDraftErrors.fromHours}
-                                </p>
-                              )}
-                            </div>
-                            <div className="space-y-2">
-                              <label className="block text-sm font-medium text-gray-700">
-                                To (before check-in)
-                              </label>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="mb-1 block text-xs text-gray-500">
-                                    Days
-                                  </label>
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={ruleDraft.toDays}
-                                    onChange={(e) =>
-                                      setRuleDraft((prev) => ({
-                                        ...prev,
-                                        toDays: parseNumberInput(e.target.value),
-                                      }))
-                                    }
-                                    placeholder="0"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="mb-1 block text-xs text-gray-500">
-                                    Hours
-                                  </label>
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={ruleDraft.toHours}
-                                    onChange={(e) =>
-                                      setRuleDraft((prev) => ({
-                                        ...prev,
-                                        toHours: parseNumberInput(e.target.value),
-                                      }))
-                                    }
-                                    placeholder="0"
-                                  />
-                                </div>
-                              </div>
-                              <p className="text-xs text-gray-500">
-                                Total:{" "}
-                                {combineDaysAndHoursToTotalHours(
-                                  ruleDraft.toDays,
-                                  ruleDraft.toHours,
-                                )}{" "}
-                                hours
-                              </p>
-                              {ruleDraftErrors.toHours && (
-                                <p className="text-xs text-red-600">
-                                  {ruleDraftErrors.toHours}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-700 mb-2">
-                              Penalty Type
-                            </p>
-                            <div className="flex items-center gap-5">
-                              {(Object.keys(SLAB_TYPE_LABELS) as SlabPenaltyType[]).map(
-                                (type) => (
-                                  <label key={type} className="flex items-center gap-2 text-sm">
-                                    <input
-                                      type="radio"
-                                      checked={ruleDraft.penaltyType === type}
-                                      onChange={() =>
-                                        setRuleDraft((prev) => ({
-                                          ...prev,
-                                          penaltyType: type,
-                                        }))
-                                      }
-                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    {SLAB_TYPE_LABELS[type]}
-                                  </label>
-                                )
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Value {ruleDraft.penaltyType === "PERCENTAGE" ? "(%)" : "(Rs)"}
-                            </label>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={ruleDraft.penaltyValue}
-                              onChange={(e) =>
-                                setRuleDraft((prev) => ({
-                                  ...prev,
-                                  penaltyValue: parseNumberInput(e.target.value),
-                                }))
-                              }
-                            />
-                            {ruleDraftErrors.penaltyValue && (
-                              <p className="mt-1 text-xs text-red-600">
-                                {ruleDraftErrors.penaltyValue}
-                              </p>
-                            )}
-                            {ruleDraftErrors.overlap && (
-                              <p className="mt-1 text-xs text-red-600">
-                                {ruleDraftErrors.overlap}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                setShowRuleBuilder(false);
-                                setEditingRuleIndex(null);
-                                setRuleDraft(EMPTY_RULE_DRAFT);
-                                setRuleDraftErrors({});
-                              }}
-                            >
-                              Cancel
-                            </Button>
-                            <Button type="button" onClick={saveRule}>
-                              Save
-                            </Button>
-                          </div>
-                        </div>
-                      )}
 
                       <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-3">
                         <h4 className="text-sm font-semibold text-emerald-900 flex items-center gap-2">

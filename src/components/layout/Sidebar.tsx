@@ -70,7 +70,7 @@ const getNavItems = (user: User | null): NavItem[] => {
       icon: Handshake,
     });
     items.push({
-      label: "Transfer",
+      label: "Transport Partner",
       path: ROUTES.ADMIN.TRANSPORT,
       icon: Bus,
       external: true,
@@ -384,7 +384,7 @@ const getNavItems = (user: User | null): NavItem[] => {
         icon: Handshake,
       },
       {
-        label: "Transport",
+        label: "Transport Partner",
         path: ROUTES.ADMIN.TRANSPORT,
         icon: Bus,
         external: true,
