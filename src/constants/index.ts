@@ -346,6 +346,8 @@ export const API_ENDPOINTS = {
     UPDATE_BULK_ROOMS: "/hotel/inventory/bulk/rooms",
     UPDATE_BULK_RESTRICTIONS: (hotelId: string) =>
       `/hotel/inventory/${hotelId}/restrictions/bulk`,
+    WALKIN_ADD: "/hotel/inventory/walkin/add",
+    WALKIN_REMOVE: "/hotel/inventory/walkin/remove",
   },
   REPORTS: {
     BOOKING_LIST: "/reports/booking-list",

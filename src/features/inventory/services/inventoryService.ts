@@ -138,6 +138,14 @@ export interface BulkUpdateRestrictionsRequest {
   bookingCutoffTime?: string; // HH:mm:ss — used when cutoffType is FIXED_TIME
 }
 
+export interface WalkInHotelRequest {
+  roomId: number;
+  inventoryDate: string;
+  rooms: number;
+  reason: string;
+  remarks?: string;
+}
+
 export const inventoryService = {
   getHotelRooms: async (hotelId: string) => {
     const response = await apiClient.get<ApiSuccessResponse<HotelRoomsResponse>>(
@@ -217,6 +225,20 @@ export const inventoryService = {
       request
     );
     // API returns: { statusCode: 200, status: "SUCCESS", message: "Inventory restrictions bulk updated successfully." }
+  },
+
+  addWalkIn: async (request: WalkInHotelRequest): Promise<void> => {
+    await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.INVENTORY.WALKIN_ADD,
+      request,
+    );
+  },
+
+  cancelWalkIn: async (request: WalkInHotelRequest): Promise<void> => {
+    await apiClient.post<ApiSuccessResponse<null>>(
+      API_ENDPOINTS.INVENTORY.WALKIN_REMOVE,
+      request,
+    );
   },
 };
 

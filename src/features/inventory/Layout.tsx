@@ -9,7 +9,7 @@ import { RoomTypesGrid } from "./inventoryComponents/RoomTypesGrid";
 import { SaveCancelButtons } from "./inventoryComponents/SaveCancelButtons";
 import { TAB_OPTIONS } from "@/data/dummyData";
 import type { InventoryDay, InventoryRoom, RatesRoom } from "./type";
-import { inventoryService } from "./services/inventoryService";
+import { inventoryService, type WalkInHotelRequest } from "./services/inventoryService";
 import {
   rateService,
   toLinkRatePlanLinkPayload,
@@ -22,6 +22,11 @@ import {
   type OpenLinkRatePlansContext,
 } from "./inventoryComponents/RatePlansGrid";
 import { LinkRatePlansSheet } from "./inventoryComponents/LinkRatePlansSheet";
+import {
+  WalkInDialog,
+  type WalkInDialogContext,
+  type WalkInMode,
+} from "./inventoryComponents/WalkInDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -316,6 +321,11 @@ export default function Layout() {
   // Track updating state per cell: key = `${roomId}-${dateStr}`
   const [updatingCells, setUpdatingCells] = useState<Set<string>>(new Set());
   const [blockingDates, setBlockingDates] = useState<Set<string>>(new Set());
+  const [walkInOpen, setWalkInOpen] = useState(false);
+  const [walkInContext, setWalkInContext] = useState<WalkInDialogContext | null>(
+    null,
+  );
+  const [walkInSubmitting, setWalkInSubmitting] = useState(false);
   
   // Store previous values for reverting on error: key = `${roomId}-${dateStr}`
   const previousValuesRef = useRef<Map<string, number>>(new Map());
@@ -976,6 +986,56 @@ export default function Layout() {
     }
   };
 
+  const refreshInventoryCalendar = useCallback(async () => {
+    if (!hotelId) return;
+    const refreshed = await inventoryService.getCalendar(hotelId, fromDate, toDate);
+    setRooms(refreshed);
+    originalRoomsRef.current = JSON.parse(JSON.stringify(refreshed));
+    setActiveEdit(null);
+  }, [hotelId, fromDate, toDate]);
+
+  const handleOpenWalkIn = (ctx: WalkInDialogContext) => {
+    if (isReadOnly) return;
+    setWalkInContext(ctx);
+    setWalkInOpen(true);
+  };
+
+  const handleWalkInSubmit = async (
+    mode: WalkInMode,
+    payload: WalkInHotelRequest,
+  ) => {
+    if (!hotelId || isReadOnly) return;
+
+    setWalkInSubmitting(true);
+    try {
+      if (mode === "add") {
+        await inventoryService.addWalkIn(payload);
+      } else {
+        await inventoryService.cancelWalkIn(payload);
+      }
+
+      await refreshInventoryCalendar();
+      showToast(
+        mode === "add"
+          ? "Walk-in added successfully"
+          : "Walk-in cancelled successfully",
+        "success",
+      );
+      setWalkInOpen(false);
+      setWalkInContext(null);
+    } catch (error: unknown) {
+      showToast(
+        formatApiClientError(error) ||
+          (mode === "add"
+            ? "Failed to add walk-in."
+            : "Failed to cancel walk-in."),
+        "error",
+      );
+    } finally {
+      setWalkInSubmitting(false);
+    }
+  };
+
   const handleSingleRestrictionUpdate = async (
     roomId: number,
     date: string,
@@ -1286,6 +1346,7 @@ export default function Layout() {
                   updatingCells={updatingCells}
                   blockingDates={blockingDates}
                   onToggleInventoryBlock={handleToggleInventoryBlock}
+                  onOpenWalkIn={handleOpenWalkIn}
                   expandedRoomIds={expandedRoomIds}
                   onToggleExpand={toggleRoomExpand}
                   rateRoomsByRoomId={rateRoomsByRoomId}
@@ -1406,6 +1467,19 @@ export default function Layout() {
             throw err;
           }
         }}
+      />
+
+      <WalkInDialog
+        open={walkInOpen}
+        onOpenChange={(open) => {
+          setWalkInOpen(open);
+          if (!open) {
+            setWalkInContext(null);
+          }
+        }}
+        context={walkInContext}
+        isSubmitting={walkInSubmitting}
+        onSubmit={handleWalkInSubmit}
       />
 
       <Toast

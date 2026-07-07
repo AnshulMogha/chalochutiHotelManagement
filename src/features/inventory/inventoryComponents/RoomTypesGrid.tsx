@@ -138,6 +138,11 @@ interface RoomTypesGridProps {
     nextStatus: 'OPEN' | 'CLOSED',
     dayData: InventoryDay,
   ) => void;
+  onOpenWalkIn?: (ctx: {
+    roomId: number;
+    roomName: string;
+    inventoryDate: string;
+  }) => void;
   // Expand/collapse integration for the existing Rate Plans component
   expandedRoomIds: Set<number>;
   onToggleExpand: (roomId: number) => void;
@@ -209,6 +214,7 @@ export const RoomTypesGrid = ({
   updatingCells,
   blockingDates,
   onToggleInventoryBlock,
+  onOpenWalkIn,
   expandedRoomIds,
   onToggleExpand,
   rateRoomsByRoomId,
@@ -355,6 +361,38 @@ export const RoomTypesGrid = ({
 
   const canToggleInventoryBlock =
     !isReadOnly && !isLocked && !!onToggleInventoryBlock;
+
+  const canManageWalkIn =
+    !isReadOnly && !isLocked && !!onOpenWalkIn;
+
+  const renderWalkInButton = (
+    roomId: number,
+    roomName: string,
+    dateStr: string,
+    isColumnSelected: boolean,
+    isClosed: boolean,
+  ) => {
+    if (!canManageWalkIn || !isColumnSelected || isClosed) return null;
+
+    return (
+      <button
+        type="button"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenWalkIn!({
+            roomId,
+            roomName,
+            inventoryDate: dateStr,
+          });
+        }}
+        className="text-[10px] font-bold uppercase tracking-wide text-blue-700 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5"
+        title="Add or cancel walk-in inventory"
+      >
+        Walk-in
+      </button>
+    );
+  };
 
   const renderInventoryBlockButton = (
     dateStr: string,
@@ -1136,6 +1174,13 @@ export const RoomTypesGrid = ({
                         isColumnSelected,
                         false,
                       )}
+                      {renderWalkInButton(
+                        room.roomId,
+                        room.roomName,
+                        dateStr,
+                        isColumnSelected,
+                        isClosed,
+                      )}
                     </div>
                   </>
                 ) : isSoldOut ? (
@@ -1223,6 +1268,13 @@ export const RoomTypesGrid = ({
                         dayData,
                         isColumnSelected,
                         false,
+                      )}
+                      {renderWalkInButton(
+                        room.roomId,
+                        room.roomName,
+                        dateStr,
+                        isColumnSelected,
+                        isClosed,
                       )}
                     </div>
                   </>
@@ -1317,6 +1369,13 @@ export const RoomTypesGrid = ({
                         dayData,
                         isColumnSelected,
                         false,
+                      )}
+                      {renderWalkInButton(
+                        room.roomId,
+                        room.roomName,
+                        dateStr,
+                        isColumnSelected,
+                        isClosed,
                       )}
                     </div>
                   </>
