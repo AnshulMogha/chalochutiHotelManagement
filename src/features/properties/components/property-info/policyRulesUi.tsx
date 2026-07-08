@@ -311,8 +311,10 @@ export function BoundedHourSelect({
     value === "" ? placeholder : formatOption(Number(value));
 
   return (
-    <div className="space-y-2" ref={rootRef}>
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
+    <div className={cn(label ? "space-y-2" : "relative inline-block")} ref={rootRef}>
+      {label && (
+        <label className="block text-sm font-medium text-gray-700">{label}</label>
+      )}
       <div className="relative">
         <button
           type="button"

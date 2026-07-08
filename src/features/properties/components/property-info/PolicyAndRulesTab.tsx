@@ -116,20 +116,23 @@ const CUSTOM_CONDITION_HOUR_OPTIONS = Array.from(
   { length: 31 },
   (_, day) => day * HOURS_PER_DAY,
 );
+const MAX_CUSTOM_CONDITIONS = 3;
 
-type RuleDraftState = {
-  fromHours: NumericInput;
-  toHours: NumericInput;
+/** Chained custom condition UI: condition 1 is always free till X; later rows start from previous till. */
+type CustomChainRow = {
+  tillHours: NumericInput;
+  /** Condition 1 is always free (0%). Later rows use these fields. */
   penaltyType: SlabPenaltyType;
   penaltyValue: NumericInput;
 };
 
-const EMPTY_RULE_DRAFT: RuleDraftState = {
-  fromHours: "",
-  toHours: "",
-  penaltyType: "PERCENTAGE",
-  penaltyValue: "",
-};
+const EMPTY_CUSTOM_CHAIN: CustomChainRow[] = [
+  {
+    tillHours: "",
+    penaltyType: "PERCENTAGE",
+    penaltyValue: 0,
+  },
+];
 
 function splitTotalHoursToDaysAndHours(totalHours: number): {
   days: NumericInput;
@@ -198,17 +201,116 @@ function findOverlappingSlabIndexes(slabs: CancellationSlabForm[]): number[] {
   return [];
 }
 
+function formatPenaltyChargeLabel(
+  penaltyType: SlabPenaltyType | NoShowPenaltyType,
+  penaltyValue: number | null | undefined,
+): string {
+  if (penaltyType === "NONE") return "None";
+  if (penaltyType === "PERCENTAGE") {
+    const value = Number(penaltyValue ?? 0);
+    if (value === 0) return "100% refund / free";
+    return `${value}% of booking amount`;
+  }
+  return `Rs ${Number(penaltyValue ?? 0)}`;
+}
+
+/** Convert chained UI rows → API slabs (hours-before-check-in descending windows). */
+function customChainToSlabs(rows: CustomChainRow[]): CancellationSlabForm[] | null {
+  if (!rows.length) return null;
+  const tills = rows.map((row) =>
+    row.tillHours === "" ? NaN : Number(row.tillHours),
+  );
+  if (tills.some((t) => Number.isNaN(t) || t < 0)) return null;
+
+  for (let i = 1; i < tills.length; i += 1) {
+    if (tills[i] >= tills[i - 1]) return null;
+  }
+
+  const slabs: CancellationSlabForm[] = [];
+  // Condition 1: free cancellation from till → forever (open-ended)
+  slabs.push({
+    fromHours: tills[0],
+    toHours: 9999,
+    penaltyType: "PERCENTAGE",
+    penaltyValue: 0,
+  });
+
+  for (let i = 1; i < rows.length; i += 1) {
+    const row = rows[i];
+    const value =
+      row.penaltyValue === "" ? NaN : Number(row.penaltyValue);
+    if (Number.isNaN(value) || value < 0) return null;
+    if (row.penaltyType === "PERCENTAGE" && value > 100) return null;
+
+    slabs.push({
+      fromHours: tills[i],
+      toHours: tills[i - 1],
+      penaltyType: row.penaltyType,
+      penaltyValue: value,
+    });
+  }
+
+  return slabs;
+}
+
+/** Best-effort reverse of chained custom slabs for edit mode. */
+function slabsToCustomChain(slabs: CancellationSlabForm[]): CustomChainRow[] {
+  if (!slabs.length) return EMPTY_CUSTOM_CHAIN.map((row) => ({ ...row }));
+
+  const sorted = [...slabs].sort((a, b) => b.toHours - a.toHours);
+  const free = sorted.find(
+    (slab) =>
+      slab.penaltyType === "PERCENTAGE" &&
+      slab.penaltyValue === 0 &&
+      slab.toHours >= 9999,
+  );
+
+  if (!free) {
+    // Fallback: treat farthest window as free-till if possible
+    const farthest = sorted[0];
+    return [
+      {
+        tillHours: farthest.fromHours,
+        penaltyType: "PERCENTAGE",
+        penaltyValue: 0,
+      },
+      ...sorted.slice(1, MAX_CUSTOM_CONDITIONS).map((slab) => ({
+        tillHours: slab.fromHours,
+        penaltyType: slab.penaltyType,
+        penaltyValue: slab.penaltyValue,
+      })),
+    ].slice(0, MAX_CUSTOM_CONDITIONS);
+  }
+
+  const rows: CustomChainRow[] = [
+    {
+      tillHours: free.fromHours,
+      penaltyType: "PERCENTAGE",
+      penaltyValue: 0,
+    },
+  ];
+
+  const rest = sorted
+    .filter((slab) => slab !== free)
+    .sort((a, b) => b.toHours - a.toHours);
+
+  for (const slab of rest) {
+    if (rows.length >= MAX_CUSTOM_CONDITIONS) break;
+    rows.push({
+      tillHours: slab.fromHours,
+      penaltyType: slab.penaltyType,
+      penaltyValue: slab.penaltyValue,
+    });
+  }
+
+  return rows.length ? rows : EMPTY_CUSTOM_CHAIN.map((row) => ({ ...row }));
+}
+
 interface CancellationFormErrors {
   policyName?: string;
   noShowPenaltyValue?: string;
   slabs?: string;
-}
-
-interface RuleDraftErrors {
-  fromHours?: string;
-  toHours?: string;
-  penaltyValue?: string;
-  overlap?: string;
+  customConditions?: string[];
 }
 
 type CancellationPresetKey =
@@ -423,12 +525,11 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
   const cancellationNameInputRef = useRef<HTMLInputElement | null>(null);
   const [isCancellationModalOpen, setIsCancellationModalOpen] =
     useState(false);
-  const [ruleDraft, setRuleDraft] = useState<RuleDraftState>(EMPTY_RULE_DRAFT);
-  const [ruleDraftErrors, setRuleDraftErrors] = useState<RuleDraftErrors>({});
   const [cancellationErrors, setCancellationErrors] =
     useState<CancellationFormErrors>({});
-  const [showRuleBuilder, setShowRuleBuilder] = useState(false);
-  const [editingRuleIndex, setEditingRuleIndex] = useState<number | null>(null);
+  const [customChain, setCustomChain] = useState<CustomChainRow[]>(
+    EMPTY_CUSTOM_CHAIN.map((row) => ({ ...row })),
+  );
   const [cancellationPreset, setCancellationPreset] =
     useState<CancellationPresetKey>("FREE_24_HOURS");
   const [childPolicy, setChildPolicy] = useState<{
@@ -507,33 +608,15 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     }
   };
 
-  const getDefaultSlabsForHours = (hours: number): CancellationSlabForm[] => {
-    if (hours <= 0) {
-      return [
-        {
-          fromHours: 0,
-          toHours: 9999,
-          penaltyType: "PERCENTAGE",
-          penaltyValue: 0,
-        },
-      ];
-    }
-
-    return [
-      {
-        fromHours: hours,
-        toHours: 9999,
-        penaltyType: "PERCENTAGE",
-        penaltyValue: 0,
-      },
-      {
-        fromHours: 0,
-        toHours: hours,
-        penaltyType: "PERCENTAGE",
-        penaltyValue: 100,
-      },
-    ];
-  };
+  /** DEFAULT presets: free-cancel window only in slabs; no-show stays global. */
+  const getDefaultSlabsForHours = (hours: number): CancellationSlabForm[] => [
+    {
+      fromHours: Math.max(0, hours),
+      toHours: 9999,
+      penaltyType: "PERCENTAGE",
+      penaltyValue: 0,
+    },
+  ];
 
   const getPresetConfig = (preset: CancellationPresetKey) => {
     switch (preset) {
@@ -581,23 +664,40 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
 
   const isOpenEndedToHours = (toHours: number) => toHours >= 9999;
 
+  const mapFreeCutoffToPreset = (hours: number): CancellationPresetKey | null => {
+    if (hours === 0) return "FREE_TILL_CHECKIN";
+    if (hours === 24) return "FREE_24_HOURS";
+    if (hours === 48) return "FREE_48_HOURS";
+    if (hours === 72) return "FREE_72_HOURS";
+    return null;
+  };
+
   const inferPresetFromSlabs = (
     slabs: CancellationSlabForm[],
   ): CancellationPresetKey => {
     const sorted = [...slabs].sort((a, b) => a.fromHours - b.fromHours);
 
+    // CURRENT DEFAULT format: one free-cancel window slab (no-show is global)
     if (sorted.length === 1) {
       const slab = sorted[0];
       if (
+        isOpenEndedToHours(slab.toHours) &&
+        slab.penaltyType === "PERCENTAGE" &&
+        slab.penaltyValue === 0
+      ) {
+        return mapFreeCutoffToPreset(slab.fromHours) ?? "FREE_24_HOURS";
+      }
+      if (
         slab.fromHours === 0 &&
         isOpenEndedToHours(slab.toHours) &&
-        slab.penaltyType === "PERCENTAGE"
+        slab.penaltyType === "PERCENTAGE" &&
+        slab.penaltyValue === 100
       ) {
-        if (slab.penaltyValue === 0) return "FREE_TILL_CHECKIN";
-        if (slab.penaltyValue === 100) return "NON_REFUNDABLE";
+        return "NON_REFUNDABLE";
       }
     }
 
+    // LEGACY DEFAULT format: free window + late-cancel 100% slab
     if (sorted.length === 2) {
       const [first, second] = sorted;
       const hours = second.fromHours;
@@ -610,10 +710,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
         second.penaltyType === "PERCENTAGE" &&
         second.penaltyValue === 0;
       if (matches) {
-        if (hours === 24) return "FREE_24_HOURS";
-        if (hours === 48) return "FREE_48_HOURS";
-        if (hours === 72) return "FREE_72_HOURS";
-        if (hours === 0) return "FREE_TILL_CHECKIN";
+        return mapFreeCutoffToPreset(hours) ?? "FREE_24_HOURS";
       }
     }
 
@@ -624,11 +721,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
         isOpenEndedToHours(slab.toHours),
     );
     if (freeSlab) {
-      const cutoff = freeSlab.fromHours;
-      if (cutoff === 0) return "FREE_TILL_CHECKIN";
-      if (cutoff === 24) return "FREE_24_HOURS";
-      if (cutoff === 48) return "FREE_48_HOURS";
-      if (cutoff === 72) return "FREE_72_HOURS";
+      return mapFreeCutoffToPreset(freeSlab.fromHours) ?? "FREE_24_HOURS";
     }
 
     const nonRefundableSlab = sorted.find(
@@ -652,18 +745,28 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     const noShowIs100 =
       noShowPenaltyType === "PERCENTAGE" && Number(noShowPenaltyValue ?? 0) === 100;
 
+    if (!noShowIs100) return "CUSTOM";
+
     if (sorted.length === 1) {
       const slab = sorted[0];
       if (
+        isOpenEndedToHours(slab.toHours) &&
+        slab.penaltyType === "PERCENTAGE" &&
+        slab.penaltyValue === 0
+      ) {
+        return mapFreeCutoffToPreset(slab.fromHours) ?? "CUSTOM";
+      }
+      if (
         slab.fromHours === 0 &&
         isOpenEndedToHours(slab.toHours) &&
-        slab.penaltyType === "PERCENTAGE"
+        slab.penaltyType === "PERCENTAGE" &&
+        slab.penaltyValue === 100
       ) {
-        if (slab.penaltyValue === 0 && noShowIs100) return "FREE_TILL_CHECKIN";
-        if (slab.penaltyValue === 100 && noShowIs100) return "NON_REFUNDABLE";
+        return "NON_REFUNDABLE";
       }
     }
 
+    // LEGACY two-slab DEFAULT format
     if (sorted.length === 2) {
       const [first, second] = sorted;
       const hours = second.fromHours;
@@ -674,12 +777,9 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
         first.penaltyValue === 100 &&
         isOpenEndedToHours(second.toHours) &&
         second.penaltyType === "PERCENTAGE" &&
-        second.penaltyValue === 0 &&
-        noShowIs100;
+        second.penaltyValue === 0;
       if (matches) {
-        if (hours === 24) return "FREE_24_HOURS";
-        if (hours === 48) return "FREE_48_HOURS";
-        if (hours === 72) return "FREE_72_HOURS";
+        return mapFreeCutoffToPreset(hours) ?? "CUSTOM";
       }
     }
 
@@ -774,10 +874,8 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     setSelectedCancellationId(null);
     setViewingCancellationPolicy(null);
     setCancellationViewLoading(false);
-    setShowRuleBuilder(false);
-    setEditingRuleIndex(null);
-    setRuleDraftErrors({});
     setCancellationErrors({});
+    setCustomChain(EMPTY_CUSTOM_CHAIN.map((row) => ({ ...row })));
     setCancellationForm({
       policyName: "",
       noShowPenaltyType: presetConfig?.noShowPenaltyType ?? "NONE",
@@ -788,16 +886,12 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
       slabs: presetConfig?.slabs ?? [],
     });
     setCancellationPreset(preset);
-    setRuleDraft(EMPTY_RULE_DRAFT);
   }, [hotelId]);
 
   useEffect(() => {
     if (activeTab !== "cancellation") {
       setIsCancellationModalOpen(false);
       setSelectedCancellationId(null);
-      setShowRuleBuilder(false);
-      setEditingRuleIndex(null);
-      setRuleDraftErrors({});
       setCancellationErrors({});
       setViewingCancellationPolicy(null);
       setCancellationViewLoading(false);
@@ -1051,19 +1145,21 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
         effectiveTo: detail.effectiveTo ?? null,
         slabs: normalizedSlabs,
       });
-      setCancellationPreset(
-        resolveCancellationPreset(
-          normalizeCreationType(detail.creationType),
-          normalizedSlabs,
-          mappedNoShowType,
-          mappedNoShowType === "PERCENTAGE" || mappedNoShowType === "FIXED"
-            ? Number(detail.noShowPenaltyValue ?? 0)
-            : null,
-        ),
+      const resolvedPreset = resolveCancellationPreset(
+        normalizeCreationType(detail.creationType),
+        normalizedSlabs,
+        mappedNoShowType,
+        mappedNoShowType === "PERCENTAGE" || mappedNoShowType === "FIXED"
+          ? Number(detail.noShowPenaltyValue ?? 0)
+          : null,
+      );
+      setCancellationPreset(resolvedPreset);
+      setCustomChain(
+        resolvedPreset === "CUSTOM"
+          ? slabsToCustomChain(normalizedSlabs)
+          : EMPTY_CUSTOM_CHAIN.map((row) => ({ ...row })),
       );
       setCancellationErrors({});
-      setRuleDraftErrors({});
-      setShowRuleBuilder(false);
       setSelectedCancellationId(policyId);
       setIsCancellationModalOpen(true);
       if (cancellationNameInputRef.current) {
@@ -1091,6 +1187,56 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     }
   };
 
+  const syncCustomChainToForm = (rows: CustomChainRow[]) => {
+    setCustomChain(rows);
+    const slabs = customChainToSlabs(rows);
+    setCancellationForm((prev) => ({
+      ...prev,
+      slabs: slabs ?? [],
+    }));
+  };
+
+  const updateCustomChainRow = (
+    index: number,
+    patch: Partial<CustomChainRow>,
+  ) => {
+    const next = customChain.map((row, rowIndex) =>
+      rowIndex === index ? { ...row, ...patch } : row,
+    );
+    // If an earlier till shrinks, clear later tills that would overlap
+    if (patch.tillHours !== undefined && patch.tillHours !== "") {
+      const changedTill = Number(patch.tillHours);
+      for (let i = index + 1; i < next.length; i += 1) {
+        const laterTill =
+          next[i].tillHours === "" ? NaN : Number(next[i].tillHours);
+        if (!Number.isNaN(laterTill) && laterTill >= changedTill) {
+          next[i] = { ...next[i], tillHours: "" };
+        }
+      }
+    }
+    syncCustomChainToForm(next);
+  };
+
+  const addCustomChainCondition = () => {
+    if (customChain.length >= MAX_CUSTOM_CONDITIONS) return;
+    const prevTill = customChain[customChain.length - 1]?.tillHours;
+    if (prevTill === "" || prevTill === 0) return;
+    syncCustomChainToForm([
+      ...customChain,
+      {
+        tillHours: "",
+        penaltyType: "PERCENTAGE",
+        penaltyValue: "",
+      },
+    ]);
+  };
+
+  const removeCustomChainCondition = (index: number) => {
+    if (index === 0) return;
+    // Removing a middle row also drops all rows after it (chain depends on previous)
+    syncCustomChainToForm(customChain.slice(0, index));
+  };
+
   const resetCancellationForm = () => {
     const preset = "FREE_24_HOURS";
     const presetConfig = getPresetConfig(preset);
@@ -1104,12 +1250,9 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
       slabs: presetConfig?.slabs ?? [],
     });
     setCancellationPreset(preset);
-    setRuleDraft(EMPTY_RULE_DRAFT);
-    setRuleDraftErrors({});
+    setCustomChain(EMPTY_CUSTOM_CHAIN.map((row) => ({ ...row })));
     setCancellationErrors({});
     setSelectedCancellationId(null);
-    setShowRuleBuilder(false);
-    setEditingRuleIndex(null);
     setIsCancellationModalOpen(true);
     if (cancellationNameInputRef.current) {
       cancellationNameInputRef.current.focus();
@@ -1119,115 +1262,70 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
   const closeCancellationModal = () => {
     setIsCancellationModalOpen(false);
     setSelectedCancellationId(null);
-    setRuleDraftErrors({});
     setCancellationErrors({});
-    setShowRuleBuilder(false);
-    setEditingRuleIndex(null);
   };
 
-  const validateRuleDraft = (
-    draft = ruleDraft,
-    ignoreIndex: number | null = editingRuleIndex
-  ): RuleDraftErrors => {
-    const errors: RuleDraftErrors = {};
-    if (draft.fromHours === "") {
-      errors.fromHours = "Please select a from time";
+  const validateCustomChain = (
+    rows: CustomChainRow[],
+  ): { rowErrors: string[]; message?: string } => {
+    const rowErrors: string[] = rows.map(() => "");
+    if (!rows.length) {
+      return { rowErrors, message: "Add at least one cancellation condition" };
     }
-    if (draft.toHours === "") {
-      errors.toHours = "Please select a to time";
-    }
-    const from = draft.fromHours === "" ? NaN : Number(draft.fromHours);
-    const to = draft.toHours === "" ? NaN : Number(draft.toHours);
-    const value = draft.penaltyValue === "" ? NaN : Number(draft.penaltyValue);
-
-    if (!errors.fromHours && (Number.isNaN(from) || from < 0)) {
-      errors.fromHours = "From time must be 0 or greater";
-    }
-    if (!errors.toHours && (Number.isNaN(to) || to < 0)) {
-      errors.toHours = "To time must be 0 or greater";
-    }
-    if (!errors.fromHours && !errors.toHours && !Number.isNaN(from) && !Number.isNaN(to) && from >= to) {
-      errors.toHours = "From time must be less than To time";
-    }
-    if (Number.isNaN(value) || value < 0) {
-      errors.penaltyValue = "Penalty value must be 0 or greater";
-    } else if (draft.penaltyType === "PERCENTAGE" && value > 100) {
-      errors.penaltyValue = "Penalty value cannot be more than 100%";
-    }
-
-    if (!errors.fromHours && !errors.toHours) {
-      const hasOverlap = cancellationForm.slabs.some(
-        (slab, index) =>
-          index !== ignoreIndex &&
-          slabsOverlap(
-            { fromHours: from, toHours: to },
-            slab,
-          ),
-      );
-      if (hasOverlap) {
-        errors.overlap =
-          "This window overlaps an existing condition. Choose a non-overlapping range.";
-      }
-    }
-    return errors;
-  };
-
-  const saveRule = () => {
-    const errors = validateRuleDraft();
-    setRuleDraftErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    const nextSlab: CancellationSlabForm = {
-      fromHours: Number(ruleDraft.fromHours),
-      toHours: Number(ruleDraft.toHours),
-      penaltyType: ruleDraft.penaltyType,
-      penaltyValue: Number(ruleDraft.penaltyValue),
-    };
-    setCancellationForm((prev) => {
-      if (editingRuleIndex === null) {
-        return {
-          ...prev,
-          slabs: [...prev.slabs, nextSlab],
-        };
-      }
+    if (rows.length > MAX_CUSTOM_CONDITIONS) {
       return {
-        ...prev,
-        slabs: prev.slabs.map((slab, index) =>
-          index === editingRuleIndex ? nextSlab : slab
-        ),
+        rowErrors,
+        message: `Custom policy allows at most ${MAX_CUSTOM_CONDITIONS} conditions (no-show is global)`,
       };
-    });
-    setRuleDraft(EMPTY_RULE_DRAFT);
-    setEditingRuleIndex(null);
-    setRuleDraftErrors({});
-    setShowRuleBuilder(false);
-  };
-
-  const startEditRule = (index: number) => {
-    const slab = cancellationForm.slabs[index];
-    if (!slab) return;
-    setRuleDraft({
-      fromHours: slab.fromHours,
-      toHours: slab.toHours,
-      penaltyType: slab.penaltyType,
-      penaltyValue: slab.penaltyValue,
-    });
-    setEditingRuleIndex(index);
-    setRuleDraftErrors({});
-    setShowRuleBuilder(true);
-  };
-
-  const removeRule = (index: number) => {
-    setCancellationForm((prev) => ({
-      ...prev,
-      slabs: prev.slabs.filter((_, slabIndex) => slabIndex !== index),
-    }));
-    if (editingRuleIndex === index) {
-      setEditingRuleIndex(null);
-      setRuleDraft(EMPTY_RULE_DRAFT);
-      setRuleDraftErrors({});
-      setShowRuleBuilder(false);
     }
+
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      if (row.tillHours === "") {
+        rowErrors[i] = "Please select a time";
+        continue;
+      }
+      const till = Number(row.tillHours);
+      if (Number.isNaN(till) || till < 0) {
+        rowErrors[i] = "Invalid time";
+        continue;
+      }
+      if (i > 0) {
+        const prevTill = Number(rows[i - 1].tillHours);
+        if (!(till < prevTill)) {
+          rowErrors[i] =
+            "Must be closer to check-in than the previous condition";
+        }
+        if (row.penaltyValue === "") {
+          rowErrors[i] = rowErrors[i] || "Penalty value is required";
+        } else {
+          const value = Number(row.penaltyValue);
+          if (Number.isNaN(value) || value < 0) {
+            rowErrors[i] = rowErrors[i] || "Penalty value must be 0 or greater";
+          } else if (row.penaltyType === "PERCENTAGE" && value > 100) {
+            rowErrors[i] =
+              rowErrors[i] || "Percentage cannot be more than 100%";
+          }
+        }
+      }
+    }
+
+    if (rowErrors.some(Boolean)) {
+      return {
+        rowErrors,
+        message: "Fix the highlighted conditions before saving",
+      };
+    }
+
+    const slabs = customChainToSlabs(rows);
+    if (!slabs || findOverlappingSlabIndexes(slabs).length > 0) {
+      return {
+        rowErrors,
+        message: "Cancellation windows cannot overlap",
+      };
+    }
+
+    return { rowErrors };
   };
 
   const validateCancellationForm = () => {
@@ -1236,14 +1334,12 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
       errors.policyName = "Policy name is required";
     }
     if (cancellationPreset === "CUSTOM") {
-      if (showRuleBuilder) {
-        errors.slabs =
-          "Save or cancel the condition you are editing before submitting.";
-      } else if (!cancellationForm.slabs.length) {
-        errors.slabs = "Add at least one cancellation rule";
-      } else if (findOverlappingSlabIndexes(cancellationForm.slabs).length > 0) {
-        errors.slabs =
-          "Cancellation windows cannot overlap. Please fix overlapping conditions.";
+      const chainValidation = validateCustomChain(customChain);
+      if (chainValidation.message) {
+        errors.slabs = chainValidation.message;
+      }
+      if (chainValidation.rowErrors.some(Boolean)) {
+        errors.customConditions = chainValidation.rowErrors;
       }
     } else if (!cancellationForm.slabs.length) {
       errors.slabs = "Add at least one cancellation rule";
@@ -1260,7 +1356,12 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
       }
     }
     setCancellationErrors(errors);
-    return Object.keys(errors).length === 0;
+    return (
+      !errors.policyName &&
+      !errors.slabs &&
+      !errors.noShowPenaltyValue &&
+      !(errors.customConditions && errors.customConditions.some(Boolean))
+    );
   };
 
   const saveCancellation = async () => {
@@ -1268,19 +1369,26 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     if (!validateCancellationForm()) return;
     setCancellationSaving(true);
     try {
+      // For CUSTOM, derive final slabs from the chained UI; for DEFAULT use form slabs.
+      const finalSlabs =
+        cancellationPreset === "CUSTOM"
+          ? (customChainToSlabs(customChain) ?? cancellationForm.slabs)
+          : cancellationForm.slabs;
+
+      // No-show is always policy-level (never encoded inside slabs).
       const payload: CancellationPolicyPayload = {
         policyName: cancellationForm.policyName.trim(),
+        applyChannel: cancellationForm.applyChannel ?? "B2C",
         creationType: cancellationPreset === "CUSTOM" ? "CUSTOM" : "DEFAULT",
+        effectiveFrom: cancellationForm.effectiveFrom ?? null,
+        effectiveTo: cancellationForm.effectiveTo ?? null,
         noShowPenaltyType: cancellationForm.noShowPenaltyType,
         noShowPenaltyValue:
           cancellationForm.noShowPenaltyType === "PERCENTAGE" ||
           cancellationForm.noShowPenaltyType === "FIXED"
             ? Number(cancellationForm.noShowPenaltyValue ?? 0)
             : null,
-        applyChannel: cancellationForm.applyChannel ?? "B2C",
-        effectiveFrom: cancellationForm.effectiveFrom ?? null,
-        effectiveTo: cancellationForm.effectiveTo ?? null,
-        slabs: cancellationForm.slabs.map((slab) => ({
+        slabs: finalSlabs.map((slab) => ({
           fromHours: slab.fromHours,
           toHours: slab.toHours,
           penaltyType: slab.penaltyType,
@@ -2191,10 +2299,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                                         noShowPenaltyValue: presetConfig.noShowPenaltyValue,
                                         slabs: presetConfig.slabs,
                                       }));
-                                      setShowRuleBuilder(false);
-                                      setEditingRuleIndex(null);
-                                      setRuleDraft(EMPTY_RULE_DRAFT);
-                                      setRuleDraftErrors({});
+                                      setCustomChain(EMPTY_CUSTOM_CHAIN.map((row) => ({ ...row })));
                                     } else if (option.key === "CUSTOM") {
                                       setCancellationForm((prev) => ({
                                         ...prev,
@@ -2202,11 +2307,9 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                                         noShowPenaltyValue: 100,
                                         slabs: [],
                                       }));
-                                      setShowRuleBuilder(false);
-                                      setEditingRuleIndex(null);
-                                      setRuleDraft(EMPTY_RULE_DRAFT);
-                                      setRuleDraftErrors({});
+                                      setCustomChain(EMPTY_CUSTOM_CHAIN.map((row) => ({ ...row })));
                                     }
+                                    setCancellationErrors({});
                                   }}
                                 />
                                 <span>{option.label}</span>
@@ -2216,86 +2319,157 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                         </div>
                       </div>
                       {cancellationPreset === "CUSTOM" ? (
-                        <div className="rounded-xl border border-indigo-100 bg-white p-4 space-y-3">
+                        <div className="rounded-xl border border-indigo-100 bg-white p-4 space-y-4">
                           <div className="flex items-center justify-between">
                             <h4 className="text-sm font-semibold text-indigo-900 flex items-center gap-2">
                               <FileText className="w-4 h-4" />
-                              Custom Conditions
+                              Customise the cancellation type
                             </h4>
+                          </div>
+                          <div className="space-y-3">
+                            {customChain.map((row, rowIndex) => {
+                              const isFirst = rowIndex === 0;
+                              const prevTill =
+                                rowIndex > 0
+                                  ? customChain[rowIndex - 1].tillHours
+                                  : undefined;
+                              // available till hours: must be less than the previous row's till
+                              const maxTill =
+                                prevTill === "" || prevTill === undefined
+                                  ? undefined
+                                  : Number(prevTill);
+                              const tillOptions = CUSTOM_CONDITION_HOUR_OPTIONS.filter(
+                                (h) =>
+                                  maxTill === undefined || h < maxTill,
+                              );
+                              const rowError =
+                                cancellationErrors.customConditions?.[rowIndex];
+                              return (
+                                <div
+                                  key={rowIndex}
+                                  className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 space-y-2"
+                                >
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
+                                      Condition {rowIndex + 1}
+                                    </span>
+                                    {!isFirst && (
+                                      <button
+                                        type="button"
+                                        className="text-xs text-rose-500 hover:text-rose-700"
+                                        onClick={() => removeCustomChainCondition(rowIndex)}
+                                      >
+                                        Remove
+                                      </button>
+                                    )}
+                                  </div>
+                                  {isFirst ? (
+                                    <div className="flex items-center gap-x-2 gap-y-2 flex-wrap">
+                                      <span className="text-sm text-gray-700 font-medium whitespace-nowrap">
+                                        Free cancellation till
+                                      </span>
+                                      <BoundedHourSelect
+                                        label=""
+                                        value={row.tillHours}
+                                        options={tillOptions}
+                                        formatOption={formatBeforeCheckinLabel}
+                                        error={rowError}
+                                        placeholder="Select…"
+                                        onChange={(h) =>
+                                          updateCustomChainRow(rowIndex, { tillHours: h })
+                                        }
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {/* Row 1: time window */}
+                                      <div className="flex items-center gap-x-2 flex-wrap">
+                                        <span className="text-sm text-gray-700 whitespace-nowrap">
+                                          From{" "}
+                                          <strong>
+                                            {formatBeforeCheckinLabel(Number(prevTill))}
+                                          </strong>{" "}
+                                          till
+                                        </span>
+                                        <BoundedHourSelect
+                                          label=""
+                                          value={row.tillHours}
+                                          options={tillOptions}
+                                          formatOption={formatBeforeCheckinLabel}
+                                          placeholder="Select…"
+                                          onChange={(h) =>
+                                            updateCustomChainRow(rowIndex, { tillHours: h })
+                                          }
+                                        />
+                                      </div>
+                                      {/* Row 2: penalty */}
+                                      <div className="flex items-center gap-x-2 gap-y-2 flex-wrap pl-1">
+                                        <span className="text-sm text-gray-700 whitespace-nowrap">
+                                          Cancellation Penalty =
+                                        </span>
+                                        <select
+                                          className="rounded-md border border-gray-300 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                          value={row.penaltyType}
+                                          onChange={(e) =>
+                                            updateCustomChainRow(rowIndex, {
+                                              penaltyType: e.target.value as SlabPenaltyType,
+                                              penaltyValue: "",
+                                            })
+                                          }
+                                        >
+                                          <option value="PERCENTAGE">% of booking</option>
+                                          <option value="FIXED">Fixed (Rs)</option>
+                                        </select>
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="number"
+                                            min={0}
+                                            max={
+                                              row.penaltyType === "PERCENTAGE" ? 100 : undefined
+                                            }
+                                            placeholder={
+                                              row.penaltyType === "PERCENTAGE"
+                                                ? "e.g. 50"
+                                                : "e.g. 500"
+                                            }
+                                            value={row.penaltyValue}
+                                            onChange={(e) =>
+                                              updateCustomChainRow(rowIndex, {
+                                                penaltyValue: parseNumberInput(e.target.value),
+                                              })
+                                            }
+                                            className="w-24 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                          />
+                                          <span className="text-xs text-gray-500 whitespace-nowrap">
+                                            {row.penaltyType === "PERCENTAGE" ? "%" : "Rs"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      {rowError && (
+                                        <p className="text-xs text-red-600">{rowError}</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {customChain.length < MAX_CUSTOM_CONDITIONS && (
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                              onClick={() => setShowRuleBuilder(true)}
+                              onClick={addCustomChainCondition}
+                              disabled={
+                                customChain[customChain.length - 1]?.tillHours === "" ||
+                                customChain[customChain.length - 1]?.tillHours === 0
+                              }
                             >
                               <Plus className="w-4 h-4 mr-1" />
                               Add Condition
                             </Button>
-                          </div>
-                          <div className="border border-indigo-100 rounded-lg overflow-hidden">
-                            <div className="grid grid-cols-5 bg-indigo-50 text-xs font-semibold text-indigo-900 px-4 py-2">
-                              <span>From</span>
-                              <span>To</span>
-                              <span>Penalty Type</span>
-                              <span>Value</span>
-                              <span className="text-right">Action</span>
-                            </div>
-                            {cancellationForm.slabs.length === 0 ? (
-                              <div className="px-4 py-5 text-sm text-gray-500">
-                                No conditions added yet.
-                              </div>
-                            ) : (
-                              <div className="divide-y divide-gray-200">
-                                {[...cancellationForm.slabs]
-                                  .sort((a, b) => b.fromHours - a.fromHours)
-                                  .map((slab) => {
-                                    const sourceIndex = cancellationForm.slabs.findIndex(
-                                      (item) =>
-                                        item.fromHours === slab.fromHours &&
-                                        item.toHours === slab.toHours &&
-                                        item.penaltyType === slab.penaltyType &&
-                                        item.penaltyValue === slab.penaltyValue
-                                    );
-                                    return (
-                                      <div
-                                        key={`${slab.fromHours}-${slab.toHours}-${slab.penaltyType}-${slab.penaltyValue}`}
-                                        className="grid grid-cols-5 items-center px-4 py-2 text-sm hover:bg-indigo-50/30"
-                                      >
-                                        <span>{formatCancellationDuration(slab.fromHours)}</span>
-                                        <span>{formatCancellationDuration(slab.toHours)}</span>
-                                        <span>{SLAB_TYPE_LABELS[slab.penaltyType]}</span>
-                                        <span>
-                                          {slab.penaltyType === "PERCENTAGE"
-                                            ? `${slab.penaltyValue}%`
-                                            : `Rs ${slab.penaltyValue}`}
-                                        </span>
-                                        <div className="text-right">
-                                          <div className="flex justify-end gap-2">
-                                            <Button
-                                              type="button"
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() => startEditRule(sourceIndex)}
-                                            >
-                                              Edit
-                                            </Button>
-                                            <Button
-                                              type="button"
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() => removeRule(sourceIndex)}
-                                            >
-                                              Delete
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                              </div>
-                            )}
-                          </div>
+                          )}
                           {cancellationErrors.slabs && (
                             <p className="text-xs text-red-600">{cancellationErrors.slabs}</p>
                           )}
@@ -2304,123 +2478,9 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                         <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-4">
                           <p className="text-sm text-indigo-900">
                             Rule values are auto-applied from selected option. Choose{" "}
-                            <span className="font-semibold">Custom</span> to add multiple conditions.
+                            <span className="font-semibold">Custom</span> to add up to{" "}
+                            {MAX_CUSTOM_CONDITIONS} conditions.
                           </p>
-                        </div>
-                      )}
-
-                      {showRuleBuilder && (
-                        <div className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 space-y-4">
-                          <h4 className="text-sm font-semibold text-sky-900 flex items-center gap-2">
-                            <Plus className="w-4 h-4" />
-                            {editingRuleIndex === null
-                              ? "Add Cancellation Rule"
-                              : "Edit Cancellation Rule"}
-                          </h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <BoundedHourSelect
-                              label="From (before check-in)"
-                              value={ruleDraft.fromHours}
-                              options={CUSTOM_CONDITION_HOUR_OPTIONS}
-                              formatOption={formatBeforeCheckinLabel}
-                              error={ruleDraftErrors.fromHours}
-                              onChange={(hours) => {
-                                const nextDraft = {
-                                  ...ruleDraft,
-                                  fromHours: hours,
-                                };
-                                setRuleDraft(nextDraft);
-                                setRuleDraftErrors(
-                                  validateRuleDraft(nextDraft, editingRuleIndex),
-                                );
-                              }}
-                            />
-                            <BoundedHourSelect
-                              label="To (before check-in)"
-                              value={ruleDraft.toHours}
-                              options={CUSTOM_CONDITION_HOUR_OPTIONS}
-                              formatOption={formatBeforeCheckinLabel}
-                              error={ruleDraftErrors.toHours}
-                              onChange={(hours) => {
-                                const nextDraft = {
-                                  ...ruleDraft,
-                                  toHours: hours,
-                                };
-                                setRuleDraft(nextDraft);
-                                setRuleDraftErrors(
-                                  validateRuleDraft(nextDraft, editingRuleIndex),
-                                );
-                              }}
-                            />
-                          </div>
-                          {ruleDraftErrors.overlap && (
-                            <p className="text-xs text-red-600">
-                              {ruleDraftErrors.overlap}
-                            </p>
-                          )}
-                          <div>
-                            <p className="text-sm font-medium text-gray-700 mb-2">
-                              Penalty Type
-                            </p>
-                            <div className="flex items-center gap-5">
-                              {(Object.keys(SLAB_TYPE_LABELS) as SlabPenaltyType[]).map(
-                                (type) => (
-                                  <label key={type} className="flex items-center gap-2 text-sm">
-                                    <input
-                                      type="radio"
-                                      checked={ruleDraft.penaltyType === type}
-                                      onChange={() =>
-                                        setRuleDraft((prev) => ({
-                                          ...prev,
-                                          penaltyType: type,
-                                        }))
-                                      }
-                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                                    />
-                                    {SLAB_TYPE_LABELS[type]}
-                                  </label>
-                                )
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Value {ruleDraft.penaltyType === "PERCENTAGE" ? "(%)" : "(Rs)"}
-                            </label>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={ruleDraft.penaltyValue}
-                              onChange={(e) =>
-                                setRuleDraft((prev) => ({
-                                  ...prev,
-                                  penaltyValue: parseNumberInput(e.target.value),
-                                }))
-                              }
-                            />
-                            {ruleDraftErrors.penaltyValue && (
-                              <p className="mt-1 text-xs text-red-600">
-                                {ruleDraftErrors.penaltyValue}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                setShowRuleBuilder(false);
-                                setEditingRuleIndex(null);
-                                setRuleDraft(EMPTY_RULE_DRAFT);
-                                setRuleDraftErrors({});
-                              }}
-                            >
-                              Cancel
-                            </Button>
-                            <Button type="button" onClick={saveRule}>
-                              Save
-                            </Button>
-                          </div>
                         </div>
                       )}
 
