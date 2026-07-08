@@ -689,30 +689,14 @@ export default function Layout() {
         status,
       });
 
-      // Update local state with new status
-      setRooms((prev) =>
-        prev.map((room) =>
-          room.roomId !== roomId
-            ? room
-            : {
-                ...room,
-                days: room.days.map((day) =>
-                  day.date === dateStr
-                    ? {
-                        ...day,
-                        total: totalRooms,
-                        status,
-                        // Calculate available dynamically
-                        available: Math.max(
-                          0,
-                          totalRooms - (day.sold || 0) - (day.blocked || 0),
-                        ),
-                      }
-                    : day,
-                ),
-              },
-        ),
+      // Fetch fresh calendar data from the API instead of recalculating locally
+      const refreshed = await inventoryService.getCalendar(
+        hotelId,
+        fromDate,
+        toDate,
       );
+      setRooms(refreshed);
+      originalRoomsRef.current = JSON.parse(JSON.stringify(refreshed));
 
       // Clear active edit if this was the edited cell
       if (activeEdit?.roomId === roomId && activeEdit?.date === dateStr) {

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type MouseEvent } from 'react';
+import { Fragment, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import {
   addDays,
   format,
@@ -238,6 +238,22 @@ export const RoomTypesGrid = ({
   const [commonRestrictionLocalValues, setCommonRestrictionLocalValues] = useState<
     Map<string, string>
   >(new Map());
+
+  // Keep the entered value visible until the edit is committed and fresh data
+  // arrives (activeEdit cleared). This avoids the input briefly flashing the
+  // locally-derived available value before the API returns updated data.
+  useEffect(() => {
+    setLocalValues((prev) => {
+      if (prev.size === 0) return prev;
+      if (!activeEdit) return new Map();
+      const activeKey = `${activeEdit.roomId}-${activeEdit.date}`;
+      const activeValue = prev.get(activeKey);
+      if (prev.size === 1 && activeValue !== undefined) return prev;
+      const next = new Map<string, string>();
+      if (activeValue !== undefined) next.set(activeKey, activeValue);
+      return next;
+    });
+  }, [activeEdit]);
   
   const dates = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => addDays(baseDate, i));
@@ -1127,7 +1143,7 @@ export const RoomTypesGrid = ({
                         );
                       }}
                       onBlur={() => {
-                        if (isColumnSelected) {
+                        if (isColumnSelected && !isThisCellEdited) {
                           // Clear local value on blur to show actual stored value
                           setLocalValues((prev) => {
                             const next = new Map(prev);
@@ -1225,7 +1241,7 @@ export const RoomTypesGrid = ({
                         );
                       }}
                       onBlur={() => {
-                        if (isColumnSelected) {
+                        if (isColumnSelected && !isThisCellEdited) {
                           setLocalValues((prev) => {
                             const next = new Map(prev);
                             next.delete(cellKey);
@@ -1320,7 +1336,7 @@ export const RoomTypesGrid = ({
                         );
                       }}
                       onBlur={() => {
-                        if (isColumnSelected) {
+                        if (isColumnSelected && !isThisCellEdited) {
                           // Clear local value on blur to show actual stored value
                           setLocalValues((prev) => {
                             const next = new Map(prev);
