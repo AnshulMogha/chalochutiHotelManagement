@@ -399,13 +399,17 @@ export interface UpdateHotelAddressRequest {
 }
 
 export type CancellationCreationType = "DEFAULT" | "CUSTOM";
+export type CancellationApplyChannel =
+  | "B2C"
+  | "B2B"
+  | "PACKAGE";
 
 export interface CancellationPolicyPayload {
   policyName: string;
   creationType?: CancellationCreationType;
   noShowPenaltyType: "NONE" | "PERCENTAGE" | "FIXED";
   noShowPenaltyValue?: number | null;
-  applyChannel?: "B2C" | "B2B" | "BUNDLE";
+  applyChannel?: CancellationApplyChannel;
   effectiveFrom?: string | null;
   effectiveTo?: string | null;
   slabs: {
@@ -434,7 +438,7 @@ export interface CancellationPolicy {
   creationType?: CancellationCreationType;
   noShowPenaltyType?: "NONE" | "PERCENTAGE" | "FIXED";
   noShowPenaltyValue?: number | null;
-  applyChannel?: "B2C" | "B2B" | "BUNDLE";
+  applyChannel?: CancellationApplyChannel;
   effectiveFrom?: string | null;
   effectiveTo?: string | null;
   version: number;

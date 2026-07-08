@@ -309,8 +309,27 @@ function slabsToCustomChain(slabs: CancellationSlabForm[]): CustomChainRow[] {
 interface CancellationFormErrors {
   policyName?: string;
   noShowPenaltyValue?: string;
+  effectiveFrom?: string;
+  effectiveTo?: string;
   slabs?: string;
   customConditions?: string[];
+}
+
+const CANCELLATION_APPLY_CHANNELS = [
+  "B2C",
+  "B2B",
+  "PACKAGE",
+] as const;
+
+type CancellationApplyChannelOption =
+  (typeof CANCELLATION_APPLY_CHANNELS)[number];
+
+function getTodayIsoDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 type CancellationPresetKey =
@@ -600,7 +619,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
     switch (channel) {
       case "B2B":
         return "bg-violet-100 text-violet-800";
-      case "BUNDLE":
+      case "PACKAGE":
         return "bg-emerald-100 text-emerald-800";
       case "B2C":
       default:
@@ -1330,6 +1349,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
 
   const validateCancellationForm = () => {
     const errors: CancellationFormErrors = {};
+    const todayIso = getTodayIsoDate();
     if (!cancellationForm.policyName.trim()) {
       errors.policyName = "Policy name is required";
     }
@@ -1355,11 +1375,31 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
         errors.noShowPenaltyValue = "No-show percentage must be between 0 and 100";
       }
     }
+    if (
+      cancellationForm.effectiveFrom &&
+      cancellationForm.effectiveFrom < todayIso
+    ) {
+      errors.effectiveFrom = "Effective from cannot be a past date";
+    }
+    if (
+      cancellationForm.effectiveTo &&
+      cancellationForm.effectiveTo < todayIso
+    ) {
+      errors.effectiveTo = "Effective to cannot be a past date";
+    } else if (
+      cancellationForm.effectiveFrom &&
+      cancellationForm.effectiveTo &&
+      cancellationForm.effectiveTo < cancellationForm.effectiveFrom
+    ) {
+      errors.effectiveTo = "Effective to must be on or after effective from";
+    }
     setCancellationErrors(errors);
     return (
       !errors.policyName &&
       !errors.slabs &&
       !errors.noShowPenaltyValue &&
+      !errors.effectiveFrom &&
+      !errors.effectiveTo &&
       !(errors.customConditions && errors.customConditions.some(Boolean))
     );
   };
@@ -2227,13 +2267,16 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                               onChange={(e) =>
                                 setCancellationForm((prev) => ({
                                   ...prev,
-                                  applyChannel: e.target.value as "B2C" | "B2B" | "BUNDLE",
+                                  applyChannel: e.target
+                                    .value as CancellationApplyChannelOption,
                                 }))
                               }
                             >
-                              <option value="B2C">B2C</option>
-                              <option value="B2B">B2B</option>
-                              <option value="BUNDLE">BUNDLE</option>
+                              {CANCELLATION_APPLY_CHANNELS.map((channel) => (
+                                <option key={channel} value={channel}>
+                                  {channel}
+                                </option>
+                              ))}
                             </select>
                           </div>
                           <div>
@@ -2242,6 +2285,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                             </label>
                             <Input
                               type="date"
+                              min={getTodayIsoDate()}
                               value={cancellationForm.effectiveFrom ?? ""}
                               onChange={(e) =>
                                 setCancellationForm((prev) => ({
@@ -2249,6 +2293,7 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                                   effectiveFrom: e.target.value || null,
                                 }))
                               }
+                              error={cancellationErrors.effectiveFrom}
                             />
                           </div>
                           <div>
@@ -2257,14 +2302,20 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                             </label>
                             <Input
                               type="date"
+                              min={
+                                cancellationForm.effectiveFrom &&
+                                cancellationForm.effectiveFrom > getTodayIsoDate()
+                                  ? cancellationForm.effectiveFrom
+                                  : getTodayIsoDate()
+                              }
                               value={cancellationForm.effectiveTo ?? ""}
-                              min={cancellationForm.effectiveFrom ?? undefined}
                               onChange={(e) =>
                                 setCancellationForm((prev) => ({
                                   ...prev,
                                   effectiveTo: e.target.value || null,
                                 }))
                               }
+                              error={cancellationErrors.effectiveTo}
                             />
                           </div>
                         </div>
