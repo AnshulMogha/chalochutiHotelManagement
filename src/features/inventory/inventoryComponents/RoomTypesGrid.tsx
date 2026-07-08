@@ -372,6 +372,8 @@ export const RoomTypesGrid = ({
     isColumnSelected: boolean,
     isClosed: boolean,
   ) => {
+    // Temporarily hidden; remove this line to restore the Walk-in button.
+    return null;
     if (!canManageWalkIn || !isColumnSelected || isClosed) return null;
 
     return (
@@ -1021,11 +1023,11 @@ export const RoomTypesGrid = ({
             const isNotSet = totalValue === 0;
             const isSoldOut = totalValue > 0 && availableValue === 0;
             
-            // Get display value: use local string value if editing, otherwise show total
+            // Get display value: use local string value if editing, otherwise show available
             const localValue = localValues.get(cellKey);
             const displayValue = localValue !== undefined 
               ? localValue 
-              : totalValue.toString();
+              : availableValue.toString();
 
             return (
               <div
@@ -1347,9 +1349,11 @@ export const RoomTypesGrid = ({
                       `}
                     />
                     <div className="flex flex-col items-center mt-2.5 gap-0.5">
+                      {/* Temporarily hidden; unhide to restore the "LEFT" label.
                       <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">
                         {availableValue} LEFT
                       </span>
+                      */}
                       <span className="text-[10px] font-bold uppercase tracking-wide text-rose-500">
                         {soldValue} SOLD
                       </span>
