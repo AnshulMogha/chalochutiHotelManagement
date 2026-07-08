@@ -626,29 +626,8 @@ export default function Layout() {
     const room = rooms.find((item) => item.roomId === roomId);
     const dayData = room?.days.find((day) => day.date === dateStr);
     if (dayData?.status === "CLOSED") return;
-    // Update local state optimistically
-    setRooms((prev) =>
-      prev.map((room) =>
-        room.roomId !== roomId
-          ? room
-          : {
-              ...room,
-              days: room.days.map((day) =>
-                day.date === dateStr
-                  ? {
-                      ...day,
-                      total: value,
-                      // Calculate available dynamically
-                      available: Math.max(
-                        0,
-                        value - (day.sold || 0) - (day.blocked || 0),
-                      ),
-                    }
-                  : day,
-              ),
-            },
-      ),
-    );
+    // Only track the pending edit. Do not recalculate available/sold locally —
+    // fresh values come from the calendar API after the update is saved.
     setActiveEdit({ roomId, date: dateStr, value });
   };
 
@@ -668,12 +647,6 @@ export default function Layout() {
     
     // Prevent duplicate submissions
     if (updatingCells.has(cellKey)) return;
-
-    // Store previous value for reverting on error
-    const room = rooms.find((r) => r.roomId === roomId);
-    const dayData = room?.days.find((d) => d.date === dateStr);
-    const previousValue = dayData?.total ?? 0;
-    previousValuesRef.current.set(cellKey, previousValue);
 
     // Mark cell as updating
     setUpdatingCells((prev) => new Set(prev).add(cellKey));
@@ -706,31 +679,7 @@ export default function Layout() {
       // Show success toast
       showToast("Inventory updated successfully", "success");
     } catch (error: any) {
-      // Revert to previous value
-      setRooms((prev) =>
-        prev.map((room) =>
-          room.roomId !== roomId
-            ? room
-            : {
-                ...room,
-                days: room.days.map((day) =>
-                  day.date === dateStr
-                    ? {
-                        ...day,
-                        total: previousValue,
-                        // Recalculate available
-                        available: Math.max(
-                          0,
-                          previousValue - (day.sold || 0) - (day.blocked || 0),
-                        ),
-                      }
-                    : day,
-                ),
-              },
-        ),
-      );
-
-      // Show error toast
+      // Update failed — keep the pending edit so the user can retry.
       // API client interceptor returns ApiFailureResponse with message property
       const errorMessage =
         error?.message || "Failed to update inventory";
@@ -742,7 +691,6 @@ export default function Layout() {
         next.delete(cellKey);
         return next;
       });
-      previousValuesRef.current.delete(cellKey);
     }
   };
   const handleSave = async () => {
