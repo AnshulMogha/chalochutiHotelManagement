@@ -577,17 +577,6 @@ function HotelBookingDetailPage({
                 label="Payment type"
                 value={booking.paymentType || "—"}
               />
-              <DetailRow
-                label="Guest paid (total)"
-                value={
-                  <span className="text-lg font-bold text-gray-900 tabular-nums">
-                    {formatCurrency(
-                      booking.totalAmount,
-                      rateBreakup?.currency,
-                    )}
-                  </span>
-                }
-              />
             </dl>
           </DetailCard>
 
@@ -844,27 +833,6 @@ function HotelBookingDetailPage({
                   </div>
                 </div>
               </div>
-
-              {(rateBreakup?.agentCommission != null ||
-                rateBreakup?.agencyTier) && (
-                <>
-                  <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide border-t border-gray-200">
-                    Agency
-                  </div>
-                  {rateBreakup?.agencyTier && (
-                    <RateRow label="Agency tier" value={rateBreakup.agencyTier} />
-                  )}
-                  {rateBreakup?.agentCommission != null && (
-                    <RateRow
-                      label="Agent commission"
-                      value={formatCurrency(
-                        rateBreakup.agentCommission,
-                        rateBreakup?.currency,
-                      )}
-                    />
-                  )}
-                </>
-              )}
             </div>
           </DetailCard>
 
