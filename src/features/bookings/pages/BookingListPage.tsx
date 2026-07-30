@@ -5,14 +5,17 @@ import {
   bookingService,
   type BookingListItem,
   type BookingListResponse,
+  type BookingListOrderBy,
+  type BookingListSortDir,
 } from "../services/bookingService";
-const TEXT_FILTER_DEBOUNCE_MS = 400;
 import { Toast, useToast } from "@/components/ui/Toast";
 import { DataTable } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import {
+  ArrowUpDown,
   BookOpen,
   Building2,
+  Calendar,
   Hash,
   Loader2,
   RefreshCw,
@@ -36,6 +39,13 @@ import {
   bookingTableGridSx,
   getStatusConfig,
 } from "../components/bookingTableUi";
+
+const TEXT_FILTER_DEBOUNCE_MS = 400;
+
+const BOOKING_ORDER_OPTIONS: { value: BookingListOrderBy; label: string }[] = [
+  { value: "bookingDate", label: "Booking date" },
+  { value: "checkIn", label: "Check-in date" },
+];
 
 function formatDate(value: string | undefined): string {
   if (!value) return "—";
@@ -85,6 +95,8 @@ export default function BookingListPage() {
   const [bookingId, setBookingId] = useState("");
   const [debouncedBookingId, setDebouncedBookingId] = useState("");
   const [checkInDate, setCheckInDate] = useState("");
+  const [orderBy, setOrderBy] = useState<BookingListOrderBy>("bookingDate");
+  const [sortDir, setSortDir] = useState<BookingListSortDir>("desc");
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 10,
@@ -108,13 +120,17 @@ export default function BookingListPage() {
   const hasActiveFilters =
     guestName.trim() !== "" ||
     bookingId.trim() !== "" ||
-    checkInDate.trim() !== "";
+    checkInDate.trim() !== "" ||
+    orderBy !== "bookingDate" ||
+    sortDir !== "desc";
   const clearFilters = () => {
     setGuestName("");
     setDebouncedGuestName("");
     setBookingId("");
     setDebouncedBookingId("");
     setCheckInDate("");
+    setOrderBy("bookingDate");
+    setSortDir("desc");
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
   };
 
@@ -182,6 +198,20 @@ export default function BookingListPage() {
             </div>
           );
         },
+      },
+      {
+        field: "bookingDate",
+        headerName: "Booking date",
+        flex: 0.65,
+        minWidth: 120,
+        renderHeader: () => (
+          <BookingColumnHeader icon={Calendar} label="Booking date" />
+        ),
+        renderCell: (params) => (
+          <span className="whitespace-nowrap text-sm text-gray-700">
+            {formatDate(params.value)}
+          </span>
+        ),
       },
       {
         field: "checkInDate",
@@ -341,6 +371,8 @@ export default function BookingListPage() {
         guestName: debouncedGuestName.trim() || undefined,
         bookingId: debouncedBookingId.trim() || undefined,
         checkInDate: checkInDate.trim() || undefined,
+        orderBy,
+        sortDir,
         page: paginationModel.page,
         size: paginationModel.pageSize,
       });
@@ -365,6 +397,8 @@ export default function BookingListPage() {
     debouncedGuestName,
     debouncedBookingId,
     checkInDate,
+    orderBy,
+    sortDir,
     paginationModel.page,
     paginationModel.pageSize,
   ]);
@@ -465,6 +499,37 @@ export default function BookingListPage() {
                   }}
                   className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
                 />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />
+                <span className="whitespace-nowrap text-xs text-gray-500">
+                  Sort by
+                </span>
+                <select
+                  value={orderBy}
+                  onChange={(e) => {
+                    setOrderBy(e.target.value as BookingListOrderBy);
+                    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                  }}
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
+                >
+                  {BOOKING_ORDER_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={sortDir}
+                  onChange={(e) => {
+                    setSortDir(e.target.value as BookingListSortDir);
+                    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                  }}
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
+                >
+                  <option value="desc">Newest first</option>
+                  <option value="asc">Oldest first</option>
+                </select>
               </div>
               {hasActiveFilters && (
                 <button

@@ -8,6 +8,7 @@ export interface BookingListItem {
   bookingId: string;
   guestName: string;
   numberOfGuests: number;
+  bookingDate?: string;
   checkInDate: string;
   checkOutDate: string;
   roomDisplay: string;
@@ -288,12 +289,18 @@ export interface BookingListResponse {
   checkInSummary: unknown;
 }
 
+/** Order keys accepted by /reports/booking-list */
+export type BookingListOrderBy = "bookingDate" | "checkIn";
+export type BookingListSortDir = "asc" | "desc";
+
 /** Server-side list params */
 export interface BookingListParams {
   hotelId: string;
   guestName?: string;
   bookingId?: string;
   checkInDate?: string;
+  orderBy?: BookingListOrderBy;
+  sortDir?: BookingListSortDir;
   page?: number;
   size?: number;
 }
@@ -307,6 +314,8 @@ export const bookingService = {
       guestName,
       bookingId,
       checkInDate,
+      orderBy,
+      sortDir,
       page = 0,
       size = 10,
     } = params;
@@ -320,6 +329,12 @@ export const bookingService = {
     }
     if (checkInDate != null && checkInDate.trim() !== "") {
       search.set("checkInDate", checkInDate.trim());
+    }
+    if (orderBy) {
+      search.set("orderBy", orderBy);
+    }
+    if (sortDir) {
+      search.set("sortDir", sortDir);
     }
     search.set("page", String(page));
     search.set("size", String(size));
