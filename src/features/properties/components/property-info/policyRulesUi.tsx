@@ -342,7 +342,7 @@ export function BoundedHourSelect({
           <div
             id={listId}
             role="listbox"
-            className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+            className="absolute z-50 mt-1 w-full max-h-40 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
           >
             {options.map((hours) => (
               <button
