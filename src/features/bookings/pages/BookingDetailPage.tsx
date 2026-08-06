@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import { bookingService, type BookingDetail } from "../services/bookingService";
 import { Toast, useToast } from "@/components/ui/Toast";
@@ -123,6 +123,78 @@ function getPricingComputationStyle(value: string | undefined | null): string {
   return "bg-gray-100 text-gray-700 border-gray-200";
 }
 
+/** Splits the policy into lines, preferring the pre-split field from the API. */
+function getCancellationPolicyLines(booking: BookingDetail): string[] {
+  const lines = booking.cancellationPolicyLines;
+  if (Array.isArray(lines) && lines.length > 0) {
+    return lines.filter((line) => typeof line === "string" && line.trim());
+  }
+  return (booking.cancellationPolicy || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function StatBox({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  tone = "default",
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: React.ReactNode;
+  hint?: React.ReactNode;
+  tone?: "default" | "primary" | "success" | "danger";
+}) {
+  const toneStyles = {
+    default: {
+      card: "border-gray-200/80 bg-white",
+      icon: "bg-gray-100 text-gray-600",
+      value: "text-gray-900",
+    },
+    primary: {
+      card: "border-indigo-200 bg-indigo-50/60",
+      icon: "bg-indigo-100 text-indigo-700",
+      value: "text-indigo-900",
+    },
+    success: {
+      card: "border-emerald-200 bg-emerald-50/60",
+      icon: "bg-emerald-100 text-emerald-700",
+      value: "text-emerald-900",
+    },
+    danger: {
+      card: "border-rose-200 bg-rose-50/60",
+      icon: "bg-rose-100 text-rose-700",
+      value: "text-rose-900",
+    },
+  }[tone];
+
+  return (
+    <div className={`rounded-2xl border p-4 shadow-sm ${toneStyles.card}`}>
+      <div className="flex items-center gap-2">
+        <span
+          className={`flex h-8 w-8 items-center justify-center rounded-lg ${toneStyles.icon}`}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          {label}
+        </span>
+      </div>
+      <div
+        className={`mt-2 text-lg font-bold tabular-nums ${toneStyles.value}`}
+      >
+        {value ?? "—"}
+      </div>
+      {hint ? (
+        <div className="mt-0.5 text-xs text-gray-500">{hint}</div>
+      ) : null}
+    </div>
+  );
+}
+
 function DetailCard({
   icon: Icon,
   iconBg,
@@ -238,21 +310,35 @@ function HotelBookingDetailPage({
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showVoucher, setShowVoucher] = useState(false);
+  // Reused across effect re-runs (e.g. StrictMode remount) so the booking is
+  // requested only once per hotel + booking pair.
+  const requestRef = useRef<{
+    key: string;
+    promise: Promise<BookingDetail>;
+  } | null>(null);
 
   useEffect(() => {
     if (!id || !hotelId) {
       setLoading(false);
       return;
     }
+    const key = `${hotelId}:${id}`;
+    if (requestRef.current?.key !== key) {
+      requestRef.current = {
+        key,
+        promise: bookingService.getBookingDetail(hotelId, id),
+      };
+    }
+    const { promise } = requestRef.current;
     let cancelled = false;
     setLoading(true);
-    setBooking(null);
-    bookingService
-      .getBookingDetail(hotelId, id)
+    promise
       .then((data) => {
         if (!cancelled) setBooking(data);
       })
       .catch((err) => {
+        // Drop the cached rejection so a later visit can retry.
+        if (requestRef.current?.key === key) requestRef.current = null;
         if (!cancelled) {
           console.error("Error fetching booking detail:", err);
           showToast("Failed to load booking details", "error");
@@ -332,9 +418,14 @@ function HotelBookingDetailPage({
     null;
   const isPackageRate =
     String(hotelPricingComputation || "").toUpperCase() === "PACKAGE_RATE";
-  const isCancelledBooking = String(booking.paymentStatus || "")
+  const bookingStatus = booking.status || booking.paymentStatus;
+  const isCancelledBooking = `${booking.status || ""} ${booking.paymentStatus || ""}`
     .toUpperCase()
     .includes("CANCELLED");
+  const currency = rateBreakup?.currency;
+  const payableToProperty =
+    booking.amountPayableToProperty ?? rateBreakup?.payableToHotel;
+  const cancellationPolicyLines = getCancellationPolicyLines(booking);
   const showPromotionBreakup = hasPromotionBreakup(rateBreakup);
   const showAppliedPromotions = hasAppliedPromotionDiscount(rateBreakup);
   const propertyGrossExServiceFee = getPropertyGrossExcludingServiceFee(rateBreakup);
@@ -388,12 +479,88 @@ function HotelBookingDetailPage({
             </button>
             <span
               className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold border ${getPaymentStatusStyle(
-                booking.paymentStatus,
+                bookingStatus,
               )}`}
             >
-              {booking.paymentStatus}
+              {bookingStatus}
             </span>
           </div>
+        </div>
+
+        {/* Key figures at a glance */}
+        <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <StatBox
+            icon={Calendar}
+            label="Check-in"
+            value={formatDate(booking.checkInDate)}
+            hint={booking.nightsDisplay}
+          />
+          <StatBox
+            icon={Moon}
+            label="Check-out"
+            value={formatDate(booking.checkOutDate)}
+            hint={booking.hotelCity || undefined}
+          />
+          <StatBox
+            icon={BedDouble}
+            label="Rooms"
+            value={booking.totalRooms ?? "—"}
+            hint={booking.roomTypes?.[0]?.mealPlan}
+          />
+          <StatBox
+            icon={User}
+            label="Guests"
+            value={booking.occupancyDisplay}
+            hint={booking.guestName}
+          />
+          <StatBox
+            icon={Receipt}
+            label={isCancelledBooking ? "Original value" : "Booking total"}
+            value={formatCurrency(
+              isCancelledBooking
+                ? (booking.originalReservationValue ?? booking.totalAmount)
+                : booking.totalAmount,
+              currency,
+            )}
+            hint={booking.bookedVia}
+            tone="primary"
+          />
+          {isCancelledBooking && (
+            <StatBox
+              icon={Shield}
+              label="Cancellation charge"
+              value={formatCurrency(
+                booking.cancellationCharge ?? booking.cancelAmount,
+                currency,
+              )}
+              hint={booking.cancellationDatetime || undefined}
+              tone="danger"
+            />
+          )}
+          <StatBox
+            icon={CreditCard}
+            label="Payable to property"
+            value={formatCurrency(payableToProperty, currency)}
+            hint={
+              isCancelledBooking
+                ? "After cancellation"
+                : isPackageRate
+                  ? "Package rate"
+                  : "After deductions"
+            }
+            tone="success"
+          />
+          {isCancelledBooking && (
+            <StatBox
+              icon={Receipt}
+              label="Refund to guest"
+              value={
+                booking.refundAmount == null
+                  ? "Not applicable"
+                  : formatCurrency(booking.refundAmount, currency)
+              }
+            />
+          )}
         </div>
 
         {hotelPricingComputation && (
@@ -487,6 +654,9 @@ function HotelBookingDetailPage({
                 }
               />
               <DetailRow label="Occupancy" value={booking.occupancyDisplay} />
+              {booking.gstDetails ? (
+                <DetailRow label="GST details" value={booking.gstDetails} />
+              ) : null}
             </dl>
           </DetailCard>
 
@@ -561,6 +731,20 @@ function HotelBookingDetailPage({
             title="Payment"
           >
             <dl className="divide-y divide-gray-50">
+              {booking.status && booking.status !== booking.paymentStatus ? (
+                <DetailRow
+                  label="Booking status"
+                  value={
+                    <span
+                      className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${getPaymentStatusStyle(
+                        booking.status,
+                      )}`}
+                    >
+                      {booking.status}
+                    </span>
+                  }
+                />
+              ) : null}
               <DetailRow
                 label="Payment status"
                 value={
@@ -572,6 +756,10 @@ function HotelBookingDetailPage({
                     {booking.paymentStatus}
                   </span>
                 }
+              />
+              <DetailRow
+                label="Booking amount"
+                value={formatCurrency(booking.totalAmount, currency)}
               />
               <DetailRow
                 label="Payment type"
@@ -867,11 +1055,15 @@ function HotelBookingDetailPage({
               <DetailRow
                 label="Cancellation policy"
                 value={
-                  booking.cancellationPolicy ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-gray-400" />
-                      {booking.cancellationPolicy}
-                    </span>
+                  cancellationPolicyLines.length ? (
+                    <ul className="space-y-1.5">
+                      {cancellationPolicyLines.map((line, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <Shield className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                          <span>{line}</span>
+                        </li>
+                      ))}
+                    </ul>
                   ) : (
                     "—"
                   )
@@ -886,11 +1078,11 @@ function HotelBookingDetailPage({
               icon={Receipt}
               iconBg="bg-rose-50"
               iconColor="bg-rose-100 text-rose-600"
-              title="Additional info"
+              title="Cancellation details"
             >
               <dl className="divide-y divide-gray-50">
                 <DetailRow
-                  label="Cancellation date-time"
+                  label="Cancelled on"
                   value={
                     booking.cancellationDatetime ? (
                       <span className="inline-flex items-center gap-2">
@@ -903,12 +1095,30 @@ function HotelBookingDetailPage({
                   }
                 />
                 <DetailRow
-                  label="Cancelled amount"
-                  value={formatCurrency(booking.cancelAmount, rateBreakup?.currency)}
+                  label="Original reservation value"
+                  value={formatCurrency(
+                    booking.originalReservationValue ?? booking.totalAmount,
+                    currency,
+                  )}
+                />
+                <DetailRow
+                  label="Cancellation charge"
+                  value={formatCurrency(
+                    booking.cancellationCharge ?? booking.cancelAmount,
+                    currency,
+                  )}
+                />
+                <DetailRow
+                  label="Amount payable to property"
+                  value={formatCurrency(payableToProperty, currency)}
                 />
                 <DetailRow
                   label="Refund amount"
-                  value={formatCurrency(booking.refundAmount, rateBreakup?.currency)}
+                  value={
+                    booking.refundAmount == null
+                      ? "Not applicable"
+                      : formatCurrency(booking.refundAmount, currency)
+                  }
                 />
               </dl>
             </DetailCard>

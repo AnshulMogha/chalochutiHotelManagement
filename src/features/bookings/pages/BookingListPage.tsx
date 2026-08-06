@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { ROUTES } from "@/constants";
 import {
@@ -16,6 +16,7 @@ import {
   BookOpen,
   Building2,
   Calendar,
+  CalendarDays,
   Hash,
   Loader2,
   RefreshCw,
@@ -39,6 +40,7 @@ import {
   bookingTableGridSx,
   getStatusConfig,
 } from "../components/bookingTableUi";
+import { cn } from "@/lib/utils";
 
 const TEXT_FILTER_DEBOUNCE_MS = 400;
 
@@ -46,6 +48,150 @@ const BOOKING_ORDER_OPTIONS: { value: BookingListOrderBy; label: string }[] = [
   { value: "bookingDate", label: "Booking date" },
   { value: "checkIn", label: "Check-in date" },
 ];
+
+const BOOKING_STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Any status" },
+  { value: "CONFIRMED", label: "Confirmed" },
+  { value: "PENDING", label: "Pending" },
+  { value: "CHECKED_IN", label: "Checked in" },
+  { value: "CHECKED_OUT", label: "Checked out" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "CANCELLED", label: "Cancelled" },
+  { value: "NO_SHOW", label: "No show" },
+];
+
+type BookingDateAxis =
+  | "NONE"
+  | "BOOKING"
+  | "CHECK_IN"
+  | "CHECK_OUT"
+  | "STAYING"
+  | "CHECK_OUT_RANGE";
+
+type BookingDatePreset =
+  | "TODAY"
+  | "YESTERDAY"
+  | "LAST_7_DAYS"
+  | "LAST_30_DAYS"
+  | "THIS_MONTH"
+  | "LAST_MONTH"
+  | "CUSTOM";
+
+const DATE_AXIS_OPTIONS: { value: BookingDateAxis; label: string }[] = [
+  { value: "NONE", label: "Any date" },
+  { value: "BOOKING", label: "Booked on" },
+  { value: "CHECK_IN", label: "Check-in" },
+  { value: "CHECK_OUT", label: "Check-out" },
+  { value: "STAYING", label: "Staying on" },
+  { value: "CHECK_OUT_RANGE", label: "Check-out range" },
+];
+
+const DATE_PRESET_OPTIONS: { value: BookingDatePreset; label: string }[] = [
+  { value: "TODAY", label: "Today" },
+  { value: "YESTERDAY", label: "Yesterday" },
+  { value: "LAST_7_DAYS", label: "Last 7 days" },
+  { value: "LAST_30_DAYS", label: "Last 30 days" },
+  { value: "THIS_MONTH", label: "This month" },
+  { value: "LAST_MONTH", label: "Last month" },
+  { value: "CUSTOM", label: "Custom" },
+];
+
+/** Filter params Booking Summary drill-downs can put on the URL. */
+const DRILL_PARAM_KEYS = [
+  "view",
+  "checkInDate",
+  "bookingDate",
+  "checkOutDate",
+  "today",
+  "checkOutFrom",
+  "checkOutTo",
+  "bookingStatus",
+];
+
+const DRILL_VIEW_LABELS: Record<string, string> = {
+  TODAYS_BOOKINGS: "Today's bookings",
+  TODAYS_CHECKINS: "Today's check-ins",
+  STAYING_TODAY: "Staying today",
+  TODAYS_CHECKOUTS: "Today's check-outs",
+  NET_BOOKINGS: "Net bookings",
+  NET_EARNINGS: "Net earnings",
+};
+
+function toIsoDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function resolvePresetRange(
+  preset: BookingDatePreset,
+  customFrom: string,
+  customTo: string,
+): { from: string; to: string } | null {
+  if (preset === "CUSTOM") {
+    if (!customFrom && !customTo) return null;
+    return {
+      from: customFrom || customTo,
+      to: customTo || customFrom,
+    };
+  }
+
+  const today = startOfDay(new Date());
+  const end = new Date(today);
+  const start = new Date(today);
+
+  switch (preset) {
+    case "TODAY":
+      break;
+    case "YESTERDAY":
+      start.setDate(start.getDate() - 1);
+      end.setDate(end.getDate() - 1);
+      break;
+    case "LAST_7_DAYS":
+      start.setDate(start.getDate() - 6);
+      break;
+    case "LAST_30_DAYS":
+      start.setDate(start.getDate() - 29);
+      break;
+    case "THIS_MONTH":
+      start.setDate(1);
+      break;
+    case "LAST_MONTH": {
+      start.setMonth(start.getMonth() - 1, 1);
+      end.setDate(0); // last day of previous month
+      break;
+    }
+    default:
+      break;
+  }
+
+  return { from: toIsoDate(start), to: toIsoDate(end) };
+}
+
+function isSingleDayAxis(axis: BookingDateAxis): boolean {
+  return (
+    axis === "BOOKING" ||
+    axis === "CHECK_IN" ||
+    axis === "CHECK_OUT" ||
+    axis === "STAYING"
+  );
+}
+
+function inferAxisFromDrill(params: URLSearchParams): BookingDateAxis {
+  if (params.get("checkOutFrom") || params.get("checkOutTo")) {
+    return "CHECK_OUT_RANGE";
+  }
+  if (params.get("bookingDate")) return "BOOKING";
+  if (params.get("checkInDate")) return "CHECK_IN";
+  if (params.get("checkOutDate")) return "CHECK_OUT";
+  if (params.get("today")) return "STAYING";
+  return "NONE";
+}
 
 function formatDate(value: string | undefined): string {
   if (!value) return "—";
@@ -94,7 +240,6 @@ export default function BookingListPage() {
   const [debouncedGuestName, setDebouncedGuestName] = useState("");
   const [bookingId, setBookingId] = useState("");
   const [debouncedBookingId, setDebouncedBookingId] = useState("");
-  const [checkInDate, setCheckInDate] = useState("");
   const [orderBy, setOrderBy] = useState<BookingListOrderBy>("bookingDate");
   const [sortDir, setSortDir] = useState<BookingListSortDir>("desc");
   const [paginationModel, setPaginationModel] = useState({
@@ -104,8 +249,144 @@ export default function BookingListPage() {
   const [voucherBookingId, setVoucherBookingId] = useState<number | null>(null);
   const [voucherBookingRef, setVoucherBookingRef] = useState<string>("");
 
+  // Date/status filters double as drill-down targets from Booking Summary,
+  // so they seed from the URL and stay editable afterwards.
+  const readParam = (key: string) => searchParams.get(key)?.trim() || "";
+  const [dateAxis, setDateAxis] = useState<BookingDateAxis>(() =>
+    inferAxisFromDrill(searchParams),
+  );
+  const [datePreset, setDatePreset] = useState<BookingDatePreset>(() => {
+    const axis = inferAxisFromDrill(searchParams);
+    if (axis === "NONE") return "TODAY";
+    return "CUSTOM";
+  });
+  const [customFrom, setCustomFrom] = useState(() => {
+    return (
+      readParam("bookingDate") ||
+      readParam("checkInDate") ||
+      readParam("checkOutDate") ||
+      readParam("today") ||
+      readParam("checkOutFrom") ||
+      ""
+    );
+  });
+  const [customTo, setCustomTo] = useState(() => {
+    return (
+      readParam("checkOutTo") ||
+      readParam("bookingDate") ||
+      readParam("checkInDate") ||
+      readParam("checkOutDate") ||
+      readParam("today") ||
+      ""
+    );
+  });
+  const [bookingStatus, setBookingStatus] = useState(() =>
+    readParam("bookingStatus"),
+  );
+  const [drillView, setDrillView] = useState(() => readParam("view"));
+  const [dateOpen, setDateOpen] = useState(false);
+  const dateDropdownRef = useRef<HTMLDivElement>(null);
+
   const rows = listData?.data ?? [];
   const rowCount = listData?.totalElements ?? 0;
+
+  const drillViewLabel = drillView
+    ? (DRILL_VIEW_LABELS[drillView] ?? drillView)
+    : "";
+
+  const resolvedDates = useMemo(() => {
+    if (dateAxis === "NONE") return null;
+    return resolvePresetRange(datePreset, customFrom, customTo);
+  }, [dateAxis, datePreset, customFrom, customTo]);
+
+  const dateFilterParams = useMemo(() => {
+    if (!resolvedDates || dateAxis === "NONE") {
+      return {
+        checkInDate: undefined as string | undefined,
+        checkOutDate: undefined as string | undefined,
+        bookingDate: undefined as string | undefined,
+        today: undefined as string | undefined,
+        checkOutFrom: undefined as string | undefined,
+        checkOutTo: undefined as string | undefined,
+      };
+    }
+
+    const { from, to } = resolvedDates;
+    const single = from; // for single-day axes we use the start of the range
+
+    switch (dateAxis) {
+      case "BOOKING":
+        return {
+          bookingDate: single,
+          checkInDate: undefined,
+          checkOutDate: undefined,
+          today: undefined,
+          checkOutFrom: undefined,
+          checkOutTo: undefined,
+        };
+      case "CHECK_IN":
+        return {
+          checkInDate: single,
+          bookingDate: undefined,
+          checkOutDate: undefined,
+          today: undefined,
+          checkOutFrom: undefined,
+          checkOutTo: undefined,
+        };
+      case "CHECK_OUT":
+        return {
+          checkOutDate: single,
+          checkInDate: undefined,
+          bookingDate: undefined,
+          today: undefined,
+          checkOutFrom: undefined,
+          checkOutTo: undefined,
+        };
+      case "STAYING":
+        return {
+          today: single,
+          checkInDate: undefined,
+          checkOutDate: undefined,
+          bookingDate: undefined,
+          checkOutFrom: undefined,
+          checkOutTo: undefined,
+        };
+      case "CHECK_OUT_RANGE":
+        return {
+          checkOutFrom: from,
+          checkOutTo: to,
+          checkInDate: undefined,
+          checkOutDate: undefined,
+          bookingDate: undefined,
+          today: undefined,
+        };
+      default:
+        return {
+          checkInDate: undefined,
+          checkOutDate: undefined,
+          bookingDate: undefined,
+          today: undefined,
+          checkOutFrom: undefined,
+          checkOutTo: undefined,
+        };
+    }
+  }, [dateAxis, resolvedDates]);
+
+  const dateSummaryLabel = useMemo(() => {
+    if (dateAxis === "NONE") return "Any date";
+    const axisLabel =
+      DATE_AXIS_OPTIONS.find((o) => o.value === dateAxis)?.label ?? "Date";
+    if (datePreset === "CUSTOM") {
+      if (customFrom && customTo && customFrom !== customTo) {
+        return `${axisLabel}: ${customFrom} → ${customTo}`;
+      }
+      return `${axisLabel}: ${customFrom || customTo || "Custom"}`;
+    }
+    const presetLabel =
+      DATE_PRESET_OPTIONS.find((o) => o.value === datePreset)?.label ??
+      datePreset;
+    return `${axisLabel}: ${presetLabel}`;
+  }, [dateAxis, datePreset, customFrom, customTo]);
 
   // Debounce text filters for server request
   useEffect(() => {
@@ -117,18 +398,87 @@ export default function BookingListPage() {
     return () => clearTimeout(t);
   }, [guestName, bookingId]);
 
+  useEffect(() => {
+    if (!dateOpen) return;
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (
+        target &&
+        dateDropdownRef.current &&
+        !dateDropdownRef.current.contains(target)
+      ) {
+        setDateOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+    };
+  }, [dateOpen]);
+
+  // Seed the filter bar from Booking Summary drill-down params, then drop them
+  // from the URL so the filters stay fully editable afterwards.
+  const urlFilterKey = searchParams.toString();
+  useEffect(() => {
+    if (!DRILL_PARAM_KEYS.some((key) => searchParams.has(key))) return;
+    const read = (key: string) => searchParams.get(key)?.trim() || "";
+    const nextAxis = inferAxisFromDrill(searchParams);
+    const nextFrom =
+      read("bookingDate") ||
+      read("checkInDate") ||
+      read("checkOutDate") ||
+      read("today") ||
+      read("checkOutFrom") ||
+      "";
+    const nextTo =
+      read("checkOutTo") ||
+      read("bookingDate") ||
+      read("checkInDate") ||
+      read("checkOutDate") ||
+      read("today") ||
+      "";
+
+    setDrillView(read("view"));
+    setBookingStatus(read("bookingStatus"));
+    setDateAxis(nextAxis);
+    setDatePreset(nextAxis === "NONE" ? "TODAY" : "CUSTOM");
+    setCustomFrom(nextFrom);
+    setCustomTo(nextTo);
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+
+    const hotelId = searchParams.get("hotelId");
+    if (hotelId) {
+      navigate(
+        `${ROUTES.BOOKINGS.LIST}?hotelId=${encodeURIComponent(hotelId)}`,
+        { replace: true },
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlFilterKey]);
+
+  const hasDateFilter = dateAxis !== "NONE";
   const hasActiveFilters =
     guestName.trim() !== "" ||
     bookingId.trim() !== "" ||
-    checkInDate.trim() !== "" ||
+    hasDateFilter ||
+    bookingStatus.trim() !== "" ||
     orderBy !== "bookingDate" ||
-    sortDir !== "desc";
+    sortDir !== "desc" ||
+    !!drillView;
+
   const clearFilters = () => {
     setGuestName("");
     setDebouncedGuestName("");
     setBookingId("");
     setDebouncedBookingId("");
-    setCheckInDate("");
+    setDateAxis("NONE");
+    setDatePreset("TODAY");
+    setCustomFrom("");
+    setCustomTo("");
+    setBookingStatus("");
+    setDrillView("");
     setOrderBy("bookingDate");
     setSortDir("desc");
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
@@ -370,7 +720,14 @@ export default function BookingListPage() {
         hotelId: selectedHotelId,
         guestName: debouncedGuestName.trim() || undefined,
         bookingId: debouncedBookingId.trim() || undefined,
-        checkInDate: checkInDate.trim() || undefined,
+        checkInDate: dateFilterParams.checkInDate,
+        checkOutDate: dateFilterParams.checkOutDate,
+        bookingDate: dateFilterParams.bookingDate,
+        today: dateFilterParams.today,
+        checkOutFrom: dateFilterParams.checkOutFrom,
+        checkOutTo: dateFilterParams.checkOutTo,
+        bookingStatus: bookingStatus.trim() || undefined,
+        view: drillView || undefined,
         orderBy,
         sortDir,
         page: paginationModel.page,
@@ -396,7 +753,14 @@ export default function BookingListPage() {
     selectedHotelId,
     debouncedGuestName,
     debouncedBookingId,
-    checkInDate,
+    dateFilterParams.checkInDate,
+    dateFilterParams.checkOutDate,
+    dateFilterParams.bookingDate,
+    dateFilterParams.today,
+    dateFilterParams.checkOutFrom,
+    dateFilterParams.checkOutTo,
+    bookingStatus,
+    drillView,
     orderBy,
     sortDir,
     paginationModel.page,
@@ -447,6 +811,11 @@ export default function BookingListPage() {
                   </span>
                 )}
               </h1>
+              {drillViewLabel ? (
+                <span className="rounded-full bg-[#2f3d95]/10 px-2.5 py-0.5 text-xs font-semibold text-[#2f3d95]">
+                  {drillViewLabel}
+                </span>
+              ) : null}
             </div>
             <button
               onClick={fetchBookings}
@@ -460,13 +829,47 @@ export default function BookingListPage() {
             </button>
           </div>
 
+          {drillView ? (
+            <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-sm text-indigo-900">
+              <span className="flex flex-wrap items-center gap-2">
+                Filters applied from Booking Summary
+                {drillViewLabel ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-[#2f3d95] ring-1 ring-indigo-200">
+                    {drillViewLabel}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDrillView("");
+                        setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                      }}
+                      aria-label="Remove drill-down view"
+                      className="cursor-pointer rounded-full p-0.5 hover:bg-indigo-50"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ) : null}
+                <span className="text-xs text-indigo-700/80">
+                  Edit them below to refine the list.
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.REPORTS.BOOKING_SUMMARY)}
+                className="cursor-pointer font-semibold text-[#2f3d95] hover:underline"
+              >
+                Back to summary
+              </button>
+            </div>
+          ) : null}
+
           {selectedHotelId && (
             <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-gray-200/80 bg-white px-3 py-2 shadow-sm">
               <div className="flex items-center gap-1.5 pr-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <Filter className="h-3.5 w-3.5 text-[#2f3d95]" />
                 Filters
               </div>
-              <div className="relative min-w-[160px] max-w-[220px] flex-1">
+              <div className="relative min-w-40 max-w-55 flex-1">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
@@ -476,7 +879,7 @@ export default function BookingListPage() {
                   className="w-full rounded-lg border border-gray-200 py-1.5 pr-2.5 pl-8 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
                 />
               </div>
-              <div className="relative min-w-[160px] max-w-[220px] flex-1">
+              <div className="relative min-w-40 max-w-55 flex-1">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
@@ -486,25 +889,194 @@ export default function BookingListPage() {
                   className="w-full rounded-lg border border-gray-200 py-1.5 pr-2.5 pl-8 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
                 />
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="whitespace-nowrap text-xs text-gray-500">
-                  Check-in
-                </span>
-                <input
-                  type="date"
-                  value={checkInDate}
-                  onChange={(e) => {
-                    setCheckInDate(e.target.value);
-                    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                  }}
-                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
-                />
+
+              <div className="relative" ref={dateDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setDateOpen((v) => !v)}
+                  className={cn(
+                    "inline-flex max-w-[240px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition",
+                    hasDateFilter
+                      ? "border-indigo-200 bg-indigo-50 text-indigo-800"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300",
+                  )}
+                >
+                  <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{dateSummaryLabel}</span>
+                </button>
+                {dateOpen && (
+                  <div className="absolute left-0 z-30 mt-1 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Date field
+                    </p>
+                    <div className="mb-3 space-y-1">
+                      {DATE_AXIS_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setDateAxis(opt.value);
+                            setPaginationModel((prev) => ({
+                              ...prev,
+                              page: 0,
+                            }));
+                            if (opt.value === "NONE") {
+                              setDateOpen(false);
+                            } else if (
+                              isSingleDayAxis(opt.value) &&
+                              !["TODAY", "YESTERDAY", "CUSTOM"].includes(
+                                datePreset,
+                              )
+                            ) {
+                              setDatePreset("TODAY");
+                            }
+                          }}
+                          className={cn(
+                            "flex w-full rounded-lg px-2 py-1.5 text-left text-sm",
+                            dateAxis === opt.value
+                              ? "bg-indigo-50 font-semibold text-indigo-700"
+                              : "text-slate-700 hover:bg-slate-50",
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {dateAxis !== "NONE" && (
+                      <>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                          Range
+                        </p>
+                        <div className="max-h-44 space-y-1 overflow-y-auto">
+                          {(isSingleDayAxis(dateAxis)
+                            ? DATE_PRESET_OPTIONS.filter((o) =>
+                                ["TODAY", "YESTERDAY", "CUSTOM"].includes(
+                                  o.value,
+                                ),
+                              )
+                            : DATE_PRESET_OPTIONS
+                          ).map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => {
+                                setDatePreset(opt.value);
+                                setPaginationModel((prev) => ({
+                                  ...prev,
+                                  page: 0,
+                                }));
+                                if (opt.value !== "CUSTOM") setDateOpen(false);
+                              }}
+                              className={cn(
+                                "flex w-full rounded-lg px-2 py-1.5 text-left text-sm",
+                                datePreset === opt.value
+                                  ? "bg-indigo-50 font-semibold text-indigo-700"
+                                  : "text-slate-700 hover:bg-slate-50",
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {datePreset === "CUSTOM" && (
+                          <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                            {isSingleDayAxis(dateAxis) ? (
+                              <div>
+                                <label className="mb-1 block text-xs text-slate-500">
+                                  Date
+                                </label>
+                                <input
+                                  type="date"
+                                  value={customFrom}
+                                  onChange={(e) => {
+                                    setCustomFrom(e.target.value);
+                                    setCustomTo(e.target.value);
+                                    setPaginationModel((prev) => ({
+                                      ...prev,
+                                      page: 0,
+                                    }));
+                                  }}
+                                  className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm"
+                                />
+                              </div>
+                            ) : (
+                              <>
+                                <div>
+                                  <label className="mb-1 block text-xs text-slate-500">
+                                    From
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={customFrom}
+                                    onChange={(e) => {
+                                      setCustomFrom(e.target.value);
+                                      setPaginationModel((prev) => ({
+                                        ...prev,
+                                        page: 0,
+                                      }));
+                                    }}
+                                    className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="mb-1 block text-xs text-slate-500">
+                                    To
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={customTo}
+                                    min={customFrom || undefined}
+                                    onChange={(e) => {
+                                      setCustomTo(e.target.value);
+                                      setPaginationModel((prev) => ({
+                                        ...prev,
+                                        page: 0,
+                                      }));
+                                    }}
+                                    className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm"
+                                  />
+                                </div>
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              disabled={
+                                isSingleDayAxis(dateAxis)
+                                  ? !customFrom
+                                  : !customFrom || !customTo
+                              }
+                              onClick={() => setDateOpen(false)}
+                              className="w-full rounded-lg bg-[#2f3d95] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
+
+              <select
+                value={bookingStatus}
+                onChange={(e) => {
+                  setBookingStatus(e.target.value);
+                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                }}
+                className="cursor-pointer rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
+              >
+                {BOOKING_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label || "Status"}
+                  </option>
+                ))}
+              </select>
+
               <div className="flex items-center gap-1.5">
                 <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />
-                <span className="whitespace-nowrap text-xs text-gray-500">
-                  Sort by
-                </span>
                 <select
                   value={orderBy}
                   onChange={(e) => {
@@ -531,11 +1103,12 @@ export default function BookingListPage() {
                   <option value="asc">Oldest first</option>
                 </select>
               </div>
+
               {hasActiveFilters && (
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
                 >
                   <X className="h-3.5 w-3.5" />
                   Clear
@@ -562,7 +1135,7 @@ export default function BookingListPage() {
                 </h3>
                 <p className="text-sm text-gray-500 max-w-sm">
                   {hasActiveFilters
-                    ? "Try adjusting or clearing the guest name filter."
+                    ? "Try adjusting or clearing the applied filters."
                     : "There are no bookings for this hotel."}
                 </p>
                 {hasActiveFilters && (
@@ -572,7 +1145,7 @@ export default function BookingListPage() {
                     className="mt-4 inline-flex items-center gap-2 py-2 px-4 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
                     <X className="w-4 h-4" />
-                    Clear filter
+                    Clear filters
                   </button>
                 )}
               </div>

@@ -399,10 +399,7 @@ export interface UpdateHotelAddressRequest {
 }
 
 export type CancellationCreationType = "DEFAULT" | "CUSTOM";
-export type CancellationApplyChannel =
-  | "B2C"
-  | "B2B"
-  | "PACKAGE";
+export type CancellationApplyChannel = "B2C" | "B2B" | "PACKAGE";
 
 export interface CancellationPolicyPayload {
   policyName: string;
@@ -767,6 +764,8 @@ export interface RatePlan {
 export interface RoomRatePlansResponse {
   roomName: string;
   total: number;
+  /** Room-level active flag; suspended rooms return false. */
+  active?: boolean;
   ratePlans: RatePlan[];
 }
 

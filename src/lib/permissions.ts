@@ -52,6 +52,9 @@ export function getModuleFromPath(pathname: string): PermissionModule | null {
   if (pathname === "/bookings" || pathname.startsWith("/bookings/")) {
     return "BOOKINGS";
   }
+  if (pathname === "/reports" || pathname.startsWith("/reports/")) {
+    return "BOOKINGS";
+  }
   if (pathname === "/team" || pathname.startsWith("/team/")) {
     return "MY_TEAM";
   }

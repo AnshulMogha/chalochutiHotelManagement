@@ -9,6 +9,7 @@ import {
   type HotelRoom,
   type RatePlan,
 } from "@/features/admin/services/adminService";
+import { isActiveRatePlan, isActiveRoom } from "../utils/roomFilters";
 import { Toast, useToast } from "@/components/ui/Toast";
 import {
   Loader2,
@@ -184,33 +185,42 @@ export default function CreatePromotionPage() {
       setLoadingRooms(true);
       try {
         const data = await adminService.getHotelAdminRooms(hotelId);
-        setRooms(data.rooms || []);
+        const activeRooms = (data.rooms || []).filter(isActiveRoom);
 
         // Fetch rate plans for each room
-        const ratePlansPromises = (data.rooms || []).map(async (room) => {
+        const ratePlansPromises = activeRooms.map(async (room) => {
           try {
             const ratePlansData = await adminService.getRoomRatePlans(
               hotelId,
               room.roomId,
             );
             return {
-              roomId: room.roomId,
-              ratePlans: ratePlansData.ratePlans || [],
+              room,
+              roomActive: ratePlansData.active !== false,
+              ratePlans: (ratePlansData.ratePlans || []).filter(
+                isActiveRatePlan,
+              ),
             };
           } catch (error) {
             console.error(
               `Error fetching rate plans for room ${room.roomId}:`,
               error,
             );
-            return { roomId: room.roomId, ratePlans: [] };
+            return { room, roomActive: false, ratePlans: [] };
           }
         });
 
         const ratePlansResults = await Promise.all(ratePlansPromises);
+        // Only rooms that are active and still have a bookable rate plan can
+        // carry a promotion.
+        const selectableResults = ratePlansResults.filter(
+          ({ roomActive, ratePlans }) => roomActive && ratePlans.length > 0,
+        );
         const ratePlansMap: Record<string, RatePlan[]> = {};
-        ratePlansResults.forEach(({ roomId, ratePlans }) => {
-          ratePlansMap[roomId] = ratePlans;
+        selectableResults.forEach(({ room, ratePlans }) => {
+          ratePlansMap[room.roomId] = ratePlans;
         });
+        setRooms(selectableResults.map(({ room }) => room));
         setRatePlansData(ratePlansMap);
       } catch (error) {
         console.error("Error fetching rooms:", error);
@@ -988,105 +998,105 @@ export default function CreatePromotionPage() {
                     accent="orange"
                   >
                     <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                          <p className="text-xs font-medium text-gray-500 mb-2">
-                            All users
-                          </p>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() =>
+                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
+                        <p className="text-xs font-medium text-gray-500 mb-2">
+                          All users
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountAllUsers",
+                                Math.max(0, formData.discountAllUsers - 1),
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0"
+                          >
+                            −
+                          </button>
+                          <div className="relative flex-1">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={formData.discountAllUsers}
+                              onChange={(e) =>
                                 handleInputChange(
                                   "discountAllUsers",
-                                  Math.max(0, formData.discountAllUsers - 1),
+                                  Number(e.target.value),
                                 )
                               }
-                              className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0"
-                            >
-                              −
-                            </button>
-                            <div className="relative flex-1">
-                              <input
-                                type="number"
-                                min={0}
-                                max={100}
-                                value={formData.discountAllUsers}
-                                onChange={(e) =>
-                                  handleInputChange(
-                                    "discountAllUsers",
-                                    Number(e.target.value),
-                                  )
-                                }
-                                className="w-full text-center text-sm font-bold py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-400 pr-5"
-                              />
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                                %
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleInputChange(
-                                  "discountAllUsers",
-                                  formData.discountAllUsers + 1,
-                                )
-                              }
-                              className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0"
-                            >
-                              +
-                            </button>
+                              className="w-full text-center text-sm font-bold py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-400 pr-5"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                              %
+                            </span>
                           </div>
-                        </div>
-                        <div className="bg-orange-50 rounded-xl p-3 border border-orange-200">
-                          <p className="text-xs font-medium text-orange-600 mb-2">
-                            Logged-in users
-                          </p>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleInputChange(
-                                  "discountLoggedUsers",
-                                  Math.max(0, formData.discountLoggedUsers - 1),
-                                )
-                              }
-                              className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold shrink-0"
-                            >
-                              −
-                            </button>
-                            <div className="relative flex-1">
-                              <input
-                                type="number"
-                                min={0}
-                                max={100}
-                                value={formData.discountLoggedUsers}
-                                onChange={(e) =>
-                                  handleInputChange(
-                                    "discountLoggedUsers",
-                                    Number(e.target.value),
-                                  )
-                                }
-                                className="w-full text-center text-sm font-bold py-1.5 border border-orange-200 rounded-lg focus:outline-none focus:border-orange-400 bg-white pr-5"
-                              />
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-orange-400">
-                                %
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleInputChange(
-                                  "discountLoggedUsers",
-                                  formData.discountLoggedUsers + 1,
-                                )
-                              }
-                              className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold shrink-0"
-                            >
-                              +
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountAllUsers",
+                                formData.discountAllUsers + 1,
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-sm font-bold shrink-0"
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
+                      <div className="bg-orange-50 rounded-xl p-3 border border-orange-200">
+                        <p className="text-xs font-medium text-orange-600 mb-2">
+                          Logged-in users
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountLoggedUsers",
+                                Math.max(0, formData.discountLoggedUsers - 1),
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold shrink-0"
+                          >
+                            −
+                          </button>
+                          <div className="relative flex-1">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={formData.discountLoggedUsers}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  "discountLoggedUsers",
+                                  Number(e.target.value),
+                                )
+                              }
+                              className="w-full text-center text-sm font-bold py-1.5 border border-orange-200 rounded-lg focus:outline-none focus:border-orange-400 bg-white pr-5"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-orange-400">
+                              %
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleInputChange(
+                                "discountLoggedUsers",
+                                formData.discountLoggedUsers + 1,
+                              )
+                            }
+                            className="w-7 h-7 rounded-md border border-orange-200 flex items-center justify-center text-orange-600 hover:bg-orange-100 text-sm font-bold shrink-0"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </SectionCard>
                 )}
 
@@ -1844,7 +1854,10 @@ export default function CreatePromotionPage() {
                               value="B2C"
                               checked={formData.applyChannel === "B2C"}
                               onChange={(e) =>
-                                handleInputChange("applyChannel", e.target.value)
+                                handleInputChange(
+                                  "applyChannel",
+                                  e.target.value,
+                                )
                               }
                               className="w-4 h-4 text-blue-600"
                             />
@@ -1859,7 +1872,10 @@ export default function CreatePromotionPage() {
                                 formData.applyChannel === "BUNDLED_RATES"
                               }
                               onChange={(e) =>
-                                handleInputChange("applyChannel", e.target.value)
+                                handleInputChange(
+                                  "applyChannel",
+                                  e.target.value,
+                                )
                               }
                               className="w-4 h-4 text-blue-600"
                             />
@@ -1874,14 +1890,16 @@ export default function CreatePromotionPage() {
                               value="B2B"
                               checked={formData.applyChannel === "B2B"}
                               onChange={(e) =>
-                                handleInputChange("applyChannel", e.target.value)
+                                handleInputChange(
+                                  "applyChannel",
+                                  e.target.value,
+                                )
                               }
                               className="w-4 h-4 text-blue-600"
                             />
                             <span className="text-sm text-gray-700">B2B</span>
                           </label>
                         </div>
-
                       </div>
                     </div>
                   )}

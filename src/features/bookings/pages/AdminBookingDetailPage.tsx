@@ -98,11 +98,20 @@ function getBookingStatusStyle(status: string | undefined): string {
 function getPaymentStatusStyle(status: string | undefined): string {
   if (!status) return "bg-gray-100 text-gray-700 border-gray-200";
   const s = status.toUpperCase();
-  if (s.includes("PAID"))
+  if (s.includes("PAID") || s.includes("CONFIRMED"))
     return "bg-emerald-100 text-emerald-800 border-emerald-200";
   if (s.includes("PENDING"))
     return "bg-amber-100 text-amber-800 border-amber-200";
+  if (s.includes("FAILED") || s.includes("CANCELLED") || s.includes("CANCELED"))
+    return "bg-red-100 text-red-800 border-red-200";
   return "bg-gray-100 text-gray-700 border-gray-200";
+}
+
+function getCancellationPolicyLines(policy: string | null | undefined): string[] {
+  return (policy || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 function getServiceFeeFromBreakup(rateBreakup: RateBreakup | undefined): number {
@@ -261,21 +270,33 @@ export default function AdminBookingDetailPage({
   const [detail, setDetail] = useState<AdminBookingFullDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showVoucher, setShowVoucher] = useState(false);
+  // Reused across StrictMode remounts so the same booking is requested once.
+  const requestRef = useRef<{
+    key: string;
+    promise: Promise<AdminBookingFullDetail>;
+  } | null>(null);
 
   useEffect(() => {
     if (!listItemId) {
       setLoading(false);
       return;
     }
+    const key = listItemId;
+    if (requestRef.current?.key !== key) {
+      requestRef.current = {
+        key,
+        promise: bookingService.getAdminBookingFullDetail(listItemId),
+      };
+    }
+    const { promise } = requestRef.current;
     let cancelled = false;
     setLoading(true);
-    setDetail(null);
-    bookingService
-      .getAdminBookingFullDetail(listItemId)
+    promise
       .then((data) => {
         if (!cancelled) setDetail(data);
       })
       .catch((err) => {
+        if (requestRef.current?.key === key) requestRef.current = null;
         if (!cancelled) {
           console.error("Error fetching admin booking detail:", err);
           showToastRef.current("Failed to load booking details", "error");
@@ -337,6 +358,7 @@ export default function AdminBookingDetailPage({
   }
 
   const summary = detail.bookingSummary;
+  const cancellation = detail.cancellation;
   const rateBreakup = detail.pricing.rateBreakup;
   const currency = detail.pricing.currency || rateBreakup?.currency || "INR";
   const propertyGrossExService = getPropertyGrossExcludingServiceFee(rateBreakup);
@@ -363,6 +385,24 @@ export default function AdminBookingDetailPage({
   const hasAgencyLine =
     (rateBreakup?.agentCommission != null && rateBreakup.agentCommission > 0) ||
     Boolean(rateBreakup?.agencyTier);
+  const isCancelledBooking = `${summary.bookingStatus} ${detail.payment.paymentStatus}`
+    .toUpperCase()
+    .includes("CANCEL");
+  const totalRooms = detail.rooms.reduce(
+    (sum, room) => sum + (room.quantity || 0),
+    0,
+  );
+  const payableToProperty =
+    cancellation.amountPayableToProperty ??
+    detail.pricing.hotelPayout ??
+    rateBreakup?.payableToHotel;
+  const cancellationPolicyLines = getCancellationPolicyLines(
+    cancellation.cancellationPolicy,
+  );
+  const pricingSource =
+    detail.financials.selectedPricingSource ||
+    detail.financials.bookingMode ||
+    null;
 
   return (
     <>
@@ -433,18 +473,84 @@ export default function AdminBookingDetailPage({
           </div>
         </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        {/* At-a-glance summary */}
+        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <KpiCard
-            label="Guest paid"
-            value={formatCurrency(summary.totalAmount, currency)}
+            label="Check-in"
+            value={formatDate(summary.checkInDate)}
+            sub={summary.nightsDisplay}
             accent="border-emerald-200 bg-emerald-50/50"
           />
           <KpiCard
-            label="Hotel payout"
-            value={formatCurrency(detail.pricing.hotelPayout, currency)}
+            label="Check-out"
+            value={formatDate(summary.checkOutDate)}
+            sub={summary.hotelCity || undefined}
             accent="border-sky-200 bg-sky-50/50"
           />
+          <KpiCard
+            label="Rooms"
+            value={String(totalRooms || detail.rooms.length || "—")}
+            sub={detail.rooms[0]?.mealPlan}
+            accent="border-violet-200 bg-violet-50/50"
+          />
+          <KpiCard
+            label="Guests"
+            value={summary.occupancyDisplay || "—"}
+            sub={detail.guest.name}
+            accent="border-indigo-200 bg-indigo-50/50"
+          />
+          <KpiCard
+            label={isCancelledBooking ? "Original value" : "Guest paid"}
+            value={formatCurrency(
+              isCancelledBooking
+                ? (cancellation.originalReservationValue ??
+                    summary.totalAmount)
+                : summary.totalAmount,
+              currency,
+            )}
+            sub={summary.bookedVia}
+            accent="border-emerald-200 bg-emerald-50/50"
+          />
+          {isCancelledBooking ? (
+            <KpiCard
+              label="Cancellation charge"
+              value={formatCurrency(
+                cancellation.cancellationCharge ?? cancellation.cancelAmount,
+                currency,
+              )}
+              sub={
+                cancellation.cancellationDatetime
+                  ? formatDateTime(cancellation.cancellationDatetime)
+                  : undefined
+              }
+              accent="border-rose-200 bg-rose-50/50"
+            />
+          ) : (
+            <KpiCard
+              label="Payable to property"
+              value={formatCurrency(payableToProperty, currency)}
+              sub={pricingSource || undefined}
+              accent="border-sky-200 bg-sky-50/50"
+            />
+          )}
+        </div>
+
+        {/* Financial KPIs */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          {isCancelledBooking ? (
+            <KpiCard
+              label="Payable to property"
+              value={formatCurrency(payableToProperty, currency)}
+              sub="After cancellation"
+              accent="border-sky-200 bg-sky-50/50"
+            />
+          ) : (
+            <KpiCard
+              label="Hotel payout"
+              value={formatCurrency(detail.pricing.hotelPayout, currency)}
+              accent="border-sky-200 bg-sky-50/50"
+            />
+          )}
           <KpiCard
             label="OTA net revenue"
             value={formatCurrency(detail.pricing.otaNetRevenue, currency)}
@@ -465,6 +571,16 @@ export default function AdminBookingDetailPage({
                 : undefined
             }
             accent="border-orange-200 bg-orange-50/50"
+          />
+          <KpiCard
+            label="Final payable"
+            value={formatCurrency(detail.pricing.finalPayable, currency)}
+            sub={
+              detail.payment.pendingAmount != null
+                ? `Pending ${formatCurrency(detail.payment.pendingAmount, currency)}`
+                : undefined
+            }
+            accent="border-amber-200 bg-amber-50/50"
           />
         </div>
 
@@ -786,16 +902,98 @@ export default function AdminBookingDetailPage({
             icon={Shield}
             iconBg="bg-rose-50"
             iconColor="bg-rose-100 text-rose-600"
-            title="Cancellation policy"
+            title={
+              isCancelledBooking
+                ? "Cancellation details"
+                : "Cancellation policy"
+            }
           >
-            {detail.cancellation.nonRefundable ? (
+            {cancellation.nonRefundable ? (
               <span className="inline-flex mb-3 px-2.5 py-1 rounded-lg text-xs font-semibold border bg-red-50 text-red-800 border-red-200">
                 Non-refundable
               </span>
             ) : null}
-            <p className="text-sm text-gray-700 leading-relaxed">
-              {detail.cancellation.cancellationPolicy || "—"}
-            </p>
+
+            {isCancelledBooking ? (
+              <dl className="mb-4 divide-y divide-gray-50">
+                <DetailRow
+                  label="Cancelled on"
+                  value={
+                    cancellation.cancellationDatetime
+                      ? formatDateTime(cancellation.cancellationDatetime)
+                      : "—"
+                  }
+                />
+                <DetailRow
+                  label="Original reservation value"
+                  value={formatCurrency(
+                    cancellation.originalReservationValue ??
+                      summary.totalAmount,
+                    currency,
+                  )}
+                />
+                <DetailRow
+                  label="Cancellation charge"
+                  value={formatCurrency(
+                    cancellation.cancellationCharge ??
+                      cancellation.cancelAmount,
+                    currency,
+                  )}
+                />
+                <DetailRow
+                  label="Amount payable to property"
+                  value={formatCurrency(
+                    cancellation.amountPayableToProperty ?? payableToProperty,
+                    currency,
+                  )}
+                />
+                {cancellation.hotelCancellationBase != null ? (
+                  <DetailRow
+                    label="Hotel cancellation base"
+                    value={formatCurrency(
+                      cancellation.hotelCancellationBase,
+                      currency,
+                    )}
+                  />
+                ) : null}
+                {cancellation.hotelGrossCharges != null ? (
+                  <DetailRow
+                    label="Hotel gross after cancel"
+                    value={formatCurrency(
+                      cancellation.hotelGrossCharges,
+                      currency,
+                    )}
+                  />
+                ) : null}
+                {cancellation.refundAmount != null ? (
+                  <DetailRow
+                    label="Refund amount"
+                    value={formatCurrency(cancellation.refundAmount, currency)}
+                  />
+                ) : null}
+                {cancellation.recalculatedFromFinancials != null ? (
+                  <DetailRow
+                    label="Recalculated from financials"
+                    value={
+                      cancellation.recalculatedFromFinancials ? "Yes" : "No"
+                    }
+                  />
+                ) : null}
+              </dl>
+            ) : null}
+
+            {cancellationPolicyLines.length ? (
+              <ul className="space-y-1.5">
+                {cancellationPolicyLines.map((line, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                    <Shield className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-700 leading-relaxed">—</p>
+            )}
           </SectionCard>
 
           {/* Rate breakup */}

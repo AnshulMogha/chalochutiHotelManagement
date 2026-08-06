@@ -74,7 +74,7 @@ export interface AdminBookingSummary {
   bookingRef: string;
   bookingStatus: string;
   hotelName: string;
-  hotelLocality: string | null;
+  hotelLocality?: string | null;
   hotelCity: string;
   hotelAddress: string;
   checkInDate: string;
@@ -108,8 +108,8 @@ export interface AdminBookingPricing {
   commissionAmount?: number;
   finalPayable: number;
   hotelPayout: number;
-  otaGrossRevenue: number;
-  otaNetRevenue: number;
+  otaGrossRevenue?: number;
+  otaNetRevenue?: number;
   currency: string;
   rateBreakup?: RateBreakup;
 }
@@ -185,6 +185,20 @@ export interface AdminBookingPayment {
   pendingAmount?: number;
 }
 
+export interface AdminBookingCancellation {
+  cancellationPolicy: string | null;
+  nonRefundable?: boolean;
+  cancellationDatetime?: string | null;
+  cancelAmount?: number | null;
+  originalReservationValue?: number | null;
+  cancellationCharge?: number | null;
+  amountPayableToProperty?: number | null;
+  hotelCancellationBase?: number | null;
+  hotelGrossCharges?: number | null;
+  recalculatedFromFinancials?: boolean | null;
+  refundAmount?: number | null;
+}
+
 export interface AdminBookingFullDetail {
   bookingSummary: AdminBookingSummary;
   guest: AdminBookingGuest;
@@ -193,10 +207,7 @@ export interface AdminBookingFullDetail {
   financials: AdminBookingFinancials;
   roomDayFinancials: AdminRoomDayFinancial[];
   payment: AdminBookingPayment;
-  cancellation: {
-    cancellationPolicy: string | null;
-    nonRefundable?: boolean;
-  };
+  cancellation: AdminBookingCancellation;
   audit: {
     createdAt: string;
     updatedAt: string;
@@ -208,26 +219,34 @@ function normalizeAdminBookingFullDetail(
   data: AdminBookingFullDetail,
 ): AdminBookingFullDetail {
   const fin = data.financials;
-  const rateBreakup = data.pricing.rateBreakup;
+  const pricing = data.pricing ?? ({} as AdminBookingPricing);
+  const rateBreakup = pricing.rateBreakup;
   const extraAdultCount =
-    fin.extraAdultCount ?? rateBreakup?.extraAdultCount ?? undefined;
+    fin?.extraAdultCount ?? rateBreakup?.extraAdultCount ?? undefined;
   const extraAdult =
-    fin.extraAdultCharges ?? fin.extraChildCharges ?? undefined;
+    fin?.extraAdultCharges ?? fin?.extraChildCharges ?? undefined;
   return {
     ...data,
+    bookingSummary: {
+      ...data.bookingSummary,
+      hotelLocality: data.bookingSummary.hotelLocality ?? null,
+    },
     pricing: {
-      ...data.pricing,
-      promotionDiscount: data.pricing.promotionDiscount ?? fin.promotionDiscount ?? 0,
-      gstAmount: data.pricing.gstAmount ?? fin.gstAmount ?? 0,
-      commissionAmount:
-        data.pricing.commissionAmount ?? fin.commissionAmount ?? 0,
+      ...pricing,
+      promotionDiscount:
+        pricing.promotionDiscount ?? fin?.promotionDiscount ?? 0,
+      gstAmount: pricing.gstAmount ?? fin?.gstAmount ?? 0,
+      commissionAmount: pricing.commissionAmount ?? fin?.commissionAmount ?? 0,
       serviceFeeAmount:
-        data.pricing.serviceFeeAmount ?? fin.serviceFeeAmount ?? undefined,
+        pricing.serviceFeeAmount ?? fin?.serviceFeeAmount ?? undefined,
+      otaGrossRevenue: pricing.otaGrossRevenue ?? fin?.otaGrossRevenue ?? 0,
+      otaNetRevenue: pricing.otaNetRevenue ?? fin?.otaNetRevenue ?? 0,
+      hotelPayout: pricing.hotelPayout ?? fin?.hotelPayout ?? 0,
+      finalPayable: pricing.finalPayable ?? fin?.finalPayable ?? 0,
       rateBreakup: rateBreakup
         ? {
             ...rateBreakup,
-            extraAdultCount:
-              rateBreakup.extraAdultCount ?? extraAdultCount,
+            extraAdultCount: rateBreakup.extraAdultCount ?? extraAdultCount,
           }
         : undefined,
     },
@@ -236,12 +255,17 @@ function normalizeAdminBookingFullDetail(
       extraAdultCount,
       extraAdultCharges: extraAdult,
       pricingEngineVersion:
-        fin.pricingEngineVersion ?? data.audit?.pricingEngineVersion,
+        fin?.pricingEngineVersion ?? data.audit?.pricingEngineVersion,
     },
     payment: {
       ...data.payment,
-      paidAmount: data.payment.paidAmount ?? 0,
+      paidAmount: data.payment?.paidAmount ?? 0,
     },
+    cancellation: data.cancellation ?? { cancellationPolicy: null },
+    roomDayFinancials: Array.isArray(data.roomDayFinancials)
+      ? data.roomDayFinancials
+      : [],
+    rooms: Array.isArray(data.rooms) ? data.rooms : [],
   };
 }
 
@@ -255,6 +279,7 @@ export interface BookingDetail {
   guestStatus: string | null;
   contactNumber: string | null;
   emailAddress: string | null;
+  gstDetails?: string | null;
   checkInDate: string;
   checkOutDate: string;
   nightsDisplay: string;
@@ -271,9 +296,16 @@ export interface BookingDetail {
   bookedOn: string;
   paymentType: string | null;
   cancellationPolicy: string | null;
+  /** Same policy split into display lines by the API. */
+  cancellationPolicyLines?: string[] | null;
   totalAmount: number;
+  /** Booking lifecycle status; may differ from paymentStatus. */
+  status?: string | null;
   cancellationDatetime?: string | null;
   cancelAmount?: number | null;
+  originalReservationValue?: number | null;
+  cancellationCharge?: number | null;
+  amountPayableToProperty?: number | null;
   refundAmount?: number | null;
   hotelPricingComputation?: "RETAIL_RATE" | "PACKAGE_RATE" | string | null;
   hotel_pricing_computation?: "RETAIL_RATE" | "PACKAGE_RATE" | string | null;
@@ -299,6 +331,13 @@ export interface BookingListParams {
   guestName?: string;
   bookingId?: string;
   checkInDate?: string;
+  checkOutDate?: string;
+  bookingDate?: string;
+  today?: string;
+  checkOutFrom?: string;
+  checkOutTo?: string;
+  bookingStatus?: string;
+  view?: string;
   orderBy?: BookingListOrderBy;
   sortDir?: BookingListSortDir;
   page?: number;
@@ -314,6 +353,13 @@ export const bookingService = {
       guestName,
       bookingId,
       checkInDate,
+      checkOutDate,
+      bookingDate,
+      today,
+      checkOutFrom,
+      checkOutTo,
+      bookingStatus,
+      view,
       orderBy,
       sortDir,
       page = 0,
@@ -321,6 +367,9 @@ export const bookingService = {
     } = params;
     const search = new URLSearchParams();
     search.set("hotelId", hotelId);
+    if (view != null && view.trim() !== "") {
+      search.set("view", view.trim());
+    }
     if (guestName != null && guestName.trim() !== "") {
       search.set("guestName", guestName.trim());
     }
@@ -329,6 +378,24 @@ export const bookingService = {
     }
     if (checkInDate != null && checkInDate.trim() !== "") {
       search.set("checkInDate", checkInDate.trim());
+    }
+    if (checkOutDate != null && checkOutDate.trim() !== "") {
+      search.set("checkOutDate", checkOutDate.trim());
+    }
+    if (bookingDate != null && bookingDate.trim() !== "") {
+      search.set("bookingDate", bookingDate.trim());
+    }
+    if (today != null && today.trim() !== "") {
+      search.set("today", today.trim());
+    }
+    if (checkOutFrom != null && checkOutFrom.trim() !== "") {
+      search.set("checkOutFrom", checkOutFrom.trim());
+    }
+    if (checkOutTo != null && checkOutTo.trim() !== "") {
+      search.set("checkOutTo", checkOutTo.trim());
+    }
+    if (bookingStatus != null && bookingStatus.trim() !== "") {
+      search.set("bookingStatus", bookingStatus.trim());
     }
     if (orderBy) {
       search.set("orderBy", orderBy);

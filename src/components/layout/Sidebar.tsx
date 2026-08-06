@@ -217,6 +217,23 @@ const getNavItems = (user: User | null): NavItem[] => {
               path: ROUTES.BOOKINGS.LIST,
               icon: BookOpen,
             },
+            {
+              label: "Reports",
+              path: ROUTES.REPORTS.LIST,
+              icon: BarChart3,
+              children: [
+                {
+                  label: "Booking Summary",
+                  path: ROUTES.REPORTS.BOOKING_SUMMARY,
+                  icon: BookOpen,
+                },
+                {
+                  label: "Promotion Report",
+                  path: ROUTES.REPORTS.PROMOTIONS,
+                  icon: Percent,
+                },
+              ],
+            },
           ]
         : []),
       {
@@ -315,6 +332,23 @@ const getNavItems = (user: User | null): NavItem[] => {
               label: "Bookings",
               path: ROUTES.BOOKINGS.LIST,
               icon: BookOpen,
+            },
+            {
+              label: "Reports",
+              path: ROUTES.REPORTS.LIST,
+              icon: BarChart3,
+              children: [
+                {
+                  label: "Booking Summary",
+                  path: ROUTES.REPORTS.BOOKING_SUMMARY,
+                  icon: BookOpen,
+                },
+                {
+                  label: "Promotion Report",
+                  path: ROUTES.REPORTS.PROMOTIONS,
+                  icon: Percent,
+                },
+              ],
             },
           ]
         : []),
@@ -509,7 +543,9 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
             <div className="relative border-t border-white/10 px-4 py-3">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-sky-300 shadow-[0_0_8px_rgba(125,211,252,0.8)]" />
-                <p className="text-[11px] text-white/45">Hotel Management Portal</p>
+                <p className="text-[11px] text-white/45">
+                  Hotel Management Portal
+                </p>
               </div>
             </div>
           )}

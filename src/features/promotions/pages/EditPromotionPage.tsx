@@ -12,6 +12,7 @@ import {
   type HotelRoom,
   type RatePlan,
 } from "@/features/admin/services/adminService";
+import { isActiveRatePlan, isActiveRoom } from "../utils/roomFilters";
 import { Toast, useToast } from "@/components/ui/Toast";
 import {
   Loader2,
@@ -113,33 +114,42 @@ export default function EditPromotionPage() {
       setLoadingRooms(true);
       try {
         const data = await adminService.getHotelAdminRooms(hotelId);
-        setRooms(data.rooms || []);
+        const activeRooms = (data.rooms || []).filter(isActiveRoom);
 
         // Fetch rate plans for each room
-        const ratePlansPromises = (data.rooms || []).map(async (room) => {
+        const ratePlansPromises = activeRooms.map(async (room) => {
           try {
             const ratePlansData = await adminService.getRoomRatePlans(
               hotelId,
               room.roomId,
             );
             return {
-              roomId: room.roomId,
-              ratePlans: ratePlansData.ratePlans || [],
+              room,
+              roomActive: ratePlansData.active !== false,
+              ratePlans: (ratePlansData.ratePlans || []).filter(
+                isActiveRatePlan,
+              ),
             };
           } catch (error) {
             console.error(
               `Error fetching rate plans for room ${room.roomId}:`,
               error,
             );
-            return { roomId: room.roomId, ratePlans: [] };
+            return { room, roomActive: false, ratePlans: [] };
           }
         });
 
         const ratePlansResults = await Promise.all(ratePlansPromises);
+        // Only rooms that are active and still have a bookable rate plan can
+        // carry a promotion.
+        const selectableResults = ratePlansResults.filter(
+          ({ roomActive, ratePlans }) => roomActive && ratePlans.length > 0,
+        );
         const ratePlansMap: Record<string, RatePlan[]> = {};
-        ratePlansResults.forEach(({ roomId, ratePlans }) => {
-          ratePlansMap[roomId] = ratePlans;
+        selectableResults.forEach(({ room, ratePlans }) => {
+          ratePlansMap[room.roomId] = ratePlans;
         });
+        setRooms(selectableResults.map(({ room }) => room));
         setRatePlansData(ratePlansMap);
       } catch (error) {
         console.error("Error fetching rooms:", error);
@@ -662,36 +672,100 @@ export default function EditPromotionPage() {
 
         {/* Set Discount Percentage/Amount */}
         {!isViewMode || !isMyPartnerSpecialPromotion ? (
-            <Card variant="outlined" className="p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Percent className="w-5 h-5 text-purple-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {formData.offerType === "FIXED"
-                      ? "Set Discount Amount"
-                      : "Set Discount Percentage"}
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    Configure discounts for all users and logged-in users
-                  </p>
+          <Card variant="outlined" className="p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Percent className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {formData.offerType === "FIXED"
+                    ? "Set Discount Amount"
+                    : "Set Discount Percentage"}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Configure discounts for all users and logged-in users
+                </p>
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  Discount for all users *
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleInputChange(
+                        "discountAllUsers",
+                        Math.max(
+                          0,
+                          formData.discountAllUsers -
+                            (formData.offerType === "FIXED" ? 10 : 1),
+                        ),
+                      )
+                    }
+                    className="px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-white hover:border-gray-400 font-semibold text-gray-700 transition-all h-10"
+                  >
+                    −
+                  </button>
+                  <div className="flex-1 relative">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={formData.offerType === "FIXED" ? undefined : 100}
+                      value={formData.discountAllUsers}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "discountAllUsers",
+                          Number(e.target.value),
+                        )
+                      }
+                      className="text-center text-2xl font-bold py-4 border-2 border-gray-300 focus:border-blue-500"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 font-semibold text-lg">
+                      {formData.offerType === "FIXED" ? "₹" : "%"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleInputChange(
+                        "discountAllUsers",
+                        formData.discountAllUsers +
+                          (formData.offerType === "FIXED" ? 10 : 1),
+                      )
+                    }
+                    className="px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-white hover:border-gray-400 font-semibold text-gray-700 transition-all h-10"
+                  >
+                    +
+                  </button>
                 </div>
               </div>
-              <div className="space-y-6">
-                <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Discount for all users *
-                  </label>
+
+              <div className="flex items-center justify-center">
+                <div className="flex items-center gap-2 text-gray-400">
+                  <div className="h-px w-8 bg-gray-300"></div>
+                  <span className="text-xl font-bold">+</span>
+                  <div className="h-px w-8 bg-gray-300"></div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  Additional discount for logged-in users only *
+                </label>
+                <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() =>
                         handleInputChange(
-                          "discountAllUsers",
+                          "discountLoggedUsers",
                           Math.max(
                             0,
-                            formData.discountAllUsers -
+                            formData.discountLoggedUsers -
                               (formData.offerType === "FIXED" ? 10 : 1),
                           ),
                         )
@@ -705,10 +779,10 @@ export default function EditPromotionPage() {
                         type="number"
                         min={0}
                         max={formData.offerType === "FIXED" ? undefined : 100}
-                        value={formData.discountAllUsers}
+                        value={formData.discountLoggedUsers}
                         onChange={(e) =>
                           handleInputChange(
-                            "discountAllUsers",
+                            "discountLoggedUsers",
                             Number(e.target.value),
                           )
                         }
@@ -722,8 +796,8 @@ export default function EditPromotionPage() {
                       type="button"
                       onClick={() =>
                         handleInputChange(
-                          "discountAllUsers",
-                          formData.discountAllUsers +
+                          "discountLoggedUsers",
+                          formData.discountLoggedUsers +
                             (formData.offerType === "FIXED" ? 10 : 1),
                         )
                       }
@@ -733,74 +807,10 @@ export default function EditPromotionPage() {
                     </button>
                   </div>
                 </div>
-
-                <div className="flex items-center justify-center">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <div className="h-px w-8 bg-gray-300"></div>
-                    <span className="text-xl font-bold">+</span>
-                    <div className="h-px w-8 bg-gray-300"></div>
-                  </div>
-                </div>
-
-                <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Additional discount for logged-in users only *
-                  </label>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleInputChange(
-                            "discountLoggedUsers",
-                            Math.max(
-                              0,
-                              formData.discountLoggedUsers -
-                                (formData.offerType === "FIXED" ? 10 : 1),
-                            ),
-                          )
-                        }
-                        className="px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-white hover:border-gray-400 font-semibold text-gray-700 transition-all h-10"
-                      >
-                        −
-                      </button>
-                      <div className="flex-1 relative">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={formData.offerType === "FIXED" ? undefined : 100}
-                          value={formData.discountLoggedUsers}
-                          onChange={(e) =>
-                            handleInputChange(
-                              "discountLoggedUsers",
-                              Number(e.target.value),
-                            )
-                          }
-                          className="text-center text-2xl font-bold py-4 border-2 border-gray-300 focus:border-blue-500"
-                        />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 font-semibold text-lg">
-                          {formData.offerType === "FIXED" ? "₹" : "%"}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleInputChange(
-                            "discountLoggedUsers",
-                            formData.discountLoggedUsers +
-                              (formData.offerType === "FIXED" ? 10 : 1),
-                          )
-                        }
-                        className="px-3 py-2 border-2 border-gray-300 rounded-lg hover:bg-white hover:border-gray-400 font-semibold text-gray-700 transition-all h-10"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
               </div>
-            </Card>
-          ) : null}
+            </div>
+          </Card>
+        ) : null}
 
         {/* MyPartner view-only summary (aligned with create form) */}
         {isViewMode && isMyPartnerSpecialPromotion && (
@@ -1454,7 +1464,6 @@ export default function EditPromotionPage() {
                       <span className="text-sm text-gray-700">B2B</span>
                     </label>
                   </div>
-
                 </div>
 
                 {!isViewMode && (

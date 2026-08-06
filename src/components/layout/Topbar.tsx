@@ -95,6 +95,9 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   // Check bookings page
   const isBookingsPage = location.pathname === ROUTES.BOOKINGS.LIST;
 
+  // Promotion report is scoped to a single hotel via ?hotelId=
+  const isPromotionReportPage = location.pathname === ROUTES.REPORTS.PROMOTIONS;
+
   // Check My Properties page. Selecting a hotel here jumps to its info.
   const isMyPropertiesPage =
     location.pathname === ROUTES.PROPERTIES.MY_PROPERTY;
@@ -107,6 +110,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     isPromotionsPage ||
     isTeamPage ||
     isBookingsPage ||
+    isPromotionReportPage ||
     isDocumentReviewPage ||
     isMyPropertiesPage;
   const hotelIdFromUrl = searchParams.get("hotelId");

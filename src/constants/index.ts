@@ -65,6 +65,11 @@ export const ROUTES = {
     LIST: "/bookings",
     DETAIL: (id: string) => `/bookings/${id}`,
   },
+  REPORTS: {
+    LIST: "/reports",
+    BOOKING_SUMMARY: "/reports/booking-summary",
+    PROMOTIONS: "/reports/promotions",
+  },
   RATINGS_REVIEWS: {
     LIST: "/ratings-reviews",
   },
@@ -356,6 +361,8 @@ export const API_ENDPOINTS = {
     ADMIN_BOOKING_FULL_DETAILS: (id: string) =>
       `/reports/admin/booking-list/${id}/full-details`,
     BOOKING_VOUCHER: (id: string) => `/reports/booking-list/${id}/voucher`,
+    BOOKING_SUMMARY: "/reports/dashboard/booking-summary",
+    PROMOTION_SUMMARY: "/reports/dashboard/booking-summary/promotions",
   },
   CUSTOMER: {
     HOTEL_LOOKUP: "/customer/packages/hotel/lookup",

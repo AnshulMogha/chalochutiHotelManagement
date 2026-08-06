@@ -15,9 +15,9 @@ import {
 import Layout from "@/features/inventory/Layout";
 import RouteErrorPage from "@/features/common/pages/RouteErrorPage";
 
-function lazyWithChunkRetry<TModule extends { default: ComponentType<unknown> }>(
-  importer: () => Promise<TModule>,
-) {
+function lazyWithChunkRetry<
+  TModule extends { default: ComponentType<unknown> },
+>(importer: () => Promise<TModule>) {
   return lazy(async () => {
     try {
       return await importer();
@@ -156,8 +156,12 @@ const CommissionAndTaxPage = lazy(
 const TravelPartnersPage = lazy(
   () => import("../features/admin/pages/TravelPartnersPage"),
 );
-const AgentsListPage = lazy(() => import("../features/admin/pages/AgentsListPage"));
-const CreateAgentPage = lazy(() => import("../features/admin/pages/CreateAgentPage"));
+const AgentsListPage = lazy(
+  () => import("../features/admin/pages/AgentsListPage"),
+);
+const CreateAgentPage = lazy(
+  () => import("../features/admin/pages/CreateAgentPage"),
+);
 const PricingQuotePage = lazy(
   () => import("../features/pricing/pages/PricingQuotePage"),
 );
@@ -166,6 +170,12 @@ const BookingListPage = lazy(
 );
 const BookingDetailPage = lazy(
   () => import("../features/bookings/pages/BookingDetailPage"),
+);
+const BookingSummaryPage = lazy(
+  () => import("../features/reports/pages/BookingSummaryPage"),
+);
+const PromotionReportPage = lazy(
+  () => import("../features/reports/pages/PromotionReportPage"),
 );
 const MyProfilePage = lazy(
   () => import("../features/user/pages/MyProfilePage"),
@@ -418,6 +428,14 @@ export const routes: RouteObject[] = [
       {
         path: "bookings/:id",
         element: <BookingDetailPage />,
+      },
+      {
+        path: "reports/booking-summary",
+        element: <BookingSummaryPage />,
+      },
+      {
+        path: "reports/promotions",
+        element: <PromotionReportPage />,
       },
       {
         path: "profile",
