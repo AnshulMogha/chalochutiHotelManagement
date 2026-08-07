@@ -95,8 +95,17 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   // Check bookings page
   const isBookingsPage = location.pathname === ROUTES.BOOKINGS.LIST;
 
-  // Promotion report is scoped to a single hotel via ?hotelId=
+  // Analytics (performance dashboard) and other report pages are hotel-scoped via ?hotelId=
   const isPromotionReportPage = location.pathname === ROUTES.REPORTS.PROMOTIONS;
+  const isAnalyticsPage =
+    location.pathname === ROUTES.ANALYTICS.DASHBOARD ||
+    location.pathname === ROUTES.REPORTS.PERFORMANCE;
+  const isRateHealthReportPage =
+    location.pathname === ROUTES.REPORTS.RATE_HEALTH;
+  const isInventoryAllocationReportPage =
+    location.pathname === ROUTES.REPORTS.INVENTORY_ALLOCATION;
+  const isNetEarningsReportPage =
+    location.pathname === ROUTES.REPORTS.NET_EARNINGS;
 
   // Check My Properties page. Selecting a hotel here jumps to its info.
   const isMyPropertiesPage =
@@ -111,6 +120,10 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     isTeamPage ||
     isBookingsPage ||
     isPromotionReportPage ||
+    isAnalyticsPage ||
+    isRateHealthReportPage ||
+    isInventoryAllocationReportPage ||
+    isNetEarningsReportPage ||
     isDocumentReviewPage ||
     isMyPropertiesPage;
   const hotelIdFromUrl = searchParams.get("hotelId");

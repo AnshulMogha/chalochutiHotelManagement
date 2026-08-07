@@ -1,4 +1,4 @@
-import { createBrowserRouter, type RouteObject } from "react-router";
+import { createBrowserRouter, Navigate, type RouteObject } from "react-router";
 import { lazy, type ComponentType } from "react";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { PublicRoute } from "./auth/PublicRoute";
@@ -176,6 +176,18 @@ const BookingSummaryPage = lazy(
 );
 const PromotionReportPage = lazy(
   () => import("../features/reports/pages/PromotionReportPage"),
+);
+const PerformanceDashboardPage = lazy(
+  () => import("../features/reports/pages/PerformanceDashboardPage"),
+);
+const RateHealthReportPage = lazy(
+  () => import("../features/reports/pages/RateHealthReportPage"),
+);
+const InventoryAllocationReportPage = lazy(
+  () => import("../features/reports/pages/InventoryAllocationReportPage"),
+);
+const NetEarningsReportPage = lazy(
+  () => import("../features/reports/pages/NetEarningsReportPage"),
 );
 const MyProfilePage = lazy(
   () => import("../features/user/pages/MyProfilePage"),
@@ -438,6 +450,22 @@ export const routes: RouteObject[] = [
         element: <PromotionReportPage />,
       },
       {
+        path: "reports/performance",
+        element: <Navigate to="/analytics" replace />,
+      },
+      {
+        path: "reports/rate-health",
+        element: <RateHealthReportPage />,
+      },
+      {
+        path: "reports/inventory-allocation",
+        element: <InventoryAllocationReportPage />,
+      },
+      {
+        path: "reports/net-earnings",
+        element: <NetEarningsReportPage />,
+      },
+      {
         path: "profile",
         element: <MyProfilePage />,
       },
@@ -447,7 +475,7 @@ export const routes: RouteObject[] = [
       },
       {
         path: "analytics",
-        element: <ComingSoonPage />,
+        element: <PerformanceDashboardPage />,
       },
       {
         path: "ratings-reviews",

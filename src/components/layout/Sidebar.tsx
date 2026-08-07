@@ -30,10 +30,13 @@ import {
   CreditCard,
   Sparkles,
   Percent,
+  Activity,
   Handshake,
   UserRoundCog,
   Bus,
   Package,
+  HeartPulse,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -232,6 +235,21 @@ const getNavItems = (user: User | null): NavItem[] => {
                   path: ROUTES.REPORTS.PROMOTIONS,
                   icon: Percent,
                 },
+                {
+                  label: "Rate Disparity",
+                  path: ROUTES.REPORTS.RATE_HEALTH,
+                  icon: HeartPulse,
+                },
+                {
+                  label: "Inventory Allocation",
+                  path: ROUTES.REPORTS.INVENTORY_ALLOCATION,
+                  icon: Package,
+                },
+                {
+                  label: "Payment Report",
+                  path: ROUTES.REPORTS.NET_EARNINGS,
+                  icon: Wallet,
+                },
               ],
             },
           ]
@@ -241,12 +259,12 @@ const getNavItems = (user: User | null): NavItem[] => {
         path: ROUTES.RATINGS_REVIEWS.LIST,
         icon: Star,
       },
-      ...(canViewModule(user, "ANALYTICS")
+      ...(canViewModule(user, "ANALYTICS") || canViewModule(user, "BOOKINGS")
         ? [
             {
               label: "Analytics",
               path: ROUTES.ANALYTICS.DASHBOARD,
-              icon: BarChart3,
+              icon: Activity,
             },
           ]
         : []),
@@ -348,7 +366,31 @@ const getNavItems = (user: User | null): NavItem[] => {
                   path: ROUTES.REPORTS.PROMOTIONS,
                   icon: Percent,
                 },
+                {
+                  label: "Rate Disparity",
+                  path: ROUTES.REPORTS.RATE_HEALTH,
+                  icon: HeartPulse,
+                },
+                {
+                  label: "Inventory Allocation",
+                  path: ROUTES.REPORTS.INVENTORY_ALLOCATION,
+                  icon: Package,
+                },
+                {
+                  label: "Payment Report",
+                  path: ROUTES.REPORTS.NET_EARNINGS,
+                  icon: Wallet,
+                },
               ],
+            },
+          ]
+        : []),
+      ...(canViewModule(user, "ANALYTICS") || canViewModule(user, "BOOKINGS")
+        ? [
+            {
+              label: "Analytics",
+              path: ROUTES.ANALYTICS.DASHBOARD,
+              icon: Activity,
             },
           ]
         : []),

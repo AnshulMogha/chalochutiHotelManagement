@@ -71,7 +71,8 @@ export function getModuleFromPath(pathname: string): PermissionModule | null {
   if (pathname === "/promotions" || pathname.startsWith("/promotions/")) {
     return "OFFERS";
   }
-  if (pathname === "/analytics") {
+  if (pathname === "/analytics" || pathname.startsWith("/analytics/")) {
+    // Prefer ANALYTICS when present; canViewPath also allows BOOKINGS.
     return "ANALYTICS";
   }
   if (pathname === "/property/information/basic-info") {
@@ -188,6 +189,15 @@ export function canEditModule(
 
 export function canViewPath(user: User | null, pathname: string): boolean {
   const pathOnly = pathname.split("?")[0];
+
+  // Performance dashboard moved from /reports to /analytics.
+  // Keep access for users who only have BOOKINGS (old reports permission).
+  if (pathOnly === "/analytics" || pathOnly.startsWith("/analytics/")) {
+    return (
+      canViewModule(user, "ANALYTICS") || canViewModule(user, "BOOKINGS")
+    );
+  }
+
   const module = getModuleFromPath(pathOnly);
 
   if (isHotelBdRole(user?.roles)) {

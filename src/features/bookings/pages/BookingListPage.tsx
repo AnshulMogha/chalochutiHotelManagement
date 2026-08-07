@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { ROUTES } from "@/constants";
 import {
@@ -285,6 +285,10 @@ export default function BookingListPage() {
   );
   const [drillView, setDrillView] = useState(() => readParam("view"));
   const [dateOpen, setDateOpen] = useState(false);
+  const [dateMenuPlacement, setDateMenuPlacement] = useState<"bottom" | "top">(
+    "bottom",
+  );
+  const [dateMenuMaxHeight, setDateMenuMaxHeight] = useState<number>(320);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
 
   const rows = listData?.data ?? [];
@@ -417,6 +421,31 @@ export default function BookingListPage() {
       document.removeEventListener("touchstart", onPointerDown);
     };
   }, [dateOpen]);
+
+  useLayoutEffect(() => {
+    if (!dateOpen || !dateDropdownRef.current) return;
+
+    const updateMenuPosition = () => {
+      const trigger = dateDropdownRef.current;
+      if (!trigger) return;
+
+      const rect = trigger.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom - 12;
+      const spaceAbove = rect.top - 12;
+      const openUp = spaceBelow < 280 && spaceAbove > spaceBelow;
+
+      setDateMenuPlacement(openUp ? "top" : "bottom");
+      setDateMenuMaxHeight(Math.max(180, openUp ? spaceAbove : spaceBelow));
+    };
+
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [dateOpen, dateAxis, datePreset]);
 
   // Seed the filter bar from Booking Summary drill-down params, then drop them
   // from the URL so the filters stay fully editable afterwards.
@@ -905,7 +934,15 @@ export default function BookingListPage() {
                   <span className="truncate">{dateSummaryLabel}</span>
                 </button>
                 {dateOpen && (
-                  <div className="absolute left-0 z-30 mt-1 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+                  <div
+                    className={cn(
+                      "absolute left-0 z-30 w-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-xl",
+                      dateMenuPlacement === "top"
+                        ? "bottom-full mb-1"
+                        : "top-full mt-1",
+                    )}
+                    style={{ maxHeight: dateMenuMaxHeight }}
+                  >
                     <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
                       Date field
                     </p>
@@ -948,7 +985,7 @@ export default function BookingListPage() {
                         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
                           Range
                         </p>
-                        <div className="max-h-44 space-y-1 overflow-y-auto">
+                        <div className="space-y-1">
                           {(isSingleDayAxis(dateAxis)
                             ? DATE_PRESET_OPTIONS.filter((o) =>
                                 ["TODAY", "YESTERDAY", "CUSTOM"].includes(

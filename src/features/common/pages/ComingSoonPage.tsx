@@ -4,7 +4,6 @@ import { ArrowLeft, Clock3, Rocket, Sparkles } from "lucide-react";
 
 const TITLE_BY_PATH: Record<string, string> = {
   [ROUTES.MORE.LIST]: "More",
-  [ROUTES.ANALYTICS.DASHBOARD]: "Analytics",
   [ROUTES.RATINGS_REVIEWS.LIST]: "Ratings & Reviews",
 };
 

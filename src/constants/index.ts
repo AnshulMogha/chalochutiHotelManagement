@@ -69,6 +69,10 @@ export const ROUTES = {
     LIST: "/reports",
     BOOKING_SUMMARY: "/reports/booking-summary",
     PROMOTIONS: "/reports/promotions",
+    PERFORMANCE: "/analytics",
+    RATE_HEALTH: "/reports/rate-health",
+    INVENTORY_ALLOCATION: "/reports/inventory-allocation",
+    NET_EARNINGS: "/reports/net-earnings",
   },
   RATINGS_REVIEWS: {
     LIST: "/ratings-reviews",
@@ -363,6 +367,31 @@ export const API_ENDPOINTS = {
     BOOKING_VOUCHER: (id: string) => `/reports/booking-list/${id}/voucher`,
     BOOKING_SUMMARY: "/reports/dashboard/booking-summary",
     PROMOTION_SUMMARY: "/reports/dashboard/booking-summary/promotions",
+    PERFORMANCE_OVERVIEW: "/reports/dashboard/performance/overview",
+    PERFORMANCE_BREAKDOWNS: "/reports/dashboard/performance/breakdowns",
+    PERFORMANCE_COMPETITORS: "/reports/dashboard/performance/competitors",
+    PERFORMANCE_COMPETITORS_SEARCH:
+      "/reports/dashboard/performance/competitors/search",
+    RATE_HEALTH: "/reports/rate-health",
+    RATE_HEALTH_EXPORT: "/reports/rate-health/export",
+    RATE_HEALTH_EXPORT_JOB: (jobId: string) =>
+      `/reports/rate-health/export/${jobId}`,
+    RATE_HEALTH_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/rate-health/export/${jobId}/download`,
+    INVENTORY_ALLOCATION: "/reports/inventory-allocation",
+    INVENTORY_ALLOCATION_EXPORT: "/reports/inventory-allocation/export",
+    INVENTORY_ALLOCATION_EXPORT_JOB: (jobId: string) =>
+      `/reports/inventory-allocation/export/${jobId}`,
+    INVENTORY_ALLOCATION_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/inventory-allocation/export/${jobId}/download`,
+    NET_EARNINGS: "/reports/net-earnings",
+    NET_EARNINGS_DETAIL: (bookingRef: string) =>
+      `/reports/net-earnings/${encodeURIComponent(bookingRef)}`,
+    NET_EARNINGS_EXPORT: "/reports/net-earnings/export",
+    NET_EARNINGS_EXPORT_JOB: (jobId: string) =>
+      `/reports/net-earnings/export/${jobId}`,
+    NET_EARNINGS_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/net-earnings/export/${jobId}/download`,
   },
   CUSTOMER: {
     HOTEL_LOOKUP: "/customer/packages/hotel/lookup",
