@@ -6,6 +6,7 @@ import { hasAnyRole, ROLES } from "@/constants";
 import {
   isReviewerPortalRole,
   isSalesManagerRole,
+  canViewHotelBdReports,
   isZonalManagerSalesRole,
 } from "@/constants/roles";
 import {
@@ -23,11 +24,29 @@ import {
   Percent,
   Sparkles,
   UserRoundCog,
+  GitBranch,
+  LayoutDashboard,
   Users,
   UtensilsCrossed,
 } from "lucide-react";
 
 const DASHBOARD_LINKS = [
+  {
+    title: "Dashboard",
+    description: "Portfolio KPIs, onboarding funnel and action inbox.",
+    path: ROUTES.REPORTS.HOTEL_BD_DASHBOARD,
+    icon: LayoutDashboard,
+    color: "from-blue-500 to-indigo-600",
+    key: "HOTEL_BD_DASHBOARD",
+  },
+  {
+    title: "Onboarding Pipeline",
+    description: "Track onboarding pipeline, steps and days stuck.",
+    path: ROUTES.REPORTS.HOTEL_BD_PIPELINE,
+    icon: GitBranch,
+    color: "from-violet-500 to-purple-600",
+    key: "HOTEL_BD_PIPELINE",
+  },
   {
     title: "Hotel Review",
     description: "Review and approve hotel onboarding requests.",
@@ -184,6 +203,12 @@ export default function SuperAdminDashboardPage() {
   const isSalesManager = isSalesManagerRole(userRoles);
 
   const visibleCards = DASHBOARD_LINKS.filter((item) => {
+    // Hotel BD users are redirected to the portfolio dashboard; keep only
+    // Onboarding Pipeline on the portal home for other authorized roles.
+    if (item.key === "HOTEL_BD_DASHBOARD") return false;
+    if (item.key === "HOTEL_BD_PIPELINE") {
+      return canViewHotelBdReports(userRoles);
+    }
     if (isSuperAdmin) {
       return item.key !== "AGENTS" && item.key !== "MY_TEAM";
     }

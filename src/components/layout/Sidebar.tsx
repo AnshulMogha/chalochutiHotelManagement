@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 import { Link } from "react-router";
 import logo from "@/assets/originallogo.webp";
-import { ROUTES, hasAnyRole, ROLES } from "@/constants";
 import {
+  canViewHotelBdReports,
   isHotelBdRole,
   isReviewerPortalRole,
   isSalesManagerRole,
@@ -37,13 +37,11 @@ import {
   Package,
   HeartPulse,
   Wallet,
+  GitBranch,
   type LucideIcon,
 } from "lucide-react";
+import { ROUTES, hasAnyRole, ROLES } from "@/constants";
 
-interface SidebarProps {
-  isOpen: boolean;
-  onToggle: () => void;
-}
 export interface NavItem {
   label: string;
   path: string;
@@ -53,6 +51,74 @@ export interface NavItem {
   external?: boolean;
 }
 
+function getOnboardingPipelineNavItem(): NavItem {
+  return {
+    label: "Onboarding Pipeline",
+    path: ROUTES.REPORTS.HOTEL_BD_PIPELINE,
+    icon: GitBranch,
+  };
+}
+
+function getReportsNavItem(
+  user: User | null,
+  options?: { includeOnboardingPipeline?: boolean },
+): NavItem | null {
+  const includeOnboardingPipeline = !!options?.includeOnboardingPipeline;
+  const includeBookingReports = canViewModule(user, "BOOKINGS");
+  const showPaymentReport = hasAnyRole(user?.roles, [ROLES.SUPER_ADMIN]);
+
+  if (!includeOnboardingPipeline && !includeBookingReports) return null;
+
+  const children: NavItem[] = [
+    ...(includeOnboardingPipeline ? [getOnboardingPipelineNavItem()] : []),
+    ...(includeBookingReports
+      ? [
+          {
+            label: "Booking Summary",
+            path: ROUTES.REPORTS.BOOKING_SUMMARY,
+            icon: BookOpen,
+          },
+          {
+            label: "Promotion Report",
+            path: ROUTES.REPORTS.PROMOTIONS,
+            icon: Percent,
+          },
+          {
+            label: "Rate Disparity",
+            path: ROUTES.REPORTS.RATE_HEALTH,
+            icon: HeartPulse,
+          },
+          {
+            label: "Inventory Allocation",
+            path: ROUTES.REPORTS.INVENTORY_ALLOCATION,
+            icon: Package,
+          },
+          ...(showPaymentReport
+            ? [
+                {
+                  label: "Payment Report",
+                  path: ROUTES.REPORTS.NET_EARNINGS,
+                  icon: Wallet,
+                },
+              ]
+            : []),
+        ]
+      : []),
+  ];
+
+  return {
+    label: "Reports",
+    path: ROUTES.REPORTS.LIST,
+    icon: BarChart3,
+    children,
+  };
+}
+
+interface SidebarProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
 const getNavItems = (user: User | null): NavItem[] => {
   const userRoles = user?.roles;
   const items: NavItem[] = [];
@@ -60,13 +126,20 @@ const getNavItems = (user: User | null): NavItem[] => {
   const isZonalSales = isZonalManagerSalesRole(userRoles);
   const isSalesManager = isSalesManagerRole(userRoles);
   const isSuperAdmin = hasAnyRole(userRoles, [ROLES.SUPER_ADMIN]);
-  const dashboardPath = ROUTES.PROPERTIES.LIST;
+  const isHotelBd = isHotelBdRole(userRoles);
+  const dashboardPath = isHotelBd
+    ? ROUTES.REPORTS.HOTEL_BD_DASHBOARD
+    : ROUTES.PROPERTIES.LIST;
   items.push({
     label: "Dashboard",
     path: dashboardPath,
     icon: LayoutDashboard,
   });
   if (isZonalSales) {
+    const reportsNav = getReportsNavItem(user, {
+      includeOnboardingPipeline: canViewHotelBdReports(userRoles),
+    });
+    if (reportsNav) items.push(reportsNav);
     items.push({
       label: "Travel Partners",
       path: ROUTES.ADMIN.TRAVEL_PARTNERS,
@@ -81,6 +154,10 @@ const getNavItems = (user: User | null): NavItem[] => {
     return items;
   }
   if (isSalesManager) {
+    const reportsNav = getReportsNavItem(user, {
+      includeOnboardingPipeline: canViewHotelBdReports(userRoles),
+    });
+    if (reportsNav) items.push(reportsNav);
     items.push({
       label: "Agents",
       path: ROUTES.AGENTS.LIST,
@@ -94,6 +171,10 @@ const getNavItems = (user: User | null): NavItem[] => {
     !!userRoles?.includes("ACCOUNTANT");
 
   if (isReviewer) {
+    const reportsNav = getReportsNavItem(user, {
+      includeOnboardingPipeline: canViewHotelBdReports(userRoles),
+    });
+    if (reportsNav) items.push(reportsNav);
     items.push({
       label: "Hotel Review",
       path: ROUTES.ADMIN.HOTEL_REVIEW,
@@ -220,40 +301,14 @@ const getNavItems = (user: User | null): NavItem[] => {
               path: ROUTES.BOOKINGS.LIST,
               icon: BookOpen,
             },
-            {
-              label: "Reports",
-              path: ROUTES.REPORTS.LIST,
-              icon: BarChart3,
-              children: [
-                {
-                  label: "Booking Summary",
-                  path: ROUTES.REPORTS.BOOKING_SUMMARY,
-                  icon: BookOpen,
-                },
-                {
-                  label: "Promotion Report",
-                  path: ROUTES.REPORTS.PROMOTIONS,
-                  icon: Percent,
-                },
-                {
-                  label: "Rate Disparity",
-                  path: ROUTES.REPORTS.RATE_HEALTH,
-                  icon: HeartPulse,
-                },
-                {
-                  label: "Inventory Allocation",
-                  path: ROUTES.REPORTS.INVENTORY_ALLOCATION,
-                  icon: Package,
-                },
-                {
-                  label: "Payment Report",
-                  path: ROUTES.REPORTS.NET_EARNINGS,
-                  icon: Wallet,
-                },
-              ],
-            },
           ]
         : []),
+      ...(() => {
+        const reportsNav = getReportsNavItem(user, {
+          includeOnboardingPipeline: canViewHotelBdReports(userRoles),
+        });
+        return reportsNav ? [reportsNav] : [];
+      })(),
       {
         label: "Rating and Review",
         path: ROUTES.RATINGS_REVIEWS.LIST,
@@ -269,7 +324,7 @@ const getNavItems = (user: User | null): NavItem[] => {
           ]
         : []),
     );
-  } else if (isHotelBdRole(userRoles)) {
+  } else if (isHotelBd) {
     const propertyChildrenBd: NavItem[] = [
       {
         label: "Basic Information",
@@ -351,40 +406,14 @@ const getNavItems = (user: User | null): NavItem[] => {
               path: ROUTES.BOOKINGS.LIST,
               icon: BookOpen,
             },
-            {
-              label: "Reports",
-              path: ROUTES.REPORTS.LIST,
-              icon: BarChart3,
-              children: [
-                {
-                  label: "Booking Summary",
-                  path: ROUTES.REPORTS.BOOKING_SUMMARY,
-                  icon: BookOpen,
-                },
-                {
-                  label: "Promotion Report",
-                  path: ROUTES.REPORTS.PROMOTIONS,
-                  icon: Percent,
-                },
-                {
-                  label: "Rate Disparity",
-                  path: ROUTES.REPORTS.RATE_HEALTH,
-                  icon: HeartPulse,
-                },
-                {
-                  label: "Inventory Allocation",
-                  path: ROUTES.REPORTS.INVENTORY_ALLOCATION,
-                  icon: Package,
-                },
-                {
-                  label: "Payment Report",
-                  path: ROUTES.REPORTS.NET_EARNINGS,
-                  icon: Wallet,
-                },
-              ],
-            },
           ]
         : []),
+      ...(() => {
+        const reportsNav = getReportsNavItem(user, {
+          includeOnboardingPipeline: true,
+        });
+        return reportsNav ? [reportsNav] : [];
+      })(),
       ...(canViewModule(user, "ANALYTICS") || canViewModule(user, "BOOKINGS")
         ? [
             {
@@ -501,6 +530,20 @@ const getNavItems = (user: User | null): NavItem[] => {
       path: ROUTES.PROPERTY_INFO.FINANCE,
       icon: CreditCard,
     });
+  }
+
+  if (
+    canViewHotelBdReports(userRoles) &&
+    !isHotelBd &&
+    !isSuperAdmin &&
+    !isReviewer &&
+    !isZonalSales &&
+    !isSalesManager
+  ) {
+    const reportsNav = getReportsNavItem(user, {
+      includeOnboardingPipeline: true,
+    });
+    if (reportsNav) items.push(reportsNav);
   }
 
   return items;

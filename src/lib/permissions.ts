@@ -1,5 +1,10 @@
 import type { User } from "@/types";
-import { isHotelBdRole, isSuperAdmin } from "@/constants/roles";
+import {
+  canViewHotelBdReports,
+  isHotelBdRole,
+  isSuperAdmin,
+} from "@/constants/roles";
+import { ROUTES } from "@/constants";
 
 export type PermissionModule =
   | "BOOKINGS"
@@ -187,8 +192,27 @@ export function canEditModule(
   return !!permission?.canEdit;
 }
 
+function isHotelBdReportPath(pathname: string): boolean {
+  return (
+    pathname === ROUTES.REPORTS.HOTEL_BD_DASHBOARD ||
+    pathname === ROUTES.REPORTS.HOTEL_BD_PIPELINE
+  );
+}
+
 export function canViewPath(user: User | null, pathname: string): boolean {
   const pathOnly = pathname.split("?")[0];
+
+  if (isHotelBdReportPath(pathOnly)) {
+    return canViewHotelBdReports(user?.roles);
+  }
+
+  // Payment Report is Super Admin only.
+  if (
+    pathOnly === ROUTES.REPORTS.NET_EARNINGS ||
+    pathOnly.startsWith(`${ROUTES.REPORTS.NET_EARNINGS}/`)
+  ) {
+    return isSuperAdmin(user?.roles);
+  }
 
   // Performance dashboard moved from /reports to /analytics.
   // Keep access for users who only have BOOKINGS (old reports permission).

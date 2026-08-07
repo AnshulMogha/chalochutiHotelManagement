@@ -111,6 +111,45 @@ export function isHotelBdRole(userRoles: string[] | undefined): boolean {
   return !!userRoles?.includes("HOTEL_BD");
 }
 
+/** Roles allowed to view Hotel BD portfolio dashboard and pipeline reports. */
+export const HOTEL_BD_REPORT_ROLES = [
+  "HOTEL_BD",
+  "SUPER_ADMIN",
+  "ZONAL_MANAGER_HOTEL",
+  "ZontalHotelManager",
+  "FINANCE",
+  "AUDITOR",
+  "SALES_MANAGER",
+  "ZONAL_MANAGER_SALES",
+] as const;
+
+export function canViewHotelBdReports(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (HOTEL_BD_REPORT_ROLES as readonly string[]).includes(role),
+  );
+}
+
+/** Platform roles that may filter pipeline/dashboard by assigned BD user. */
+export function canFilterHotelBdReportsByUser(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    [
+      "SUPER_ADMIN",
+      "ZONAL_MANAGER_HOTEL",
+      "ZontalHotelManager",
+      "FINANCE",
+      "AUDITOR",
+      "SALES_MANAGER",
+      "ZONAL_MANAGER_SALES",
+    ].includes(role),
+  );
+}
+
 /**
  * Check if user has a specific role
  */

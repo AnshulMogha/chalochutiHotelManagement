@@ -189,6 +189,12 @@ const InventoryAllocationReportPage = lazy(
 const NetEarningsReportPage = lazy(
   () => import("../features/reports/pages/NetEarningsReportPage"),
 );
+const HotelBdDashboardPage = lazy(
+  () => import("../features/reports/pages/HotelBdDashboardPage"),
+);
+const HotelBdPipelineReportPage = lazy(
+  () => import("../features/reports/pages/HotelBdPipelineReportPage"),
+);
 const MyProfilePage = lazy(
   () => import("../features/user/pages/MyProfilePage"),
 );
@@ -464,6 +470,14 @@ export const routes: RouteObject[] = [
       {
         path: "reports/net-earnings",
         element: <NetEarningsReportPage />,
+      },
+      {
+        path: "reports/hotel-bd-dashboard",
+        element: <HotelBdDashboardPage />,
+      },
+      {
+        path: "reports/hotel-bd-pipeline",
+        element: <HotelBdPipelineReportPage />,
       },
       {
         path: "profile",

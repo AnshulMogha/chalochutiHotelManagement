@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants";
 import { AlertTriangle, Info, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -69,6 +70,52 @@ export function healthStatusTone(status: string): string {
     return "bg-slate-100 text-slate-700 ring-slate-200";
   }
   return "bg-amber-50 text-amber-700 ring-amber-200";
+}
+
+export function hotelStatusTone(status: string): string {
+  const normalized = status.trim().toUpperCase();
+  if (normalized === "LIVE") {
+    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  }
+  if (
+    normalized.includes("REJECT") ||
+    normalized === "QC_REJECTED" ||
+    normalized === "ZONAL_REJECTED"
+  ) {
+    return "bg-rose-50 text-rose-700 ring-rose-200";
+  }
+  if (
+    normalized.includes("QC") ||
+    normalized.includes("ZONAL") ||
+    normalized.includes("REVIEW")
+  ) {
+    return "bg-amber-50 text-amber-700 ring-amber-200";
+  }
+  if (normalized === "DRAFT" || normalized === "PIPELINE") {
+    return "bg-sky-50 text-sky-700 ring-sky-200";
+  }
+  return "bg-slate-100 text-slate-700 ring-slate-200";
+}
+
+/** Draft + rejected hotels can be edited; all other statuses open read-only. */
+const EDITABLE_HOTEL_STATUSES = new Set([
+  "DRAFT",
+  "QC_REJECTED",
+  "ZONAL_REJECTED",
+  "REJECTED",
+]);
+
+export function isHotelOnboardingEditable(status?: string | null): boolean {
+  if (!status) return false;
+  return EDITABLE_HOTEL_STATUSES.has(status.trim().toUpperCase());
+}
+
+export function getHotelOnboardingLink(
+  hotelId: string,
+  status?: string | null,
+): string {
+  const base = ROUTES.PROPERTIES.EDIT(hotelId);
+  return isHotelOnboardingEditable(status) ? base : `${base}&readOnly=true`;
 }
 
 export function allocationStatusTone(status: string): string {
