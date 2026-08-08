@@ -119,14 +119,26 @@ export function getHotelOnboardingLink(
 }
 
 export function allocationStatusTone(status: string): string {
-  const normalized = status.trim().toLowerCase();
-  if (normalized.includes("full")) {
+  const normalized = status.trim().toUpperCase().replace(/_/g, " ");
+  if (
+    normalized.includes("FULL") ||
+    normalized.includes("OVER") ||
+    normalized.includes("CRITICAL")
+  ) {
     return "bg-rose-50 text-rose-700 ring-rose-200";
   }
-  if (normalized.includes("low")) {
+  if (
+    normalized.includes("UNDER UTILIZED") ||
+    normalized.includes("LOW") ||
+    normalized.includes("WARNING")
+  ) {
     return "bg-amber-50 text-amber-700 ring-amber-200";
   }
-  if (normalized.includes("no allocation")) {
+  if (
+    normalized.includes("NO ALLOCATION") ||
+    normalized.includes("NONE") ||
+    normalized.includes("BLOCKED")
+  ) {
     return "bg-slate-100 text-slate-600 ring-slate-200";
   }
   return "bg-emerald-50 text-emerald-700 ring-emerald-200";

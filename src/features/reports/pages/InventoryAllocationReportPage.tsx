@@ -317,14 +317,20 @@ export default function InventoryAllocationReportPage() {
           ) : null}
 
           {summary ? (
-            <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
               <SummaryCard label="Total rooms" value={summary.totalRooms} />
               <SummaryCard label="Allocated" value={summary.allocatedRooms} />
               <SummaryCard label="Sold" value={summary.soldRooms} />
+              <SummaryCard label="Available" value={summary.availableRooms} />
               <SummaryCard label="Remaining" value={summary.remainingRooms} />
+              <SummaryCard label="Blocked" value={summary.blockedRooms} />
               <SummaryCard
                 label="Allocation %"
                 value={`${summary.allocationPercentage}%`}
+              />
+              <SummaryCard
+                label="Utilization %"
+                value={`${summary.utilizationPercentage}%`}
               />
             </div>
           ) : null}
@@ -336,10 +342,17 @@ export default function InventoryAllocationReportPage() {
                   <tr className="border-b border-slate-100 bg-slate-50/80">
                     {[
                       "Date",
+                      "Room Type",
+                      "Rate Plan",
                       "Total",
                       "Allocated",
                       "Sold",
+                      "Available",
                       "Remaining",
+                      "Blocked",
+                      "Alloc %",
+                      "Util %",
+                      "Occ %",
                       "Status",
                     ].map((heading) => (
                       <th
@@ -354,14 +367,14 @@ export default function InventoryAllocationReportPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-16 text-center">
+                      <td colSpan={13} className="px-4 py-16 text-center">
                         <Loader2 className="mx-auto h-6 w-6 animate-spin text-violet-600" />
                       </td>
                     </tr>
                   ) : !report?.inventory.length ? (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={13}
                         className="px-4 py-16 text-center text-slate-400"
                       >
                         No inventory allocation rows for this period.
@@ -370,11 +383,17 @@ export default function InventoryAllocationReportPage() {
                   ) : (
                     report.inventory.map((row, index) => (
                       <tr
-                        key={`${row.date}-${index}`}
+                        key={`${row.date}-${row.roomTypeId ?? row.roomType}-${row.ratePlanId ?? row.ratePlan}-${index}`}
                         className="border-b border-slate-50 hover:bg-slate-50/60"
                       >
                         <td className="px-3 py-2.5 whitespace-nowrap text-slate-800">
                           {formatReportDate(row.date)}
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-700">
+                          {row.roomType}
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-700">
+                          {row.ratePlan}
                         </td>
                         <td className="px-3 py-2.5 tabular-nums text-slate-700">
                           {row.total}
@@ -386,7 +405,22 @@ export default function InventoryAllocationReportPage() {
                           {row.sold}
                         </td>
                         <td className="px-3 py-2.5 tabular-nums text-slate-700">
+                          {row.available}
+                        </td>
+                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
                           {row.remaining}
+                        </td>
+                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
+                          {row.blocked}
+                        </td>
+                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
+                          {row.allocationPercentage}%
+                        </td>
+                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
+                          {row.utilizationPercentage}%
+                        </td>
+                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
+                          {row.occupancyPercentage}%
                         </td>
                         <td className="px-3 py-2.5">
                           <span

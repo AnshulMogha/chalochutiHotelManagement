@@ -42,20 +42,30 @@ export interface InventoryAllocationSummary {
 
 export interface InventoryAllocationRow {
   date: string;
+  hotelId?: string | null;
+  hotelName?: string | null;
+  roomTypeId?: number | null;
+  roomType: string;
+  ratePlanId?: number | null;
+  ratePlan: string;
   total: number;
   allocated: number;
   sold: number;
+  blocked: number;
+  available: number;
   remaining: number;
+  allocationPercentage: number;
+  utilizationPercentage: number;
+  occupancyPercentage: number;
+  lostOpportunityRooms: number;
   status: string;
 }
 
 export interface InventoryAllocationChartPoint {
   date: string;
-  total?: number;
-  allocated?: number;
-  sold?: number;
-  remaining?: number;
-  [key: string]: string | number | undefined;
+  allocated: number;
+  sold: number;
+  remaining: number;
 }
 
 export interface InventoryAllocationReportResponse {
@@ -90,15 +100,43 @@ export interface InventoryAllocationReportParams {
 type RawInventoryRow = Partial<{
   date: string;
   stayDate: string;
+  hotelId: string;
+  hotelName: string;
+  roomTypeId: number;
+  roomType: string;
+  roomTypeName: string;
+  ratePlanId: number;
+  ratePlan: string;
+  ratePlanName: string;
   totalRooms: number;
   total: number;
   allocatedRooms: number;
   allocated: number;
   soldRooms: number;
   sold: number;
+  blockedRooms: number;
+  blocked: number;
+  availableRooms: number;
+  available: number;
   remainingRooms: number;
   remaining: number;
+  allocationPercentage: number;
+  utilizationPercentage: number;
+  occupancyPercentage: number;
+  lostOpportunityRooms: number;
   status: string;
+}>;
+
+type RawChartPoint = Partial<{
+  date: string;
+  allocatedRooms: number;
+  allocated: number;
+  soldRooms: number;
+  sold: number;
+  remainingRooms: number;
+  remaining: number;
+  totalRooms: number;
+  total: number;
 }>;
 
 function unwrapPayload<T>(response: ApiSuccessResponse<T> | T): T {
@@ -113,6 +151,15 @@ function unwrapPayload<T>(response: ApiSuccessResponse<T> | T): T {
   return response as T;
 }
 
+function toNumber(value: unknown, fallback = 0): number {
+  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return fallback;
+}
+
 function appendPropertyIds(search: URLSearchParams, propertyIds: string[]) {
   if (propertyIds.length) {
     search.set("propertyIds", propertyIds.join(","));
@@ -122,11 +169,34 @@ function appendPropertyIds(search: URLSearchParams, propertyIds: string[]) {
 function normalizeRow(raw: RawInventoryRow): InventoryAllocationRow {
   return {
     date: raw.date ?? raw.stayDate ?? "",
-    total: raw.totalRooms ?? raw.total ?? 0,
-    allocated: raw.allocatedRooms ?? raw.allocated ?? 0,
-    sold: raw.soldRooms ?? raw.sold ?? 0,
-    remaining: raw.remainingRooms ?? raw.remaining ?? 0,
+    hotelId: raw.hotelId ?? null,
+    hotelName: raw.hotelName ?? null,
+    roomTypeId: raw.roomTypeId ?? null,
+    roomType: raw.roomType ?? raw.roomTypeName ?? "—",
+    ratePlanId: raw.ratePlanId ?? null,
+    ratePlan: raw.ratePlan ?? raw.ratePlanName ?? "—",
+    total: toNumber(raw.totalRooms ?? raw.total),
+    allocated: toNumber(raw.allocatedRooms ?? raw.allocated),
+    sold: toNumber(raw.soldRooms ?? raw.sold),
+    blocked: toNumber(raw.blockedRooms ?? raw.blocked),
+    available: toNumber(raw.availableRooms ?? raw.available),
+    remaining: toNumber(raw.remainingRooms ?? raw.remaining),
+    allocationPercentage: toNumber(raw.allocationPercentage),
+    utilizationPercentage: toNumber(raw.utilizationPercentage),
+    occupancyPercentage: toNumber(raw.occupancyPercentage),
+    lostOpportunityRooms: toNumber(raw.lostOpportunityRooms),
     status: raw.status ?? "—",
+  };
+}
+
+function normalizeChartPoint(
+  raw: RawChartPoint,
+): InventoryAllocationChartPoint {
+  return {
+    date: raw.date ?? "",
+    allocated: toNumber(raw.allocatedRooms ?? raw.allocated),
+    sold: toNumber(raw.soldRooms ?? raw.sold),
+    remaining: toNumber(raw.remainingRooms ?? raw.remaining),
   };
 }
 
@@ -134,16 +204,16 @@ function normalizeSummary(
   raw: Partial<InventoryAllocationSummary> | null | undefined,
 ): InventoryAllocationSummary {
   return {
-    totalRooms: raw?.totalRooms ?? 0,
-    allocatedRooms: raw?.allocatedRooms ?? 0,
-    soldRooms: raw?.soldRooms ?? 0,
-    availableRooms: raw?.availableRooms ?? 0,
-    blockedRooms: raw?.blockedRooms ?? 0,
-    remainingRooms: raw?.remainingRooms ?? 0,
-    allocationPercentage: raw?.allocationPercentage ?? 0,
-    utilizationPercentage: raw?.utilizationPercentage ?? 0,
-    occupancyPercentage: raw?.occupancyPercentage ?? 0,
-    lostOpportunityRooms: raw?.lostOpportunityRooms ?? 0,
+    totalRooms: toNumber(raw?.totalRooms),
+    allocatedRooms: toNumber(raw?.allocatedRooms),
+    soldRooms: toNumber(raw?.soldRooms),
+    availableRooms: toNumber(raw?.availableRooms),
+    blockedRooms: toNumber(raw?.blockedRooms),
+    remainingRooms: toNumber(raw?.remainingRooms),
+    allocationPercentage: toNumber(raw?.allocationPercentage),
+    utilizationPercentage: toNumber(raw?.utilizationPercentage),
+    occupancyPercentage: toNumber(raw?.occupancyPercentage),
+    lostOpportunityRooms: toNumber(raw?.lostOpportunityRooms),
   };
 }
 
@@ -156,7 +226,7 @@ function normalizeResponse(
     dateRange: InventoryAllocationReportResponse["dateRange"];
     summary: InventoryAllocationSummary;
     insights: InventoryAllocationInsight[];
-    chart: InventoryAllocationChartPoint[];
+    chart: RawChartPoint[];
     inventory: RawInventoryRow[];
     page: {
       page?: number;
@@ -176,7 +246,7 @@ function normalizeResponse(
     dateRange: data.dateRange ?? { preset: null, fromDate: "", toDate: "" },
     summary: normalizeSummary(data.summary),
     insights: data.insights ?? [],
-    chart: data.chart ?? [],
+    chart: (data.chart ?? []).map(normalizeChartPoint),
     inventory: rawRows.map(normalizeRow),
     page: {
       number: pageMeta.page ?? pageMeta.number ?? fallbackPage,

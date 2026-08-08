@@ -18,8 +18,7 @@ export type PerformanceDateAxis = "BOOKING" | "STAY";
 
 export type PerformanceComparisonType =
   | "SAME_TIME_LAST_YEAR"
-  | "PREVIOUS_PERIOD"
-  | "PREVIOUS_DURATION";
+  | "PREVIOUS_PERIOD";
 
 export type PerformanceMetric =
   | "ROOM_NIGHTS"

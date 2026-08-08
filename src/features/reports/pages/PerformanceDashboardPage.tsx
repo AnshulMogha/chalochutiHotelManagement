@@ -63,7 +63,6 @@ const COMPARISON_OPTIONS: {
 }[] = [
   { value: "SAME_TIME_LAST_YEAR", label: "Same time last year" },
   { value: "PREVIOUS_PERIOD", label: "Previous period" },
-  { value: "PREVIOUS_DURATION", label: "Previous duration" },
 ];
 
 const METRIC_LABELS: Record<PerformanceMetric, string> = {
@@ -170,9 +169,7 @@ function buildComparisonInsight({
   const comparedTo =
     comparisonType === "PREVIOUS_PERIOD"
       ? "previous period"
-      : comparisonType === "PREVIOUS_DURATION"
-        ? "previous duration"
-        : "same time last year";
+      : "same time last year";
 
   if (changePercent == null || Number.isNaN(changePercent)) {
     const base =

@@ -25,12 +25,32 @@ function unwrapPayload<T>(response: ApiSuccessResponse<T> | T): T {
   return response as T;
 }
 
+function normalizeExportStatus(value: unknown): ExportJobStatus {
+  const normalized = String(value || "QUEUED")
+    .trim()
+    .toUpperCase();
+  if (normalized === "COMPLETED" || normalized === "DONE" || normalized === "SUCCESS") {
+    return "COMPLETED";
+  }
+  if (normalized === "FAILED" || normalized === "ERROR" || normalized === "CANCELLED") {
+    return "FAILED";
+  }
+  if (
+    normalized === "RUNNING" ||
+    normalized === "PROCESSING" ||
+    normalized === "IN_PROGRESS"
+  ) {
+    return "RUNNING";
+  }
+  return "QUEUED";
+}
+
 function normalizeExportJob(
   payload: Partial<ExportJobPayload & { jobId?: string | number }>,
 ): ExportJobPayload {
   return {
     jobId: payload.jobId != null ? String(payload.jobId) : "",
-    status: payload.status ?? "QUEUED",
+    status: normalizeExportStatus(payload.status),
     fileName: payload.fileName ?? null,
     errorMessage: payload.errorMessage ?? payload.message ?? null,
   };
@@ -67,15 +87,21 @@ export async function downloadReportExportFile(
   triggerBlobDownload(blob, fileName);
 }
 
+/**
+ * Poll export job status every `intervalMs` (default 5s).
+ * Stops immediately on FAILED. Aborts after `maxWaitMs` (default 1 min)
+ * while still QUEUED / RUNNING (processing).
+ */
 export async function pollReportExportJob(
   statusUrl: string,
   onStatus?: (status: ExportJobStatus) => void,
-  options?: { intervalMs?: number; maxAttempts?: number },
+  options?: { intervalMs?: number; maxWaitMs?: number },
 ): Promise<ExportJobPayload> {
-  const intervalMs = options?.intervalMs ?? 2000;
-  const maxAttempts = options?.maxAttempts ?? 45;
+  const intervalMs = options?.intervalMs ?? 5000;
+  const maxWaitMs = options?.maxWaitMs ?? 60_000;
+  const startedAt = Date.now();
 
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+  while (true) {
     const response = await apiClient.get<
       ApiSuccessResponse<ExportJobPayload> | ExportJobPayload
     >(statusUrl);
@@ -87,10 +113,12 @@ export async function pollReportExportJob(
       throw new Error(job.errorMessage || "Export failed");
     }
 
+    if (Date.now() - startedAt >= maxWaitMs) {
+      throw new Error("Export timed out after 1 minute. Please try again.");
+    }
+
     await sleep(intervalMs);
   }
-
-  throw new Error("Export timed out. Please try again.");
 }
 
 export async function runReportExportJob(options: {
@@ -111,10 +139,17 @@ export async function runReportExportJob(options: {
 
   options.onStatus?.(started.status);
 
-  const completed = await pollReportExportJob(
-    options.statusUrl(started.jobId),
-    options.onStatus,
-  );
+  if (started.status === "FAILED") {
+    throw new Error(started.errorMessage || "Export failed");
+  }
+
+  const completed =
+    started.status === "COMPLETED"
+      ? started
+      : await pollReportExportJob(
+          options.statusUrl(started.jobId),
+          options.onStatus,
+        );
 
   const fileName =
     completed.fileName?.trim() ||
