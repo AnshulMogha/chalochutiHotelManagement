@@ -11,6 +11,7 @@ import {
 import { ArrowLeft, Calendar, Users } from "lucide-react";
 import { inventoryService } from "../services/inventoryService";
 import type { InventoryBulkRoomsWeekDay } from "../services/inventoryService";
+import { getInventoryErrorMessage } from "../utils/getInventoryErrorMessage";
 import type { HotelRoom } from "@/features/admin/services/adminService";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/hooks";
@@ -384,8 +385,8 @@ export default function BulkUpdateInventoryPage() {
       showToast("Inventory updated successfully.", "success");
       navigate(-1);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to update inventory";
-      showToast(msg, "error");
+      // Prefer the field-level detail (e.g. data.totalRooms) over the generic message.
+      showToast(getInventoryErrorMessage(e), "error");
     } finally {
       setIsSubmitting(false);
     }

@@ -51,6 +51,7 @@ import {
   buildSingleDerivedRateUpdatePayload,
   getOriginalRateDay,
 } from "./utils/rateHelpers";
+import { getInventoryErrorMessage } from "./utils/getInventoryErrorMessage";
 
 // Track the single active edit
 interface ActiveEdit {
@@ -680,10 +681,8 @@ export default function Layout() {
       showToast("Inventory updated successfully", "success");
     } catch (error: any) {
       // Update failed — keep the pending edit so the user can retry.
-      // API client interceptor returns ApiFailureResponse with message property
-      const errorMessage =
-        error?.message || "Failed to update inventory";
-      showToast(errorMessage, "error");
+      // Prefer the field-level detail (e.g. data.totalRooms) over the generic message.
+      showToast(getInventoryErrorMessage(error), "error");
     } finally {
       // Remove updating state
       setUpdatingCells((prev) => {
