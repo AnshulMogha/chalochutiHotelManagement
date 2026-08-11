@@ -1038,13 +1038,16 @@ export default function HotelBookingFinancialMisDetailPage() {
           <div
             className={cn(
               "grid gap-4",
-              booking.cancellationPolicyLines.length > 0 && "lg:grid-cols-2",
+              (booking.cancellationPolicyLines.length > 0 ||
+                booking.agentPaymentBreakup) &&
+                "lg:grid-cols-2",
             )}
           >
             <Panel
               title="Cancellation & Refund"
               className={
-                booking.cancellationPolicyLines.length > 0
+                booking.cancellationPolicyLines.length > 0 ||
+                booking.agentPaymentBreakup
                   ? undefined
                   : "w-full"
               }
@@ -1058,8 +1061,15 @@ export default function HotelBookingFinancialMisDetailPage() {
                   />
                 </div>
                 <InfoLine
-                  label="Original booking amount"
-                  value={formatFinanceMoney(booking.customerSellingPrice)}
+                  label={
+                    booking.agentPaymentBreakup
+                      ? "Original payment (agent)"
+                      : "Original booking amount"
+                  }
+                  value={formatFinanceMoney(
+                    booking.agentPaymentBreakup?.amountPayableByAgent ??
+                      booking.customerSellingPrice,
+                  )}
                 />
                 <InfoLine
                   label="Cancellation charge"
@@ -1087,17 +1097,58 @@ export default function HotelBookingFinancialMisDetailPage() {
                 />
               </div>
             </Panel>
-            {booking.cancellationPolicyLines.length > 0 ? (
-              <Panel title="Cancellation policy">
-                <ul className="space-y-2 p-4 text-sm text-slate-700">
-                  {booking.cancellationPolicyLines.map((line) => (
-                    <li key={line} className="flex gap-2">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ul>
-              </Panel>
+            {booking.agentPaymentBreakup ||
+            booking.cancellationPolicyLines.length > 0 ? (
+              <div className="space-y-4">
+                {booking.agentPaymentBreakup ? (
+                  <Panel title="Agent payment breakup">
+                    <div className="space-y-1 p-4">
+                      <InfoLine
+                        label="Selling price"
+                        value={formatFinanceMoney(
+                          booking.agentPaymentBreakup.sellingPrice,
+                        )}
+                      />
+                      <InfoLine
+                        label="Gross agent commission"
+                        value={formatFinanceMoney(
+                          booking.agentPaymentBreakup.grossAgentCommission,
+                        )}
+                      />
+                      <InfoLine
+                        label="Agent TDS"
+                        value={formatFinanceMoney(
+                          booking.agentPaymentBreakup.agentTds,
+                        )}
+                      />
+                      <InfoLine
+                        label="Net agent commission"
+                        value={formatFinanceMoney(
+                          booking.agentPaymentBreakup.netAgentCommission,
+                        )}
+                      />
+                      <InfoLine
+                        label="Amount payable by agent"
+                        value={formatFinanceMoney(
+                          booking.agentPaymentBreakup.amountPayableByAgent,
+                        )}
+                      />
+                    </div>
+                  </Panel>
+                ) : null}
+                {booking.cancellationPolicyLines.length > 0 ? (
+                  <Panel title="Cancellation policy">
+                    <ul className="space-y-2 p-4 text-sm text-slate-700">
+                      {booking.cancellationPolicyLines.map((line) => (
+                        <li key={line} className="flex gap-2">
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
+                          <span>{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </Panel>
+                ) : null}
+              </div>
             ) : null}
           </div>
         ) : null}
