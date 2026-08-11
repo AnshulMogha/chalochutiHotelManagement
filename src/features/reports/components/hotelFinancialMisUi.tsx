@@ -10,6 +10,33 @@ import type {
 import type { LucideIcon } from "lucide-react";
 
 export const FINANCIAL_MIS_CACHE_KEY = "hotel-booking-financial-mis:row";
+export const FINANCIAL_MIS_FILTERS_KEY = "hotel-booking-financial-mis:filters";
+
+export function cacheFinancialMisFilters(state: unknown): void {
+  try {
+    sessionStorage.setItem(FINANCIAL_MIS_FILTERS_KEY, JSON.stringify(state));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+export function readCachedFinancialMisFilters<T>(): T | null {
+  try {
+    const raw = sessionStorage.getItem(FINANCIAL_MIS_FILTERS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+export function clearCachedFinancialMisFilters(): void {
+  try {
+    sessionStorage.removeItem(FINANCIAL_MIS_FILTERS_KEY);
+  } catch {
+    // ignore
+  }
+}
 
 /** B2B agent bookings: display agent price from payment breakup when present. */
 export function isHotelFinancialMisB2b(

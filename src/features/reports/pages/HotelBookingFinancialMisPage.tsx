@@ -21,10 +21,13 @@ import {
   FinanceKpiCard,
   StatusBadge,
   bookingStatusTone,
+  cacheFinancialMisFilters,
   cacheFinancialMisRow,
+  clearCachedFinancialMisFilters,
   getHotelFinancialMisDisplaySellingPrice,
   isHotelFinancialMisB2b,
   paymentStatusTone,
+  readCachedFinancialMisFilters,
   refundStatusTone,
 } from "../components/hotelFinancialMisUi";
 import {
@@ -36,7 +39,6 @@ import {
 import {
   hotelBookingFinancialMisService,
   type HotelFinancialMisBookingRow,
-  type HotelFinancialMisBookingSource,
   type HotelFinancialMisBookingStatus,
   type HotelFinancialMisDateAxis,
   type HotelFinancialMisPaymentStatus,
@@ -89,7 +91,6 @@ type FilterDraft = {
   toDate: string;
   dateAxis: HotelFinancialMisDateAxis;
   bookingStatus: HotelFinancialMisBookingStatus;
-  bookingSource: HotelFinancialMisBookingSource;
   paymentStatus: HotelFinancialMisPaymentStatus;
   refundStatus: HotelFinancialMisRefundStatus;
   hotelId: string;
@@ -110,7 +111,6 @@ const DEFAULT_DRAFT: FilterDraft = {
   toDate: "",
   dateAxis: "BOOKING_DATE",
   bookingStatus: "ALL",
-  bookingSource: "ALL",
   paymentStatus: "ALL",
   refundStatus: "ALL",
   hotelId: "",
@@ -122,6 +122,21 @@ const DEFAULT_DRAFT: FilterDraft = {
   checkOutFrom: "",
   checkOutTo: "",
 };
+
+function restoreMisListState(): { filters: FilterDraft; page: number } {
+  const cached = readCachedFinancialMisFilters<{
+    filters?: Partial<FilterDraft> | null;
+    page?: number | null;
+  }>();
+  if (!cached?.filters || typeof cached.filters !== "object") {
+    return { filters: DEFAULT_DRAFT, page: 0 };
+  }
+  return {
+    filters: { ...DEFAULT_DRAFT, ...cached.filters },
+    page:
+      typeof cached.page === "number" && cached.page >= 0 ? cached.page : 0,
+  };
+}
 
 const UI_DATE_PRESET_OPTIONS: { value: UiDatePreset; label: string }[] = [
   { value: "TODAY", label: "Today" },
@@ -148,15 +163,6 @@ const BOOKING_STATUS_OPTIONS: {
   { value: "CONFIRMED", label: "Confirmed" },
   { value: "CANCELLED", label: "Cancelled" },
   { value: "COMPLETED", label: "Completed" },
-];
-
-const BOOKING_SOURCE_OPTIONS: {
-  value: HotelFinancialMisBookingSource;
-  label: string;
-}[] = [
-  { value: "ALL", label: "All sources" },
-  { value: "HOTEL", label: "Hotel (B2C/B2B)" },
-  { value: "PACKAGE", label: "Package" },
 ];
 
 const PAYMENT_STATUS_OPTIONS: {
@@ -274,9 +280,10 @@ export default function HotelBookingFinancialMisPage() {
   const navigate = useNavigate();
   const { toast, showToast, hideToast } = useToast();
 
-  const [filters, setFilters] = useState<FilterDraft>(DEFAULT_DRAFT);
-  const [draft, setDraft] = useState<FilterDraft>(DEFAULT_DRAFT);
-  const [page, setPage] = useState(0);
+  const initialListState = useMemo(() => restoreMisListState(), []);
+  const [filters, setFilters] = useState<FilterDraft>(initialListState.filters);
+  const [draft, setDraft] = useState<FilterDraft>(initialListState.filters);
+  const [page, setPage] = useState(initialListState.page);
   const [filterOpen, setFilterOpen] = useState(false);
   const [hotelOptions, setHotelOptions] = useState<HotelLookupItem[]>([]);
   const [hotelQuery, setHotelQuery] = useState("");
@@ -298,7 +305,6 @@ export default function HotelBookingFinancialMisPage() {
     if (filters.uiDatePreset !== "THIS_MONTH") count += 1;
     if (filters.dateAxis !== "BOOKING_DATE") count += 1;
     if (filters.bookingStatus !== "ALL") count += 1;
-    if (filters.bookingSource !== "ALL") count += 1;
     if (filters.paymentStatus !== "ALL") count += 1;
     if (filters.refundStatus !== "ALL") count += 1;
     if (filters.hotelId) count += 1;
@@ -365,7 +371,7 @@ export default function HotelBookingFinancialMisPage() {
           toDate: dateRange.toDate,
           dateAxis: nextFilters.dateAxis,
           bookingStatus: nextFilters.bookingStatus,
-          bookingSource: nextFilters.bookingSource,
+          bookingSource: "HOTEL",
           paymentStatus: nextFilters.paymentStatus,
           refundStatus: nextFilters.refundStatus,
           hotelIds: nextFilters.hotelId ? [nextFilters.hotelId] : undefined,
@@ -396,6 +402,10 @@ export default function HotelBookingFinancialMisPage() {
     void loadReport();
   }, [customInvalid, loadReport]);
 
+  useEffect(() => {
+    cacheFinancialMisFilters({ filters, page });
+  }, [filters, page]);
+
   const openDetail = (
     row: HotelFinancialMisBookingRow,
     tab: DetailTab = "overview",
@@ -419,6 +429,7 @@ export default function HotelBookingFinancialMisPage() {
     setFilters(DEFAULT_DRAFT);
     setPage(0);
     setFilterOpen(false);
+    clearCachedFinancialMisFilters();
     void loadReport(DEFAULT_DRAFT, 0);
   };
 
@@ -968,25 +979,6 @@ export default function HotelBookingFinancialMisPage() {
                     className={fieldClass}
                   >
                     {DATE_AXIS_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </FilterField>
-                <FilterField label="Booking source">
-                  <select
-                    value={draft.bookingSource}
-                    onChange={(event) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        bookingSource: event.target
-                          .value as HotelFinancialMisBookingSource,
-                      }))
-                    }
-                    className={fieldClass}
-                  >
-                    {BOOKING_SOURCE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>

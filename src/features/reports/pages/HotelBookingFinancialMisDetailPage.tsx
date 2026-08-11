@@ -573,7 +573,7 @@ export default function HotelBookingFinancialMisDetailPage() {
               </div>
             </Panel>
 
-            <Panel title="Booking meta">
+            <Panel title="Booking info">
               <div className="space-y-1 p-4">
                 <InfoLine
                   label="Booking ID"
@@ -1035,8 +1035,20 @@ export default function HotelBookingFinancialMisDetailPage() {
         ) : null}
 
         {tab === "cancellation" ? (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Panel title="Cancellation & Refund">
+          <div
+            className={cn(
+              "grid gap-4",
+              booking.cancellationPolicyLines.length > 0 && "lg:grid-cols-2",
+            )}
+          >
+            <Panel
+              title="Cancellation & Refund"
+              className={
+                booking.cancellationPolicyLines.length > 0
+                  ? undefined
+                  : "w-full"
+              }
+            >
               <div className="space-y-3 p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-600">Refund status</span>
@@ -1075,38 +1087,18 @@ export default function HotelBookingFinancialMisDetailPage() {
                 />
               </div>
             </Panel>
-            <div className="space-y-4">
-              <Panel title="Payment impact">
-                <div className="space-y-3 p-4">
-                  <InfoLine
-                    label="Collected"
-                    value={formatFinanceMoney(booking.amountCollected)}
-                  />
-                  <InfoLine
-                    label="Payment status"
-                    value={formatStatusLabel(booking.paymentStatus)}
-                  />
-                  <InfoLine
-                    label="Payment method"
-                    value={formatStatusLabel(
-                      booking.payment?.paymentMethod || "—",
-                    )}
-                  />
-                </div>
+            {booking.cancellationPolicyLines.length > 0 ? (
+              <Panel title="Cancellation policy">
+                <ul className="space-y-2 p-4 text-sm text-slate-700">
+                  {booking.cancellationPolicyLines.map((line) => (
+                    <li key={line} className="flex gap-2">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
               </Panel>
-              {booking.cancellationPolicyLines.length > 0 ? (
-                <Panel title="Cancellation policy">
-                  <ul className="space-y-2 p-4 text-sm text-slate-700">
-                    {booking.cancellationPolicyLines.map((line) => (
-                      <li key={line} className="flex gap-2">
-                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
-                        <span>{line}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </Panel>
-              ) : null}
-            </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -1133,14 +1125,6 @@ export default function HotelBookingFinancialMisDetailPage() {
                 <InfoLine
                   label="Collected"
                   value={formatFinanceMoney(booking.amountCollected)}
-                />
-                <InfoLine
-                  label="Refunded"
-                  value={formatFinanceMoney(booking.refundAmount)}
-                />
-                <InfoLine
-                  label="Agent commission"
-                  value={formatFinanceMoney(booking.agentCommission)}
                 />
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-sm text-slate-600">Payment status</span>
