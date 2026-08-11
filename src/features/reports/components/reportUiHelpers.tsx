@@ -26,6 +26,92 @@ export function formatReportCurrency(value: number | null | undefined): string {
   }).format(value);
 }
 
+export function formatReportMoney(
+  amount?: { amount?: number | null; currency?: string } | null,
+): string {
+  if (!amount || amount.amount == null || Number.isNaN(amount.amount)) {
+    return "—";
+  }
+  return formatReportCurrency(amount.amount);
+}
+
+/** INR with 2 decimals for finance / accountant screens. */
+export function formatFinanceCurrency(
+  value: number | null | undefined,
+  currency = "INR",
+): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+export function formatFinanceMoney(
+  amount?: { amount?: number | null; currency?: string } | null,
+): string {
+  if (!amount || amount.amount == null || Number.isNaN(amount.amount)) {
+    return "—";
+  }
+  return formatFinanceCurrency(amount.amount, amount.currency || "INR");
+}
+
+export function formatChangePercent(value?: number | null): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)}%`;
+}
+
+export function agentStatusTone(
+  color?: string | null,
+  code?: string | null,
+): string {
+  const normalized = String(color || code || "")
+    .trim()
+    .toUpperCase();
+  if (normalized === "GREEN" || normalized === "ACTIVE") {
+    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  }
+  if (normalized === "RED" || normalized === "SUSPENDED") {
+    return "bg-rose-50 text-rose-700 ring-rose-200";
+  }
+  if (normalized === "AMBER" || normalized === "INACTIVE") {
+    return "bg-amber-50 text-amber-700 ring-amber-200";
+  }
+  return "bg-slate-100 text-slate-700 ring-slate-200";
+}
+
+export function getSalesManagerActionLink(
+  actionUrl?: string | null,
+  onboardingId?: number | null,
+): string {
+  if (actionUrl) {
+    const onboardingMatch = actionUrl.match(
+      /\/travel-agents\/onboarding\/(\d+)/,
+    );
+    if (onboardingMatch) return ROUTES.AGENTS.EDIT(onboardingMatch[1]);
+  }
+  if (onboardingId) return ROUTES.AGENTS.EDIT(onboardingId);
+  return ROUTES.AGENTS.LIST;
+}
+
+export function formatReportDateTime(value?: string | null): string {
+  if (!value) return "—";
+  try {
+    return new Date(value).toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return value;
+  }
+}
+
 export function formatStatusLabel(status: string): string {
   return status
     .replace(/_/g, " ")

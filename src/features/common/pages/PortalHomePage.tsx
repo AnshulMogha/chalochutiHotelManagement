@@ -2,7 +2,10 @@ import { Navigate } from "react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/ui";
 import SuperAdminDashboardPage from "@/features/admin/pages/SuperAdminDashboardPage";
-import { isHotelBdRole } from "@/constants/roles";
+import {
+  isHotelBdRole,
+  isSalesManagerRole,
+} from "@/constants/roles";
 import { ROUTES } from "@/constants";
 
 export default function PortalHomePage() {
@@ -18,6 +21,10 @@ export default function PortalHomePage() {
 
   if (isHotelBdRole(user?.roles)) {
     return <Navigate to={ROUTES.REPORTS.HOTEL_BD_DASHBOARD} replace />;
+  }
+
+  if (isSalesManagerRole(user?.roles)) {
+    return <Navigate to={ROUTES.REPORTS.SALES_MANAGER_DASHBOARD} replace />;
   }
 
   return <SuperAdminDashboardPage />;

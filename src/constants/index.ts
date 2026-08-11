@@ -75,6 +75,11 @@ export const ROUTES = {
     NET_EARNINGS: "/reports/net-earnings",
     HOTEL_BD_DASHBOARD: "/reports/hotel-bd-dashboard",
     HOTEL_BD_PIPELINE: "/reports/hotel-bd-pipeline",
+    SALES_MANAGER_DASHBOARD: "/reports/sales-manager-dashboard",
+    SALES_MANAGER_AGENTS: "/reports/sales-manager-agents",
+    HOTEL_BOOKING_FINANCIAL_MIS: "/reports/hotel-booking-financial-mis",
+    HOTEL_BOOKING_FINANCIAL_MIS_DETAIL: (bookingId: string | number) =>
+      `/reports/hotel-booking-financial-mis/${bookingId}`,
   },
   RATINGS_REVIEWS: {
     LIST: "/ratings-reviews",
@@ -401,6 +406,9 @@ export const API_ENDPOINTS = {
       `/reports/hotel-bd-pipeline/export/${jobId}`,
     HOTEL_BD_PIPELINE_EXPORT_DOWNLOAD: (jobId: string) =>
       `/reports/hotel-bd-pipeline/export/${jobId}/download`,
+    SALES_MANAGER_DASHBOARD: "/reports/sales-manager-dashboard",
+    SALES_MANAGER_AGENTS: "/reports/sales-manager-agents",
+    HOTEL_BOOKING_FINANCIAL_MIS: "/reports/hotel-booking-financial-mis",
   },
   CUSTOMER: {
     HOTEL_LOOKUP: "/customer/packages/hotel/lookup",

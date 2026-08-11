@@ -195,6 +195,18 @@ const HotelBdDashboardPage = lazy(
 const HotelBdPipelineReportPage = lazy(
   () => import("../features/reports/pages/HotelBdPipelineReportPage"),
 );
+const SalesManagerDashboardReportPage = lazy(
+  () => import("../features/reports/pages/SalesManagerDashboardReportPage"),
+);
+const SalesManagerAgentsReportPage = lazy(
+  () => import("../features/reports/pages/SalesManagerAgentsReportPage"),
+);
+const HotelBookingFinancialMisPage = lazy(
+  () => import("../features/reports/pages/HotelBookingFinancialMisPage"),
+);
+const HotelBookingFinancialMisDetailPage = lazy(
+  () => import("../features/reports/pages/HotelBookingFinancialMisDetailPage"),
+);
 const MyProfilePage = lazy(
   () => import("../features/user/pages/MyProfilePage"),
 );
@@ -478,6 +490,22 @@ export const routes: RouteObject[] = [
       {
         path: "reports/hotel-bd-pipeline",
         element: <HotelBdPipelineReportPage />,
+      },
+      {
+        path: "reports/sales-manager-dashboard",
+        element: <SalesManagerDashboardReportPage />,
+      },
+      {
+        path: "reports/sales-manager-agents",
+        element: <SalesManagerAgentsReportPage />,
+      },
+      {
+        path: "reports/hotel-booking-financial-mis",
+        element: <HotelBookingFinancialMisPage />,
+      },
+      {
+        path: "reports/hotel-booking-financial-mis/:bookingId",
+        element: <HotelBookingFinancialMisDetailPage />,
       },
       {
         path: "profile",

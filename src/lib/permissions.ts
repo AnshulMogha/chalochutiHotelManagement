@@ -1,6 +1,8 @@
 import type { User } from "@/types";
 import {
   canViewHotelBdReports,
+  canViewHotelBookingFinancialMis,
+  canViewSalesManagerReports,
   isHotelBdRole,
   isSuperAdmin,
 } from "@/constants/roles";
@@ -199,11 +201,33 @@ function isHotelBdReportPath(pathname: string): boolean {
   );
 }
 
+function isSalesManagerReportPath(pathname: string): boolean {
+  return (
+    pathname === ROUTES.REPORTS.SALES_MANAGER_DASHBOARD ||
+    pathname === ROUTES.REPORTS.SALES_MANAGER_AGENTS
+  );
+}
+
+function isHotelBookingFinancialMisPath(pathname: string): boolean {
+  return (
+    pathname === ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS ||
+    pathname.startsWith(`${ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS}/`)
+  );
+}
+
 export function canViewPath(user: User | null, pathname: string): boolean {
   const pathOnly = pathname.split("?")[0];
 
   if (isHotelBdReportPath(pathOnly)) {
     return canViewHotelBdReports(user?.roles);
+  }
+
+  if (isSalesManagerReportPath(pathOnly)) {
+    return canViewSalesManagerReports(user?.roles);
+  }
+
+  if (isHotelBookingFinancialMisPath(pathOnly)) {
+    return canViewHotelBookingFinancialMis(user?.roles);
   }
 
   // Payment Report is Super Admin only.

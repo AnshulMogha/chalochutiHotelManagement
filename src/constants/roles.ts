@@ -150,6 +150,49 @@ export function canFilterHotelBdReportsByUser(
   );
 }
 
+/** Roles allowed to view Sales Manager dashboard and agent portfolio reports. */
+export const SALES_MANAGER_REPORT_ROLES = [
+  "SALES_MANAGER",
+  "SUPER_ADMIN",
+  "ZONAL_MANAGER_SALES",
+] as const;
+
+export function canViewSalesManagerReports(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (SALES_MANAGER_REPORT_ROLES as readonly string[]).includes(role),
+  );
+}
+
+/** Admin/zonal roles that may filter sales manager reports by assigned manager. */
+export function canFilterSalesManagerReportsByUser(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    ["SUPER_ADMIN", "ZONAL_MANAGER_SALES"].includes(role),
+  );
+}
+
+/** Roles allowed to view Hotel Booking Financial MIS. */
+export const HOTEL_BOOKING_FINANCIAL_MIS_ROLES = [
+  "ACCOUNTANT",
+  "FINANCE",
+  "AUDITOR",
+  "SUPER_ADMIN",
+] as const;
+
+export function canViewHotelBookingFinancialMis(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (HOTEL_BOOKING_FINANCIAL_MIS_ROLES as readonly string[]).includes(role),
+  );
+}
+
 /**
  * Check if user has a specific role
  */
