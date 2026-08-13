@@ -111,7 +111,11 @@ export function bookingStatusTone(status: string): string {
 
 export function paymentStatusTone(status: string): string {
   const normalized = status.trim().toUpperCase();
-  if (normalized === "PAID" || normalized.includes("PAID")) {
+  if (
+    normalized === "PAID" ||
+    normalized.includes("PAID") ||
+    normalized === "CONFIRMED"
+  ) {
     return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   }
   if (normalized === "PARTIAL" || normalized.includes("PARTIAL")) {

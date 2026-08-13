@@ -115,6 +115,30 @@ function formatPercent(value: number | undefined | null): string {
   return `${shown}%`;
 }
 
+function ratePercent(
+  part: number | undefined | null,
+  base: number | undefined | null,
+): number | undefined {
+  if (part == null || base == null || !(base > 0) || !Number.isFinite(part)) {
+    return undefined;
+  }
+  const pct = (Number(part) / Number(base)) * 100;
+  return Number.isFinite(pct) ? pct : undefined;
+}
+
+function withRate(label: string, pct: number | undefined | null): string {
+  return pct != null ? `${label} @ ${formatPercent(pct)}` : label;
+}
+
+function firstPercent(
+  ...values: Array<number | null | undefined>
+): number | undefined {
+  for (const value of values) {
+    if (value != null && Number.isFinite(Number(value))) return Number(value);
+  }
+  return undefined;
+}
+
 function formatLongDate(value: string | undefined): string {
   if (!value) return "—";
   try {
@@ -553,10 +577,36 @@ export default function AdminBookingDetailPage({
     rateBreakup?.agentNetCommission ??
     null;
   const agentPayable = rateBreakup?.agentPayable ?? null;
+  const isPackageBooking = [
+    detail.financials.bookingMode,
+    detail.financials.selectedPricingSource,
+    detail.financials.selectedCustomerType,
+    agencyIncentiveCategory,
+    agencyIncentiveSource,
+  ].some((value) => String(value || "").toUpperCase().includes("PACKAGE"));
   const isAgentBooking =
     agencyCommissionAmount > 0 ||
     (agentNetCommission ?? 0) > 0 ||
     Boolean(agencyTier);
+  const showAgencyBlock =
+    isAgentBooking ||
+    isPackageBooking ||
+    ((agencyIncentivePercent ?? 0) > 0 && Boolean(agencyIncentiveSource));
+  const packageTaxAmount =
+    rateBreakup?.propertyTaxes ?? detail.pricing.gstAmount ?? 0;
+  const packageCommissionAmount =
+    rateBreakup?.commissionAmount ?? detail.pricing.commissionAmount ?? 0;
+  const packageCommissionGst =
+    rateBreakup?.commissionGst ?? detail.financials.commissionGst ?? 0;
+  const packageTaxDeduction =
+    rateBreakup?.taxDeductions ??
+    (detail.financials.tcsAmount ?? 0) + (detail.financials.tdsAmount ?? 0);
+  const showCommissionBreakup =
+    !isPackageBooking ||
+    packageCommissionAmount > 0 ||
+    packageCommissionGst > 0;
+  const showTaxDeductionBreakup =
+    !isPackageBooking || packageTaxDeduction > 0;
   const showRoomDayPromo =
     promotionDiscount > 0 ||
     appliedPromotions.length > 0 ||
@@ -621,28 +671,53 @@ export default function AdminBookingDetailPage({
       (detail.guest.phone || "").replace(/\s/g, "");
     return !(sameName && sameEmail && samePhone);
   });
+  const gstPercent = firstPercent(
+    detail.financials.gstPercent,
+    detail.financials.gst?.ratePercent,
+  );
+  const commissionPercent = firstPercent(
+    detail.financials.commissionPercent,
+    detail.financials.commission?.ratePercent,
+  );
+  const commissionGstPercent = firstPercent(
+    detail.financials.commissionGstRated?.ratePercent,
+  );
+  const tcsPercent = firstPercent(
+    detail.financials.tcsPercent,
+    detail.financials.tcs?.ratePercent,
+  );
+  const tdsPercent = firstPercent(
+    detail.financials.tdsPercent,
+    detail.financials.tds?.ratePercent,
+  );
+  const cancellationChargePercent = ratePercent(
+    cancellationChargeAmount,
+    originalReservationValue,
+  );
+  const payablePercent = ratePercent(
+    payableToProperty,
+    originalReservationValue,
+  );
+  const refundPercent = ratePercent(refundedAmount, originalReservationValue);
   const gstLabel =
     detail.financials.gst?.rateLabel ||
-    (detail.financials.gstPercent != null
-      ? `GST (${formatPercent(detail.financials.gstPercent)})`
-      : "GST");
+    (gstPercent != null ? `GST (${formatPercent(gstPercent)})` : "GST");
   const commissionLabel =
     detail.financials.commission?.rateLabel ||
-    (detail.financials.commissionPercent != null
-      ? `Commission (${formatPercent(detail.financials.commissionPercent)})`
+    (commissionPercent != null
+      ? `Commission (${formatPercent(commissionPercent)})`
       : "Commission");
   const commissionGstLabel =
-    detail.financials.commissionGstRated?.rateLabel || "GST on commission";
+    detail.financials.commissionGstRated?.rateLabel ||
+    (commissionGstPercent != null
+      ? `GST on commission @ ${formatPercent(commissionGstPercent)}`
+      : "GST on commission");
   const tcsLabel =
     detail.financials.tcs?.rateLabel ||
-    (detail.financials.tcsPercent != null
-      ? `TCS (${formatPercent(detail.financials.tcsPercent)})`
-      : "TCS");
+    (tcsPercent != null ? `TCS (${formatPercent(tcsPercent)})` : "TCS");
   const tdsLabel =
     detail.financials.tds?.rateLabel ||
-    (detail.financials.tdsPercent != null
-      ? `TDS (${formatPercent(detail.financials.tdsPercent)})`
-      : "TDS");
+    (tdsPercent != null ? `TDS (${formatPercent(tdsPercent)})` : "TDS");
 
   return (
     <>
@@ -684,6 +759,16 @@ export default function AdminBookingDetailPage({
                   status={summary.bookingStatus}
                   tone={bookingStatusTone(summary.bookingStatus)}
                 />
+                {isPackageBooking ? (
+                  <StatusBadge
+                    status={
+                      detail.financials.selectedPricingSource ||
+                      detail.financials.bookingMode ||
+                      "PACKAGE"
+                    }
+                    tone="bg-violet-50 text-violet-700 ring-violet-200"
+                  />
+                ) : null}
                 <StatusBadge
                   status={detail.payment.paymentStatus}
                   tone={paymentStatusTone(detail.payment.paymentStatus)}
@@ -763,7 +848,18 @@ export default function AdminBookingDetailPage({
                   {summary.bookedVia}
                 </p>
                 <p className="truncate text-[11px] text-slate-500">
-                  {detail.rooms[0]?.mealPlan || pricingSource || "—"}
+                  {[
+                    detail.rooms[0]?.mealPlan,
+                    isPackageBooking
+                      ? formatStatusLabel(
+                          detail.financials.selectedPricingSource ||
+                            detail.financials.bookingMode ||
+                            "PACKAGE",
+                        )
+                      : pricingSource,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
                 </p>
               </div>
             </div>
@@ -803,9 +899,11 @@ export default function AdminBookingDetailPage({
               label="Cancellation charge"
               value={formatCurrency(cancellationChargeAmount, currency)}
               sub={
-                cancellation.cancellationDatetime
-                  ? formatDateTime(cancellation.cancellationDatetime)
-                  : undefined
+                cancellationChargePercent != null
+                  ? formatPercent(cancellationChargePercent)
+                  : cancellation.cancellationDatetime
+                    ? formatDateTime(cancellation.cancellationDatetime)
+                    : undefined
               }
               icon={Receipt}
               tone={FINANCE_KPI_TONES.cancellation}
@@ -827,7 +925,11 @@ export default function AdminBookingDetailPage({
           <FinanceKpiCard
             label="OTA net revenue"
             value={formatCurrency(detail.pricing.otaNetRevenue, currency)}
-            sub={`Gross ${formatCurrency(detail.pricing.otaGrossRevenue, currency)}`}
+            sub={
+              isPackageBooking
+                ? "Package rate"
+                : `Gross ${formatCurrency(detail.pricing.otaGrossRevenue, currency)}`
+            }
             icon={Target}
             tone={FINANCE_KPI_TONES.ota}
             onClick={() => setTab("financial")}
@@ -836,6 +938,13 @@ export default function AdminBookingDetailPage({
           <FinanceKpiCard
             label="Commission"
             value={formatCurrency(detail.pricing.commissionAmount, currency)}
+            sub={
+              isPackageBooking
+                ? formatStatusLabel(
+                    detail.financials.selectedPricingSource || "PACKAGE_RATE",
+                  )
+                : undefined
+            }
             icon={Scale}
             tone={FINANCE_KPI_TONES.margin}
             onClick={() => setTab("roomPricing")}
@@ -1237,19 +1346,21 @@ export default function AdminBookingDetailPage({
               currency={currency}
             />
           ) : null}
-          <CalcLine
-            index="2"
-            label={`Property taxes${
-              detail.financials.gstPercent != null
-                ? ` @ ${formatPercent(detail.financials.gstPercent)}`
-                : ""
-            }`}
-            amount={rateBreakup?.propertyTaxes ?? detail.pricing.gstAmount}
-            currency={currency}
-          />
+          {!(isPackageBooking && !(packageTaxAmount > 0)) ? (
+            <CalcLine
+              index="2"
+              label={withRate("Property taxes", gstPercent)}
+              amount={rateBreakup?.propertyTaxes ?? detail.pricing.gstAmount}
+              currency={currency}
+            />
+          ) : null}
           <CalcSubtotal
             letter="A"
-            label="Total property charges (room charges + GST)"
+            label={
+              isPackageBooking && !(packageTaxAmount > 0)
+                ? "Total property charges"
+                : "Total property charges (room charges + GST)"
+            }
             amount={
               rateBreakup?.hotelGrossCharges ??
               detail.financials.customerSellingPrice
@@ -1257,14 +1368,12 @@ export default function AdminBookingDetailPage({
             currency={currency}
           />
 
+          {showCommissionBreakup ? (
+            <>
           <CalcSectionHeader title="Commission" />
           <CalcLine
             index="3"
-            label={
-              detail.financials.commissionPercent != null
-                ? `Commission @ ${formatPercent(detail.financials.commissionPercent)}`
-                : "Commission"
-            }
+            label={withRate("Commission", commissionPercent)}
             amount={
               rateBreakup?.commissionAmount ?? detail.pricing.commissionAmount
             }
@@ -1272,11 +1381,7 @@ export default function AdminBookingDetailPage({
           />
           <CalcLine
             index="4"
-            label={
-              detail.financials.commissionGstRated?.ratePercent != null
-                ? `GST on commission @ ${formatPercent(detail.financials.commissionGstRated.ratePercent)}`
-                : "GST on commission"
-            }
+            label={withRate("GST on commission", commissionGstPercent)}
             amount={rateBreakup?.commissionGst ?? detail.financials.commissionGst}
             currency={currency}
           />
@@ -1289,25 +1394,21 @@ export default function AdminBookingDetailPage({
             }
             currency={currency}
           />
+            </>
+          ) : null}
 
+          {showTaxDeductionBreakup ? (
+            <>
           <CalcSectionHeader title="Tax deduction" />
           <CalcLine
             index="5"
-            label={
-              detail.financials.tcsPercent != null
-                ? `TCS @ ${formatPercent(detail.financials.tcsPercent)}`
-                : "TCS"
-            }
+            label={withRate("TCS", tcsPercent)}
             amount={rateBreakup?.tcsAmount ?? detail.financials.tcsAmount}
             currency={currency}
           />
           <CalcLine
             index="6"
-            label={
-              detail.financials.tdsPercent != null
-                ? `TDS @ ${formatPercent(detail.financials.tdsPercent)}`
-                : "TDS"
-            }
+            label={withRate("TDS", tdsPercent)}
             amount={rateBreakup?.tdsAmount ?? detail.financials.tdsAmount}
             currency={currency}
           />
@@ -1321,11 +1422,17 @@ export default function AdminBookingDetailPage({
             }
             currency={currency}
           />
+            </>
+          ) : null}
 
           {isCancelledBooking ? (
             <div className="border-t border-rose-100 bg-rose-50/80 px-3 py-2.5 text-xs">
               <div className="flex items-center justify-between gap-4 font-semibold text-slate-500">
-                <span>Payable to property (A − B − C)</span>
+                <span>
+                  {isPackageBooking && !showCommissionBreakup && !showTaxDeductionBreakup
+                    ? "Payable to property"
+                    : "Payable to property (A − B − C)"}
+                </span>
                 <span className="text-sm tabular-nums line-through decoration-slate-400">
                   {formatCurrency(
                     rateBreakup?.payableToHotel ?? detail.pricing.hotelPayout,
@@ -1342,7 +1449,11 @@ export default function AdminBookingDetailPage({
             </div>
           ) : (
             <div className="flex items-center justify-between gap-4 border-t border-sky-100 bg-sky-50 px-3 py-2.5 text-xs font-semibold text-sky-900">
-              <span>Payable to property (A − B − C)</span>
+              <span>
+                {isPackageBooking && !showCommissionBreakup && !showTaxDeductionBreakup
+                  ? "Payable to property"
+                  : "Payable to property (A − B − C)"}
+              </span>
               <span className="text-sm tabular-nums">
                 {formatCurrency(
                   rateBreakup?.payableToHotel ?? detail.pricing.hotelPayout,
@@ -1352,24 +1463,46 @@ export default function AdminBookingDetailPage({
             </div>
           )}
 
-          {isAgentBooking ? (
+          {showAgencyBlock ? (
             <>
               <CalcSectionHeader title="Agency" />
-              <CalcLine
-                index="7"
-                label={
-                  agencyIncentivePercent != null
-                    ? `Agency commission @ ${formatPercent(agencyIncentivePercent)}${
-                        agencyIncentiveSource
-                          ? ` (${formatStatusLabel(agencyIncentiveSource)})`
-                          : ""
-                      }`
-                    : "Agency commission"
-                }
-                amount={agencyCommissionAmount}
-                currency={currency}
-              />
-              {agentTdsAmount != null ? (
+              {agencyCommissionAmount > 0 ? (
+                <CalcLine
+                  index="7"
+                  label={
+                    agencyIncentivePercent != null
+                      ? `Agency commission @ ${formatPercent(agencyIncentivePercent)}${
+                          agencyIncentiveSource
+                            ? ` (${formatStatusLabel(agencyIncentiveSource)})`
+                            : ""
+                        }`
+                      : "Agency commission"
+                  }
+                  amount={agencyCommissionAmount}
+                  currency={currency}
+                />
+              ) : (
+                <div className="flex items-start justify-between gap-4 px-3 py-1.5 text-xs">
+                  <span className="min-w-0 text-gray-600">
+                    Agency incentive
+                    {agencyIncentivePercent != null
+                      ? ` @ ${formatPercent(agencyIncentivePercent)}`
+                      : ""}
+                    {agencyIncentiveSource
+                      ? ` (${formatStatusLabel(agencyIncentiveSource)})`
+                      : ""}
+                    {agencyIncentiveCategory
+                      ? ` · ${formatStatusLabel(agencyIncentiveCategory)}`
+                      : ""}
+                  </span>
+                  <span className="shrink-0 font-medium text-gray-500">
+                    {agencyIncentiveType
+                      ? formatStatusLabel(agencyIncentiveType)
+                      : "—"}
+                  </span>
+                </div>
+              )}
+              {agentTdsAmount != null && agentTdsAmount > 0 ? (
                 <CalcLine
                   index="8"
                   label={
@@ -1439,14 +1572,14 @@ export default function AdminBookingDetailPage({
             <RuleCard
               title="Commission"
               ruleName={formatRuleName(detail.financials.commissionRuleName)}
-              percent={detail.financials.commissionPercent}
+              percent={commissionPercent}
               amount={detail.financials.commissionAmount}
               currency={currency}
             />
             <RuleCard
               title="Tax (GST)"
               ruleName={formatRuleName(detail.financials.taxRuleName)}
-              percent={detail.financials.gstPercent}
+              percent={gstPercent}
               amount={detail.financials.gstAmount}
               currency={currency}
             />
@@ -1477,16 +1610,24 @@ export default function AdminBookingDetailPage({
                 currency={currency}
               />
             )}
-            {isAgentBooking ? (
+            {showAgencyBlock ? (
               <RuleCard
-                title={agencyTier ? `Agency · ${agencyTier}` : "Agency"}
+                title={
+                  isPackageBooking
+                    ? "Package incentive"
+                    : agencyTier
+                      ? `Agency · ${agencyTier}`
+                      : "Agency"
+                }
                 ruleName={
                   agencyIncentiveSource
                     ? formatStatusLabel(agencyIncentiveSource)
                     : "Incentive"
                 }
                 percent={agencyIncentivePercent}
-                amount={agencyCommissionAmount}
+                amount={
+                  agencyCommissionAmount > 0 ? agencyCommissionAmount : null
+                }
                 currency={currency}
               />
             ) : null}
@@ -1623,7 +1764,7 @@ export default function AdminBookingDetailPage({
                     )}
                   />
                 ) : null}
-                {isAgentBooking ? (
+                {showAgencyBlock ? (
                   <>
                     {agencyTier ? (
                       <DetailRow compact label="Agency tier" value={agencyTier} />
@@ -1646,12 +1787,21 @@ export default function AdminBookingDetailPage({
                         value={formatStatusLabel(agencyIncentiveSource)}
                       />
                     ) : null}
-                    <DetailRow
-                      compact
-                      label="Agency commission"
-                      value={formatCurrency(agencyCommissionAmount, currency)}
-                    />
-                    {agentTdsAmount != null ? (
+                    {agencyIncentiveCategory ? (
+                      <DetailRow
+                        compact
+                        label="Incentive category"
+                        value={formatStatusLabel(agencyIncentiveCategory)}
+                      />
+                    ) : null}
+                    {agencyCommissionAmount > 0 ? (
+                      <DetailRow
+                        compact
+                        label="Agency commission"
+                        value={formatCurrency(agencyCommissionAmount, currency)}
+                      />
+                    ) : null}
+                    {agentTdsAmount != null && agentTdsAmount > 0 ? (
                       <DetailRow
                         compact
                         label={
@@ -1950,7 +2100,7 @@ export default function AdminBookingDetailPage({
                 <>
                   <DetailRow
                     compact
-                    label="Cancellation charge"
+                    label={withRate("Cancellation charge", cancellationChargePercent)}
                     value={formatCurrency(cancelNowCharge, currency)}
                   />
                   <DetailRow
@@ -2007,46 +2157,59 @@ export default function AdminBookingDetailPage({
             <CalcSectionHeader title="Property charges" />
             <CalcLine
               index="1"
-              label="Cancellation accommodation charge"
+              label={withRate(
+                "Cancellation accommodation charge",
+                cancellationChargePercent,
+              )}
               amount={moneyAmount(
                 cancellation.settlement.cancellationAccommodationCharge,
               )}
               currency={currency}
             />
-            <CalcLine
-              index="2"
-              label={
-                detail.financials.gstPercent != null
-                  ? `Hotel GST @ ${formatPercent(detail.financials.gstPercent)}`
-                  : gstLabel
-              }
-              amount={moneyAmount(cancellation.settlement.hotelGst)}
-              currency={currency}
-            />
+            {!(
+              isPackageBooking &&
+              !(moneyAmount(cancellation.settlement.hotelGst) ?? 0)
+            ) ? (
+              <CalcLine
+                index="2"
+                label={withRate("Hotel GST", gstPercent)}
+                amount={moneyAmount(cancellation.settlement.hotelGst)}
+                currency={currency}
+              />
+            ) : null}
             <CalcSubtotal
               letter="A"
-              label="Total cancellation property charges"
+              label={withRate(
+                "Total cancellation property charges",
+                ratePercent(
+                  moneyAmount(
+                    cancellation.settlement.totalCancellationPropertyCharges,
+                  ),
+                  originalReservationValue,
+                ),
+              )}
               amount={moneyAmount(
                 cancellation.settlement.totalCancellationPropertyCharges,
               )}
               currency={currency}
             />
+            {!(
+              isPackageBooking &&
+              !(moneyAmount(cancellation.settlement.commissionInclusiveGst) ?? 0)
+            ) ? (
+              <>
             <CalcSectionHeader title="Commission" />
             <CalcLine
               index="3"
-              label={
-                detail.financials.commissionPercent != null
-                  ? `OTA commission @ ${formatPercent(detail.financials.commissionPercent)}`
-                  : "OTA commission"
-              }
+              label={withRate("OTA commission", commissionPercent)}
               amount={moneyAmount(cancellation.settlement.otaCommission)}
               currency={currency}
             />
             <CalcLine
               index="4"
               label={
-                detail.financials.commissionGstRated?.ratePercent != null
-                  ? `GST on commission @ ${formatPercent(detail.financials.commissionGstRated.ratePercent)}`
+                commissionGstPercent != null
+                  ? withRate("GST on commission", commissionGstPercent)
                   : commissionGstLabel
               }
               amount={moneyAmount(cancellation.settlement.commissionGst)}
@@ -2058,24 +2221,23 @@ export default function AdminBookingDetailPage({
               amount={moneyAmount(cancellation.settlement.commissionInclusiveGst)}
               currency={currency}
             />
+              </>
+            ) : null}
+            {!(
+              isPackageBooking &&
+              !(moneyAmount(cancellation.settlement.taxDeduction) ?? 0)
+            ) ? (
+              <>
             <CalcSectionHeader title="Tax deductions" />
             <CalcLine
               index="5"
-              label={
-                detail.financials.tcsPercent != null
-                  ? `TCS @ ${formatPercent(detail.financials.tcsPercent)}`
-                  : tcsLabel
-              }
+              label={withRate("TCS", tcsPercent)}
               amount={moneyAmount(cancellation.settlement.tcs)}
               currency={currency}
             />
             <CalcLine
               index="6"
-              label={
-                detail.financials.tdsPercent != null
-                  ? `TDS @ ${formatPercent(detail.financials.tdsPercent)}`
-                  : tdsLabel
-              }
+              label={withRate("TDS", tdsPercent)}
               amount={moneyAmount(cancellation.settlement.tds)}
               currency={currency}
             />
@@ -2085,9 +2247,16 @@ export default function AdminBookingDetailPage({
               amount={moneyAmount(cancellation.settlement.taxDeduction)}
               currency={currency}
             />
+              </>
+            ) : null}
             <CalcSubtotal
               letter="D"
-              label="Payable to property (A − B − C)"
+              label={withRate(
+                isPackageBooking
+                  ? "Payable to property"
+                  : "Payable to property (A − B − C)",
+                payablePercent,
+              )}
               amount={moneyAmount(
                 cancellation.settlement.amountPayableToProperty,
               )}
@@ -2095,7 +2264,10 @@ export default function AdminBookingDetailPage({
             />
             <CalcSubtotal
               letter="E"
-              label="Customer refund"
+              label={withRate(
+                "Customer refund",
+                refundPercent && refundPercent > 0 ? refundPercent : undefined,
+              )}
               amount={moneyAmount(cancellation.settlement.customerRefund)}
               currency={currency}
             />

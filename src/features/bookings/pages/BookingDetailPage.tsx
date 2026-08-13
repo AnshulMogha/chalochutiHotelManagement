@@ -409,6 +409,15 @@ function HotelBookingDetailPage({
     booking.hotelPricingComputation ||
     booking.hotel_pricing_computation ||
     null;
+  const isPackageBooking = String(hotelPricingComputation || "")
+    .toUpperCase()
+    .includes("PACKAGE");
+  const showCommissionBreakup =
+    !isPackageBooking || (rateBreakup?.commissionAmount ?? 0) > 0;
+  const showTaxDeductionBreakup =
+    !isPackageBooking || (rateBreakup?.taxDeductions ?? 0) > 0;
+  const showPropertyTaxLine =
+    !isPackageBooking || (rateBreakup?.propertyTaxes ?? 0) > 0;
   const bookingStatus = booking.status || booking.paymentStatus;
   const isCancelledBooking = `${booking.status || ""} ${booking.paymentStatus || ""}`
     .toUpperCase()
@@ -442,6 +451,18 @@ function HotelBookingDetailPage({
   );
   const tcsPercent = ratePercent(rateBreakup?.tcsAmount, chargeBase);
   const tdsPercent = ratePercent(rateBreakup?.tdsAmount, chargeBase);
+  const cancelNowPercent = ratePercent(
+    cancelNowCharge,
+    originalReservationValue,
+  );
+  const cancellationChargePercent = ratePercent(
+    isCancelledBooking ? cancellationChargeAmount : cancelNowCharge,
+    originalReservationValue,
+  );
+  const refundPercent = ratePercent(
+    isCancelledBooking ? booking.refundAmount : refundIfCancelledNow,
+    originalReservationValue,
+  );
   const isNonRefundable =
     String(booking.currentPolicyStage || "")
       .toUpperCase()
@@ -489,6 +510,27 @@ function HotelBookingDetailPage({
                     status={bookingStatus}
                     tone={bookingStatusTone(bookingStatus)}
                   />
+                  {isPackageBooking ? (
+                    <StatusBadge
+                      status={hotelPricingComputation || "PACKAGE"}
+                      tone="bg-violet-50 text-violet-700 ring-violet-200"
+                    />
+                  ) : hotelPricingComputation ? (
+                    <StatusBadge
+                      status={hotelPricingComputation}
+                      tone="bg-slate-100 text-slate-700 ring-slate-200"
+                    />
+                  ) : null}
+                  {appliedPromotions[0]?.displayLine ||
+                  appliedPromotions[0]?.promotionName ? (
+                    <StatusBadge
+                      status={
+                        appliedPromotions[0].displayLine ||
+                        appliedPromotions[0].promotionName
+                      }
+                      tone="bg-emerald-50 text-emerald-700 ring-emerald-200"
+                    />
+                  ) : null}
                   {booking.paymentStatus &&
                   booking.paymentStatus !== bookingStatus ? (
                     <StatusBadge
@@ -574,9 +616,14 @@ function HotelBookingDetailPage({
                     {booking.bookedVia}
                   </p>
                   <p className="truncate text-[11px] text-slate-500">
-                    {booking.roomTypes?.[0]?.mealPlan ||
-                      hotelPricingComputation ||
-                      "—"}
+                    {[
+                      booking.roomTypes?.[0]?.mealPlan,
+                      hotelPricingComputation
+                        ? formatStatusLabel(hotelPricingComputation)
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
                   </p>
                 </div>
               </div>
@@ -628,20 +675,30 @@ function HotelBookingDetailPage({
               onClick={() => setTab("roomPricing")}
               actionLabel=""
             />
-            <FinanceKpiCard
-              label="Commission"
-              value={formatCurrency(rateBreakup?.commissionAmount, currency)}
-              sub={
-                rateBreakup?.commissionTotal != null
-                  ? `Incl. GST ${formatCurrency(rateBreakup.commissionTotal, currency)}`
-                  : undefined
-              }
-              icon={Scale}
-              tone={FINANCE_KPI_TONES.margin}
-              onClick={() => setTab("roomPricing")}
-              actionLabel=""
-            />
-            {isCancelledBooking ? (
+            {showCommissionBreakup ? (
+              <FinanceKpiCard
+                label="Commission"
+                value={formatCurrency(rateBreakup?.commissionAmount, currency)}
+                sub={
+                  [
+                    commissionPercent != null
+                      ? formatPercent(commissionPercent)
+                      : null,
+                    rateBreakup?.commissionTotal != null
+                      ? `Incl. GST ${formatCurrency(rateBreakup.commissionTotal, currency)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || undefined
+                }
+                icon={Scale}
+                tone={FINANCE_KPI_TONES.margin}
+                onClick={() => setTab("roomPricing")}
+                actionLabel=""
+              />
+            ) : null}
+            {isCancelledBooking &&
+            (booking.refundAmount != null || booking.refundStatus) ? (
               <FinanceKpiCard
                 label="Customer refund"
                 value={
@@ -668,9 +725,16 @@ function HotelBookingDetailPage({
                 label="If cancelled now"
                 value={formatCurrency(cancelNowCharge, currency)}
                 sub={
-                  refundIfCancelledNow != null
-                    ? `Refund ${formatCurrency(refundIfCancelledNow, currency)}`
-                    : undefined
+                  [
+                    cancelNowPercent != null
+                      ? formatPercent(cancelNowPercent)
+                      : null,
+                    refundIfCancelledNow != null
+                      ? `Refund ${formatCurrency(refundIfCancelledNow, currency)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || undefined
                 }
                 icon={Shield}
                 tone={FINANCE_KPI_TONES.cancellation}
@@ -928,12 +992,14 @@ function HotelBookingDetailPage({
                   currency={currency}
                 />
               ) : null}
-              <CalcLine
-                index={extraCharges > 0 ? "3" : "2"}
-                label={withRate("Property taxes", gstPercent)}
-                amount={rateBreakup?.propertyTaxes}
-                currency={currency}
-              />
+              {showPropertyTaxLine ? (
+                <CalcLine
+                  index={extraCharges > 0 ? "3" : "2"}
+                  label={withRate("Property taxes", gstPercent)}
+                  amount={rateBreakup?.propertyTaxes}
+                  currency={currency}
+                />
+              ) : null}
               <CalcSubtotal
                 letter="A"
                 label="Total property charges"
@@ -952,48 +1018,60 @@ function HotelBookingDetailPage({
                 />
               ) : null}
 
-              <CalcSectionHeader title="Commission" />
-              <CalcLine
-                index="3"
-                label={withRate("Commission", commissionPercent)}
-                amount={rateBreakup?.commissionAmount}
-                currency={currency}
-              />
-              <CalcLine
-                index="4"
-                label={withRate("GST on commission", commissionGstPercent)}
-                amount={rateBreakup?.commissionGst}
-                currency={currency}
-              />
-              <CalcSubtotal
-                letter="B"
-                label="Commission inclusive of GST (3 + 4)"
-                amount={rateBreakup?.commissionTotal}
-                currency={currency}
-              />
+              {showCommissionBreakup ? (
+                <>
+                  <CalcSectionHeader title="Commission" />
+                  <CalcLine
+                    index="3"
+                    label={withRate("Commission", commissionPercent)}
+                    amount={rateBreakup?.commissionAmount}
+                    currency={currency}
+                  />
+                  <CalcLine
+                    index="4"
+                    label={withRate("GST on commission", commissionGstPercent)}
+                    amount={rateBreakup?.commissionGst}
+                    currency={currency}
+                  />
+                  <CalcSubtotal
+                    letter="B"
+                    label="Commission inclusive of GST (3 + 4)"
+                    amount={rateBreakup?.commissionTotal}
+                    currency={currency}
+                  />
+                </>
+              ) : null}
 
-              <CalcSectionHeader title="Tax deduction" />
-              <CalcLine
-                index="5"
-                label={withRate("TCS", tcsPercent)}
-                amount={rateBreakup?.tcsAmount}
-                currency={currency}
-              />
-              <CalcLine
-                index="6"
-                label={withRate("TDS", tdsPercent)}
-                amount={rateBreakup?.tdsAmount}
-                currency={currency}
-              />
-              <CalcSubtotal
-                letter="C"
-                label="Tax deduction (5 + 6)"
-                amount={rateBreakup?.taxDeductions}
-                currency={currency}
-              />
+              {showTaxDeductionBreakup ? (
+                <>
+                  <CalcSectionHeader title="Tax deduction" />
+                  <CalcLine
+                    index="5"
+                    label={withRate("TCS", tcsPercent)}
+                    amount={rateBreakup?.tcsAmount}
+                    currency={currency}
+                  />
+                  <CalcLine
+                    index="6"
+                    label={withRate("TDS", tdsPercent)}
+                    amount={rateBreakup?.tdsAmount}
+                    currency={currency}
+                  />
+                  <CalcSubtotal
+                    letter="C"
+                    label="Tax deduction (5 + 6)"
+                    amount={rateBreakup?.taxDeductions}
+                    currency={currency}
+                  />
+                </>
+              ) : null}
 
               <div className="flex items-center justify-between gap-4 border-t border-sky-100 bg-sky-50 px-3 py-2.5 text-xs font-semibold text-sky-900">
-                <span>Payable to property (A − B − C)</span>
+                <span>
+                  {isPackageBooking && !showCommissionBreakup && !showTaxDeductionBreakup
+                    ? "Payable to property"
+                    : "Payable to property (A − B − C)"}
+                </span>
                 <span className="text-sm tabular-nums">
                   {formatCurrency(payableToProperty, currency)}
                 </span>
@@ -1029,10 +1107,9 @@ function HotelBookingDetailPage({
                     currency,
                   )}
                 />
-                <DetailRow
-                  label="Method"
-                  value={booking.paymentType || "—"}
-                />
+                {booking.paymentType ? (
+                  <DetailRow label="Method" value={booking.paymentType} />
+                ) : null}
                 {booking.refundStatus ? (
                   <DetailRow
                     label="Refund status"
@@ -1092,7 +1169,9 @@ function HotelBookingDetailPage({
                 }
               >
                 <dl>
-                  {isCancelledBooking && booking.cancelledBy ? (
+                  {isCancelledBooking &&
+                  booking.cancelledBy &&
+                  booking.cancelledBy.toUpperCase() !== "AGENT" ? (
                     <DetailRow
                       label="Cancelled by"
                       value={formatStatusLabel(booking.cancelledBy)}
@@ -1135,7 +1214,10 @@ function HotelBookingDetailPage({
                   booking.isCancellationAllowed !== false ? (
                     <>
                       <DetailRow
-                        label="Cancellation charge"
+                        label={withRate(
+                          "Cancellation charge",
+                          cancellationChargePercent,
+                        )}
                         value={formatCurrency(
                           isCancelledBooking
                             ? cancellationChargeAmount
@@ -1143,20 +1225,23 @@ function HotelBookingDetailPage({
                           currency,
                         )}
                       />
-                      <DetailRow
-                        label={
-                          isCancelledBooking
-                            ? "Customer refund"
-                            : "Refund if cancelled now"
-                        }
-                        value={
-                          isCancelledBooking
-                            ? booking.refundAmount == null
-                              ? "—"
-                              : formatCurrency(booking.refundAmount, currency)
-                            : formatCurrency(refundIfCancelledNow, currency)
-                        }
-                      />
+                      {!isCancelledBooking || booking.refundAmount != null ? (
+                        <DetailRow
+                          label={withRate(
+                            isCancelledBooking
+                              ? "Customer refund"
+                              : "Refund if cancelled now",
+                            refundPercent && refundPercent > 0
+                              ? refundPercent
+                              : undefined,
+                          )}
+                          value={
+                            isCancelledBooking
+                              ? formatCurrency(booking.refundAmount, currency)
+                              : formatCurrency(refundIfCancelledNow, currency)
+                          }
+                        />
+                      ) : null}
                     </>
                   ) : null}
                   {isCancelledBooking && booking.refundStatus ? (
