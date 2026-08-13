@@ -13,6 +13,7 @@ import {
   exportStatusLabel,
   formatStatusLabel,
   getHotelOnboardingLink,
+  getHotelOnboardingReadOnlyLink,
   hotelStatusTone,
   isHotelOnboardingEditable,
   ReportPageHeader,
@@ -86,8 +87,9 @@ const DEFAULT_DRAFT: FilterDraft = {
 
 function getHotelLink(row: HotelBdPipelineRow, isAdmin: boolean): string | null {
   if (!row.hotelId) return null;
+  // Super admin: same read-only onboarding wizard as hotel-owner Active → View
   if (isAdmin) {
-    return ROUTES.ADMIN.HOTEL_REVIEW_DETAIL(row.hotelId);
+    return getHotelOnboardingReadOnlyLink(row.hotelId);
   }
   return getHotelOnboardingLink(row.hotelId, row.status);
 }
@@ -540,9 +542,9 @@ export default function HotelBdPipelineReportPage() {
                             to={link}
                             className="inline-flex items-center gap-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-800"
                           >
-                            {isHotelOnboardingEditable(row.status)
-                              ? "Edit"
-                              : "View"}
+                            {isAdmin || !isHotelOnboardingEditable(row.status)
+                              ? "View"
+                              : "Edit"}
                             <ChevronRight className="h-3.5 w-3.5" />
                           </Link>
                         ) : (

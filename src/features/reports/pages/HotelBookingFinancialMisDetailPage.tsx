@@ -73,7 +73,9 @@ function CustomerOrAgentPriceBreakup({
   const panel = (
     <Panel
       title={isB2b ? "Agent Price Breakup" : "Customer Price Breakup"}
-      className={detailed && (paymentBreakup || incentive) ? undefined : "w-full"}
+      className={
+        detailed && (paymentBreakup || incentive) ? undefined : "w-full"
+      }
     >
       <BreakupRow
         label={detailed ? "Hotel base fare" : "Base room rate"}
@@ -199,10 +201,7 @@ function CustomerOrAgentPriceBreakup({
                 label="Gross amount"
                 value={formatFinanceMoney(incentive.grossAmount)}
               />
-              <InfoLine
-                label="TDS"
-                value={formatFinanceMoney(incentive.tds)}
-              />
+              <InfoLine label="TDS" value={formatFinanceMoney(incentive.tds)} />
               <InfoLine
                 label="Net amount"
                 value={formatFinanceMoney(incentive.netAmount)}
@@ -219,7 +218,11 @@ function resolveTab(raw?: string | null): DetailTab {
   const value = String(raw || "overview").toLowerCase();
   if (value === "bookingdetails" || value === "booking")
     return "bookingDetails";
-  if (value === "customer" || value === "customerprice" || value === "agentprice")
+  if (
+    value === "customer" ||
+    value === "customerprice" ||
+    value === "agentprice"
+  )
     return "customer";
   if (value === "hotelpayout" || value === "payout") return "hotelPayout";
   if (value === "otarevenue" || value === "ota") return "otaRevenue";
@@ -1250,7 +1253,6 @@ export default function HotelBookingFinancialMisDetailPage() {
     </div>
   );
 }
-
 function Panel({
   title,
   children,

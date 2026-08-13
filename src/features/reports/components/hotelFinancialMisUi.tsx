@@ -111,14 +111,20 @@ export function bookingStatusTone(status: string): string {
 
 export function paymentStatusTone(status: string): string {
   const normalized = status.trim().toUpperCase();
-  if (normalized === "PAID") {
+  if (normalized === "PAID" || normalized.includes("PAID")) {
     return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   }
   if (normalized === "PARTIAL" || normalized.includes("PARTIAL")) {
     return "bg-amber-50 text-amber-700 ring-amber-200";
   }
-  if (normalized === "PENDING") {
+  if (normalized === "PENDING" || normalized.includes("PENDING")) {
     return "bg-amber-50 text-amber-700 ring-amber-200";
+  }
+  if (normalized === "CANCELLED" || normalized.includes("CANCEL")) {
+    return "bg-rose-50 text-rose-700 ring-rose-200";
+  }
+  if (normalized.includes("REFUND")) {
+    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   }
   return "bg-slate-100 text-slate-700 ring-slate-200";
 }
@@ -213,6 +219,7 @@ export function FinanceKpiCard({
   onClick,
   actionLabel = "View details",
   compact = true,
+  sub,
 }: {
   label: string;
   value: string;
@@ -225,6 +232,7 @@ export function FinanceKpiCard({
   onClick?: () => void;
   actionLabel?: string;
   compact?: boolean;
+  sub?: string;
 }) {
   const content = (
     <>
@@ -258,6 +266,17 @@ export function FinanceKpiCard({
       >
         <span className="block truncate">{value}</span>
       </p>
+      {sub ? (
+        <p
+          className={cn(
+            "truncate font-medium text-slate-500",
+            compact ? "mt-0.5 text-[10px]" : "mt-1 text-xs",
+          )}
+          title={sub}
+        >
+          {sub}
+        </p>
+      ) : null}
       {onClick && actionLabel ? (
         <p
           className={cn(

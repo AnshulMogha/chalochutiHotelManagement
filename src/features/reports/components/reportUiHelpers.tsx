@@ -204,6 +204,11 @@ export function getHotelOnboardingLink(
   return isHotelOnboardingEditable(status) ? base : `${base}&readOnly=true`;
 }
 
+/** Same view-only onboarding URL used by hotel owner Active Properties. */
+export function getHotelOnboardingReadOnlyLink(hotelId: string): string {
+  return `${ROUTES.PROPERTIES.EDIT(hotelId)}&readOnly=true`;
+}
+
 export function allocationStatusTone(status: string): string {
   const normalized = status.trim().toUpperCase().replace(/_/g, " ");
   if (

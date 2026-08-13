@@ -140,7 +140,6 @@ function Container() {
     user?.roles?.includes("ONBOARDING_REVIEWER") ?? false;
   const isReviewActor =
     isSuperAdmin || isQcUser || isZonalUser || isOnboardingReviewer;
-  const isAdminStyleReview = !!draftId && isReviewActor;
   const formReadOnly =
     isForcedReadOnly ||
     isReadOnly ||
@@ -166,13 +165,13 @@ function Container() {
     isReviewActor &&
     !isSuperAdmin;
 
-  // ✅ derive allowedStep from server step (all steps in forced read-only view)
-  const allowedStep =
-    isForcedReadOnly && !isAdminStyleReview
-      ? lastStepIndex
-      : ongoingStep
-        ? stepRoutes.findIndex((step) => step.id === ongoingStep)
-        : 0;
+  // Forced view mode (hotel-owner Active View / super-admin pipeline View):
+  // unlock all steps for browsing, same as hotel owner read-only.
+  const allowedStep = isForcedReadOnly
+    ? lastStepIndex
+    : ongoingStep
+      ? stepRoutes.findIndex((step) => step.id === ongoingStep)
+      : 0;
   const navigateWithParams = useCallback(
     (path: string) => {
       const nextParams = new URLSearchParams();
@@ -511,11 +510,15 @@ function Container() {
         <Button
           type="button"
           variant="outline"
-          onClick={() =>
+          onClick={() => {
+            if (isForcedReadOnly && isSuperAdmin) {
+              navigate(ROUTES.REPORTS.HOTEL_BD_PIPELINE);
+              return;
+            }
             navigate(
               isForcedReadOnly ? ROUTES.PROPERTIES.MY_PROPERTY : "/",
-            )
-          }
+            );
+          }}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back

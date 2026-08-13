@@ -27,7 +27,7 @@ export interface BookingDetailRoomType {
   mealPlan: string;
 }
 
-/** Applied promotion line in rate breakup */
+/** Applied promotion line in rate breakup / financials */
 export interface AppliedPromotion {
   promotionName: string;
   promotionType: string;
@@ -36,6 +36,12 @@ export interface AppliedPromotion {
   offerType: string;
   discountAmount: number;
   displayLine: string;
+  id?: number;
+  bookingFinancialId?: number;
+  promotionRuleId?: string;
+  priority?: number;
+  stackable?: boolean;
+  createdAt?: string;
 }
 
 /** Rate breakup in booking detail */
@@ -65,7 +71,43 @@ export interface RateBreakup {
   tdsAmount: number;
   payableToHotel: number;
   agentCommission?: number | null;
+  agencyCommission?: number | null;
+  agencyIncentivePercent?: number | null;
+  agencyIncentiveType?: string | null;
+  agencyIncentiveSource?: string | null;
+  agencyIncentiveCategory?: string | null;
   agencyTier?: string | null;
+  agentTdsPercent?: number | null;
+  agentTdsAmount?: number | null;
+  agentNetCommission?: number | null;
+  agentPayable?: number | null;
+}
+
+export interface AdminRatedMoney {
+  amount: number;
+  currency: string;
+  ratePercent?: number | null;
+  rateType?: string | null;
+  fixedAmount?: number | null;
+  rateLabel?: string | null;
+}
+
+export interface AdminMoney {
+  amount: number;
+  currency: string;
+}
+
+export type AdminMoneyLike = number | AdminMoney | null | undefined;
+
+export function moneyAmount(value: AdminMoneyLike): number | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value === "object" && typeof value.amount === "number") {
+    return Number.isFinite(value.amount) ? value.amount : undefined;
+  }
+  return undefined;
 }
 
 /** Super Admin full-details — nested admin API payload */
@@ -110,6 +152,7 @@ export interface AdminBookingPricing {
   hotelPayout: number;
   otaGrossRevenue?: number;
   otaNetRevenue?: number;
+  agencyCommission?: number;
   currency: string;
   rateBreakup?: RateBreakup;
 }
@@ -117,6 +160,7 @@ export interface AdminBookingPricing {
 export interface AdminBookingFinancials {
   id: number;
   bookingId: number;
+  financialContext?: string;
   basePrice: number;
   extraAdultCount?: number;
   extraAdultCharges?: number;
@@ -126,31 +170,51 @@ export interface AdminBookingFinancials {
   priceAfterPromo: number;
   gstPercent?: number;
   gstAmount?: number;
+  gst?: AdminRatedMoney;
   cgstAmount?: number;
   sgstAmount?: number;
   serviceFeeAmount?: number;
+  serviceFee?: AdminRatedMoney;
   serviceFeeGst?: number;
+  serviceFeeGstRated?: AdminRatedMoney;
   effectiveServiceFeePercent?: number;
   serviceFeeRuleName?: string;
   serviceFeeRuleId?: string;
   commissionPercent?: number;
   commissionAmount?: number;
+  commission?: AdminRatedMoney;
   commissionGst?: number;
+  commissionGstRated?: AdminRatedMoney;
+  commissionInclusiveGst?: number;
   commissionRuleName?: string;
   commissionRuleId?: string;
+  commissionConfigType?: string;
+  commissionConfigValue?: number;
+  commissionConfigPercent?: number;
   tcsPercent?: number;
   tcsAmount?: number;
+  tcs?: AdminRatedMoney;
   tdsPercent?: number;
   tdsAmount?: number;
+  tds?: AdminRatedMoney;
   taxRuleName?: string;
   taxRuleId?: string;
+  taxConfigPercent?: number;
   customerSellingPrice: number;
   finalPayable: number;
   hotelPayout: number;
   otaGrossRevenue: number;
   otaNetRevenue: number;
   agencyCommission?: number;
+  agencyTier?: string | null;
+  agentIncentiveConfigId?: string | null;
   agencyIncentivePercent?: number;
+  agencyIncentiveType?: string | null;
+  agencyIncentiveSource?: string | null;
+  agencyIncentiveCategory?: string | null;
+  agentTdsPercent?: number | null;
+  agentTdsAmount?: number | null;
+  agentNetCommission?: number | null;
   selectedCustomerType: string;
   selectedPricingSource: string;
   channelType: string;
@@ -158,6 +222,7 @@ export interface AdminBookingFinancials {
   currencyCode: string;
   promotionRuleName?: string;
   pricingEngineVersion?: string;
+  appliedPromotions?: AppliedPromotion[];
 }
 
 export interface AdminRoomDayFinancial {
@@ -182,21 +247,49 @@ export interface AdminBookingPayment {
   transactionId?: string | null;
   paidAt?: string | null;
   paidAmount?: number;
+  refundedAmount?: number;
+  customerOutstanding?: number;
+  /** @deprecated prefer customerOutstanding */
   pendingAmount?: number;
+}
+
+export interface AdminCancellationSettlement {
+  settlementContext?: string;
+  cancellationAccommodationCharge?: AdminMoney | null;
+  hotelGst?: AdminMoney | null;
+  totalCancellationPropertyCharges?: AdminMoney | null;
+  otaCommission?: AdminMoney | null;
+  commissionGst?: AdminMoney | null;
+  commissionInclusiveGst?: AdminMoney | null;
+  tcs?: AdminMoney | null;
+  tds?: AdminMoney | null;
+  taxDeduction?: AdminMoney | null;
+  amountPayableToProperty?: AdminMoney | null;
+  customerRefund?: AdminMoney | null;
+  recalculatedFromFinancials?: boolean | null;
 }
 
 export interface AdminBookingCancellation {
   cancellationPolicy: string | null;
+  isCancellationAllowed?: boolean;
+  currentPolicyStage?: string | null;
+  currentCancellationCharge?: AdminMoney | null;
+  refundAmountIfCancelledNow?: AdminMoney | null;
   nonRefundable?: boolean;
   cancellationDatetime?: string | null;
+  cancelledBy?: string | null;
+  cancellationReason?: string | null;
   cancelAmount?: number | null;
-  originalReservationValue?: number | null;
-  cancellationCharge?: number | null;
-  amountPayableToProperty?: number | null;
+  originalReservationValue?: AdminMoneyLike;
+  cancellationCharge?: AdminMoneyLike;
+  amountPayableToProperty?: AdminMoneyLike;
   hotelCancellationBase?: number | null;
   hotelGrossCharges?: number | null;
   recalculatedFromFinancials?: boolean | null;
-  refundAmount?: number | null;
+  refundAmount?: AdminMoneyLike;
+  refundStatus?: string | null;
+  refundDateTime?: string | null;
+  settlement?: AdminCancellationSettlement | null;
 }
 
 export interface AdminBookingFullDetail {
@@ -241,6 +334,8 @@ function normalizeAdminBookingFullDetail(
         pricing.serviceFeeAmount ?? fin?.serviceFeeAmount ?? undefined,
       otaGrossRevenue: pricing.otaGrossRevenue ?? fin?.otaGrossRevenue ?? 0,
       otaNetRevenue: pricing.otaNetRevenue ?? fin?.otaNetRevenue ?? 0,
+      agencyCommission:
+        pricing.agencyCommission ?? fin?.agencyCommission ?? undefined,
       hotelPayout: pricing.hotelPayout ?? fin?.hotelPayout ?? 0,
       finalPayable: pricing.finalPayable ?? fin?.finalPayable ?? 0,
       rateBreakup: rateBreakup
@@ -260,6 +355,9 @@ function normalizeAdminBookingFullDetail(
     payment: {
       ...data.payment,
       paidAmount: data.payment?.paidAmount ?? 0,
+      refundedAmount: data.payment?.refundedAmount,
+      customerOutstanding:
+        data.payment?.customerOutstanding ?? data.payment?.pendingAmount ?? 0,
     },
     cancellation: data.cancellation ?? { cancellationPolicy: null },
     roomDayFinancials: Array.isArray(data.roomDayFinancials)
@@ -298,15 +396,23 @@ export interface BookingDetail {
   cancellationPolicy: string | null;
   /** Same policy split into display lines by the API. */
   cancellationPolicyLines?: string[] | null;
+  isCancellationAllowed?: boolean;
+  currentPolicyStage?: string | null;
+  currentCancellationCharge?: AdminMoneyLike;
+  refundAmountIfCancelledNow?: AdminMoneyLike;
   totalAmount: number;
   /** Booking lifecycle status; may differ from paymentStatus. */
   status?: string | null;
   cancellationDatetime?: string | null;
+  cancelledBy?: string | null;
+  cancellationReason?: string | null;
   cancelAmount?: number | null;
-  originalReservationValue?: number | null;
-  cancellationCharge?: number | null;
-  amountPayableToProperty?: number | null;
+  originalReservationValue?: AdminMoneyLike;
+  cancellationCharge?: AdminMoneyLike;
+  amountPayableToProperty?: AdminMoneyLike;
   refundAmount?: number | null;
+  refundStatus?: string | null;
+  refundDateTime?: string | null;
   hotelPricingComputation?: "RETAIL_RATE" | "PACKAGE_RATE" | string | null;
   hotel_pricing_computation?: "RETAIL_RATE" | "PACKAGE_RATE" | string | null;
 }

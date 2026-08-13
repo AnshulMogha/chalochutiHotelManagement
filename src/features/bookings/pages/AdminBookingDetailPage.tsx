@@ -2,33 +2,65 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   bookingService,
+  moneyAmount,
   type AdminBookingFullDetail,
+  type AppliedPromotion,
   type RateBreakup,
 } from "../services/bookingService";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
+import { cn } from "@/lib/utils";
+import {
+  FINANCE_KPI_TONES,
+  FinanceKpiCard,
+  StatusBadge,
+  bookingStatusTone,
+  paymentStatusTone,
+  refundStatusTone,
+} from "@/features/reports/components/hotelFinancialMisUi";
+import { formatStatusLabel } from "@/features/reports/components/reportUiHelpers";
 import { VoucherViewModal } from "../components/VoucherViewModal";
 import {
   ArrowLeft,
+  BedDouble,
   Building2,
+  CalendarDays,
+  CheckCircle2,
   CreditCard,
   FileText,
-  Hash,
+  HandCoins,
+  Landmark,
+  Layers,
   Loader2,
   Mail,
   MapPin,
   Phone,
   Receipt,
+  Scale,
   Shield,
+  Sparkles,
   Tag,
+  Target,
   TrendingUp,
   User,
-  BedDouble,
   Utensils,
-  Layers,
-  Clock,
-  Scale,
+  Wallet,
 } from "lucide-react";
+
+type DetailTab =
+  | "bookingSummary"
+  | "roomPricing"
+  | "financial"
+  | "payment"
+  | "cancellation";
+
+const DETAIL_TABS: { value: DetailTab; label: string }[] = [
+  { value: "bookingSummary", label: "Booking Summary" },
+  { value: "roomPricing", label: "Room & Pricing" },
+  { value: "financial", label: "Financial" },
+  { value: "payment", label: "Payment" },
+  { value: "cancellation", label: "Cancellation" },
+];
 
 function formatDate(value: string | undefined): string {
   if (!value) return "—";
@@ -75,7 +107,25 @@ function formatCurrency(
 
 function formatPercent(value: number | undefined | null): string {
   if (value === undefined || value === null || Number.isNaN(value)) return "—";
-  return `${Number(value.toFixed(4))}%`;
+  const rounded = Number(value);
+  const digits = Number.isInteger(rounded) || Math.abs(rounded * 10 - Math.round(rounded * 10)) < 1e-8
+    ? 1
+    : 2;
+  const shown = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(digits).replace(/0+$/, "").replace(/\.$/, "");
+  return `${shown}%`;
+}
+
+function formatLongDate(value: string | undefined): string {
+  if (!value) return "—";
+  try {
+    return new Date(value).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return String(value);
+  }
 }
 
 function formatRuleName(name: string | undefined | null): string {
@@ -83,16 +133,10 @@ function formatRuleName(name: string | undefined | null): string {
   return name;
 }
 
-function getBookingStatusStyle(status: string | undefined): string {
-  if (!status) return "bg-gray-100 text-gray-700 border-gray-200";
-  const s = status.toUpperCase();
-  if (s === "CONFIRMED" || s === "COMPLETED")
-    return "bg-emerald-50 text-emerald-800 border-emerald-200";
-  if (s === "RESERVED" || s === "PENDING")
-    return "bg-amber-50 text-amber-800 border-amber-200";
-  if (s === "CANCELLED" || s === "CANCELED")
-    return "bg-red-50 text-red-800 border-red-200";
-  return "bg-gray-100 text-gray-700 border-gray-200";
+function promoDisplayLabel(promo: AppliedPromotion): string {
+  if (promo.displayLine) return promo.displayLine;
+  const percent = promo.percentLabel || formatPercent(promo.discountPercentage);
+  return percent ? `${promo.promotionName} (${percent})` : promo.promotionName;
 }
 
 function getPaymentStatusStyle(status: string | undefined): string {
@@ -123,12 +167,6 @@ function getServiceFeeFromBreakup(rateBreakup: RateBreakup | undefined): number 
   );
 }
 
-function getPropertyGrossExcludingServiceFee(rateBreakup: RateBreakup | undefined) {
-  if (rateBreakup?.hotelGrossCharges == null) return undefined;
-  const serviceFee = getServiceFeeFromBreakup(rateBreakup);
-  return Math.max(0, rateBreakup.hotelGrossCharges - serviceFee);
-}
-
 function SectionCard({
   icon: Icon,
   iconBg,
@@ -136,6 +174,7 @@ function SectionCard({
   title,
   children,
   className = "",
+  compact = false,
 }: {
   icon: React.ElementType;
   iconBg: string;
@@ -143,36 +182,157 @@ function SectionCard({
   title: string;
   children: React.ReactNode;
   className?: string;
+  compact?: boolean;
 }) {
   return (
     <div
-      className={`bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden ${className}`}
+      className={`overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm ${className}`}
     >
-      <div className={`px-5 py-4 border-b border-gray-100 ${iconBg}`}>
-        <div className="flex items-center gap-3">
+      <div
+        className={`border-b border-gray-100 ${iconBg} ${compact ? "px-3 py-2" : "px-4 py-3"}`}
+      >
+        <div className="flex items-center gap-2">
           <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconColor}`}
+            className={`flex items-center justify-center rounded-lg ${iconColor} ${compact ? "h-7 w-7" : "h-8 w-8"}`}
           >
-            <Icon className="w-5 h-5" />
+            <Icon className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
           </div>
-          <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+          <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
         </div>
       </div>
-      <div className="p-5">{children}</div>
+      <div className={compact ? "p-3" : "p-4"}>{children}</div>
     </div>
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+function DetailRow({
+  label,
+  value,
+  compact = false,
+}: {
+  label: string;
+  value: React.ReactNode;
+  compact?: boolean;
+}) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-3 border-b border-gray-50 last:border-0">
-      <dt className="text-sm font-medium text-gray-500 min-w-[160px] shrink-0">
-        {label}
-      </dt>
-      <dd className="text-sm font-medium text-gray-900 wrap-break-word">
+    <div
+      className={`grid grid-cols-[minmax(5.5rem,38%)_minmax(0,1fr)] items-start gap-x-3 border-b border-gray-50 last:border-0 ${
+        compact ? "py-1.5" : "py-2"
+      }`}
+    >
+      <dt className="text-xs leading-snug text-gray-500">{label}</dt>
+      <dd className="min-w-0 text-right text-xs font-medium leading-snug break-words text-gray-900">
         {value ?? "—"}
       </dd>
     </div>
+  );
+}
+
+function SummaryField({
+  label,
+  value,
+  className = "",
+}: {
+  label: string;
+  value: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`min-w-0 ${className}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+        {label}
+      </p>
+      <p className="mt-0.5 text-sm font-medium leading-snug break-words text-gray-900">
+        {value ?? "—"}
+      </p>
+    </div>
+  );
+}
+
+function CalcLine({
+  index,
+  label,
+  amount,
+  currency,
+  negative = false,
+}: {
+  index?: string;
+  label: string;
+  amount: number | undefined | null;
+  currency: string;
+  negative?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 px-3 py-1.5 text-xs">
+      <span className="min-w-0 text-gray-600">
+        {index ? <span className="mr-1 text-gray-400">{index}.</span> : null}
+        {label}
+      </span>
+      <span
+        className={`shrink-0 font-medium tabular-nums ${
+          negative ? "text-emerald-700" : "text-gray-900"
+        }`}
+      >
+        {negative ? "−" : ""}
+        {formatCurrency(amount, currency)}
+      </span>
+    </div>
+  );
+}
+
+function CalcSubtotal({
+  letter,
+  label,
+  amount,
+  currency,
+}: {
+  letter: string;
+  label: string;
+  amount: number | undefined | null;
+  currency: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-t border-slate-100 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-900">
+      <span>
+        ({letter}) {label}
+      </span>
+      <span className="shrink-0 tabular-nums">{formatCurrency(amount, currency)}</span>
+    </div>
+  );
+}
+
+function CalcSectionHeader({ title }: { title: string }) {
+  return (
+    <div className="border-y border-slate-100 bg-slate-50/80 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+      {title}
+    </div>
+  );
+}
+
+function TableHead({
+  label,
+  hint,
+  align = "right",
+}: {
+  label: string;
+  hint?: string;
+  align?: "left" | "right";
+}) {
+  return (
+    <th className="whitespace-nowrap px-3 py-2 align-top">
+      <div
+        className={
+          align === "right" ? "flex flex-col items-end" : "flex flex-col items-start"
+        }
+      >
+        <span className="h-4 text-[11px] font-semibold leading-4 text-slate-700">
+          {label}
+        </span>
+        <span className="mt-0.5 h-3.5 text-[10px] leading-3.5 text-slate-400">
+          {hint || "\u00a0"}
+        </span>
+      </div>
+    </th>
   );
 }
 
@@ -187,36 +347,14 @@ function RateRow({
 }) {
   return (
     <div
-      className={`flex items-center justify-between gap-4 px-4 py-2 text-sm ${
+      className={`flex items-center justify-between gap-3 px-3 py-1.5 text-xs ${
         highlight ? "bg-slate-50 font-semibold" : "bg-white"
       }`}
     >
-      <div className="text-gray-700">{label}</div>
-      <div className="text-gray-900 font-medium tabular-nums text-right min-w-[120px]">
+      <div className="min-w-0 shrink text-gray-600">{label}</div>
+      <div className="shrink-0 text-right font-medium tabular-nums text-gray-900">
         {value ?? "—"}
       </div>
-    </div>
-  );
-}
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  accent: string;
-}) {
-  return (
-    <div className={`rounded-2xl border p-4 ${accent}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
-        {label}
-      </p>
-      <p className="mt-1 text-xl font-bold text-gray-900 tabular-nums">{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-gray-500">{sub}</p>}
     </div>
   );
 }
@@ -232,21 +370,25 @@ function RuleCard({
   ruleName: string;
   percent?: number | null;
   amount?: number | null;
-  currency: string;
+  currency?: string;
 }) {
+  const hasPercent = percent != null && !Number.isNaN(percent);
+  const hasAmount = amount != null && amount > 0 && currency;
   return (
-    <div className="rounded-xl border border-gray-200 bg-linear-to-br from-white to-slate-50/80 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+    <div className="min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
         {title}
       </p>
-      <p className="mt-1 text-sm font-semibold text-gray-900">{ruleName || "—"}</p>
-      {percent != null && !Number.isNaN(percent) ? (
-        <p className="mt-1 text-xs text-indigo-700 font-medium">
-          {formatPercent(percent)} effective
-        </p>
-      ) : null}
-      {amount != null && amount > 0 ? (
-        <p className="mt-0.5 text-sm tabular-nums text-gray-800">
+      <p className="mt-0.5 text-sm font-medium leading-snug text-gray-900">
+        {ruleName || "—"}
+        {hasPercent ? (
+          <span className="ml-1.5 text-xs font-medium text-indigo-700">
+            {formatPercent(percent)}
+          </span>
+        ) : null}
+      </p>
+      {hasAmount ? (
+        <p className="mt-0.5 text-xs tabular-nums text-slate-700">
           {formatCurrency(amount, currency)}
         </p>
       ) : null}
@@ -270,6 +412,7 @@ export default function AdminBookingDetailPage({
   const [detail, setDetail] = useState<AdminBookingFullDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showVoucher, setShowVoucher] = useState(false);
+  const [tab, setTab] = useState<DetailTab>("bookingSummary");
   // Reused across StrictMode remounts so the same booking is requested once.
   const requestRef = useRef<{
     key: string;
@@ -361,17 +504,11 @@ export default function AdminBookingDetailPage({
   const cancellation = detail.cancellation;
   const rateBreakup = detail.pricing.rateBreakup;
   const currency = detail.pricing.currency || rateBreakup?.currency || "INR";
-  const propertyGrossExService = getPropertyGrossExcludingServiceFee(rateBreakup);
-  const promos = rateBreakup?.appliedPromotions ?? [];
-  const showPromotionBreakup =
-    (rateBreakup?.promotionDiscount ?? 0) > 0 || promos.length > 0;
-  const showBeforePromotion =
-    rateBreakup?.roomChargesBeforePromotion != null ||
-    rateBreakup?.extraAdultChildChargesBeforePromotion != null;
-  const serviceChargePercent =
-    rateBreakup?.serviceChargePercent ?? detail.financials.effectiveServiceFeePercent ?? 0;
   const serviceFeeExclGst =
-    detail.pricing.serviceFeeAmount ?? detail.financials.serviceFeeAmount ?? 0;
+    detail.pricing.serviceFeeAmount ??
+    detail.financials.serviceFeeAmount ??
+    detail.financials.serviceFee?.amount ??
+    0;
   const serviceFeeInclGst = getServiceFeeFromBreakup(rateBreakup);
   const extraAdultCount =
     detail.financials.extraAdultCount ?? rateBreakup?.extraAdultCount;
@@ -379,12 +516,51 @@ export default function AdminBookingDetailPage({
     detail.financials.extraAdultCharges ?? detail.financials.extraChildCharges;
   const promotionDiscount =
     detail.pricing.promotionDiscount ?? detail.financials.promotionDiscount ?? 0;
-  const showRoomDayPromo = detail.roomDayFinancials.some(
-    (r) => (r.promotionDiscount ?? 0) > 0,
-  );
-  const hasAgencyLine =
-    (rateBreakup?.agentCommission != null && rateBreakup.agentCommission > 0) ||
-    Boolean(rateBreakup?.agencyTier);
+  const appliedPromotions: AppliedPromotion[] =
+    detail.financials.appliedPromotions?.length
+      ? detail.financials.appliedPromotions
+      : detail.pricing.rateBreakup?.appliedPromotions ?? [];
+  const agencyTier =
+    detail.financials.agencyTier ?? rateBreakup?.agencyTier ?? null;
+  const agencyIncentivePercent =
+    detail.financials.agencyIncentivePercent ??
+    rateBreakup?.agencyIncentivePercent ??
+    null;
+  const agencyIncentiveType =
+    detail.financials.agencyIncentiveType ??
+    rateBreakup?.agencyIncentiveType ??
+    null;
+  const agencyIncentiveSource =
+    detail.financials.agencyIncentiveSource ??
+    rateBreakup?.agencyIncentiveSource ??
+    null;
+  const agencyIncentiveCategory =
+    detail.financials.agencyIncentiveCategory ??
+    rateBreakup?.agencyIncentiveCategory ??
+    null;
+  const agencyCommissionAmount =
+    detail.financials.agencyCommission ??
+    detail.pricing.agencyCommission ??
+    rateBreakup?.agencyCommission ??
+    rateBreakup?.agentCommission ??
+    0;
+  const agentTdsPercent =
+    detail.financials.agentTdsPercent ?? rateBreakup?.agentTdsPercent ?? null;
+  const agentTdsAmount =
+    detail.financials.agentTdsAmount ?? rateBreakup?.agentTdsAmount ?? null;
+  const agentNetCommission =
+    detail.financials.agentNetCommission ??
+    rateBreakup?.agentNetCommission ??
+    null;
+  const agentPayable = rateBreakup?.agentPayable ?? null;
+  const isAgentBooking =
+    agencyCommissionAmount > 0 ||
+    (agentNetCommission ?? 0) > 0 ||
+    Boolean(agencyTier);
+  const showRoomDayPromo =
+    promotionDiscount > 0 ||
+    appliedPromotions.length > 0 ||
+    detail.roomDayFinancials.some((r) => (r.promotionDiscount ?? 0) > 0);
   const isCancelledBooking = `${summary.bookingStatus} ${detail.payment.paymentStatus}`
     .toUpperCase()
     .includes("CANCEL");
@@ -392,17 +568,81 @@ export default function AdminBookingDetailPage({
     (sum, room) => sum + (room.quantity || 0),
     0,
   );
+  const guestPaidAmount =
+    detail.payment.paidAmount != null && detail.payment.paidAmount > 0
+      ? detail.payment.paidAmount
+      : summary.totalAmount;
+  const outstandingAmount =
+    detail.payment.customerOutstanding ?? detail.payment.pendingAmount ?? 0;
+  const refundedAmount =
+    detail.payment.refundedAmount ??
+    moneyAmount(cancellation.refundAmount) ??
+    moneyAmount(cancellation.settlement?.customerRefund) ??
+    0;
+  const originalReservationValue =
+    moneyAmount(cancellation.originalReservationValue) ?? guestPaidAmount;
+  const cancellationChargeAmount =
+    moneyAmount(cancellation.currentCancellationCharge) ??
+    moneyAmount(cancellation.cancellationCharge) ??
+    cancellation.cancelAmount;
   const payableToProperty =
-    cancellation.amountPayableToProperty ??
+    moneyAmount(cancellation.settlement?.amountPayableToProperty) ??
+    moneyAmount(cancellation.amountPayableToProperty) ??
     detail.pricing.hotelPayout ??
     rateBreakup?.payableToHotel;
   const cancellationPolicyLines = getCancellationPolicyLines(
     cancellation.cancellationPolicy,
   );
+  const cancelNowCharge = cancellationChargeAmount;
+  const refundIfCancelledNow =
+    moneyAmount(cancellation.refundAmountIfCancelledNow) ??
+    moneyAmount(cancellation.refundAmount);
+  const isNonRefundable =
+    cancellation.nonRefundable === true ||
+    String(cancellation.currentPolicyStage || "")
+      .toUpperCase()
+      .includes("NOT_CANCELLABLE") ||
+    String(cancellation.cancellationPolicy || "")
+      .toLowerCase()
+      .includes("non-refundable");
   const pricingSource =
     detail.financials.selectedPricingSource ||
     detail.financials.bookingMode ||
     null;
+  const extraGuests = (detail.guest.guests ?? []).filter((g) => {
+    const sameName =
+      (g.name || "").trim().toLowerCase() ===
+      (detail.guest.name || "").trim().toLowerCase();
+    const sameEmail =
+      (g.email || "").trim().toLowerCase() ===
+      (detail.guest.email || "").trim().toLowerCase();
+    const samePhone =
+      (g.phone || "").replace(/\s/g, "") ===
+      (detail.guest.phone || "").replace(/\s/g, "");
+    return !(sameName && sameEmail && samePhone);
+  });
+  const gstLabel =
+    detail.financials.gst?.rateLabel ||
+    (detail.financials.gstPercent != null
+      ? `GST (${formatPercent(detail.financials.gstPercent)})`
+      : "GST");
+  const commissionLabel =
+    detail.financials.commission?.rateLabel ||
+    (detail.financials.commissionPercent != null
+      ? `Commission (${formatPercent(detail.financials.commissionPercent)})`
+      : "Commission");
+  const commissionGstLabel =
+    detail.financials.commissionGstRated?.rateLabel || "GST on commission";
+  const tcsLabel =
+    detail.financials.tcs?.rateLabel ||
+    (detail.financials.tcsPercent != null
+      ? `TCS (${formatPercent(detail.financials.tcsPercent)})`
+      : "TCS");
+  const tdsLabel =
+    detail.financials.tds?.rateLabel ||
+    (detail.financials.tdsPercent != null
+      ? `TDS (${formatPercent(detail.financials.tdsPercent)})`
+      : "TDS");
 
   return (
     <>
@@ -412,225 +652,783 @@ export default function AdminBookingDetailPage({
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <button
-          type="button"
-          onClick={backToBookings}
-          className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-[#2f3d95] transition-colors mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Bookings
-        </button>
-
-        {/* Header */}
-        <div className="rounded-2xl border border-[#2f3d95]/15 bg-linear-to-br from-slate-50 via-white to-indigo-50/40 p-6 mb-6 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-[#2f3d95] flex items-center justify-center shadow-md">
-                <Hash className="w-7 h-7 text-white" />
+      <div className="min-h-full bg-linear-to-b from-slate-50 via-white to-slate-50">
+        <div className="container mx-auto max-w-7xl px-3 py-4 sm:px-4">
+        {/* Hero header */}
+        <section className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-linear-to-r from-blue-50/80 via-white to-indigo-50/60 px-3 py-2.5 sm:px-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={backToBookings}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Back
+                </button>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">
+                    Admin booking view
+                  </p>
+                  <h1 className="truncate text-base font-bold text-slate-900 sm:text-lg">
+                    {summary.bookingRef}
+                  </h1>
+                  <p className="text-[11px] text-slate-500">
+                    ID {summary.bookingId} · {summary.hotelName} · {summary.bookedVia}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#2f3d95]">
-                  Admin booking view
-                </p>
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight mt-0.5">
-                  {summary.bookingRef}
-                </h1>
-                <p className="text-sm text-gray-600 mt-1">
-                  ID {summary.bookingId} · {summary.hotelName} ·{" "}
-                  {summary.bookedVia}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Booked {formatDateTime(summary.bookedOn)}
-                  {summary.hotelCity ? ` · ${summary.hotelCity}` : ""}
-                </p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <StatusBadge
+                  status={summary.bookingStatus}
+                  tone={bookingStatusTone(summary.bookingStatus)}
+                />
+                <StatusBadge
+                  status={detail.payment.paymentStatus}
+                  tone={paymentStatusTone(detail.payment.paymentStatus)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowVoucher(true)}
+                  className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-white px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Voucher
+                </button>
               </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={`inline-flex px-3 py-1.5 rounded-xl text-xs font-semibold border ${getBookingStatusStyle(
-                  summary.bookingStatus,
-                )}`}
-              >
-                {summary.bookingStatus}
-              </span>
-              <span
-                className={`inline-flex px-3 py-1.5 rounded-xl text-xs font-semibold border max-w-[220px] text-center ${getPaymentStatusStyle(
-                  detail.payment.paymentStatus,
-                )}`}
-              >
-                {detail.payment.paymentStatus}
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowVoucher(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[#2f3d95] text-[#2f3d95] text-sm font-medium hover:bg-[#2f3d95]/10"
-              >
-                <FileText className="w-4 h-4" />
-                Voucher
-              </button>
             </div>
           </div>
-        </div>
 
-        {/* At-a-glance summary */}
-        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <KpiCard
-            label="Check-in"
-            value={formatDate(summary.checkInDate)}
-            sub={summary.nightsDisplay}
-            accent="border-emerald-200 bg-emerald-50/50"
-          />
-          <KpiCard
-            label="Check-out"
-            value={formatDate(summary.checkOutDate)}
-            sub={summary.hotelCity || undefined}
-            accent="border-sky-200 bg-sky-50/50"
-          />
-          <KpiCard
-            label="Rooms"
-            value={String(totalRooms || detail.rooms.length || "—")}
-            sub={detail.rooms[0]?.mealPlan}
-            accent="border-violet-200 bg-violet-50/50"
-          />
-          <KpiCard
-            label="Guests"
-            value={summary.occupancyDisplay || "—"}
-            sub={detail.guest.name}
-            accent="border-indigo-200 bg-indigo-50/50"
-          />
-          <KpiCard
-            label={isCancelledBooking ? "Original value" : "Guest paid"}
-            value={formatCurrency(
+          <div className="grid gap-2 px-3 py-2.5 sm:grid-cols-2 sm:px-4 lg:grid-cols-4">
+            <div className="flex gap-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                <Building2 className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                  Hotel
+                </p>
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {summary.hotelName}
+                </p>
+                <p className="truncate text-[11px] text-slate-500">
+                  {summary.hotelCity || summary.hotelAddress || "—"}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+                <CalendarDays className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                  Stay
+                </p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {formatDate(summary.checkInDate)} – {formatDate(summary.checkOutDate)}
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  {summary.nightsDisplay}
+                  {totalRooms ? ` · ${totalRooms} room(s)` : ""} ·{" "}
+                  {summary.occupancyDisplay || "—"}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                <User className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                  Guest
+                </p>
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {detail.guest.name}
+                </p>
+                <p className="truncate text-[11px] text-slate-500">
+                  Booked {formatDateTime(summary.bookedOn)}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                <Tag className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                  Channel
+                </p>
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {summary.bookedVia}
+                </p>
+                <p className="truncate text-[11px] text-slate-500">
+                  {detail.rooms[0]?.mealPlan || pricingSource || "—"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Financial KPIs */}
+        <div className="mb-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
+          <FinanceKpiCard
+            label={
               isCancelledBooking
-                ? (cancellation.originalReservationValue ??
-                    summary.totalAmount)
-                : summary.totalAmount,
+                ? isAgentBooking
+                  ? "Agent paid"
+                  : "Original value"
+                : isAgentBooking
+                  ? "Agent paid"
+                  : "Guest paid"
+            }
+            value={formatCurrency(
+              isCancelledBooking && !isAgentBooking
+                ? originalReservationValue
+                : guestPaidAmount,
               currency,
             )}
-            sub={summary.bookedVia}
-            accent="border-emerald-200 bg-emerald-50/50"
+            sub={
+              isCancelledBooking && isAgentBooking
+                ? `Reservation ${formatCurrency(originalReservationValue, currency)}`
+                : summary.bookedVia
+            }
+            icon={HandCoins}
+            tone={FINANCE_KPI_TONES.collected}
+            onClick={() => setTab("payment")}
+            actionLabel=""
           />
           {isCancelledBooking ? (
-            <KpiCard
+            <FinanceKpiCard
               label="Cancellation charge"
-              value={formatCurrency(
-                cancellation.cancellationCharge ?? cancellation.cancelAmount,
-                currency,
-              )}
+              value={formatCurrency(cancellationChargeAmount, currency)}
               sub={
                 cancellation.cancellationDatetime
                   ? formatDateTime(cancellation.cancellationDatetime)
                   : undefined
               }
-              accent="border-rose-200 bg-rose-50/50"
+              icon={Receipt}
+              tone={FINANCE_KPI_TONES.cancellation}
+              onClick={() => setTab("cancellation")}
+              actionLabel=""
             />
-          ) : (
-            <KpiCard
-              label="Payable to property"
-              value={formatCurrency(payableToProperty, currency)}
-              sub={pricingSource || undefined}
-              accent="border-sky-200 bg-sky-50/50"
-            />
-          )}
-        </div>
-
-        {/* Financial KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          {isCancelledBooking ? (
-            <KpiCard
-              label="Payable to property"
-              value={formatCurrency(payableToProperty, currency)}
-              sub="After cancellation"
-              accent="border-sky-200 bg-sky-50/50"
-            />
-          ) : (
-            <KpiCard
-              label="Hotel payout"
-              value={formatCurrency(detail.pricing.hotelPayout, currency)}
-              accent="border-sky-200 bg-sky-50/50"
-            />
-          )}
-          <KpiCard
+          ) : null}
+          <FinanceKpiCard
+            label="Payable to property"
+            value={formatCurrency(payableToProperty, currency)}
+            sub={
+              isCancelledBooking ? "After cancellation" : pricingSource || undefined
+            }
+            icon={Landmark}
+            tone={FINANCE_KPI_TONES.hotelPayout}
+            onClick={() => setTab("financial")}
+            actionLabel=""
+          />
+          <FinanceKpiCard
             label="OTA net revenue"
             value={formatCurrency(detail.pricing.otaNetRevenue, currency)}
             sub={`Gross ${formatCurrency(detail.pricing.otaGrossRevenue, currency)}`}
-            accent="border-violet-200 bg-violet-50/50"
+            icon={Target}
+            tone={FINANCE_KPI_TONES.ota}
+            onClick={() => setTab("financial")}
+            actionLabel=""
           />
-          <KpiCard
+          <FinanceKpiCard
             label="Commission"
             value={formatCurrency(detail.pricing.commissionAmount, currency)}
-            accent="border-blue-200 bg-blue-50/50"
+            icon={Scale}
+            tone={FINANCE_KPI_TONES.margin}
+            onClick={() => setTab("roomPricing")}
+            actionLabel=""
           />
-          <KpiCard
-            label="Service fee"
-            value={formatCurrency(serviceFeeExclGst, currency)}
-            sub={
-              serviceFeeInclGst > 0
-                ? `Incl. GST ${formatCurrency(serviceFeeInclGst, currency)}`
-                : undefined
-            }
-            accent="border-orange-200 bg-orange-50/50"
-          />
-          <KpiCard
+          {isCancelledBooking ? (
+            <FinanceKpiCard
+              label={
+                cancellation.cancelledBy?.toUpperCase() === "AGENT"
+                  ? "Agent refund"
+                  : "Customer refund"
+              }
+              value={formatCurrency(refundedAmount, currency)}
+              sub={
+                cancellation.refundStatus
+                  ? formatStatusLabel(cancellation.refundStatus)
+                  : undefined
+              }
+              icon={Wallet}
+              tone={FINANCE_KPI_TONES.refund}
+              onClick={() => setTab("cancellation")}
+              actionLabel=""
+            />
+          ) : isAgentBooking ? (
+            <FinanceKpiCard
+              label="Agency commission"
+              value={formatCurrency(agencyCommissionAmount, currency)}
+              sub={
+                [
+                  agencyTier,
+                  agencyIncentivePercent != null
+                    ? formatPercent(agencyIncentivePercent)
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || undefined
+              }
+              icon={Sparkles}
+              tone={FINANCE_KPI_TONES.refund}
+              onClick={() => setTab("financial")}
+              actionLabel=""
+            />
+          ) : (
+            <FinanceKpiCard
+              label="Service fee"
+              value={formatCurrency(serviceFeeExclGst, currency)}
+              sub={
+                serviceFeeInclGst > 0
+                  ? `Incl. GST ${formatCurrency(serviceFeeInclGst, currency)}`
+                  : undefined
+              }
+              icon={Sparkles}
+              tone={FINANCE_KPI_TONES.refund}
+              onClick={() => setTab("roomPricing")}
+              actionLabel=""
+            />
+          )}
+          <FinanceKpiCard
             label="Final payable"
             value={formatCurrency(detail.pricing.finalPayable, currency)}
             sub={
-              detail.payment.pendingAmount != null
-                ? `Pending ${formatCurrency(detail.payment.pendingAmount, currency)}`
+              outstandingAmount > 0
+                ? `Outstanding ${formatCurrency(outstandingAmount, currency)}`
                 : undefined
             }
-            accent="border-amber-200 bg-amber-50/50"
+            icon={Wallet}
+            tone={FINANCE_KPI_TONES.outstanding}
+            onClick={() => setTab("payment")}
+            actionLabel=""
           />
         </div>
 
-        <div className="mb-6 rounded-2xl border border-orange-200 bg-orange-50/40 px-5 py-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">
-            Service charges
-          </p>
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-            <div className="rounded-xl border border-orange-100 bg-white/70 px-3 py-2.5">
-              <p className="text-xs text-gray-500">Service fee (excl. GST)</p>
-              <p className="font-semibold tabular-nums text-gray-900">
-                {formatCurrency(serviceFeeExclGst, currency)}
-              </p>
-            </div>
-            <div className="rounded-xl border border-orange-100 bg-white/70 px-3 py-2.5">
-              <p className="text-xs text-gray-500">GST on service fee</p>
-              <p className="font-semibold tabular-nums text-gray-900">
-                {formatCurrency(detail.financials.serviceFeeGst, currency)}
-              </p>
-            </div>
-            <div className="rounded-xl border border-orange-100 bg-white/70 px-3 py-2.5">
-              <p className="text-xs text-gray-500">Service fee (incl. GST)</p>
-              <p className="font-semibold tabular-nums text-gray-900">
-                {formatCurrency(serviceFeeInclGst, currency)}
-                {serviceChargePercent > 0 &&
-                  ` · ${formatPercent(serviceChargePercent)}`}
-              </p>
-            </div>
-            <div className="rounded-xl border border-orange-100 bg-white/70 px-3 py-2.5">
-              <p className="text-xs text-gray-500">Rule</p>
-              <p className="font-medium text-gray-900">
-                {formatRuleName(detail.financials.serviceFeeRuleName)}
-              </p>
-              {detail.financials.effectiveServiceFeePercent != null ? (
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Effective {formatPercent(detail.financials.effectiveServiceFeePercent)}
-                </p>
-              ) : null}
-            </div>
+        {/* Tabs */}
+        <div className="mb-3 overflow-x-auto rounded-lg border border-slate-200 bg-white px-1.5 py-1.5 shadow-sm">
+          <div className="flex min-w-max gap-1">
+            {DETAIL_TABS.map((item) => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => setTab(item.value)}
+                className={cn(
+                  "rounded-md px-2.5 py-1.5 text-xs font-medium transition",
+                  tab === item.value
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-100",
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
         </div>
 
+        {tab === "bookingSummary" ? (
+        <div className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-3">
+          <SectionCard
+            compact
+            icon={Building2}
+            iconBg="bg-sky-50"
+            iconColor="bg-sky-100 text-sky-600"
+            title="Booking summary"
+            className="lg:col-span-2"
+          >
+            <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
+              <SummaryField label="Booking ref" value={summary.bookingRef} />
+              <SummaryField label="Booking ID" value={String(summary.bookingId)} />
+              <SummaryField label="Status" value={summary.bookingStatus} />
+              <SummaryField label="Hotel" value={summary.hotelName} />
+              <SummaryField label="City" value={summary.hotelCity || "—"} />
+              <SummaryField label="Booked via" value={summary.bookedVia} />
+              <SummaryField
+                label="Check-in"
+                value={formatDate(summary.checkInDate)}
+              />
+              <SummaryField
+                label="Check-out"
+                value={formatDate(summary.checkOutDate)}
+              />
+              <SummaryField label="Nights" value={summary.nightsDisplay} />
+              <SummaryField label="Occupancy" value={summary.occupancyDisplay} />
+              <SummaryField
+                label="Booked on"
+                value={formatDateTime(summary.bookedOn)}
+              />
+              <SummaryField
+                label="Total amount"
+                value={formatCurrency(summary.totalAmount, currency)}
+              />
+              <SummaryField
+                label="Address"
+                value={summary.hotelAddress || "—"}
+                className="sm:col-span-2 xl:col-span-3"
+              />
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            compact
+            icon={User}
+            iconBg="bg-indigo-50"
+            iconColor="bg-indigo-100 text-indigo-600"
+            title="Guest"
+          >
+            <p className="text-sm font-semibold text-gray-900">
+              {detail.guest.name}
+            </p>
+            <div className="mt-2 space-y-2">
+              <div className="flex items-start gap-2 text-xs text-gray-700">
+                <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+                <span className="min-w-0 break-words">
+                  {detail.guest.email || "—"}
+                </span>
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-700">
+                <Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+                <span className="min-w-0 break-words">
+                  {detail.guest.phone || "—"}
+                </span>
+              </div>
+            </div>
+            {extraGuests.length > 0 ? (
+              <div className="mt-3 border-t border-gray-100 pt-2">
+                <p className="mb-1 text-[10px] font-semibold uppercase text-gray-400">
+                  Additional guests ({extraGuests.length})
+                </p>
+                <ul className="space-y-1">
+                  {extraGuests.map((g, i) => (
+                    <li
+                      key={i}
+                      className="rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5 text-xs"
+                    >
+                      <span className="font-medium text-gray-900">{g.name}</span>
+                      {g.email ? (
+                        <span className="mt-0.5 block break-words text-[10px] text-gray-500">
+                          {g.email}
+                        </span>
+                      ) : null}
+                      {g.phone ? (
+                        <span className="block text-[10px] text-gray-500">
+                          {g.phone}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </SectionCard>
+        </div>
+        ) : null}
+
+        {tab === "roomPricing" ? (
+        <>
         <SectionCard
+          compact
+          icon={BedDouble}
+          iconBg="bg-violet-50"
+          iconColor="bg-violet-100 text-violet-600"
+          title="Rooms"
+          className="mb-3"
+        >
+          {detail.rooms.length ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {detail.rooms.map((room, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2"
+                >
+                  <p className="text-sm font-medium text-slate-900">
+                    {room.roomName}
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600">
+                    <span className="inline-flex items-center gap-1">
+                      <Utensils className="h-3 w-3 text-amber-500" />
+                      {room.mealPlan || "—"}
+                    </span>
+                    <span>{room.occupancyDisplay || "—"}</span>
+                    {room.quantity ? <span>Qty {room.quantity}</span> : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500">—</p>
+          )}
+          <p className="mt-2 text-[11px] text-slate-500">
+            Total rooms: {totalRooms || "—"}
+          </p>
+        </SectionCard>
+        {(() => {
+          const rows = detail.roomDayFinancials;
+          const commissionInclusiveTotal =
+            detail.financials.commissionInclusiveGst ??
+            rateBreakup?.commissionTotal ??
+            (detail.pricing.commissionAmount ?? 0) +
+              (detail.financials.commissionGst ?? 0);
+          const commissionSum = rows.reduce(
+            (sum, row) => sum + (row.commission ?? 0),
+            0,
+          );
+          const moneyCell = (amount: number) => (
+            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-900">
+              {formatCurrency(amount, currency)}
+            </td>
+          );
+          const rowAmounts = rows.map((row) => {
+            const charges = row.roomCharges ?? 0;
+            const promo = row.promotionDiscount ?? 0;
+            const net = row.netAccommodation ?? charges - promo;
+            const gst = row.hotelGst ?? 0;
+            const gross = row.propertyGross ?? net + gst;
+            const commIncl =
+              commissionSum > 0
+                ? commissionInclusiveTotal * ((row.commission ?? 0) / commissionSum)
+                : rows.length
+                  ? commissionInclusiveTotal / rows.length
+                  : 0;
+            return { charges, promo, net, gst, gross, commIncl, beforeTax: gross - commIncl };
+          });
+          const totals = rowAmounts.reduce(
+            (acc, row) => ({
+              charges: acc.charges + row.charges,
+              promo: acc.promo + row.promo,
+              net: acc.net + row.net,
+              gst: acc.gst + row.gst,
+              gross: acc.gross + row.gross,
+              commIncl: acc.commIncl + row.commIncl,
+              beforeTax: acc.beforeTax + row.beforeTax,
+            }),
+            {
+              charges: 0,
+              promo: 0,
+              net: 0,
+              gst: 0,
+              gross: 0,
+              commIncl: 0,
+              beforeTax: 0,
+            },
+          );
+
+          return (
+              <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[920px] border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50">
+                        <TableHead label="Date" align="left" />
+                        <TableHead label="Charges (A)" hint="Before GST" />
+                        <TableHead label="Promotion (B)" />
+                        <TableHead label="Net (C)" hint="A − B" />
+                        <TableHead label="Hotel GST (D)" />
+                        <TableHead label="Property total (E)" hint="C + D, incl. GST" />
+                        <TableHead label="Commission (F)" hint="Inclusive of GST" />
+                        <TableHead label="Before TDS/TCS (G)" hint="E − F" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.length ? (
+                        rows.map((row, idx) => {
+                          const amounts = rowAmounts[idx];
+                          return (
+                            <tr
+                              key={row.id}
+                              className={
+                                idx % 2 === 0
+                                  ? "border-b border-slate-100 bg-white"
+                                  : "border-b border-slate-100 bg-slate-50/60"
+                              }
+                            >
+                              <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+                                {formatLongDate(row.stayDate)}
+                              </td>
+                              {moneyCell(amounts.charges)}
+                              {moneyCell(amounts.promo)}
+                              {moneyCell(amounts.net)}
+                              {moneyCell(amounts.gst)}
+                              {moneyCell(amounts.gross)}
+                              {moneyCell(amounts.commIncl)}
+                              {moneyCell(amounts.beforeTax)}
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={8}
+                            className="px-3 py-6 text-center text-slate-500"
+                          >
+                            No room-day financials available.
+                          </td>
+                        </tr>
+                      )}
+                      {rows.length ? (
+                        <tr className="border-t border-slate-200 bg-blue-50/70 font-semibold text-slate-900">
+                          <td className="px-3 py-2">Grand total</td>
+                          {moneyCell(totals.charges)}
+                          {moneyCell(totals.promo)}
+                          {moneyCell(totals.net)}
+                          {moneyCell(totals.gst)}
+                          {moneyCell(totals.gross)}
+                          {moneyCell(totals.commIncl)}
+                          {moneyCell(totals.beforeTax)}
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+          );
+        })()}
+
+        <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-slate-50/80 px-3 py-2">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Final calculation
+            </h3>
+          </div>
+          <CalcSectionHeader title="Property charges" />
+          <CalcLine
+            index="1"
+            label="Room charges (rack rate, before promotion)"
+            amount={
+              rateBreakup?.roomChargesBeforePromotion ??
+              rateBreakup?.roomCharges ??
+              detail.pricing.basePrice
+            }
+            currency={currency}
+          />
+          {appliedPromotions.length
+            ? appliedPromotions.map((promo, idx) => (
+                <CalcLine
+                  key={`${promo.promotionName}-${idx}`}
+                  label={`${promoDisplayLabel(promo)}${
+                    promo.offerType
+                      ? ` · ${formatStatusLabel(promo.offerType)}`
+                      : ""
+                  }`}
+                  amount={promo.discountAmount}
+                  currency={currency}
+                  negative
+                />
+              ))
+            : promotionDiscount > 0 ? (
+                <CalcLine
+                  label="Promotion discount"
+                  amount={promotionDiscount}
+                  currency={currency}
+                  negative
+                />
+              ) : null}
+          {promotionDiscount > 0 || appliedPromotions.length ? (
+            <CalcLine
+              label="Net accommodation (after promotion)"
+              amount={
+                rateBreakup?.netAccommodationAfterPromotion ??
+                rateBreakup?.roomCharges ??
+                detail.financials.priceAfterPromo
+              }
+              currency={currency}
+            />
+          ) : null}
+          <CalcLine
+            index="2"
+            label={`Property taxes${
+              detail.financials.gstPercent != null
+                ? ` @ ${formatPercent(detail.financials.gstPercent)}`
+                : ""
+            }`}
+            amount={rateBreakup?.propertyTaxes ?? detail.pricing.gstAmount}
+            currency={currency}
+          />
+          <CalcSubtotal
+            letter="A"
+            label="Total property charges (room charges + GST)"
+            amount={
+              rateBreakup?.hotelGrossCharges ??
+              detail.financials.customerSellingPrice
+            }
+            currency={currency}
+          />
+
+          <CalcSectionHeader title="Commission" />
+          <CalcLine
+            index="3"
+            label={
+              detail.financials.commissionPercent != null
+                ? `Commission @ ${formatPercent(detail.financials.commissionPercent)}`
+                : "Commission"
+            }
+            amount={
+              rateBreakup?.commissionAmount ?? detail.pricing.commissionAmount
+            }
+            currency={currency}
+          />
+          <CalcLine
+            index="4"
+            label={
+              detail.financials.commissionGstRated?.ratePercent != null
+                ? `GST on commission @ ${formatPercent(detail.financials.commissionGstRated.ratePercent)}`
+                : "GST on commission"
+            }
+            amount={rateBreakup?.commissionGst ?? detail.financials.commissionGst}
+            currency={currency}
+          />
+          <CalcSubtotal
+            letter="B"
+            label="Commission inclusive of GST (3 + 4)"
+            amount={
+              detail.financials.commissionInclusiveGst ??
+              rateBreakup?.commissionTotal
+            }
+            currency={currency}
+          />
+
+          <CalcSectionHeader title="Tax deduction" />
+          <CalcLine
+            index="5"
+            label={
+              detail.financials.tcsPercent != null
+                ? `TCS @ ${formatPercent(detail.financials.tcsPercent)}`
+                : "TCS"
+            }
+            amount={rateBreakup?.tcsAmount ?? detail.financials.tcsAmount}
+            currency={currency}
+          />
+          <CalcLine
+            index="6"
+            label={
+              detail.financials.tdsPercent != null
+                ? `TDS @ ${formatPercent(detail.financials.tdsPercent)}`
+                : "TDS"
+            }
+            amount={rateBreakup?.tdsAmount ?? detail.financials.tdsAmount}
+            currency={currency}
+          />
+          <CalcSubtotal
+            letter="C"
+            label="Tax deduction (5 + 6)"
+            amount={
+              rateBreakup?.taxDeductions ??
+              (detail.financials.tcsAmount ?? 0) +
+                (detail.financials.tdsAmount ?? 0)
+            }
+            currency={currency}
+          />
+
+          {isCancelledBooking ? (
+            <div className="border-t border-rose-100 bg-rose-50/80 px-3 py-2.5 text-xs">
+              <div className="flex items-center justify-between gap-4 font-semibold text-slate-500">
+                <span>Payable to property (A − B − C)</span>
+                <span className="text-sm tabular-nums line-through decoration-slate-400">
+                  {formatCurrency(
+                    rateBreakup?.payableToHotel ?? detail.pricing.hotelPayout,
+                    currency,
+                  )}
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-center justify-between gap-4 font-semibold text-rose-900">
+                <span>Payable after cancellation</span>
+                <span className="text-sm tabular-nums">
+                  {formatCurrency(payableToProperty, currency)}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-4 border-t border-sky-100 bg-sky-50 px-3 py-2.5 text-xs font-semibold text-sky-900">
+              <span>Payable to property (A − B − C)</span>
+              <span className="text-sm tabular-nums">
+                {formatCurrency(
+                  rateBreakup?.payableToHotel ?? detail.pricing.hotelPayout,
+                  currency,
+                )}
+              </span>
+            </div>
+          )}
+
+          {isAgentBooking ? (
+            <>
+              <CalcSectionHeader title="Agency" />
+              <CalcLine
+                index="7"
+                label={
+                  agencyIncentivePercent != null
+                    ? `Agency commission @ ${formatPercent(agencyIncentivePercent)}${
+                        agencyIncentiveSource
+                          ? ` (${formatStatusLabel(agencyIncentiveSource)})`
+                          : ""
+                      }`
+                    : "Agency commission"
+                }
+                amount={agencyCommissionAmount}
+                currency={currency}
+              />
+              {agentTdsAmount != null ? (
+                <CalcLine
+                  index="8"
+                  label={
+                    agentTdsPercent != null
+                      ? `Agent TDS @ ${formatPercent(agentTdsPercent)}`
+                      : "Agent TDS"
+                  }
+                  amount={agentTdsAmount}
+                  currency={currency}
+                />
+              ) : null}
+              {agentNetCommission != null ? (
+                <CalcSubtotal
+                  letter="D"
+                  label="Agent net commission (7 − 8)"
+                  amount={agentNetCommission}
+                  currency={currency}
+                />
+              ) : null}
+              {agentPayable != null && isCancelledBooking ? (
+                <div className="border-t border-rose-100 bg-rose-50/80 px-3 py-2.5 text-xs">
+                  <div className="flex items-center justify-between gap-4 font-semibold text-slate-500">
+                    <span>Agent payable</span>
+                    <span className="text-sm tabular-nums line-through decoration-slate-400">
+                      {formatCurrency(agentPayable, currency)}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between gap-4 font-semibold text-rose-900">
+                    <span>Agent refund</span>
+                    <span className="text-sm tabular-nums">
+                      {formatCurrency(refundedAmount, currency)}
+                    </span>
+                  </div>
+                </div>
+              ) : agentPayable != null ? (
+                <div className="flex items-center justify-between gap-4 border-t border-violet-100 bg-violet-50/80 px-3 py-2.5 text-xs font-semibold text-violet-900">
+                  <span>Agent payable</span>
+                  <span className="text-sm tabular-nums">
+                    {formatCurrency(agentPayable, currency)}
+                  </span>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+        </>
+        ) : null}
+
+        {tab === "financial" ? (
+        <>
+        <SectionCard
+          compact
           icon={Scale}
           iconBg="bg-indigo-50"
           iconColor="bg-indigo-100 text-indigo-700"
           title="Applied pricing rules"
-          className="mb-6"
+          className="mb-3"
         >
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
             <RuleCard
               title="Service fee"
               ruleName={formatRuleName(detail.financials.serviceFeeRuleName)}
@@ -652,660 +1450,106 @@ export default function AdminBookingDetailPage({
               amount={detail.financials.gstAmount}
               currency={currency}
             />
-          </div>
-          <p className="mt-4 text-xs text-gray-500">
-            Promotion:{" "}
-            <span className="font-medium text-gray-700">
-              {formatRuleName(detail.financials.promotionRuleName)}
-            </span>
-          </p>
-        </SectionCard>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <SectionCard
-            icon={Building2}
-            iconBg="bg-sky-50"
-            iconColor="bg-sky-100 text-sky-600"
-            title="Property & stay"
-          >
-            <dl>
-              <DetailRow label="Hotel" value={summary.hotelName} />
-              <DetailRow
-                label="Booking status"
-                value={
-                  <span
-                    className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${getBookingStatusStyle(
-                      summary.bookingStatus,
-                    )}`}
-                  >
-                    {summary.bookingStatus}
-                  </span>
-                }
-              />
-              <DetailRow
-                label="Address"
-                value={
-                  <span className="inline-flex items-start gap-2">
-                    <MapPin className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-                    {[summary.hotelAddress, summary.hotelLocality, summary.hotelCity]
-                      .filter(Boolean)
-                      .join(", ")}
-                  </span>
-                }
-              />
-              <DetailRow
-                label="Check-in"
-                value={formatDate(summary.checkInDate)}
-              />
-              <DetailRow
-                label="Check-out"
-                value={formatDate(summary.checkOutDate)}
-              />
-              <DetailRow label="Nights" value={summary.nightsDisplay} />
-              <DetailRow label="Occupancy" value={summary.occupancyDisplay} />
-            </dl>
-          </SectionCard>
-
-          <SectionCard
-            icon={User}
-            iconBg="bg-indigo-50"
-            iconColor="bg-indigo-100 text-indigo-600"
-            title="Guest"
-          >
-            <dl>
-              <DetailRow label="Primary guest" value={detail.guest.name} />
-              <DetailRow
-                label="Email"
-                value={
-                  detail.guest.email ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      {detail.guest.email}
-                    </span>
-                  ) : (
-                    "—"
-                  )
-                }
-              />
-              <DetailRow
-                label="Phone"
-                value={
-                  detail.guest.phone ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-gray-400" />
-                      {detail.guest.phone}
-                    </span>
-                  ) : (
-                    "—"
-                  )
-                }
-              />
-            </dl>
-            {detail.guest.guests?.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-xs font-semibold uppercase text-gray-500 mb-2">
-                  All guests
-                </p>
-                <ul className="space-y-2">
-                  {detail.guest.guests.map((g, i) => (
-                    <li
-                      key={i}
-                      className="text-sm px-3 py-2 rounded-lg bg-gray-50 border border-gray-100"
-                    >
-                      <span className="font-medium text-gray-900">{g.name}</span>
-                      {(g.email || g.phone) && (
-                        <span className="block text-xs text-gray-500 mt-0.5">
-                          {[g.email, g.phone].filter(Boolean).join(" · ")}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </SectionCard>
-
-          <SectionCard
-            icon={BedDouble}
-            iconBg="bg-violet-50"
-            iconColor="bg-violet-100 text-violet-600"
-            title="Rooms"
-          >
-            <div className="space-y-3">
-              {detail.rooms.map((room, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 rounded-xl bg-gray-50 border border-gray-100"
-                >
-                  <div className="font-medium text-gray-900">{room.roomName}</div>
-                  <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-gray-600">
-                    <span className="inline-flex items-center gap-1">
-                      <Utensils className="w-3.5 h-3.5 text-amber-500" />
-                      {room.mealPlan}
-                    </span>
-                    <span>{room.occupancyDisplay}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            icon={CreditCard}
-            iconBg="bg-emerald-50"
-            iconColor="bg-emerald-100 text-emerald-600"
-            title="Payment"
-          >
-            <dl>
-              <DetailRow
-                label="Status"
-                value={
-                  <span
-                    className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${getPaymentStatusStyle(
-                      detail.payment.paymentStatus,
-                    )}`}
-                  >
-                    {detail.payment.paymentStatus}
-                  </span>
-                }
-              />
-              <DetailRow label="Method" value={detail.payment.paymentType} />
-              <DetailRow
-                label="Transaction ID"
-                value={
-                  detail.payment.transactionId ? (
-                    <span className="font-mono text-xs">
-                      {detail.payment.transactionId}
-                    </span>
-                  ) : (
-                    "—"
-                  )
-                }
-              />
-              <DetailRow
-                label="Paid at"
-                value={formatDateTime(detail.payment.paidAt ?? undefined)}
-              />
-              <DetailRow
-                label="Paid amount"
-                value={
-                  detail.payment.paidAmount != null && detail.payment.paidAmount > 0 ? (
-                    <span className="text-lg font-bold tabular-nums">
-                      {formatCurrency(detail.payment.paidAmount, currency)}
-                    </span>
-                  ) : (
-                    "—"
-                  )
-                }
-              />
-              {detail.payment.pendingAmount != null ? (
-                <DetailRow
-                  label="Pending amount"
-                  value={
-                    <span className="text-lg font-bold tabular-nums text-amber-700">
-                      {formatCurrency(detail.payment.pendingAmount, currency)}
-                    </span>
+            {appliedPromotions.length ? (
+              appliedPromotions.map((promo, idx) => (
+                <RuleCard
+                  key={`${promo.promotionRuleId ?? promo.promotionName}-${idx}`}
+                  title={
+                    promo.promotionType
+                      ? `Promotion · ${formatStatusLabel(promo.promotionType)}`
+                      : "Promotion"
                   }
-                />
-              ) : null}
-            </dl>
-          </SectionCard>
-
-          <SectionCard
-            icon={Tag}
-            iconBg="bg-gray-50"
-            iconColor="bg-gray-200 text-gray-700"
-            title="Channel & pricing"
-          >
-            <dl>
-              <DetailRow
-                label="Customer type"
-                value={detail.financials.selectedCustomerType}
-              />
-              <DetailRow
-                label="Pricing source"
-                value={detail.financials.selectedPricingSource}
-              />
-              <DetailRow label="Channel" value={detail.financials.channelType} />
-              <DetailRow
-                label="Booking mode"
-                value={detail.financials.bookingMode}
-              />
-              <DetailRow
-                label="Promotion rule"
-                value={formatRuleName(detail.financials.promotionRuleName)}
-              />
-              <DetailRow
-                label="Tax rule"
-                value={formatRuleName(detail.financials.taxRuleName)}
-              />
-              {detail.financials.agencyIncentivePercent != null ? (
-                <DetailRow
-                  label="Agency incentive"
-                  value={formatPercent(detail.financials.agencyIncentivePercent)}
-                />
-              ) : null}
-              {detail.financials.agencyCommission != null &&
-              detail.financials.agencyCommission > 0 ? (
-                <DetailRow
-                  label="Agency commission"
-                  value={formatCurrency(
-                    detail.financials.agencyCommission,
-                    currency,
-                  )}
-                />
-              ) : null}
-            </dl>
-          </SectionCard>
-
-          <SectionCard
-            icon={Shield}
-            iconBg="bg-rose-50"
-            iconColor="bg-rose-100 text-rose-600"
-            title={
-              isCancelledBooking
-                ? "Cancellation details"
-                : "Cancellation policy"
-            }
-          >
-            {cancellation.nonRefundable ? (
-              <span className="inline-flex mb-3 px-2.5 py-1 rounded-lg text-xs font-semibold border bg-red-50 text-red-800 border-red-200">
-                Non-refundable
-              </span>
-            ) : null}
-
-            {isCancelledBooking ? (
-              <dl className="mb-4 divide-y divide-gray-50">
-                <DetailRow
-                  label="Cancelled on"
-                  value={
-                    cancellation.cancellationDatetime
-                      ? formatDateTime(cancellation.cancellationDatetime)
-                      : "—"
+                  ruleName={
+                    promo.stackable === false
+                      ? `${promo.promotionName} · Non-stackable`
+                      : promo.promotionName
                   }
+                  percent={promo.discountPercentage}
+                  amount={promo.discountAmount}
+                  currency={currency}
                 />
-                <DetailRow
-                  label="Original reservation value"
-                  value={formatCurrency(
-                    cancellation.originalReservationValue ??
-                      summary.totalAmount,
-                    currency,
-                  )}
-                />
-                <DetailRow
-                  label="Cancellation charge"
-                  value={formatCurrency(
-                    cancellation.cancellationCharge ??
-                      cancellation.cancelAmount,
-                    currency,
-                  )}
-                />
-                <DetailRow
-                  label="Amount payable to property"
-                  value={formatCurrency(
-                    cancellation.amountPayableToProperty ?? payableToProperty,
-                    currency,
-                  )}
-                />
-                {cancellation.hotelCancellationBase != null ? (
-                  <DetailRow
-                    label="Hotel cancellation base"
-                    value={formatCurrency(
-                      cancellation.hotelCancellationBase,
-                      currency,
-                    )}
-                  />
-                ) : null}
-                {cancellation.hotelGrossCharges != null ? (
-                  <DetailRow
-                    label="Hotel gross after cancel"
-                    value={formatCurrency(
-                      cancellation.hotelGrossCharges,
-                      currency,
-                    )}
-                  />
-                ) : null}
-                {cancellation.refundAmount != null ? (
-                  <DetailRow
-                    label="Refund amount"
-                    value={formatCurrency(cancellation.refundAmount, currency)}
-                  />
-                ) : null}
-                {cancellation.recalculatedFromFinancials != null ? (
-                  <DetailRow
-                    label="Recalculated from financials"
-                    value={
-                      cancellation.recalculatedFromFinancials ? "Yes" : "No"
-                    }
-                  />
-                ) : null}
-              </dl>
-            ) : null}
-
-            {cancellationPolicyLines.length ? (
-              <ul className="space-y-1.5">
-                {cancellationPolicyLines.map((line, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                    <Shield className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
+              ))
             ) : (
-              <p className="text-sm text-gray-700 leading-relaxed">—</p>
+              <RuleCard
+                title="Promotion"
+                ruleName={formatRuleName(detail.financials.promotionRuleName)}
+                amount={promotionDiscount > 0 ? promotionDiscount : null}
+                currency={currency}
+              />
             )}
-          </SectionCard>
-
-          {/* Rate breakup */}
+            {isAgentBooking ? (
+              <RuleCard
+                title={agencyTier ? `Agency · ${agencyTier}` : "Agency"}
+                ruleName={
+                  agencyIncentiveSource
+                    ? formatStatusLabel(agencyIncentiveSource)
+                    : "Incentive"
+                }
+                percent={agencyIncentivePercent}
+                amount={agencyCommissionAmount}
+                currency={currency}
+              />
+            ) : null}
+          </div>
+        </SectionCard>
+        <div className="mb-3 space-y-3">
           <SectionCard
-            icon={Receipt}
+            compact
+            icon={TrendingUp}
             iconBg="bg-amber-50"
             iconColor="bg-amber-100 text-amber-600"
-            title="Rate breakup"
-            className="lg:col-span-2"
+            title="Financial overview"
           >
-            <div className="overflow-hidden rounded-xl border border-gray-200">
-              <div className="bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 uppercase">
-                Customer price (summary)
-              </div>
-              <RateRow
-                label="Base price"
-                value={formatCurrency(detail.pricing.basePrice, currency)}
-              />
-              {promotionDiscount > 0 ? (
-                <RateRow
-                  label="Promotion discount"
-                  value={
-                    <span className="text-emerald-700">
-                      −{formatCurrency(promotionDiscount, currency)}
-                    </span>
-                  }
-                />
-              ) : null}
-              <RateRow
-                label="Price after promotion"
-                value={formatCurrency(detail.pricing.priceAfterPromo, currency)}
-              />
-              <RateRow
-                label="GST on accommodation"
-                value={formatCurrency(detail.pricing.gstAmount, currency)}
-              />
-              <RateRow
-                label="Service fee (excl. GST)"
-                value={formatCurrency(serviceFeeExclGst, currency)}
-              />
-              <RateRow
-                label="GST on service fee"
-                value={formatCurrency(detail.financials.serviceFeeGst, currency)}
-              />
-              <RateRow
-                label="Service fee (incl. GST)"
-                value={formatCurrency(serviceFeeInclGst, currency)}
-              />
-              <RateRow
-                label="Commission (excl. GST)"
-                value={formatCurrency(detail.pricing.commissionAmount, currency)}
-              />
-              <RateRow
-                label="Customer selling price"
-                value={formatCurrency(
-                  detail.financials.customerSellingPrice,
-                  currency,
-                )}
-              />
-              <RateRow
-                label="Final payable (guest)"
-                value={formatCurrency(detail.pricing.finalPayable, currency)}
-                highlight
-              />
-
-              {showBeforePromotion && (
-                <>
-                  <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase border-t">
-                    Accommodation (list rates)
-                  </div>
-                  <RateRow
-                    label="Room charges (list)"
-                    value={formatCurrency(
-                      rateBreakup?.roomChargesBeforePromotion ??
-                        rateBreakup?.roomCharges,
-                      currency,
-                    )}
-                  />
-                  <RateRow
-                    label="Extra adult / child (list)"
-                    value={formatCurrency(
-                      rateBreakup?.extraAdultChildChargesBeforePromotion ??
-                        rateBreakup?.extraAdultChildCharges,
-                      currency,
-                    )}
-                  />
-                </>
-              )}
-
-              {showPromotionBreakup && (
-                <>
-                  <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase border-t">
-                    Promotions
-                  </div>
-                  {promos.length > 0 ? (
-                    promos.map((p, idx) => (
-                      <RateRow
-                        key={idx}
-                        label={p.displayLine || p.promotionName}
-                        value={
-                          <span className="text-emerald-700">
-                            −{formatCurrency(p.discountAmount, currency)}
-                          </span>
-                        }
-                      />
-                    ))
-                  ) : (
-                    <RateRow
-                      label="Total promotion discount"
-                      value={
-                        <span className="text-emerald-700">
-                          −
-                          {formatCurrency(
-                            rateBreakup?.promotionDiscount,
-                            currency,
-                          )}
-                        </span>
-                      }
-                    />
-                  )}
-                  <RateRow
-                    label="Net accommodation (after promo)"
-                    value={formatCurrency(
-                      rateBreakup?.netAccommodationAfterPromotion,
-                      currency,
-                    )}
-                    highlight
-                  />
-                </>
-              )}
-              <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase border-t">
-                Property charges
-              </div>
-              <RateRow
-                label="Room charges"
-                value={formatCurrency(rateBreakup?.roomCharges, currency)}
-              />
-              {extraAdultCount != null ? (
-                <RateRow
-                  label="Extra adult count"
-                  value={String(extraAdultCount)}
-                />
-              ) : null}
-              <RateRow
-                label="Extra adult / child"
-                value={formatCurrency(
-                  rateBreakup?.extraAdultChildCharges,
-                  currency,
-                )}
-              />
-              <RateRow
-                label="Property taxes (GST on property)"
-                value={formatCurrency(rateBreakup?.propertyTaxes, currency)}
-              />
-              <div className="bg-orange-50 px-4 py-2 text-xs font-semibold text-orange-800 uppercase border-t border-orange-100">
-                Service charges
-              </div>
-              <RateRow
-                label={
-                  serviceChargePercent > 0
-                    ? `Service fee incl. GST @ ${formatPercent(serviceChargePercent)}`
-                    : "Service fee (incl. GST)"
-                }
-                value={formatCurrency(
-                  rateBreakup?.serviceFeeIncludingGst ?? serviceFeeInclGst,
-                  currency,
-                )}
-                highlight
-              />
-              <RateRow
-                label="Service fee (excl. GST)"
-                value={formatCurrency(serviceFeeExclGst, currency)}
-              />
-              <RateRow
-                label="GST on service fee"
-                value={formatCurrency(detail.financials.serviceFeeGst, currency)}
-              />
-              <RateRow
-                label="Service fee rule"
-                value={formatRuleName(detail.financials.serviceFeeRuleName)}
-              />
-              <RateRow
-                label="Property gross (excl. service fee)"
-                value={formatCurrency(
-                  propertyGrossExService ?? rateBreakup?.hotelGrossCharges,
-                  currency,
-                )}
-              />
-              <RateRow
-                label="Property gross (incl. service fee)"
-                value={formatCurrency(rateBreakup?.hotelGrossCharges, currency)}
-                highlight
-              />
-              <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase border-t">
-                OTA commission
-              </div>
-              <RateRow
-                label="Commission"
-                value={formatCurrency(rateBreakup?.commissionAmount, currency)}
-              />
-              <RateRow
-                label="GST on commission"
-                value={formatCurrency(rateBreakup?.commissionGst, currency)}
-              />
-              <RateRow
-                label="Commission incl. GST"
-                value={formatCurrency(rateBreakup?.commissionTotal, currency)}
-                highlight
-              />
-              <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase border-t">
-                Tax deductions
-              </div>
-              <RateRow
-                label="TCS"
-                value={formatCurrency(rateBreakup?.tcsAmount, currency)}
-              />
-              <RateRow
-                label="TDS"
-                value={formatCurrency(rateBreakup?.tdsAmount, currency)}
-              />
-              <RateRow
-                label="Total tax deduction (TCS + TDS)"
-                value={formatCurrency(rateBreakup?.taxDeductions, currency)}
-                highlight
-              />
-              {hasAgencyLine && (
-                <>
-                  <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600 uppercase border-t">
-                    Agency
-                  </div>
-                  {rateBreakup?.agencyTier && (
-                    <RateRow label="Agency tier" value={rateBreakup.agencyTier} />
-                  )}
-                  {rateBreakup?.agentCommission != null && (
-                    <RateRow
-                      label="Agent commission"
-                      value={formatCurrency(
-                        rateBreakup.agentCommission,
-                        currency,
-                      )}
-                    />
-                  )}
-                  <RateRow
-                    label="Agency commission (financials)"
-                    value={formatCurrency(
-                      detail.financials.agencyCommission,
-                      currency,
-                    )}
-                  />
-                </>
-              )}
-              <div className="bg-violet-50 px-4 py-2 text-xs font-semibold text-violet-800 uppercase border-t border-violet-100">
-                OTA revenue
-              </div>
-              <RateRow
-                label="OTA gross revenue"
-                value={formatCurrency(detail.pricing.otaGrossRevenue, currency)}
-              />
-              <RateRow
-                label="OTA net revenue"
-                value={formatCurrency(detail.pricing.otaNetRevenue, currency)}
-                highlight
-              />
-              <div className="bg-sky-50 border-t border-sky-100 px-4 py-3 flex justify-between gap-2">
-                <span className="text-sm font-semibold text-sky-800">
-                  Payable to property
-                </span>
-                <span className="text-lg font-extrabold text-sky-900 tabular-nums">
-                  {formatCurrency(rateBreakup?.payableToHotel, currency)}
-                </span>
-              </div>
-            </div>
-          </SectionCard>
-
-          {/* Financials */}
-          <SectionCard
-            icon={TrendingUp}
-            iconBg="bg-indigo-50"
-            iconColor="bg-indigo-100 text-indigo-600"
-            title="Financial breakdown (all charges)"
-            className="lg:col-span-2"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8">
-              <dl>
-                <p className="text-xs font-semibold uppercase text-gray-500 mb-2">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-0 md:divide-x md:divide-slate-100">
+              <dl className="min-w-0 md:pr-6">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                   Accommodation
                 </p>
                 <DetailRow
+                  compact
                   label="Base price"
                   value={formatCurrency(detail.financials.basePrice, currency)}
                 />
                 {extraAdultCount != null ? (
                   <DetailRow
+                    compact
                     label="Extra adult count"
                     value={String(extraAdultCount)}
                   />
                 ) : null}
-                <DetailRow
-                  label="Extra adult charges"
-                  value={formatCurrency(extraAdultCharges, currency)}
-                />
-                {promotionDiscount > 0 ? (
+                {extraAdultCharges != null ? (
                   <DetailRow
-                    label="Promotion discount"
-                    value={
-                      <span className="text-emerald-700">
-                        −{formatCurrency(promotionDiscount, currency)}
-                      </span>
-                    }
+                    compact
+                    label="Extra adult charges"
+                    value={formatCurrency(extraAdultCharges, currency)}
                   />
                 ) : null}
+                {appliedPromotions.length
+                  ? appliedPromotions.map((promo, idx) => (
+                      <DetailRow
+                        key={`${promo.promotionName}-${idx}`}
+                        compact
+                        label={promoDisplayLabel(promo)}
+                        value={
+                          <span className="text-emerald-700">
+                            −{formatCurrency(promo.discountAmount, currency)}
+                          </span>
+                        }
+                      />
+                    ))
+                  : promotionDiscount > 0 ? (
+                      <DetailRow
+                        compact
+                        label="Promotion discount"
+                        value={
+                          <span className="text-emerald-700">
+                            −{formatCurrency(promotionDiscount, currency)}
+                          </span>
+                        }
+                      />
+                    ) : null}
                 <DetailRow
+                  compact
                   label="Price after promo"
                   value={formatCurrency(
                     detail.financials.priceAfterPromo,
@@ -1313,26 +1557,28 @@ export default function AdminBookingDetailPage({
                   )}
                 />
                 <DetailRow
-                  label={`GST${detail.financials.gstPercent != null ? ` (${formatPercent(detail.financials.gstPercent)})` : ""}`}
-                  value={formatCurrency(detail.financials.gstAmount, currency)}
+                  compact
+                  label={gstLabel}
+                  value={formatCurrency(
+                    detail.financials.gst?.amount ?? detail.financials.gstAmount,
+                    currency,
+                  )}
                 />
                 {(detail.financials.cgstAmount != null ||
                   detail.financials.sgstAmount != null) && (
                   <DetailRow
+                    compact
                     label="CGST / SGST"
                     value={`${formatCurrency(detail.financials.cgstAmount, currency)} / ${formatCurrency(detail.financials.sgstAmount, currency)}`}
                   />
                 )}
-                <DetailRow
-                  label="Tax rule"
-                  value={formatRuleName(detail.financials.taxRuleName)}
-                />
               </dl>
-              <dl>
-                <p className="text-xs font-semibold uppercase text-gray-500 mb-2">
+              <dl className="min-w-0 md:px-6">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                   Service & commission
                 </p>
                 <DetailRow
+                  compact
                   label="Service fee"
                   value={formatCurrency(
                     detail.financials.serviceFeeAmount,
@@ -1340,72 +1586,114 @@ export default function AdminBookingDetailPage({
                   )}
                 />
                 <DetailRow
+                  compact
                   label="GST on service fee"
                   value={formatCurrency(detail.financials.serviceFeeGst, currency)}
                 />
                 <DetailRow
+                  compact
                   label="Service fee (incl. GST)"
                   value={formatCurrency(serviceFeeInclGst, currency)}
                 />
                 <DetailRow
-                  label="Service fee rule"
-                  value={
-                    <div>
-                      <span>
-                        {formatRuleName(detail.financials.serviceFeeRuleName)}
-                      </span>
-                      {detail.financials.effectiveServiceFeePercent != null ? (
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          Effective {formatPercent(detail.financials.effectiveServiceFeePercent)}
-                        </p>
-                      ) : null}
-                    </div>
-                  }
-                />
-                <DetailRow
-                  label={`Commission${detail.financials.commissionPercent != null ? ` (${formatPercent(detail.financials.commissionPercent)})` : ""}`}
+                  compact
+                  label={commissionLabel}
                   value={formatCurrency(
-                    detail.financials.commissionAmount,
+                    detail.financials.commission?.amount ??
+                      detail.financials.commissionAmount,
                     currency,
                   )}
                 />
                 <DetailRow
-                  label="GST on commission"
-                  value={formatCurrency(detail.financials.commissionGst, currency)}
+                  compact
+                  label={commissionGstLabel}
+                  value={formatCurrency(
+                    detail.financials.commissionGstRated?.amount ??
+                      detail.financials.commissionGst,
+                    currency,
+                  )}
                 />
-                <DetailRow
-                  label="Commission rule"
-                  value={formatRuleName(detail.financials.commissionRuleName)}
-                />
-                {detail.financials.agencyIncentivePercent != null ? (
+                {detail.financials.commissionInclusiveGst != null ? (
                   <DetailRow
-                    label="Agency incentive"
-                    value={formatPercent(detail.financials.agencyIncentivePercent)}
-                  />
-                ) : null}
-                {detail.financials.agencyCommission != null ? (
-                  <DetailRow
-                    label="Agency commission"
+                    compact
+                    label="Commission (incl. GST)"
                     value={formatCurrency(
-                      detail.financials.agencyCommission,
+                      detail.financials.commissionInclusiveGst,
                       currency,
                     )}
                   />
                 ) : null}
+                {isAgentBooking ? (
+                  <>
+                    {agencyTier ? (
+                      <DetailRow compact label="Agency tier" value={agencyTier} />
+                    ) : null}
+                    {agencyIncentivePercent != null ? (
+                      <DetailRow
+                        compact
+                        label="Agency incentive"
+                        value={`${formatPercent(agencyIncentivePercent)}${
+                          agencyIncentiveType
+                            ? ` · ${formatStatusLabel(agencyIncentiveType)}`
+                            : ""
+                        }`}
+                      />
+                    ) : null}
+                    {agencyIncentiveSource ? (
+                      <DetailRow
+                        compact
+                        label="Incentive source"
+                        value={formatStatusLabel(agencyIncentiveSource)}
+                      />
+                    ) : null}
+                    <DetailRow
+                      compact
+                      label="Agency commission"
+                      value={formatCurrency(agencyCommissionAmount, currency)}
+                    />
+                    {agentTdsAmount != null ? (
+                      <DetailRow
+                        compact
+                        label={
+                          agentTdsPercent != null
+                            ? `Agent TDS @ ${formatPercent(agentTdsPercent)}`
+                            : "Agent TDS"
+                        }
+                        value={formatCurrency(agentTdsAmount, currency)}
+                      />
+                    ) : null}
+                    {agentNetCommission != null ? (
+                      <DetailRow
+                        compact
+                        label="Agent net commission"
+                        value={formatCurrency(agentNetCommission, currency)}
+                      />
+                    ) : null}
+                  </>
+                ) : null}
               </dl>
-              <dl>
-                <p className="text-xs font-semibold uppercase text-gray-500 mb-2">
+              <dl className="min-w-0 md:pl-6">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                   Tax, payout & OTA
                 </p>
                 <DetailRow
-                  label={`TCS${detail.financials.tcsPercent != null ? ` (${formatPercent(detail.financials.tcsPercent)})` : ""}`}
-                  value={formatCurrency(detail.financials.tcsAmount, currency)}
+                  compact
+                  label={tcsLabel}
+                  value={formatCurrency(
+                    detail.financials.tcs?.amount ?? detail.financials.tcsAmount,
+                    currency,
+                  )}
                 />
                 <DetailRow
-                  label={`TDS${detail.financials.tdsPercent != null ? ` (${formatPercent(detail.financials.tdsPercent)})` : ""}`}
-                  value={formatCurrency(detail.financials.tdsAmount, currency)}
+                  compact
+                  label={tdsLabel}
+                  value={formatCurrency(
+                    detail.financials.tds?.amount ?? detail.financials.tdsAmount,
+                    currency,
+                  )}
                 />
                 <DetailRow
+                  compact
                   label="Customer selling price"
                   value={formatCurrency(
                     detail.financials.customerSellingPrice,
@@ -1413,14 +1701,24 @@ export default function AdminBookingDetailPage({
                   )}
                 />
                 <DetailRow
+                  compact
                   label="Final payable"
                   value={formatCurrency(detail.financials.finalPayable, currency)}
                 />
+                {isAgentBooking && agentPayable != null ? (
+                  <DetailRow
+                    compact
+                    label="Agent payable"
+                    value={formatCurrency(agentPayable, currency)}
+                  />
+                ) : null}
                 <DetailRow
+                  compact
                   label="Hotel payout"
                   value={formatCurrency(detail.financials.hotelPayout, currency)}
                 />
                 <DetailRow
+                  compact
                   label="OTA gross revenue"
                   value={formatCurrency(
                     detail.financials.otaGrossRevenue,
@@ -1428,6 +1726,7 @@ export default function AdminBookingDetailPage({
                   )}
                 />
                 <DetailRow
+                  compact
                   label="OTA net revenue"
                   value={formatCurrency(
                     detail.financials.otaNetRevenue,
@@ -1438,31 +1737,79 @@ export default function AdminBookingDetailPage({
             </div>
           </SectionCard>
 
-          {/* Per-room day */}
+          <SectionCard
+            compact
+            icon={Tag}
+            iconBg="bg-gray-50"
+            iconColor="bg-gray-200 text-gray-700"
+            title="Additional info"
+          >
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-6">
+              <SummaryField
+                label="Customer type"
+                value={detail.financials.selectedCustomerType || "—"}
+              />
+              <SummaryField
+                label="Pricing source"
+                value={detail.financials.selectedPricingSource || "—"}
+              />
+              <SummaryField
+                label="Channel"
+                value={detail.financials.channelType || "—"}
+              />
+              <SummaryField
+                label="Booking mode"
+                value={detail.financials.bookingMode || "—"}
+              />
+              <SummaryField label="Currency" value={currency} />
+              {detail.financials.financialContext ? (
+                <SummaryField
+                  label="Financial context"
+                  value={detail.financials.financialContext.replace(/_/g, " ")}
+                />
+              ) : null}
+              {agencyTier ? (
+                <SummaryField label="Agency tier" value={agencyTier} />
+              ) : null}
+              {agencyIncentiveCategory ? (
+                <SummaryField
+                  label="Incentive category"
+                  value={formatStatusLabel(agencyIncentiveCategory)}
+                />
+              ) : null}
+              {agencyIncentiveSource ? (
+                <SummaryField
+                  label="Incentive source"
+                  value={formatStatusLabel(agencyIncentiveSource)}
+                />
+              ) : null}
+            </div>
+          </SectionCard>
+
           {detail.roomDayFinancials.length > 0 && (
             <SectionCard
+              compact
               icon={Layers}
               iconBg="bg-slate-50"
               iconColor="bg-slate-200 text-slate-700"
-              title="Room-day breakdown"
-              className="lg:col-span-2"
+              title="Room day financials"
             >
-              <div className="overflow-x-auto -mx-1">
-                <table className="w-full text-sm border-collapse min-w-[640px]">
+              <div className="-mx-1 overflow-x-auto">
+                <table className="w-full min-w-160 border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase text-gray-500">
-                      <th className="py-2 pr-3">Room</th>
-                      <th className="py-2 pr-3">Stay date</th>
-                      <th className="py-2 pr-3 text-right">Room</th>
-                      <th className="py-2 pr-3 text-right">Extra</th>
+                    <tr className="border-b border-gray-200 text-left text-[10px] font-semibold uppercase text-gray-500">
+                      <th className="py-1.5 pr-2">Room</th>
+                      <th className="py-1.5 pr-2">Date</th>
+                      <th className="py-1.5 pr-2 text-right">Room</th>
+                      <th className="py-1.5 pr-2 text-right">Extra</th>
                       {showRoomDayPromo ? (
-                        <th className="py-2 pr-3 text-right">Promo</th>
+                        <th className="py-1.5 pr-2 text-right">Promo</th>
                       ) : null}
-                      <th className="py-2 pr-3 text-right">Net accom.</th>
-                      <th className="py-2 pr-3 text-right">GST</th>
-                      <th className="py-2 pr-3 text-right">Gross</th>
-                      <th className="py-2 pr-3 text-right">Commission</th>
-                      <th className="py-2 text-right">Net payable</th>
+                      <th className="py-1.5 pr-2 text-right">Net</th>
+                      <th className="py-1.5 pr-2 text-right">GST</th>
+                      <th className="py-1.5 pr-2 text-right">Gross</th>
+                      <th className="py-1.5 pr-2 text-right">Comm.</th>
+                      <th className="py-1.5 text-right">Payable</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1471,36 +1818,36 @@ export default function AdminBookingDetailPage({
                         key={row.id}
                         className="border-b border-gray-50 hover:bg-gray-50/80"
                       >
-                        <td className="py-2.5 pr-3 font-medium">
+                        <td className="py-1.5 pr-2 font-medium">
                           #{row.roomInstanceIndex}
                         </td>
-                        <td className="py-2.5 pr-3">
+                        <td className="py-1.5 pr-2">
                           {formatDate(row.stayDate)}
                         </td>
-                        <td className="py-2.5 pr-3 text-right tabular-nums">
+                        <td className="py-1.5 pr-2 text-right tabular-nums">
                           {formatCurrency(row.roomCharges, currency)}
                         </td>
-                        <td className="py-2.5 pr-3 text-right tabular-nums">
+                        <td className="py-1.5 pr-2 text-right tabular-nums">
                           {formatCurrency(row.extraCharges, currency)}
                         </td>
                         {showRoomDayPromo ? (
-                          <td className="py-2.5 pr-3 text-right tabular-nums text-emerald-700">
+                          <td className="py-1.5 pr-2 text-right tabular-nums text-emerald-700">
                             −{formatCurrency(row.promotionDiscount, currency)}
                           </td>
                         ) : null}
-                        <td className="py-2.5 pr-3 text-right tabular-nums">
+                        <td className="py-1.5 pr-2 text-right tabular-nums">
                           {formatCurrency(row.netAccommodation, currency)}
                         </td>
-                        <td className="py-2.5 pr-3 text-right tabular-nums">
+                        <td className="py-1.5 pr-2 text-right tabular-nums">
                           {formatCurrency(row.hotelGst, currency)}
                         </td>
-                        <td className="py-2.5 pr-3 text-right tabular-nums">
+                        <td className="py-1.5 pr-2 text-right tabular-nums">
                           {formatCurrency(row.propertyGross, currency)}
                         </td>
-                        <td className="py-2.5 pr-3 text-right tabular-nums">
+                        <td className="py-1.5 pr-2 text-right tabular-nums">
                           {formatCurrency(row.commission, currency)}
                         </td>
-                        <td className="py-2.5 text-right tabular-nums font-medium">
+                        <td className="py-1.5 text-right tabular-nums font-medium">
                           {formatCurrency(row.propertyNetPayable, currency)}
                         </td>
                       </tr>
@@ -1511,25 +1858,329 @@ export default function AdminBookingDetailPage({
             </SectionCard>
           )}
 
-          {/* Audit */}
+        </div>
+        </>
+        ) : null}
+
+        {tab === "cancellation" ? (
+        <>
+        <div className="mb-3 grid gap-3 lg:grid-cols-2">
           <SectionCard
-            icon={Clock}
-            iconBg="bg-gray-50"
-            iconColor="bg-gray-200 text-gray-600"
-            title="Audit"
-            className="lg:col-span-2"
+            compact
+            icon={Shield}
+            iconBg="bg-amber-50"
+            iconColor="bg-amber-100 text-amber-600"
+            title="Cancellation policy"
+          >
+            {isNonRefundable ? (
+              <span className="mb-2 inline-flex rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-800">
+                Non-refundable
+              </span>
+            ) : null}
+            {cancellationPolicyLines.length ? (
+              <ul className="space-y-1.5">
+                {cancellationPolicyLines.map((line, idx) => (
+                  <li key={idx} className="flex gap-1.5 text-[11px] leading-snug text-gray-700">
+                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-gray-500">—</p>
+            )}
+          </SectionCard>
+          <SectionCard
+            compact
+            icon={Shield}
+            iconBg="bg-rose-50"
+            iconColor="bg-rose-100 text-rose-600"
+            title={isCancelledBooking ? "Cancellation details" : "If cancelled now"}
           >
             <dl>
+              {isCancelledBooking && cancellation.cancelledBy ? (
+                <DetailRow
+                  compact
+                  label="Cancelled by"
+                  value={formatStatusLabel(cancellation.cancelledBy)}
+                />
+              ) : null}
+              {isCancelledBooking && cancellation.cancellationReason ? (
+                <DetailRow
+                  compact
+                  label="Reason"
+                  value={cancellation.cancellationReason}
+                />
+              ) : null}
+              {!isCancelledBooking && cancellation.isCancellationAllowed != null ? (
+                <DetailRow
+                  compact
+                  label="Cancellation allowed"
+                  value={cancellation.isCancellationAllowed ? "Yes" : "No"}
+                />
+              ) : null}
+              {cancellation.currentPolicyStage ? (
+                <DetailRow
+                  compact
+                  label="Current stage"
+                  value={formatStatusLabel(cancellation.currentPolicyStage)}
+                />
+              ) : null}
+              {isCancelledBooking && cancellation.cancellationDatetime ? (
+                <DetailRow
+                  compact
+                  label="Cancelled on"
+                  value={formatDateTime(cancellation.cancellationDatetime)}
+                />
+              ) : null}
               <DetailRow
-                label="Created"
-                value={formatDateTime(detail.audit.createdAt)}
+                compact
+                label={isCancelledBooking ? "Original reservation" : "Original value"}
+                value={formatCurrency(originalReservationValue, currency)}
               />
-              <DetailRow
-                label="Updated"
-                value={formatDateTime(detail.audit.updatedAt)}
-              />
+              {isCancelledBooking && isAgentBooking && agentPayable != null ? (
+                <DetailRow
+                  compact
+                  label="Original agent payable"
+                  value={formatCurrency(agentPayable, currency)}
+                />
+              ) : null}
+              {isCancelledBooking ||
+              cancellation.isCancellationAllowed !== false ? (
+                <>
+                  <DetailRow
+                    compact
+                    label="Cancellation charge"
+                    value={formatCurrency(cancelNowCharge, currency)}
+                  />
+                  <DetailRow
+                    compact
+                    label={
+                      isCancelledBooking
+                        ? cancellation.cancelledBy?.toUpperCase() === "AGENT"
+                          ? "Agent refund"
+                          : "Customer refund"
+                        : "Refund if cancelled now"
+                    }
+                    value={formatCurrency(
+                      isCancelledBooking ? refundedAmount : refundIfCancelledNow,
+                      currency,
+                    )}
+                  />
+                </>
+              ) : null}
+              {isCancelledBooking && cancellation.refundStatus ? (
+                <DetailRow
+                  compact
+                  label="Refund status"
+                  value={
+                    <StatusBadge
+                      status={cancellation.refundStatus}
+                      tone={refundStatusTone(cancellation.refundStatus)}
+                    />
+                  }
+                />
+              ) : null}
+              {isCancelledBooking && cancellation.refundDateTime ? (
+                <DetailRow
+                  compact
+                  label="Refunded on"
+                  value={formatDateTime(cancellation.refundDateTime)}
+                />
+              ) : null}
             </dl>
           </SectionCard>
+        </div>
+        {isCancelledBooking && cancellation.settlement ? (
+          <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-rose-50/80 px-3 py-2">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Cancellation settlement
+              </h3>
+              {cancellation.settlement.settlementContext ? (
+                <StatusBadge
+                  status={cancellation.settlement.settlementContext}
+                  tone="bg-rose-50 text-rose-700 ring-rose-200"
+                />
+              ) : null}
+            </div>
+            <CalcSectionHeader title="Property charges" />
+            <CalcLine
+              index="1"
+              label="Cancellation accommodation charge"
+              amount={moneyAmount(
+                cancellation.settlement.cancellationAccommodationCharge,
+              )}
+              currency={currency}
+            />
+            <CalcLine
+              index="2"
+              label={
+                detail.financials.gstPercent != null
+                  ? `Hotel GST @ ${formatPercent(detail.financials.gstPercent)}`
+                  : gstLabel
+              }
+              amount={moneyAmount(cancellation.settlement.hotelGst)}
+              currency={currency}
+            />
+            <CalcSubtotal
+              letter="A"
+              label="Total cancellation property charges"
+              amount={moneyAmount(
+                cancellation.settlement.totalCancellationPropertyCharges,
+              )}
+              currency={currency}
+            />
+            <CalcSectionHeader title="Commission" />
+            <CalcLine
+              index="3"
+              label={
+                detail.financials.commissionPercent != null
+                  ? `OTA commission @ ${formatPercent(detail.financials.commissionPercent)}`
+                  : "OTA commission"
+              }
+              amount={moneyAmount(cancellation.settlement.otaCommission)}
+              currency={currency}
+            />
+            <CalcLine
+              index="4"
+              label={
+                detail.financials.commissionGstRated?.ratePercent != null
+                  ? `GST on commission @ ${formatPercent(detail.financials.commissionGstRated.ratePercent)}`
+                  : commissionGstLabel
+              }
+              amount={moneyAmount(cancellation.settlement.commissionGst)}
+              currency={currency}
+            />
+            <CalcSubtotal
+              letter="B"
+              label="Commission inclusive of GST (3 + 4)"
+              amount={moneyAmount(cancellation.settlement.commissionInclusiveGst)}
+              currency={currency}
+            />
+            <CalcSectionHeader title="Tax deductions" />
+            <CalcLine
+              index="5"
+              label={
+                detail.financials.tcsPercent != null
+                  ? `TCS @ ${formatPercent(detail.financials.tcsPercent)}`
+                  : tcsLabel
+              }
+              amount={moneyAmount(cancellation.settlement.tcs)}
+              currency={currency}
+            />
+            <CalcLine
+              index="6"
+              label={
+                detail.financials.tdsPercent != null
+                  ? `TDS @ ${formatPercent(detail.financials.tdsPercent)}`
+                  : tdsLabel
+              }
+              amount={moneyAmount(cancellation.settlement.tds)}
+              currency={currency}
+            />
+            <CalcSubtotal
+              letter="C"
+              label="Tax deduction (5 + 6)"
+              amount={moneyAmount(cancellation.settlement.taxDeduction)}
+              currency={currency}
+            />
+            <CalcSubtotal
+              letter="D"
+              label="Payable to property (A − B − C)"
+              amount={moneyAmount(
+                cancellation.settlement.amountPayableToProperty,
+              )}
+              currency={currency}
+            />
+            <CalcSubtotal
+              letter="E"
+              label="Customer refund"
+              amount={moneyAmount(cancellation.settlement.customerRefund)}
+              currency={currency}
+            />
+          </div>
+        ) : null}
+        </>
+        ) : null}
+
+        {tab === "payment" ? (
+        <SectionCard
+          compact
+          icon={CreditCard}
+          iconBg="bg-emerald-50"
+          iconColor="bg-emerald-100 text-emerald-600"
+          title="Payment summary"
+          className="mb-3"
+        >
+          <dl className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+            <DetailRow
+              compact
+              label="Payment status"
+              value={
+                <span
+                  className={`inline-flex rounded-md border px-2 py-0.5 text-[10px] font-semibold ${getPaymentStatusStyle(
+                    detail.payment.paymentStatus,
+                  )}`}
+                >
+                  {detail.payment.paymentStatus}
+                </span>
+              }
+            />
+            <DetailRow
+              compact
+              label={isAgentBooking ? "Agent paid" : isCancelledBooking ? "Original value" : "Guest paid"}
+              value={formatCurrency(guestPaidAmount, currency)}
+            />
+            {isCancelledBooking &&
+            isAgentBooking &&
+            originalReservationValue !== guestPaidAmount ? (
+              <DetailRow
+                compact
+                label="Original reservation"
+                value={formatCurrency(originalReservationValue, currency)}
+              />
+            ) : null}
+            <DetailRow
+              compact
+              label="Final payable"
+              value={formatCurrency(detail.pricing.finalPayable, currency)}
+            />
+            <DetailRow
+              compact
+              label="Outstanding"
+              value={formatCurrency(outstandingAmount, currency)}
+            />
+            {refundedAmount > 0 ? (
+              <DetailRow
+                compact
+                label="Refunded"
+                value={formatCurrency(refundedAmount, currency)}
+              />
+            ) : null}
+            <DetailRow compact label="Method" value={detail.payment.paymentType || "—"} />
+            <DetailRow
+              compact
+              label="Transaction ID"
+              value={
+                detail.payment.transactionId ? (
+                  <span className="font-mono text-[10px]">
+                    {detail.payment.transactionId}
+                  </span>
+                ) : (
+                  "—"
+                )
+              }
+            />
+            <DetailRow
+              compact
+              label="Paid at"
+              value={formatDateTime(detail.payment.paidAt ?? undefined)}
+            />
+          </dl>
+        </SectionCard>
+        ) : null}
+
         </div>
       </div>
 
