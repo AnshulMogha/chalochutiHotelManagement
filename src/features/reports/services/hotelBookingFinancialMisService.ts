@@ -23,10 +23,7 @@ export type HotelFinancialMisPaymentStatus =
   | "PARTIAL"
   | "PENDING";
 
-export type HotelFinancialMisRefundStatus =
-  | "ALL"
-  | "PENDING"
-  | "PROCESSED";
+export type HotelFinancialMisRefundStatus = "ALL" | "PENDING" | "PROCESSED";
 
 export type HotelFinancialMisSort =
   | "BOOKING_DATE"
@@ -92,6 +89,17 @@ export interface HotelFinancialMisAgentPaymentBreakup {
   agentTds: HotelFinancialMisMoney;
   netAgentCommission: HotelFinancialMisMoney;
   amountPayableByAgent: HotelFinancialMisMoney;
+}
+
+export interface HotelFinancialMisMatchedBracket {
+  cancellationPolicyId?: number | null;
+  id?: number | null;
+  label?: string | null;
+  penaltyType?: string | null;
+  penaltyPercent?: number | null;
+  fixedPenaltyAmount?: number | HotelFinancialMisMoney | null;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
 }
 
 export interface HotelFinancialMisHotelPayoutBreakup {
@@ -179,6 +187,8 @@ export interface HotelFinancialMisBookingRow {
   cancellationPolicy?: string | null;
   cancellationPolicyLines: string[];
   cancellationCharge: HotelFinancialMisMoney;
+  matchedBracket?: HotelFinancialMisMatchedBracket | null;
+  cancellationEvaluatedAt?: string | null;
   refundAmount: HotelFinancialMisMoney;
   refundDateTime?: string | null;
   refundStatus: string;
@@ -274,10 +284,7 @@ function toNullableNumber(value: unknown): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-function money(
-  raw: unknown,
-  fallbackCurrency = "INR",
-): HotelFinancialMisMoney {
+function money(raw: unknown, fallbackCurrency = "INR"): HotelFinancialMisMoney {
   if (raw && typeof raw === "object") {
     const record = raw as Record<string, unknown>;
     return {
@@ -298,8 +305,7 @@ function normalizePaymentEntry(raw: unknown): HotelFinancialMisPaymentEntry {
   const record = (raw ?? {}) as Record<string, unknown>;
   return {
     status: String(record.status ?? "—"),
-    paymentMethod:
-      (record.paymentMethod as string | null | undefined) ?? null,
+    paymentMethod: (record.paymentMethod as string | null | undefined) ?? null,
     paymentTransactionId:
       (record.paymentTransactionId as string | null | undefined) ?? null,
     paymentTime: (record.paymentTime as string | null | undefined) ?? null,
@@ -313,8 +319,7 @@ function normalizePayment(raw: unknown): HotelFinancialMisPaymentInfo | null {
   const paymentsRaw = record.payments;
   return {
     status: (record.status as string | null | undefined) ?? null,
-    paymentMethod:
-      (record.paymentMethod as string | null | undefined) ?? null,
+    paymentMethod: (record.paymentMethod as string | null | undefined) ?? null,
     paymentTransactionId:
       (record.paymentTransactionId as string | null | undefined) ?? null,
     paymentTime: (record.paymentTime as string | null | undefined) ?? null,
@@ -356,8 +361,7 @@ function normalizeAgencyIncentive(
       record.incentivePercent == null
         ? null
         : toNumber(record.incentivePercent),
-    incentiveType:
-      (record.incentiveType as string | null | undefined) ?? null,
+    incentiveType: (record.incentiveType as string | null | undefined) ?? null,
     incentiveCategory:
       (record.incentiveCategory as string | null | undefined) ?? null,
     grossAmount: money(record.grossAmount, fallbackCurrency),
@@ -373,7 +377,8 @@ function normalizeAgentPaymentBreakup(
   if (!raw || typeof raw !== "object") return null;
   const record = raw as Record<string, unknown>;
   const asMoney = (value: unknown) => {
-    if (value && typeof value === "object") return money(value, fallbackCurrency);
+    if (value && typeof value === "object")
+      return money(value, fallbackCurrency);
     return { amount: toNumber(value), currency: fallbackCurrency };
   };
   return {
@@ -385,14 +390,32 @@ function normalizeAgentPaymentBreakup(
   };
 }
 
-function normalizePolicyLines(
-  linesRaw: unknown,
-  policyRaw: unknown,
-): string[] {
+function normalizeMatchedBracket(
+  raw: unknown,
+): HotelFinancialMisMatchedBracket | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  return {
+    cancellationPolicyId: toNullableNumber(record.cancellationPolicyId),
+    id: toNullableNumber(record.id),
+    label: (record.label as string | null | undefined) ?? null,
+    penaltyType: (record.penaltyType as string | null | undefined) ?? null,
+    penaltyPercent:
+      record.penaltyPercent == null ? null : toNumber(record.penaltyPercent),
+    fixedPenaltyAmount:
+      record.fixedPenaltyAmount == null
+        ? null
+        : typeof record.fixedPenaltyAmount === "object"
+          ? money(record.fixedPenaltyAmount)
+          : toNumber(record.fixedPenaltyAmount),
+    effectiveFrom: (record.effectiveFrom as string | null | undefined) ?? null,
+    effectiveTo: (record.effectiveTo as string | null | undefined) ?? null,
+  };
+}
+
+function normalizePolicyLines(linesRaw: unknown, policyRaw: unknown): string[] {
   if (Array.isArray(linesRaw)) {
-    return linesRaw
-      .map((line) => String(line ?? "").trim())
-      .filter(Boolean);
+    return linesRaw.map((line) => String(line ?? "").trim()).filter(Boolean);
   }
   const policy = String(policyRaw ?? "").trim();
   if (!policy) return [];
@@ -513,6 +536,9 @@ function normalizeRow(raw: unknown): HotelFinancialMisBookingRow {
       record.cancellationPolicy,
     ),
     cancellationCharge: money(record.cancellationCharge),
+    matchedBracket: normalizeMatchedBracket(record.matchedBracket),
+    cancellationEvaluatedAt:
+      (record.cancellationEvaluatedAt as string | null | undefined) ?? null,
     refundAmount: money(record.refundAmount),
     refundDateTime:
       (record.refundDateTime as string | null | undefined) ?? null,
@@ -560,9 +586,7 @@ function normalizeResponse(
       outstandingCustomerRefund: money(summaryRaw.outstandingCustomerRefund),
       currency: String(summaryRaw.currency || "INR"),
     },
-    bookings: Array.isArray(bookingsRaw)
-      ? bookingsRaw.map(normalizeRow)
-      : [],
+    bookings: Array.isArray(bookingsRaw) ? bookingsRaw.map(normalizeRow) : [],
     page: {
       page: toNumber(pageRaw.page ?? pageRaw.number),
       size: toNumber(pageRaw.size, 20),

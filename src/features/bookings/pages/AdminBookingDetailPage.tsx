@@ -130,6 +130,38 @@ function withRate(label: string, pct: number | undefined | null): string {
   return pct != null ? `${label} @ ${formatPercent(pct)}` : label;
 }
 
+function hoursToDaysLabel(hours: number): string {
+  const days = hours / 24;
+  const whole =
+    Number.isInteger(days) || Math.abs(days - Math.round(days)) < 1e-8
+      ? Math.round(days)
+      : Number(days.toFixed(1).replace(/\.0$/, ""));
+  if (whole === 1) return "1 day";
+  return `${whole} days`;
+}
+
+/** Convert API labels like "96h–336h @ 25%" to "4–14 days". */
+function formatCancellationBracketLabel(
+  label: string | null | undefined,
+): string {
+  if (!label) return "";
+  const converted = label.replace(
+    /(\d+(?:\.\d+)?)\s*h\b/gi,
+    (_, raw: string) => hoursToDaysLabel(Number(raw)),
+  );
+  return converted
+    .replace(
+      /(\d+(?:\.\d+)?)\s+days?\s*[–-]\s*(\d+(?:\.\d+)?)\s+days?/gi,
+      "$1–$2 days",
+    )
+    .replace(
+      /(\d+(?:\.\d+)?)\s+day\s*[–-]\s*(\d+(?:\.\d+)?)\s+days?/gi,
+      "$1–$2 days",
+    )
+    .replace(/\s*@\s*\d+(?:\.\d+)?\s*%/g, "")
+    .trim();
+}
+
 function firstPercent(
   ...values: Array<number | null | undefined>
 ): number | undefined {
@@ -578,12 +610,16 @@ export default function AdminBookingDetailPage({
     null;
   const agentPayable = rateBreakup?.agentPayable ?? null;
   const isPackageBooking = [
-    detail.financials.bookingMode,
     detail.financials.selectedPricingSource,
     detail.financials.selectedCustomerType,
     agencyIncentiveCategory,
     agencyIncentiveSource,
   ].some((value) => String(value || "").toUpperCase().includes("PACKAGE"));
+  const hidePackagePaymentRefs =
+    isPackageBooking ||
+    String(detail.financials.bookingMode || "")
+      .toUpperCase()
+      .includes("PACKAGE");
   const isAgentBooking =
     agencyCommissionAmount > 0 ||
     (agentNetCommission ?? 0) > 0 ||
@@ -690,10 +726,10 @@ export default function AdminBookingDetailPage({
     detail.financials.tdsPercent,
     detail.financials.tds?.ratePercent,
   );
-  const cancellationChargePercent = ratePercent(
-    cancellationChargeAmount,
-    originalReservationValue,
-  );
+  const matchedBracket = cancellation.matchedBracket ?? null;
+  const cancellationChargePercent =
+    firstPercent(matchedBracket?.penaltyPercent) ??
+    ratePercent(cancellationChargeAmount, originalReservationValue);
   const payablePercent = ratePercent(
     payableToProperty,
     originalReservationValue,
@@ -2027,14 +2063,66 @@ export default function AdminBookingDetailPage({
                 Non-refundable
               </span>
             ) : null}
+            {matchedBracket ? (
+              <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50/80 px-2.5 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                  Policy applied
+                </p>
+                <p className="mt-0.5 text-xs font-semibold text-slate-900">
+                  {formatCancellationBracketLabel(matchedBracket.label) ||
+                    (matchedBracket.penaltyPercent != null
+                      ? `${formatPercent(matchedBracket.penaltyPercent)} cancellation charge`
+                      : "Matched cancellation bracket")}
+                </p>
+                <p className="mt-0.5 text-[11px] text-slate-600">
+                  {[
+                    matchedBracket.penaltyType
+                      ? formatStatusLabel(matchedBracket.penaltyType)
+                      : null,
+                    matchedBracket.penaltyPercent != null
+                      ? formatPercent(matchedBracket.penaltyPercent)
+                      : matchedBracket.fixedPenaltyAmount != null
+                        ? formatCurrency(
+                            moneyAmount(matchedBracket.fixedPenaltyAmount),
+                            currency,
+                          )
+                        : null,
+                    matchedBracket.effectiveFrom
+                      ? `From ${formatDate(matchedBracket.effectiveFrom)}`
+                      : null,
+                    matchedBracket.effectiveTo
+                      ? `to ${formatDate(matchedBracket.effectiveTo)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+            ) : null}
             {cancellationPolicyLines.length ? (
               <ul className="space-y-1.5">
-                {cancellationPolicyLines.map((line, idx) => (
-                  <li key={idx} className="flex gap-1.5 text-[11px] leading-snug text-gray-700">
-                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
+                {cancellationPolicyLines.map((line, idx) => {
+                  const matched =
+                    matchedBracket?.penaltyPercent != null &&
+                    line.includes(`${Number(matchedBracket.penaltyPercent)}%`);
+                  return (
+                  <li
+                    key={idx}
+                    className={`flex gap-1.5 text-[11px] leading-snug ${
+                      matched
+                        ? "rounded-md bg-amber-50 px-1.5 py-1 font-medium text-amber-900"
+                        : "text-gray-700"
+                    }`}
+                  >
+                    <span
+                      className={`mt-1.5 h-1 w-1 shrink-0 rounded-full ${
+                        matched ? "bg-amber-600" : "bg-amber-400"
+                      }`}
+                    />
                     <span>{line}</span>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             ) : (
               <p className="text-xs text-gray-500">—</p>
@@ -2076,11 +2164,27 @@ export default function AdminBookingDetailPage({
                   value={formatStatusLabel(cancellation.currentPolicyStage)}
                 />
               ) : null}
+              {matchedBracket?.label ? (
+                <DetailRow
+                  compact
+                  label="Applied bracket"
+                  value={formatCancellationBracketLabel(matchedBracket.label)}
+                />
+              ) : null}
               {isCancelledBooking && cancellation.cancellationDatetime ? (
                 <DetailRow
                   compact
                   label="Cancelled on"
                   value={formatDateTime(cancellation.cancellationDatetime)}
+                />
+              ) : null}
+              {cancellation.cancellationEvaluatedAt &&
+              cancellation.cancellationEvaluatedAt !==
+                cancellation.cancellationDatetime ? (
+                <DetailRow
+                  compact
+                  label="Policy evaluated"
+                  value={formatDateTime(cancellation.cancellationEvaluatedAt)}
                 />
               ) : null}
               <DetailRow
@@ -2100,7 +2204,7 @@ export default function AdminBookingDetailPage({
                 <>
                   <DetailRow
                     compact
-                    label={withRate("Cancellation charge", cancellationChargePercent)}
+                    label="Cancellation charge"
                     value={formatCurrency(cancelNowCharge, currency)}
                   />
                   <DetailRow
@@ -2330,25 +2434,31 @@ export default function AdminBookingDetailPage({
                 value={formatCurrency(refundedAmount, currency)}
               />
             ) : null}
-            <DetailRow compact label="Method" value={detail.payment.paymentType || "—"} />
-            <DetailRow
-              compact
-              label="Transaction ID"
-              value={
-                detail.payment.transactionId ? (
+            {!hidePackagePaymentRefs && detail.payment.paymentType ? (
+              <DetailRow
+                compact
+                label="Method"
+                value={detail.payment.paymentType}
+              />
+            ) : null}
+            {!hidePackagePaymentRefs && detail.payment.transactionId ? (
+              <DetailRow
+                compact
+                label="Transaction ID"
+                value={
                   <span className="font-mono text-[10px]">
                     {detail.payment.transactionId}
                   </span>
-                ) : (
-                  "—"
-                )
-              }
-            />
-            <DetailRow
-              compact
-              label="Paid at"
-              value={formatDateTime(detail.payment.paidAt ?? undefined)}
-            />
+                }
+              />
+            ) : null}
+            {!hidePackagePaymentRefs && detail.payment.paidAt ? (
+              <DetailRow
+                compact
+                label="Paid at"
+                value={formatDateTime(detail.payment.paidAt)}
+              />
+            ) : null}
           </dl>
         </SectionCard>
         ) : null}

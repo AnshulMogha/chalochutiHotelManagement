@@ -1,8 +1,5 @@
 import { cn } from "@/lib/utils";
-import {
-  formatFinanceMoney,
-  formatStatusLabel,
-} from "./reportUiHelpers";
+import { formatFinanceMoney, formatStatusLabel } from "./reportUiHelpers";
 import type {
   HotelFinancialMisBookingRow,
   HotelFinancialMisMoney,
@@ -48,9 +45,7 @@ export function isHotelFinancialMisB2b(
 export function getHotelFinancialMisAgentPrice(
   booking: Pick<
     HotelFinancialMisBookingRow,
-    | "customerSellingPrice"
-    | "agentNetCommission"
-    | "agentPaymentBreakup"
+    "customerSellingPrice" | "agentNetCommission" | "agentPaymentBreakup"
   >,
 ): HotelFinancialMisMoney {
   if (booking.agentPaymentBreakup) {
@@ -192,7 +187,9 @@ export function BreakupRow({
         bold && "font-semibold",
       )}
     >
-      <span className={cn("min-w-0", bold ? "text-slate-900" : "text-slate-600")}>
+      <span
+        className={cn("min-w-0", bold ? "text-slate-900" : "text-slate-600")}
+      >
         <span className="block">{label}</span>
         {rateHint ? (
           <span className="mt-0.5 block text-[11px] font-normal text-slate-400">

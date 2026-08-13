@@ -48,6 +48,46 @@ type DetailTab =
   | "cancellation"
   | "payment";
 
+function hoursToDaysLabel(hours: number): string {
+  const days = hours / 24;
+  const whole =
+    Number.isInteger(days) || Math.abs(days - Math.round(days)) < 1e-8
+      ? Math.round(days)
+      : Number(days.toFixed(1).replace(/\.0$/, ""));
+  if (whole === 1) return "1 day";
+  return `${whole} days`;
+}
+
+function formatCancellationBracketLabel(
+  label: string | null | undefined,
+): string {
+  if (!label) return "";
+  const converted = label.replace(
+    /(\d+(?:\.\d+)?)\s*h\b/gi,
+    (_, raw: string) => hoursToDaysLabel(Number(raw)),
+  );
+  return converted
+    .replace(
+      /(\d+(?:\.\d+)?)\s+days?\s*[–-]\s*(\d+(?:\.\d+)?)\s+days?/gi,
+      "$1–$2 days",
+    )
+    .replace(
+      /(\d+(?:\.\d+)?)\s+day\s*[–-]\s*(\d+(?:\.\d+)?)\s+days?/gi,
+      "$1–$2 days",
+    )
+    .replace(/\s*@\s*\d+(?:\.\d+)?\s*%/g, "")
+    .trim();
+}
+
+function formatMisPercent(value: number | null | undefined): string | null {
+  if (value == null || Number.isNaN(Number(value))) return null;
+  const rounded = Number(value);
+  const shown = Number.isInteger(rounded)
+    ? String(rounded)
+    : String(rounded).replace(/\.?0+$/, "");
+  return `${shown}%`;
+}
+
 const TABS: { value: DetailTab; label: string }[] = [
   { value: "overview", label: "Overview" },
   { value: "bookingDetails", label: "Booking Details" },
@@ -804,6 +844,14 @@ export default function HotelBookingFinancialMisDetailPage() {
                     tone={refundStatusTone(booking.refundStatus)}
                   />
                 </div>
+                {booking.matchedBracket?.label ? (
+                  <InfoLine
+                    label="Policy applied"
+                    value={formatCancellationBracketLabel(
+                      booking.matchedBracket.label,
+                    )}
+                  />
+                ) : null}
                 <InfoLine
                   label="Cancellation charge"
                   value={formatFinanceMoney(booking.cancellationCharge)}
@@ -1042,7 +1090,8 @@ export default function HotelBookingFinancialMisDetailPage() {
             className={cn(
               "grid gap-4",
               (booking.cancellationPolicyLines.length > 0 ||
-                booking.agentPaymentBreakup) &&
+                booking.agentPaymentBreakup ||
+                booking.matchedBracket) &&
                 "lg:grid-cols-2",
             )}
           >
@@ -1050,7 +1099,8 @@ export default function HotelBookingFinancialMisDetailPage() {
               title="Cancellation & Refund"
               className={
                 booking.cancellationPolicyLines.length > 0 ||
-                booking.agentPaymentBreakup
+                booking.agentPaymentBreakup ||
+                booking.matchedBracket
                   ? undefined
                   : "w-full"
               }
@@ -1074,6 +1124,14 @@ export default function HotelBookingFinancialMisDetailPage() {
                       booking.customerSellingPrice,
                   )}
                 />
+                {booking.matchedBracket?.label ? (
+                  <InfoLine
+                    label="Applied bracket"
+                    value={formatCancellationBracketLabel(
+                      booking.matchedBracket.label,
+                    )}
+                  />
+                ) : null}
                 <InfoLine
                   label="Cancellation charge"
                   value={formatFinanceMoney(booking.cancellationCharge)}
@@ -1082,14 +1140,18 @@ export default function HotelBookingFinancialMisDetailPage() {
                   label="Refund amount"
                   value={formatFinanceMoney(booking.refundAmount)}
                 />
-                <InfoLine
-                  label="Cancelled by"
-                  value={formatStatusLabel(booking.cancelledBy || "—")}
-                />
-                <InfoLine
-                  label="Cancellation reason"
-                  value={booking.cancellationReason || "—"}
-                />
+                {booking.cancelledBy ? (
+                  <InfoLine
+                    label="Cancelled by"
+                    value={formatStatusLabel(booking.cancelledBy)}
+                  />
+                ) : null}
+                {booking.cancellationReason ? (
+                  <InfoLine
+                    label="Cancellation reason"
+                    value={booking.cancellationReason}
+                  />
+                ) : null}
                 <InfoLine
                   label="Cancelled at"
                   value={formatReportDateTime(booking.cancellationDateTime)}
@@ -1101,7 +1163,8 @@ export default function HotelBookingFinancialMisDetailPage() {
               </div>
             </Panel>
             {booking.agentPaymentBreakup ||
-            booking.cancellationPolicyLines.length > 0 ? (
+            booking.cancellationPolicyLines.length > 0 ||
+            booking.matchedBracket ? (
               <div className="space-y-4">
                 {booking.agentPaymentBreakup ? (
                   <Panel title="Agent payment breakup">
@@ -1139,16 +1202,74 @@ export default function HotelBookingFinancialMisDetailPage() {
                     </div>
                   </Panel>
                 ) : null}
-                {booking.cancellationPolicyLines.length > 0 ? (
+                {booking.cancellationPolicyLines.length > 0 ||
+                booking.matchedBracket ? (
                   <Panel title="Cancellation policy">
-                    <ul className="space-y-2 p-4 text-sm text-slate-700">
-                      {booking.cancellationPolicyLines.map((line) => (
-                        <li key={line} className="flex gap-2">
-                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
-                          <span>{line}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="space-y-3 p-4">
+                      {booking.matchedBracket ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-2.5 py-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                            Policy applied
+                          </p>
+                          <p className="mt-0.5 text-xs font-semibold text-slate-900">
+                            {formatCancellationBracketLabel(
+                              booking.matchedBracket.label,
+                            ) ||
+                              (booking.matchedBracket.penaltyPercent != null
+                                ? `${formatMisPercent(booking.matchedBracket.penaltyPercent)} cancellation charge`
+                                : "Matched cancellation bracket")}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-600">
+                            {[
+                              booking.matchedBracket.penaltyType
+                                ? formatStatusLabel(
+                                    booking.matchedBracket.penaltyType,
+                                  )
+                                : null,
+                              formatMisPercent(
+                                booking.matchedBracket.penaltyPercent,
+                              ),
+                              booking.matchedBracket.effectiveFrom
+                                ? `From ${formatReportDate(booking.matchedBracket.effectiveFrom)}`
+                                : null,
+                              booking.matchedBracket.effectiveTo
+                                ? `to ${formatReportDate(booking.matchedBracket.effectiveTo)}`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        </div>
+                      ) : null}
+                      {booking.cancellationPolicyLines.length ? (
+                        <ul className="space-y-2 text-sm text-slate-700">
+                          {booking.cancellationPolicyLines.map((line) => {
+                            const matched =
+                              booking.matchedBracket?.penaltyPercent != null &&
+                              line.includes(
+                                `${Number(booking.matchedBracket.penaltyPercent)}%`,
+                              );
+                            return (
+                              <li
+                                key={line}
+                                className={`flex gap-2 ${
+                                  matched
+                                    ? "rounded-md bg-amber-50 px-1.5 py-1 font-medium text-amber-900"
+                                    : ""
+                                }`}
+                              >
+                                <span
+                                  className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${
+                                    matched ? "bg-amber-600" : "bg-slate-400"
+                                  }`}
+                                />
+                                <span>{line}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : null}
+                    </div>
                   </Panel>
                 ) : null}
               </div>

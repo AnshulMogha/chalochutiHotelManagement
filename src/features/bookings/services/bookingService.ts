@@ -269,6 +269,17 @@ export interface AdminCancellationSettlement {
   recalculatedFromFinancials?: boolean | null;
 }
 
+export interface AdminCancellationMatchedBracket {
+  cancellationPolicyId?: number | null;
+  id?: number | null;
+  label?: string | null;
+  penaltyType?: string | null;
+  penaltyPercent?: number | null;
+  fixedPenaltyAmount?: AdminMoneyLike;
+  effectiveFrom?: string | null;
+  effectiveTo?: string | null;
+}
+
 export interface AdminBookingCancellation {
   cancellationPolicy: string | null;
   isCancellationAllowed?: boolean;
@@ -289,6 +300,8 @@ export interface AdminBookingCancellation {
   refundAmount?: AdminMoneyLike;
   refundStatus?: string | null;
   refundDateTime?: string | null;
+  matchedBracket?: AdminCancellationMatchedBracket | null;
+  cancellationEvaluatedAt?: string | null;
   settlement?: AdminCancellationSettlement | null;
 }
 
@@ -413,6 +426,8 @@ export interface BookingDetail {
   refundAmount?: number | null;
   refundStatus?: string | null;
   refundDateTime?: string | null;
+  matchedBracket?: AdminCancellationMatchedBracket | null;
+  cancellationEvaluatedAt?: string | null;
   hotelPricingComputation?: "RETAIL_RATE" | "PACKAGE_RATE" | string | null;
   hotel_pricing_computation?: "RETAIL_RATE" | "PACKAGE_RATE" | string | null;
 }

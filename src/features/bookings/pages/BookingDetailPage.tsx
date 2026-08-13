@@ -124,6 +124,37 @@ function withRate(label: string, pct: number | undefined): string {
   return pct != null ? `${label} @ ${formatPercent(pct)}` : label;
 }
 
+function hoursToDaysLabel(hours: number): string {
+  const days = hours / 24;
+  const whole =
+    Number.isInteger(days) || Math.abs(days - Math.round(days)) < 1e-8
+      ? Math.round(days)
+      : Number(days.toFixed(1).replace(/\.0$/, ""));
+  if (whole === 1) return "1 day";
+  return `${whole} days`;
+}
+
+function formatCancellationBracketLabel(
+  label: string | null | undefined,
+): string {
+  if (!label) return "";
+  const converted = label.replace(
+    /(\d+(?:\.\d+)?)\s*h\b/gi,
+    (_, raw: string) => hoursToDaysLabel(Number(raw)),
+  );
+  return converted
+    .replace(
+      /(\d+(?:\.\d+)?)\s+days?\s*[–-]\s*(\d+(?:\.\d+)?)\s+days?/gi,
+      "$1–$2 days",
+    )
+    .replace(
+      /(\d+(?:\.\d+)?)\s+day\s*[–-]\s*(\d+(?:\.\d+)?)\s+days?/gi,
+      "$1–$2 days",
+    )
+    .replace(/\s*@\s*\d+(?:\.\d+)?\s*%/g, "")
+    .trim();
+}
+
 function getCancellationPolicyLines(booking: BookingDetail): string[] {
   const lines = booking.cancellationPolicyLines;
   if (Array.isArray(lines) && lines.length > 0) {
@@ -451,14 +482,16 @@ function HotelBookingDetailPage({
   );
   const tcsPercent = ratePercent(rateBreakup?.tcsAmount, chargeBase);
   const tdsPercent = ratePercent(rateBreakup?.tdsAmount, chargeBase);
-  const cancelNowPercent = ratePercent(
-    cancelNowCharge,
-    originalReservationValue,
-  );
-  const cancellationChargePercent = ratePercent(
-    isCancelledBooking ? cancellationChargeAmount : cancelNowCharge,
-    originalReservationValue,
-  );
+  const matchedBracket = booking.matchedBracket ?? null;
+  const cancelNowPercent =
+    matchedBracket?.penaltyPercent ??
+    ratePercent(cancelNowCharge, originalReservationValue);
+  const cancellationChargePercent =
+    matchedBracket?.penaltyPercent ??
+    ratePercent(
+      isCancelledBooking ? cancellationChargeAmount : cancelNowCharge,
+      originalReservationValue,
+    );
   const refundPercent = ratePercent(
     isCancelledBooking ? booking.refundAmount : refundIfCancelledNow,
     originalReservationValue,
@@ -650,9 +683,11 @@ function HotelBookingDetailPage({
                 label="Cancellation charge"
                 value={formatCurrency(cancellationChargeAmount, currency)}
                 sub={
-                  booking.cancellationDatetime
-                    ? formatDateTime(booking.cancellationDatetime)
-                    : undefined
+                  cancellationChargePercent != null
+                    ? formatPercent(cancellationChargePercent)
+                    : booking.cancellationDatetime
+                      ? formatDateTime(booking.cancellationDatetime)
+                      : undefined
                 }
                 icon={Receipt}
                 tone={FINANCE_KPI_TONES.cancellation}
@@ -1144,17 +1179,66 @@ function HotelBookingDetailPage({
                     Non-refundable
                   </span>
                 ) : null}
+                {matchedBracket ? (
+                  <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50/80 px-2.5 py-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                      Policy applied
+                    </p>
+                    <p className="mt-0.5 text-xs font-semibold text-slate-900">
+                      {formatCancellationBracketLabel(matchedBracket.label) ||
+                        (matchedBracket.penaltyPercent != null
+                          ? `${formatPercent(matchedBracket.penaltyPercent)} cancellation charge`
+                          : "Matched cancellation bracket")}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-slate-600">
+                      {[
+                        matchedBracket.penaltyType
+                          ? formatStatusLabel(matchedBracket.penaltyType)
+                          : null,
+                        matchedBracket.penaltyPercent != null
+                          ? formatPercent(matchedBracket.penaltyPercent)
+                          : matchedBracket.fixedPenaltyAmount != null
+                            ? formatCurrency(
+                                moneyAmount(matchedBracket.fixedPenaltyAmount),
+                                currency,
+                              )
+                            : null,
+                        matchedBracket.effectiveFrom
+                          ? `From ${formatDate(matchedBracket.effectiveFrom)}`
+                          : null,
+                        matchedBracket.effectiveTo
+                          ? `to ${formatDate(matchedBracket.effectiveTo)}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                ) : null}
                 {cancellationPolicyLines.length ? (
                   <ul className="space-y-1.5">
-                    {cancellationPolicyLines.map((line, idx) => (
-                      <li
-                        key={idx}
-                        className="flex gap-1.5 text-[11px] leading-snug text-gray-700"
-                      >
-                        <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
-                        <span>{line}</span>
-                      </li>
-                    ))}
+                    {cancellationPolicyLines.map((line, idx) => {
+                      const matched =
+                        matchedBracket?.penaltyPercent != null &&
+                        line.includes(`${Number(matchedBracket.penaltyPercent)}%`);
+                      return (
+                        <li
+                          key={idx}
+                          className={`flex gap-1.5 text-[11px] leading-snug ${
+                            matched
+                              ? "rounded-md bg-amber-50 px-1.5 py-1 font-medium text-amber-900"
+                              : "text-gray-700"
+                          }`}
+                        >
+                          <span
+                            className={`mt-1.5 h-1 w-1 shrink-0 rounded-full ${
+                              matched ? "bg-amber-600" : "bg-amber-400"
+                            }`}
+                          />
+                          <span>{line}</span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <p className="text-xs text-gray-500">—</p>
@@ -1196,10 +1280,24 @@ function HotelBookingDetailPage({
                       value={formatStatusLabel(booking.currentPolicyStage)}
                     />
                   ) : null}
+                  {matchedBracket?.label ? (
+                    <DetailRow
+                      label="Applied bracket"
+                      value={formatCancellationBracketLabel(matchedBracket.label)}
+                    />
+                  ) : null}
                   {isCancelledBooking && booking.cancellationDatetime ? (
                     <DetailRow
                       label="Cancelled on"
                       value={formatDateTime(booking.cancellationDatetime)}
+                    />
+                  ) : null}
+                  {booking.cancellationEvaluatedAt &&
+                  booking.cancellationEvaluatedAt !==
+                    booking.cancellationDatetime ? (
+                    <DetailRow
+                      label="Policy evaluated"
+                      value={formatDateTime(booking.cancellationEvaluatedAt)}
                     />
                   ) : null}
                   <DetailRow
@@ -1214,10 +1312,7 @@ function HotelBookingDetailPage({
                   booking.isCancellationAllowed !== false ? (
                     <>
                       <DetailRow
-                        label={withRate(
-                          "Cancellation charge",
-                          cancellationChargePercent,
-                        )}
+                        label="Cancellation charge"
                         value={formatCurrency(
                           isCancelledBooking
                             ? cancellationChargeAmount
