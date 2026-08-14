@@ -132,6 +132,14 @@ export interface HotelFinancialMisOtaRevenueBreakup {
   formula?: string | null;
 }
 
+export interface HotelFinancialMisBookingOwner {
+  type: string;
+  name: string;
+  email: string | null;
+  code?: string | null;
+  agencyName?: string | null;
+}
+
 export interface HotelFinancialMisBookingRow {
   bookingId: number;
   bookingRef: string;
@@ -151,6 +159,7 @@ export interface HotelFinancialMisBookingRow {
   bookingSource: string;
   bookingRate?: string | null;
   bookedBy: string;
+  bookingOwner?: HotelFinancialMisBookingOwner | null;
   bookingStatus: string;
   bookingStatusRaw?: string | null;
   customerSellingPrice: HotelFinancialMisMoney;
@@ -465,6 +474,23 @@ function normalizeOtaRevenueBreakup(
   };
 }
 
+function normalizeBookingOwner(
+  raw: unknown,
+): HotelFinancialMisBookingOwner | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  const name = String(record.name ?? "").trim();
+  const email = String(record.email ?? "").trim();
+  if (!name && !email) return null;
+  return {
+    type: String(record.type ?? ""),
+    name: name || "—",
+    email: email || null,
+    code: (record.code as string | null | undefined) ?? null,
+    agencyName: (record.agencyName as string | null | undefined) ?? null,
+  };
+}
+
 function normalizeRow(raw: unknown): HotelFinancialMisBookingRow {
   const record = (raw ?? {}) as Record<string, unknown>;
   const hotelBaseRate = money(record.hotelBaseRate ?? record.hotelBaseCost);
@@ -487,6 +513,7 @@ function normalizeRow(raw: unknown): HotelFinancialMisBookingRow {
     bookingSource: String(record.bookingSource ?? "—"),
     bookingRate: (record.bookingRate as string | null | undefined) ?? null,
     bookedBy: String(record.bookedBy ?? "—"),
+    bookingOwner: normalizeBookingOwner(record.bookingOwner),
     bookingStatus: String(record.bookingStatus ?? "—"),
     bookingStatusRaw:
       (record.bookingStatusRaw as string | null | undefined) ?? null,

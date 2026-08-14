@@ -238,6 +238,25 @@ function SummaryField({
   );
 }
 
+function BookedByOwnerSummaryValue({
+  owner,
+}: {
+  owner: BookingDetail["bookingOwner"];
+}) {
+  if (!owner?.name && !owner?.email) return "—";
+
+  return (
+    <span className="block space-y-0.5">
+      {owner.name ? <span className="block">{owner.name}</span> : null}
+      {owner.email ? (
+        <span className="block text-xs font-normal text-gray-500">
+          {owner.email}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function CalcLine({
   index,
   label,
@@ -535,6 +554,9 @@ function HotelBookingDetailPage({
                     </h1>
                     <p className="text-[11px] text-slate-500">
                       {booking.hotelName} · {booking.bookedVia}
+                      {booking.bookingOwner?.name
+                        ? ` · Booked by ${booking.bookingOwner.name}`
+                        : ""}
                     </p>
                   </div>
                 </div>
@@ -648,6 +670,14 @@ function HotelBookingDetailPage({
                   <p className="truncate text-sm font-semibold text-slate-900">
                     {booking.bookedVia}
                   </p>
+                  {booking.bookingOwner?.name || booking.bookingOwner?.email ? (
+                    <p className="truncate text-[11px] text-slate-500">
+                      {booking.bookingOwner.name}
+                      {booking.bookingOwner.email
+                        ? ` · ${booking.bookingOwner.email}`
+                        : ""}
+                    </p>
+                  ) : null}
                   <p className="truncate text-[11px] text-slate-500">
                     {[
                       booking.roomTypes?.[0]?.mealPlan,
@@ -828,6 +858,13 @@ function HotelBookingDetailPage({
                   <SummaryField label="Hotel" value={booking.hotelName} />
                   <SummaryField label="City" value={booking.hotelCity || "—"} />
                   <SummaryField label="Booked via" value={booking.bookedVia} />
+                  <SummaryField
+                    label="Booked by"
+                    value={
+                      <BookedByOwnerSummaryValue owner={booking.bookingOwner} />
+                    }
+                    className="sm:col-span-2"
+                  />
                   <SummaryField
                     label="Check-in"
                     value={formatDate(booking.checkInDate)}

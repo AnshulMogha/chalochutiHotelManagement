@@ -21,6 +21,7 @@ import {
   FinanceKpiCard,
   StatusBadge,
   bookingStatusTone,
+  BookedByOwnerDisplay,
   cacheFinancialMisFilters,
   cacheFinancialMisRow,
   clearCachedFinancialMisFilters,
@@ -720,6 +721,14 @@ export default function HotelBookingFinancialMisPage() {
                           ? ` · ${formatStatusLabel(row.bookingRate)}`
                           : ""}
                       </p>
+                      {row.bookingOwner ? (
+                        <div className="mt-1">
+                          <BookedByOwnerDisplay
+                            owner={row.bookingOwner}
+                            compact
+                          />
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       <button

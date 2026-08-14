@@ -61,6 +61,8 @@ export interface SalesManagerDashboardReportResponse {
   revenueKpis: {
     grossBookingValue: SalesManagerPeriodMoneyMetric;
     collectedRevenue: SalesManagerPeriodMoneyMetric;
+    otaRevenue: SalesManagerPeriodMoneyMetric;
+    agencyCommission: SalesManagerPeriodMoneyMetric;
     outstandingBalance: SalesManagerPeriodMoneyMetric;
     overdueBalance: SalesManagerPeriodMoneyMetric;
     refundAmount: SalesManagerPeriodMoneyMetric;
@@ -161,7 +163,7 @@ export interface SalesManagerAgentSnapshot {
   agencyName: string;
   contactName?: string | null;
   email?: string | null;
-  tier: string;
+  tier: string | null;
   state?: string | null;
   assignedAt?: string | null;
   lastBookingAt?: string | null;
@@ -170,6 +172,9 @@ export interface SalesManagerAgentSnapshot {
   hotelBookings: number;
   packageBookings: number;
   grossBookingValue: SalesManagerMoneyAmount;
+  otaGrossRevenue: SalesManagerMoneyAmount;
+  agencyCommission: SalesManagerMoneyAmount;
+  otaNetRevenue: SalesManagerMoneyAmount;
   outstanding: SalesManagerMoneyAmount;
   collectionPercent: number;
   activeDays: number;
@@ -183,6 +188,7 @@ export type SalesManagerInboxType =
   | "HIGH_OUTSTANDING"
   | "NEW_AGENT_PENDING"
   | "NO_LOGIN_30_DAYS"
+  | "ZERO_BOOKING_AGENT"
   | string;
 
 export interface SalesManagerActionInboxItem {
@@ -274,7 +280,7 @@ function normalizeAgentSnapshot(raw: unknown): SalesManagerAgentSnapshot {
     agencyName: String(record.agencyName ?? "—"),
     contactName: (record.contactName as string | null | undefined) ?? null,
     email: (record.email as string | null | undefined) ?? null,
-    tier: String(record.tier ?? "—"),
+    tier: (record.tier as string | null | undefined) ?? null,
     state: (record.state as string | null | undefined) ?? null,
     assignedAt: (record.assignedAt as string | null | undefined) ?? null,
     lastBookingAt: (record.lastBookingAt as string | null | undefined) ?? null,
@@ -283,6 +289,9 @@ function normalizeAgentSnapshot(raw: unknown): SalesManagerAgentSnapshot {
     hotelBookings: toNumber(record.hotelBookings),
     packageBookings: toNumber(record.packageBookings),
     grossBookingValue: normalizeMoney(record.grossBookingValue),
+    otaGrossRevenue: normalizeMoney(record.otaGrossRevenue),
+    agencyCommission: normalizeMoney(record.agencyCommission),
+    otaNetRevenue: normalizeMoney(record.otaNetRevenue),
     outstanding: normalizeMoney(record.outstanding),
     collectionPercent: toNumber(record.collectionPercent),
     activeDays: toNumber(record.activeDays),
@@ -390,6 +399,8 @@ function normalizeDashboardResponse(
         revenueRaw.grossBookingValue,
       ),
       collectedRevenue: normalizePeriodMoneyMetric(revenueRaw.collectedRevenue),
+      otaRevenue: normalizePeriodMoneyMetric(revenueRaw.otaRevenue),
+      agencyCommission: normalizePeriodMoneyMetric(revenueRaw.agencyCommission),
       outstandingBalance: normalizePeriodMoneyMetric(
         revenueRaw.outstandingBalance,
       ),

@@ -8,6 +8,8 @@ import {
   FinanceKpiCard,
   StatusBadge,
   bookingStatusTone,
+  BookedByOwnerDisplay,
+  formatBookedByLabel,
   getHotelFinancialMisAgentPrice,
   getHotelFinancialMisDisplaySellingPrice,
   isHotelFinancialMisB2b,
@@ -454,11 +456,27 @@ export default function HotelBookingFinancialMisDetailPage() {
                   {booking.customerName || "—"}
                 </p>
                 <p className="truncate text-[11px] text-slate-500">
-                  Booked by {formatStatusLabel(booking.bookedBy)}
-                  {booking.bookingRate
-                    ? ` · ${formatStatusLabel(booking.bookingRate)}`
-                    : ""}
+                  {booking.bookingOwner ? (
+                    <>
+                      {booking.bookingOwner.name}
+                      {booking.bookingOwner.email
+                        ? ` · ${booking.bookingOwner.email}`
+                        : ""}
+                    </>
+                  ) : (
+                    <>
+                      Booked by {formatBookedByLabel(booking.bookedBy)}
+                      {booking.bookingRate
+                        ? ` · ${formatStatusLabel(booking.bookingRate)}`
+                        : ""}
+                    </>
+                  )}
                 </p>
+                {booking.bookingOwner?.agencyName ? (
+                  <p className="truncate text-[11px] font-semibold text-slate-900">
+                    Agency · {booking.bookingOwner.agencyName}
+                  </p>
+                ) : null}
               </div>
             </div>
             <div className="flex gap-2">
@@ -659,7 +677,10 @@ export default function HotelBookingFinancialMisDetailPage() {
                 <InfoLine
                   label="Booked by"
                   value={
-                    booking.bookedBy ? formatStatusLabel(booking.bookedBy) : "—"
+                    <BookedByOwnerDisplay
+                      owner={booking.bookingOwner}
+                      fallback={booking.bookedBy}
+                    />
                   }
                 />
                 <InfoLine
@@ -793,7 +814,12 @@ export default function HotelBookingFinancialMisDetailPage() {
                 />
                 <InfoLine
                   label="Booked by"
-                  value={formatStatusLabel(booking.bookedBy)}
+                  value={
+                    <BookedByOwnerDisplay
+                      owner={booking.bookingOwner}
+                      fallback={booking.bookedBy}
+                    />
+                  }
                 />
                 <InfoLine
                   label="Payment status"

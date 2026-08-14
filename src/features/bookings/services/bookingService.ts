@@ -141,6 +141,14 @@ export interface AdminBookingGuest {
   guests: AdminBookingGuestEntry[];
 }
 
+export interface AdminBookingOwner {
+  type: string;
+  name: string;
+  email: string | null;
+  code?: string | null;
+  agencyName?: string | null;
+}
+
 export interface AdminBookingPricing {
   basePrice: number;
   promotionDiscount?: number;
@@ -307,6 +315,7 @@ export interface AdminBookingCancellation {
 
 export interface AdminBookingFullDetail {
   bookingSummary: AdminBookingSummary;
+  bookingOwner?: AdminBookingOwner | null;
   guest: AdminBookingGuest;
   rooms: BookingDetailRoomType[];
   pricing: AdminBookingPricing;
@@ -337,6 +346,7 @@ function normalizeAdminBookingFullDetail(
       ...data.bookingSummary,
       hotelLocality: data.bookingSummary.hotelLocality ?? null,
     },
+    bookingOwner: data.bookingOwner ?? null,
     pricing: {
       ...pricing,
       promotionDiscount:
@@ -404,6 +414,7 @@ export interface BookingDetail {
   bookingId: string;
   externalBookingId: string | null;
   bookedVia: string;
+  bookingOwner?: AdminBookingOwner | null;
   bookedOn: string;
   paymentType: string | null;
   cancellationPolicy: string | null;
@@ -572,6 +583,7 @@ export const bookingService = {
     }
     return {
       ...data,
+      bookingOwner: data.bookingOwner ?? null,
       hotelPricingComputation:
         data.hotelPricingComputation ?? data.hotel_pricing_computation ?? null,
     };

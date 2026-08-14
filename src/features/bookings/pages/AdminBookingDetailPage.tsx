@@ -305,6 +305,40 @@ function SummaryField({
   );
 }
 
+function isAgentBookingOwnerType(type: string | null | undefined): boolean {
+  const normalized = String(type || "").toUpperCase();
+  return normalized === "DISTRIBUTOR" || normalized === "AGENT";
+}
+
+function BookedBySummaryValue({
+  owner,
+}: {
+  owner: AdminBookingFullDetail["bookingOwner"];
+}) {
+  if (!owner?.name && !owner?.email) return "—";
+
+  const showAgency =
+    isAgentBookingOwnerType(owner.type) && Boolean(owner.agencyName);
+
+  return (
+    <span className="block space-y-0.5">
+      {owner.name ? <span className="block">{owner.name}</span> : null}
+      {owner.email ? (
+        <span className="block text-xs font-normal text-gray-500">
+          {owner.email}
+        </span>
+      ) : null}
+      {showAgency ? (
+        <span className="block text-xs font-semibold text-gray-900">
+          <span>Agency</span>
+          {" · "}
+          {owner.agencyName}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function CalcLine({
   index,
   label,
@@ -621,6 +655,7 @@ export default function AdminBookingDetailPage({
       .toUpperCase()
       .includes("PACKAGE");
   const isAgentBooking =
+    isAgentBookingOwnerType(detail.bookingOwner?.type) ||
     agencyCommissionAmount > 0 ||
     (agentNetCommission ?? 0) > 0 ||
     Boolean(agencyTier);
@@ -787,6 +822,9 @@ export default function AdminBookingDetailPage({
                   </h1>
                   <p className="text-[11px] text-slate-500">
                     ID {summary.bookingId} · {summary.hotelName} · {summary.bookedVia}
+                    {detail.bookingOwner?.name
+                      ? ` · Booked by ${detail.bookingOwner.name}`
+                      : ""}
                   </p>
                 </div>
               </div>
@@ -883,6 +921,24 @@ export default function AdminBookingDetailPage({
                 <p className="truncate text-sm font-semibold text-slate-900">
                   {summary.bookedVia}
                 </p>
+                {detail.bookingOwner?.name || detail.bookingOwner?.email ? (
+                  <>
+                    <p className="truncate text-[11px] text-slate-500">
+                      {detail.bookingOwner.name}
+                      {detail.bookingOwner.email
+                        ? ` · ${detail.bookingOwner.email}`
+                        : ""}
+                    </p>
+                    {isAgentBookingOwnerType(detail.bookingOwner.type) &&
+                    detail.bookingOwner.agencyName ? (
+                      <p className="truncate text-[11px] font-semibold text-slate-900">
+                        <span>Agency</span>
+                        {" · "}
+                        {detail.bookingOwner.agencyName}
+                      </p>
+                    ) : null}
+                  </>
+                ) : null}
                 <p className="truncate text-[11px] text-slate-500">
                   {[
                     detail.rooms[0]?.mealPlan,
@@ -1091,6 +1147,13 @@ export default function AdminBookingDetailPage({
               <SummaryField label="Hotel" value={summary.hotelName} />
               <SummaryField label="City" value={summary.hotelCity || "—"} />
               <SummaryField label="Booked via" value={summary.bookedVia} />
+              <SummaryField
+                label="Booked by"
+                value={
+                  <BookedBySummaryValue owner={detail.bookingOwner} />
+                }
+                className="sm:col-span-2"
+              />
               <SummaryField
                 label="Check-in"
                 value={formatDate(summary.checkInDate)}

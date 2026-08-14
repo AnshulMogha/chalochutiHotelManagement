@@ -181,9 +181,7 @@ export const PAYMENT_REPORT_ROLES = [
   "HOTEL_BD",
 ] as const;
 
-export function canViewPaymentReport(
-  userRoles: string[] | undefined,
-): boolean {
+export function canViewPaymentReport(userRoles: string[] | undefined): boolean {
   if (!userRoles?.length) return false;
   return userRoles.some((role) =>
     (PAYMENT_REPORT_ROLES as readonly string[]).includes(role),
@@ -259,9 +257,7 @@ export const PORTAL_ACCESS_DENIED_ROLES = [
   "TRANSPORT_AGENT_USER",
 ] as const;
 
-export function normalizeUserRoles(
-  userRoles: string[] | undefined,
-): string[] {
+export function normalizeUserRoles(userRoles: string[] | undefined): string[] {
   if (!userRoles?.length) return [];
   return userRoles.filter(
     (role) => typeof role === "string" && role.trim().length > 0,
@@ -274,18 +270,14 @@ export function hasNoAssignedPortalRole(
   return normalizeUserRoles(userRoles).length === 0;
 }
 
-export function hasBlockedPortalRole(
-  userRoles: string[] | undefined,
-): boolean {
+export function hasBlockedPortalRole(userRoles: string[] | undefined): boolean {
   const roles = normalizeUserRoles(userRoles);
   return roles.some((role) =>
     (PORTAL_ACCESS_DENIED_ROLES as readonly string[]).includes(role),
   );
 }
 
-export function isPortalAccessDenied(
-  userRoles: string[] | undefined,
-): boolean {
+export function isPortalAccessDenied(userRoles: string[] | undefined): boolean {
   return hasNoAssignedPortalRole(userRoles) || hasBlockedPortalRole(userRoles);
 }
 

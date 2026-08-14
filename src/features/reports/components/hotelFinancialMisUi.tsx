@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { formatFinanceMoney, formatStatusLabel } from "./reportUiHelpers";
 import type {
   HotelFinancialMisBookingRow,
+  HotelFinancialMisBookingOwner,
   HotelFinancialMisMoney,
 } from "../services/hotelBookingFinancialMisService";
 import type { LucideIcon } from "lucide-react";
@@ -73,6 +74,53 @@ export function getHotelFinancialMisDisplaySellingPrice(
     return getHotelFinancialMisAgentPrice(booking);
   }
   return booking.customerSellingPrice;
+}
+
+export function formatBookedByLabel(bookedBy: string | null | undefined): string {
+  if (!bookedBy || bookedBy === "—") return "—";
+  return formatStatusLabel(bookedBy);
+}
+
+export function BookedByOwnerDisplay({
+  owner,
+  fallback,
+  compact = false,
+}: {
+  owner: HotelFinancialMisBookingOwner | null | undefined;
+  fallback?: string | null;
+  compact?: boolean;
+}) {
+  if (owner?.name || owner?.email) {
+    const textClass = compact ? "text-xs text-slate-500" : "text-sm text-gray-900";
+    const secondaryClass = compact
+      ? "text-xs text-slate-500"
+      : "text-xs font-normal text-gray-500";
+    const agencyClass = compact
+      ? "text-xs font-semibold text-slate-900"
+      : "text-xs font-semibold text-gray-900";
+
+    return (
+      <span className="block space-y-0.5">
+        {owner.name ? (
+          <span className={`block ${textClass}`}>{owner.name}</span>
+        ) : null}
+        {owner.email ? (
+          <span className={`block ${secondaryClass}`}>{owner.email}</span>
+        ) : null}
+        {owner.agencyName ? (
+          <span className={`block ${agencyClass}`}>
+            Agency · {owner.agencyName}
+          </span>
+        ) : null}
+      </span>
+    );
+  }
+
+  if (fallback) {
+    return <span>{formatBookedByLabel(fallback)}</span>;
+  }
+
+  return <span>—</span>;
 }
 
 export function cacheFinancialMisRow(row: unknown): void {

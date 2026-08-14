@@ -39,6 +39,7 @@ import {
   Ban,
   Banknote,
   BookOpen,
+  CalendarDays,
   CircleDollarSign,
   Filter,
   Handshake,
@@ -181,7 +182,29 @@ const INBOX_TABS: { value: SalesManagerInboxType | "ALL"; label: string }[] = [
   { value: "LOW_COLLECTION", label: "Low collection" },
   { value: "HIGH_OUTSTANDING", label: "High outstanding" },
   { value: "NEW_AGENT_PENDING", label: "Pending approval" },
+  { value: "ZERO_BOOKING_AGENT", label: "Zero booking" },
   { value: "NO_LOGIN_30_DAYS", label: "No login" },
+];
+
+type DashboardTab =
+  | "portfolio"
+  | "bookings"
+  | "revenue"
+  | "pipeline"
+  | "leaderboard"
+  | "rankings"
+  | "analytics"
+  | "actions";
+
+const DASHBOARD_TABS: { value: DashboardTab; label: string }[] = [
+  { value: "portfolio", label: "Portfolio" },
+  { value: "bookings", label: "Bookings" },
+  { value: "revenue", label: "Revenue" },
+  { value: "pipeline", label: "Pipeline" },
+  { value: "leaderboard", label: "Leaderboard" },
+  { value: "rankings", label: "Rankings" },
+  { value: "analytics", label: "Analytics" },
+  { value: "actions", label: "Action Inbox" },
 ];
 
 const LEADERBOARD_ITEMS: {
@@ -437,6 +460,7 @@ function SectionPanel({
   className,
   bodyClassName,
   actions,
+  compact = false,
 }: {
   title: string;
   subtitle?: string;
@@ -444,6 +468,7 @@ function SectionPanel({
   className?: string;
   bodyClassName?: string;
   actions?: ReactNode;
+  compact?: boolean;
 }) {
   return (
     <section
@@ -452,16 +477,28 @@ function SectionPanel({
         className,
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-between gap-2 border-b border-slate-100",
+          compact ? "px-3 py-2" : "px-4 py-3",
+        )}
+      >
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+          <h2
+            className={cn(
+              "font-semibold text-slate-900",
+              compact ? "text-xs" : "text-sm",
+            )}
+          >
+            {title}
+          </h2>
           {subtitle ? (
-            <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">{subtitle}</p>
           ) : null}
         </div>
         {actions}
       </div>
-      <div className={cn("p-4", bodyClassName)}>{children}</div>
+      <div className={cn(compact ? "p-3" : "p-4", bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -503,17 +540,27 @@ function StatTile({
   }[tone];
 
   return (
-    <div className={cn("rounded-lg border px-2.5 py-2", tones.wrap)}>
-      <div className="mb-1 flex items-center justify-between gap-1.5">
-        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+    <div className={cn("rounded-md border px-2 py-1.5", tones.wrap)}>
+      <div className="flex items-center justify-between gap-1">
+        <p className="truncate text-[9px] font-semibold uppercase tracking-wide text-slate-500">
           {label}
         </p>
-        <Icon className={cn("h-3 w-3 shrink-0 opacity-70", tones.value)} />
+        <Icon className={cn("h-2.5 w-2.5 shrink-0 opacity-60", tones.value)} />
       </div>
-      <p className={cn("text-lg font-bold tabular-nums leading-none", tones.value)}>
+      <p
+        className={cn(
+          "mt-0.5 font-bold tabular-nums leading-tight",
+          typeof value === "string" && value.length > 12 ? "text-xs" : "text-sm",
+          tones.value,
+        )}
+      >
         {value}
       </p>
-      {hint ? <p className="mt-1 text-[10px] text-slate-500">{hint}</p> : null}
+      {hint ? (
+        <p className="mt-0.5 truncate text-[9px] leading-tight text-slate-500">
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -564,27 +611,27 @@ function MetricWithChange({
 
 function AgentCard({ agent }: { agent: SalesManagerAgentSnapshot }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+    <div className="rounded-md border border-slate-200 bg-slate-50/60 p-2">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-900">
+          <p className="truncate text-xs font-semibold text-slate-900">
             {agent.agencyName}
           </p>
-          <p className="truncate text-[11px] text-slate-500">
+          <p className="truncate text-[10px] text-slate-500">
             {agent.agentCode}
             {agent.state ? ` · ${agent.state}` : ""}
           </p>
         </div>
         <span
           className={cn(
-            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset",
+            "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ring-1 ring-inset",
             agentStatusTone(null, agent.status),
           )}
         >
           {formatStatusLabel(agent.status)}
         </span>
       </div>
-      <div className="mt-2.5 grid grid-cols-4 gap-2 border-t border-slate-200/80 pt-2.5 text-center text-[11px]">
+      <div className="mt-2 grid grid-cols-3 gap-1.5 border-t border-slate-200/80 pt-2 text-center text-[10px]">
         <div>
           <p className="text-slate-500">Bookings</p>
           <p className="font-semibold tabular-nums text-slate-800">
@@ -601,6 +648,18 @@ function AgentCard({ agent }: { agent: SalesManagerAgentSnapshot }) {
           <p className="text-slate-500">Collection</p>
           <p className="font-semibold tabular-nums text-slate-800">
             {agent.collectionPercent.toFixed(1)}%
+          </p>
+        </div>
+        <div>
+          <p className="text-slate-500">OTA Net</p>
+          <p className="font-semibold tabular-nums text-slate-800">
+            {formatReportMoney(agent.otaNetRevenue)}
+          </p>
+        </div>
+        <div>
+          <p className="text-slate-500">Agency Comm.</p>
+          <p className="font-semibold tabular-nums text-slate-800">
+            {formatReportMoney(agent.agencyCommission)}
           </p>
         </div>
         <div>
@@ -636,6 +695,7 @@ export default function SalesManagerDashboardReportPage() {
     "ALL",
   );
   const [inboxSearch, setInboxSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("portfolio");
 
   const [report, setReport] =
     useState<SalesManagerDashboardReportResponse | null>(null);
@@ -887,13 +947,39 @@ export default function SalesManagerDashboardReportPage() {
         </div>
       ) : null}
 
-      <div className="mb-4 space-y-4">
-        <SectionPanel
-          title="Portfolio"
-          subtitle="Agent status and productivity"
-          bodyClassName="space-y-3"
-        >
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="mb-4 overflow-x-auto rounded-lg border border-slate-200 bg-white px-1.5 py-1.5 shadow-sm">
+        <div className="flex min-w-max gap-1">
+          {DASHBOARD_TABS.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => setActiveTab(item.value)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition",
+                activeTab === item.value
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100",
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {activeTab === "portfolio" ? (
+        <div className="mb-4">
+          <SectionPanel
+            compact
+            title="Portfolio"
+            subtitle="Agent status and productivity"
+            bodyClassName="space-y-2.5"
+          >
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Agent status
+            </p>
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
             <StatTile
               label="Assigned"
               icon={Users}
@@ -904,6 +990,11 @@ export default function SalesManagerDashboardReportPage() {
               icon={UserCheck}
               tone="success"
               value={report?.portfolioKpis.activeAgents ?? (loading ? "…" : 0)}
+            />
+            <StatTile
+              label="Inactive"
+              icon={Users}
+              value={report?.portfolioKpis.inactiveAgents ?? (loading ? "…" : 0)}
             />
             <StatTile
               label="Pending"
@@ -928,7 +1019,12 @@ export default function SalesManagerDashboardReportPage() {
               }
             />
           </div>
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          </div>
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Productivity
+            </p>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
             <StatTile
               label="Avg Bookings / Agent"
               icon={BookOpen}
@@ -969,11 +1065,15 @@ export default function SalesManagerDashboardReportPage() {
               }
             />
           </div>
+          </div>
         </SectionPanel>
+        </div>
+      ) : null}
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <SectionPanel title="Bookings" subtitle="Volume in selected period">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
+      {activeTab === "bookings" ? (
+        <div className="mb-4">
+          <SectionPanel compact title="Bookings" subtitle="Volume in selected period">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
               <MetricWithChange
                 label="Total"
                 icon={BookOpen}
@@ -1009,174 +1109,334 @@ export default function SalesManagerDashboardReportPage() {
               />
             </div>
           </SectionPanel>
+        </div>
+      ) : null}
 
-          <SectionPanel title="Revenue" subtitle="Collections and outstanding">
-            <div className="grid grid-cols-2 gap-2">
-              <MetricWithChange
-                label="Gross Booking Value"
-                icon={CircleDollarSign}
-                tone="info"
-                metric={report?.revenueKpis.grossBookingValue}
-                formatValue={(value) => formatReportMoney({ amount: value })}
-              />
-              <MetricWithChange
-                label="Collected Revenue"
-                icon={Wallet}
-                tone="success"
-                metric={report?.revenueKpis.collectedRevenue}
-                formatValue={(value) => formatReportMoney({ amount: value })}
-              />
-              <MetricWithChange
-                label="Outstanding Balance"
-                icon={AlertTriangle}
-                tone="warning"
-                metric={report?.revenueKpis.outstandingBalance}
-                formatValue={(value) => formatReportMoney({ amount: value })}
-              />
-              <StatTile
-                label="Collection Rate"
-                icon={Percent}
-                tone="success"
-                value={
-                  report
-                    ? `${report.revenueKpis.collectionRate.current.toFixed(1)}%`
-                    : loading
-                      ? "…"
-                      : "—"
-                }
-                hint={`Efficiency ${
-                  report
-                    ? `${report.revenueKpis.collectionEfficiencyPercent.toFixed(1)}%`
-                    : "—"
-                }`}
-              />
+      {activeTab === "revenue" ? (
+        <div className="mb-4">
+          <SectionPanel
+            compact
+            title="Revenue"
+            subtitle="Collections, OTA earnings, and outstanding"
+            bodyClassName="space-y-2.5"
+          >
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                Core metrics
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-6">
+                <MetricWithChange
+                  label="Gross Value"
+                  icon={CircleDollarSign}
+                  tone="info"
+                  metric={report?.revenueKpis.grossBookingValue}
+                  formatValue={(value) => formatReportMoney({ amount: value })}
+                />
+                <MetricWithChange
+                  label="Collected"
+                  icon={Wallet}
+                  tone="success"
+                  metric={report?.revenueKpis.collectedRevenue}
+                  formatValue={(value) => formatReportMoney({ amount: value })}
+                />
+                <MetricWithChange
+                  label="OTA Revenue"
+                  icon={TrendingUp}
+                  tone="info"
+                  metric={report?.revenueKpis.otaRevenue}
+                  formatValue={(value) => formatReportMoney({ amount: value })}
+                />
+                <MetricWithChange
+                  label="Agency Comm."
+                  icon={Handshake}
+                  tone="success"
+                  metric={report?.revenueKpis.agencyCommission}
+                  formatValue={(value) => formatReportMoney({ amount: value })}
+                />
+                <MetricWithChange
+                  label="Outstanding"
+                  icon={AlertTriangle}
+                  tone="warning"
+                  metric={report?.revenueKpis.outstandingBalance}
+                  formatValue={(value) => formatReportMoney({ amount: value })}
+                />
+                <StatTile
+                  label="Collection Rate"
+                  icon={Percent}
+                  tone="success"
+                  value={
+                    report
+                      ? `${report.revenueKpis.collectionRate.current.toFixed(1)}%`
+                      : loading
+                        ? "…"
+                        : "—"
+                  }
+                  hint={
+                    report
+                      ? `Efficiency ${report.revenueKpis.collectionEfficiencyPercent.toFixed(1)}%`
+                      : undefined
+                  }
+                />
+              </div>
+            </div>
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                Additional
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-6">
+                <MetricWithChange
+                  label="Overdue"
+                  icon={AlertCircle}
+                  tone="danger"
+                  metric={report?.revenueKpis.overdueBalance}
+                  formatValue={(value) => formatReportMoney({ amount: value })}
+                />
+                <MetricWithChange
+                  label="Refunds"
+                  icon={RefreshCw}
+                  metric={report?.revenueKpis.refundAmount}
+                  formatValue={(value) => formatReportMoney({ amount: value })}
+                />
+                <StatTile
+                  label="Avg Booking"
+                  icon={Banknote}
+                  value={
+                    report
+                      ? formatReportMoney(report.revenueKpis.averageBookingValue)
+                      : loading
+                        ? "…"
+                        : "—"
+                  }
+                />
+                <StatTile
+                  label="Hotel Revenue"
+                  icon={LayoutDashboard}
+                  value={
+                    report
+                      ? formatReportMoney(report.revenueKpis.hotelRevenue)
+                      : loading
+                        ? "…"
+                        : "—"
+                  }
+                />
+                <StatTile
+                  label="Package Revenue"
+                  icon={Package}
+                  value={
+                    report
+                      ? formatReportMoney(report.revenueKpis.packageRevenue)
+                      : loading
+                        ? "…"
+                        : "—"
+                  }
+                />
+                <StatTile
+                  label="Outstanding Days"
+                  icon={CalendarDays}
+                  value={
+                    report
+                      ? `${report.revenueKpis.averageOutstandingDays.toFixed(0)}d`
+                      : loading
+                        ? "…"
+                        : "—"
+                  }
+                  hint={
+                    report
+                      ? `Overdue ${report.revenueKpis.overduePercent.toFixed(1)}%`
+                      : undefined
+                  }
+                />
+              </div>
             </div>
           </SectionPanel>
         </div>
+      ) : null}
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <SectionPanel
-            title="Agent Funnel"
-            subtitle="Onboarding pipeline conversion"
-            bodyClassName="space-y-4"
-          >
-            <div className="space-y-2.5">
-              {funnelCounts.map((step) => {
-                const count = (report?.agentFunnel[step.key] as number) ?? 0;
-                const pct =
-                  funnelTotal > 0
-                    ? Math.round((count / funnelTotal) * 100)
-                    : 0;
+      {activeTab === "pipeline" ? (
+        <div className="mb-4">
+          <div className="grid gap-3 lg:grid-cols-2">
+            <SectionPanel
+              compact
+              title="Agent Funnel"
+              subtitle="Onboarding pipeline conversion"
+              bodyClassName="space-y-3"
+            >
+              <div className="space-y-2">
+                {funnelCounts.map((step) => {
+                  const count = (report?.agentFunnel[step.key] as number) ?? 0;
+                  const pct =
+                    funnelTotal > 0
+                      ? Math.round((count / funnelTotal) * 100)
+                      : 0;
+                  return (
+                    <div key={step.key} className="flex items-center gap-2">
+                      <div className="w-20 shrink-0">
+                        <p className={cn("text-[11px] font-semibold", step.tone)}>
+                          {step.label}
+                        </p>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className={cn("h-full rounded-full", step.bar)}
+                            style={{
+                              width: `${Math.max(pct, count > 0 ? 6 : 0)}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <span className="w-8 shrink-0 text-right text-xs font-bold tabular-nums text-slate-900">
+                        {loading && !report ? "…" : count}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 border-t border-slate-100 pt-2.5">
+                {[
+                  {
+                    label: "Applied → Approved",
+                    value: report?.agentFunnel.appliedToApprovedPercent,
+                  },
+                  {
+                    label: "Approved → Active",
+                    value: report?.agentFunnel.approvedToActivatedPercent,
+                  },
+                  {
+                    label: "Active → First booking",
+                    value: report?.agentFunnel.activatedToFirstBookingPercent,
+                  },
+                  {
+                    label: "First booking → Retained",
+                    value: report?.agentFunnel.firstBookingToRetainedPercent,
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-md bg-slate-50 px-2 py-1.5"
+                  >
+                    <p className="text-[9px] font-medium uppercase tracking-wide text-slate-500">
+                      {item.label}
+                    </p>
+                    <p className="mt-0.5 text-xs font-bold tabular-nums text-slate-900">
+                      {item.value != null ? `${item.value.toFixed(1)}%` : "—"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </SectionPanel>
+
+            <SectionPanel
+              compact
+              title="Agent Health"
+              subtitle="Risk and activity signals"
+              bodyClassName="grid grid-cols-2 gap-1.5"
+            >
+              {HEALTH_ITEMS.map((item) => {
+                const value = report?.agentHealth[item.key] ?? 0;
+                const Icon = item.icon;
+                const active = value > 0;
                 return (
-                  <div key={step.key} className="flex items-center gap-3">
-                    <div className="w-24 shrink-0">
-                      <p className={cn("text-xs font-semibold", step.tone)}>
-                        {step.label}
+                  <div
+                    key={item.key}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md border px-2 py-1.5",
+                      active && item.tone === "danger"
+                        ? "border-rose-200 bg-rose-50/80"
+                        : active && item.tone === "warning"
+                          ? "border-amber-200 bg-amber-50/80"
+                          : "border-slate-200 bg-slate-50/60",
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-2.5 w-2.5 shrink-0",
+                        active && item.tone === "danger"
+                          ? "text-rose-700"
+                          : active && item.tone === "warning"
+                            ? "text-amber-700"
+                            : "text-slate-400",
+                      )}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[9px] font-medium text-slate-500">
+                        {item.label}
+                      </p>
+                      <p
+                        className={cn(
+                          "text-xs font-bold tabular-nums",
+                          active && item.tone === "danger"
+                            ? "text-rose-800"
+                            : active && item.tone === "warning"
+                              ? "text-amber-800"
+                              : "text-slate-900",
+                        )}
+                      >
+                        {loading && !report ? "…" : value}
                       </p>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                        <div
-                          className={cn("h-full rounded-full", step.bar)}
-                          style={{ width: `${Math.max(pct, count > 0 ? 6 : 0)}%` }}
-                        />
-                      </div>
-                    </div>
-                    <span className="w-10 shrink-0 text-right text-sm font-bold tabular-nums text-slate-900">
-                      {loading && !report ? "…" : count}
-                    </span>
                   </div>
                 );
               })}
-            </div>
-            <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3">
-              {[
-                {
-                  label: "Applied → Approved",
-                  value: report?.agentFunnel.appliedToApprovedPercent,
-                },
-                {
-                  label: "Approved → Active",
-                  value: report?.agentFunnel.approvedToActivatedPercent,
-                },
-                {
-                  label: "Active → First booking",
-                  value: report?.agentFunnel.activatedToFirstBookingPercent,
-                },
-                {
-                  label: "First booking → Retained",
-                  value: report?.agentFunnel.firstBookingToRetainedPercent,
-                },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-lg bg-slate-50 px-2.5 py-2"
-                >
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                    {item.label}
-                  </p>
-                  <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900">
-                    {item.value != null ? `${item.value.toFixed(1)}%` : "—"}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </SectionPanel>
+            </SectionPanel>
+          </div>
+        </div>
+      ) : null}
 
+      {activeTab === "leaderboard" ? (
+        <div className="mb-4">
           <SectionPanel
-            title="Agent Health"
-            subtitle="Risk and activity signals"
-            bodyClassName="grid grid-cols-2 gap-2 sm:grid-cols-2"
+            compact
+            title="Leaderboard"
+            subtitle="Top agent by category"
+            bodyClassName="p-0"
+            actions={
+              <Trophy className="h-4 w-4 text-amber-500" aria-hidden="true" />
+            }
           >
-            {HEALTH_ITEMS.map((item) => {
-              const value = report?.agentHealth[item.key] ?? 0;
-              const Icon = item.icon;
-              const active = value > 0;
-              return (
-                <div
-                  key={item.key}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg border px-2.5 py-2",
-                    active && item.tone === "danger"
-                      ? "border-rose-200 bg-rose-50/80"
-                      : active && item.tone === "warning"
-                        ? "border-amber-200 bg-amber-50/80"
-                        : "border-slate-200 bg-slate-50/60",
-                  )}
-                >
-                  <Icon
-                    className={cn(
-                      "h-3 w-3 shrink-0",
-                      active && item.tone === "danger"
-                        ? "text-rose-700"
-                        : active && item.tone === "warning"
-                          ? "text-amber-700"
-                          : "text-slate-400",
-                    )}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[10px] font-medium text-slate-500">
-                      {item.label}
-                    </p>
-                    <p
-                      className={cn(
-                        "text-sm font-bold tabular-nums",
-                        active && item.tone === "danger"
-                          ? "text-rose-800"
-                          : active && item.tone === "warning"
-                            ? "text-amber-800"
-                            : "text-slate-900",
-                      )}
-                    >
-                      {loading && !report ? "…" : value}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+            <LeaderboardPanel leaderboard={report?.leaderboard} loading={loading} />
           </SectionPanel>
         </div>
+      ) : null}
 
+      {activeTab === "rankings" ? (
+        <div className="mb-4">
+          <div className="grid gap-3 lg:grid-cols-2">
+            <SectionPanel
+              compact
+              title="Top Performing Agents"
+              subtitle="Best agents in this period"
+              bodyClassName="space-y-1.5"
+            >
+              {(report?.topPerformingAgents ?? []).length ? (
+                report?.topPerformingAgents.map((agent) => (
+                  <AgentCard key={agent.agentUserId} agent={agent} />
+                ))
+              ) : (
+                <EmptyPanelState message="No top performers in this period" />
+              )}
+            </SectionPanel>
+
+            <SectionPanel
+              compact
+              title="Needs Attention"
+              subtitle="Agents flagged for follow-up"
+              bodyClassName="space-y-1.5"
+            >
+              {(report?.lowPerformingAgents ?? []).length ? (
+                report?.lowPerformingAgents.map((agent) => (
+                  <AgentCard key={agent.agentUserId} agent={agent} />
+                ))
+              ) : (
+                <EmptyPanelState message="No low performers flagged" />
+              )}
+            </SectionPanel>
+          </div>
+        </div>
+      ) : null}
+
+      {activeTab === "analytics" ? (
+        <div className="mb-4 space-y-4">
         <div className="grid gap-4 lg:grid-cols-3">
           {[
             {
@@ -1220,9 +1480,40 @@ export default function SalesManagerDashboardReportPage() {
             </SectionPanel>
           ))}
         </div>
-      </div>
 
-      <div className="mb-4 grid gap-4 lg:grid-cols-3">
+        {(report?.charts.newAgentTrend.length ||
+          report?.charts.agentActivationTrend.length) ? (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {report?.charts.newAgentTrend.length ? (
+              <SectionPanel title="New Agent Trend" bodyClassName="pt-2">
+                <SalesManagerTrendChart
+                  title="New Agent Trend"
+                  points={report.charts.newAgentTrend.map((point) => ({
+                    date: point.date,
+                    value: point.count,
+                  }))}
+                  color="#7c3aed"
+                  valuePrefix=""
+                />
+              </SectionPanel>
+            ) : null}
+            {report?.charts.agentActivationTrend.length ? (
+              <SectionPanel title="Agent Activation Trend" bodyClassName="pt-2">
+                <SalesManagerTrendChart
+                  title="Agent Activation Trend"
+                  points={report.charts.agentActivationTrend.map((point) => ({
+                    date: point.date,
+                    value: point.count,
+                  }))}
+                  color="#0891b2"
+                  valuePrefix=""
+                />
+              </SectionPanel>
+            ) : null}
+          </div>
+        ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-3">
         <SectionPanel title="Product Mix">
           <div className="space-y-3 text-sm">
             {[
@@ -1332,7 +1623,7 @@ export default function SalesManagerDashboardReportPage() {
         </SectionPanel>
       </div>
 
-      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <SectionPanel title="Geographic Performance" bodyClassName="p-0">
           <ReportDataTable
             loading={loading}
@@ -1373,51 +1664,11 @@ export default function SalesManagerDashboardReportPage() {
           />
         </SectionPanel>
       </div>
-
-      <div className="mb-4 space-y-4">
-        <SectionPanel
-          title="Leaderboard"
-          subtitle="Top agent by category"
-          bodyClassName="p-0"
-          actions={
-            <Trophy className="h-4 w-4 text-amber-500" aria-hidden="true" />
-          }
-        >
-          <LeaderboardPanel leaderboard={report?.leaderboard} loading={loading} />
-        </SectionPanel>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <SectionPanel
-            title="Top Performing Agents"
-            subtitle="Best agents in this period"
-            bodyClassName="space-y-2"
-          >
-            {(report?.topPerformingAgents ?? []).length ? (
-              report?.topPerformingAgents.map((agent) => (
-                <AgentCard key={agent.agentUserId} agent={agent} />
-              ))
-            ) : (
-              <EmptyPanelState message="No top performers in this period" />
-            )}
-          </SectionPanel>
-
-          <SectionPanel
-            title="Needs Attention"
-            subtitle="Agents flagged for follow-up"
-            bodyClassName="space-y-2"
-          >
-            {(report?.lowPerformingAgents ?? []).length ? (
-              report?.lowPerformingAgents.map((agent) => (
-                <AgentCard key={agent.agentUserId} agent={agent} />
-              ))
-            ) : (
-              <EmptyPanelState message="No low performers flagged" />
-            )}
-          </SectionPanel>
         </div>
-      </div>
+      ) : null}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      {activeTab === "actions" ? (
+      <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-semibold text-slate-900">
@@ -1464,6 +1715,7 @@ export default function SalesManagerDashboardReportPage() {
           )}
         </div>
       </div>
+      ) : null}
 
       {filterOpen ? (
         <>
