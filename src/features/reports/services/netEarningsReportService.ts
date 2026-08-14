@@ -53,30 +53,52 @@ export interface NetEarningsBookingRow {
   paymentStatusNote: string | null;
 }
 
-export interface NetEarningsEarningsLine {
-  code: string;
-  label: string;
+export interface NetEarningsMoney {
   amount: number;
   currency: string;
 }
 
+export interface NetEarningsLineItem {
+  code: string;
+  label: string;
+  amount: number;
+}
+
+export interface NetEarningsChargeGroup {
+  total: NetEarningsMoney;
+  details: NetEarningsLineItem[];
+}
+
 export interface NetEarningsBookingDetail {
-  bookingRef: string;
-  bookingId: string;
-  pnr: string | null;
-  guestName: string;
-  guestCount: number | null;
-  roomCount: number | null;
-  roomName: string | null;
-  checkInDate: string;
-  checkOutDate: string;
-  bookingStatus: string;
-  bookingAmount: number;
-  payableToProperty: number;
-  paymentStatus: string;
-  earningsLines: NetEarningsEarningsLine[];
-  netPayable: number;
-  currency: string;
+  booking: {
+    bookingId: string;
+    bookingRef: string;
+    pnr: string | null;
+    hotelId: string | null;
+    hotelName: string | null;
+    checkIn: string;
+    checkOut: string;
+    stayDurationDays: number | null;
+    guestCount: number | null;
+    guestName: string;
+    bookingStatus: string;
+    roomCount: number | null;
+    roomNames: string[];
+  };
+  earnings: {
+    propertyGrossCharges: NetEarningsChargeGroup;
+    commissionIncludingGst: NetEarningsChargeGroup;
+    taxDeduction: NetEarningsChargeGroup;
+    payableToProperty: NetEarningsMoney;
+    formula: string | null;
+  };
+  payout: {
+    paymentStatus: string;
+    amountTransferred: NetEarningsMoney;
+    amountAdjusted: NetEarningsMoney;
+    dueDate: string | null;
+    settledAt: string | null;
+  };
 }
 
 export interface NetEarningsReportResponse {
@@ -226,35 +248,123 @@ function normalizeReportResponse(
   };
 }
 
+function toMoneyObject(
+  raw: unknown,
+  fallbackCurrency = "INR",
+): NetEarningsMoney {
+  if (raw && typeof raw === "object") {
+    const record = raw as Record<string, unknown>;
+    return {
+      amount: toMoney(record.amount ?? record),
+      currency: String(record.currency ?? fallbackCurrency),
+    };
+  }
+  return { amount: toMoney(raw), currency: fallbackCurrency };
+}
+
+function normalizeLineItems(raw: unknown): NetEarningsLineItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item, index) => {
+    const record = (item ?? {}) as Record<string, unknown>;
+    return {
+      code: String(record.code ?? String.fromCharCode(65 + index)),
+      label: String(record.label ?? "Line item"),
+      amount: toMoney(record.amount),
+    };
+  });
+}
+
+function normalizeChargeGroup(
+  raw: unknown,
+  fallbackCurrency = "INR",
+): NetEarningsChargeGroup {
+  const record = (raw ?? {}) as Record<string, unknown>;
+  const details = normalizeLineItems(record.details);
+  const total = toMoneyObject(record.total, fallbackCurrency);
+  if (!details.length && total.amount) {
+    return {
+      total,
+      details: [{ code: "", label: "Total", amount: total.amount }],
+    };
+  }
+  return { total, details };
+}
+
 function normalizeBookingDetail(payload: unknown): NetEarningsBookingDetail {
   const data = payload as Record<string, unknown>;
-  const linesRaw =
-    (data.earningsLines as Record<string, unknown>[] | undefined) ?? [];
-  const currency = String(data.currency ?? "INR");
-  const earningsLines = linesRaw.map((line, index) => ({
-    code: String(line.code ?? String.fromCharCode(65 + index)),
-    label: String(line.label ?? "Line item"),
-    amount: toMoney(line.amount),
-    currency: String(line.currency ?? currency),
-  }));
+  const bookingRaw = (data.booking ?? data) as Record<string, unknown>;
+  const earningsRaw = (data.earnings ?? {}) as Record<string, unknown>;
+  const payoutRaw = (data.payout ?? data) as Record<string, unknown>;
+  const currency = String(
+    (earningsRaw.payableToProperty as { currency?: string } | undefined)
+      ?.currency ??
+      data.currency ??
+      "INR",
+  );
+  const roomNamesRaw = bookingRaw.roomNames;
+  const roomNames = Array.isArray(roomNamesRaw)
+    ? roomNamesRaw.map((name) => String(name ?? "").trim()).filter(Boolean)
+    : bookingRaw.roomName
+      ? [String(bookingRaw.roomName)]
+      : [];
+
+  const legacyLines = normalizeLineItems(data.earningsLines);
+  const propertyGrossCharges = normalizeChargeGroup(
+    earningsRaw.propertyGrossCharges,
+    currency,
+  );
+  if (!propertyGrossCharges.details.length && legacyLines.length) {
+    propertyGrossCharges.details = legacyLines;
+    propertyGrossCharges.total = {
+      amount: legacyLines.reduce((sum, line) => sum + line.amount, 0),
+      currency,
+    };
+  }
 
   return {
-    bookingRef: String(data.bookingRef ?? data.bookingId ?? ""),
-    bookingId: String(data.bookingId ?? data.bookingRef ?? ""),
-    pnr: data.pnr != null ? String(data.pnr) : null,
-    guestName: String(data.guestName ?? "—"),
-    guestCount: data.guestCount != null ? Number(data.guestCount) : null,
-    roomCount: data.roomCount != null ? Number(data.roomCount) : null,
-    roomName: data.roomName != null ? String(data.roomName) : null,
-    checkInDate: String(data.checkInDate ?? ""),
-    checkOutDate: String(data.checkOutDate ?? ""),
-    bookingStatus: String(data.bookingStatus ?? "—"),
-    bookingAmount: toMoney(data.bookingAmount),
-    payableToProperty: toMoney(data.payableToProperty),
-    paymentStatus: String(data.paymentStatus ?? "—"),
-    earningsLines,
-    netPayable: toMoney(data.netPayable ?? data.payableToProperty),
-    currency,
+    booking: {
+      bookingId: String(bookingRaw.bookingId ?? bookingRaw.bookingRef ?? ""),
+      bookingRef: String(bookingRaw.bookingRef ?? bookingRaw.bookingId ?? ""),
+      pnr: bookingRaw.pnr != null ? String(bookingRaw.pnr) : null,
+      hotelId: bookingRaw.hotelId != null ? String(bookingRaw.hotelId) : null,
+      hotelName:
+        bookingRaw.hotelName != null ? String(bookingRaw.hotelName) : null,
+      checkIn: String(bookingRaw.checkIn ?? bookingRaw.checkInDate ?? ""),
+      checkOut: String(bookingRaw.checkOut ?? bookingRaw.checkOutDate ?? ""),
+      stayDurationDays:
+        bookingRaw.stayDurationDays != null
+          ? Number(bookingRaw.stayDurationDays)
+          : null,
+      guestCount:
+        bookingRaw.guestCount != null ? Number(bookingRaw.guestCount) : null,
+      guestName: String(bookingRaw.guestName ?? "—"),
+      bookingStatus: String(bookingRaw.bookingStatus ?? "—"),
+      roomCount:
+        bookingRaw.roomCount != null ? Number(bookingRaw.roomCount) : null,
+      roomNames,
+    },
+    earnings: {
+      propertyGrossCharges,
+      commissionIncludingGst: normalizeChargeGroup(
+        earningsRaw.commissionIncludingGst,
+        currency,
+      ),
+      taxDeduction: normalizeChargeGroup(earningsRaw.taxDeduction, currency),
+      payableToProperty: toMoneyObject(
+        earningsRaw.payableToProperty ?? data.payableToProperty,
+        currency,
+      ),
+      formula:
+        earningsRaw.formula != null ? String(earningsRaw.formula) : null,
+    },
+    payout: {
+      paymentStatus: String(payoutRaw.paymentStatus ?? data.paymentStatus ?? "—"),
+      amountTransferred: toMoneyObject(payoutRaw.amountTransferred, currency),
+      amountAdjusted: toMoneyObject(payoutRaw.amountAdjusted, currency),
+      dueDate: payoutRaw.dueDate != null ? String(payoutRaw.dueDate) : null,
+      settledAt:
+        payoutRaw.settledAt != null ? String(payoutRaw.settledAt) : null,
+    },
   };
 }
 

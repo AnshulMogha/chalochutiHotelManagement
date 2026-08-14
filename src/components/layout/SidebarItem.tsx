@@ -62,13 +62,17 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
     if (path === "/") {
       return location.pathname === path;
     }
-    return location.pathname.startsWith(path);
+    return (
+      location.pathname === path || location.pathname.startsWith(`${path}/`)
+    );
   };
 
-  const itemActive = isActive(item.path);
   const hasActiveChild =
     hasChildren && item.children?.some((child) => isActive(child.path));
-  const isHighlighted = itemActive || hasActiveChild;
+  // Parent groups (e.g. Reports at `/reports`) must not highlight just because
+  // the URL is nested under that prefix — only when a child item matches.
+  const itemActive = hasChildren ? !!hasActiveChild : isActive(item.path);
+  const isHighlighted = itemActive;
 
   useEffect(() => {
     if (hasActiveChild) {

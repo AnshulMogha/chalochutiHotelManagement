@@ -93,6 +93,8 @@ export interface InventoryAllocationReportParams {
   datePreset?: InventoryAllocationDatePreset;
   fromDate?: string;
   toDate?: string;
+  roomTypeIds?: number[];
+  ratePlanIds?: number[];
   page?: number;
   size?: number;
 }
@@ -163,6 +165,17 @@ function toNumber(value: unknown, fallback = 0): number {
 function appendPropertyIds(search: URLSearchParams, propertyIds: string[]) {
   if (propertyIds.length) {
     search.set("propertyIds", propertyIds.join(","));
+  }
+}
+
+function appendIdList(
+  search: URLSearchParams,
+  key: string,
+  ids?: number[],
+) {
+  const unique = [...new Set((ids ?? []).filter((id) => Number.isFinite(id)))];
+  if (unique.length) {
+    search.set(key, unique.join(","));
   }
 }
 
@@ -274,6 +287,8 @@ function buildSearchParams(
     if (params.fromDate) search.set("fromDate", params.fromDate);
     if (params.toDate) search.set("toDate", params.toDate);
   }
+  appendIdList(search, "roomTypeIds", params.roomTypeIds);
+  appendIdList(search, "ratePlanIds", params.ratePlanIds);
   return search;
 }
 

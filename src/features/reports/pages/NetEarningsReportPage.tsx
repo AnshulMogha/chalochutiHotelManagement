@@ -4,8 +4,10 @@ import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import {
   exportStatusLabel,
+  formatFinanceCurrency,
   formatReportCurrency,
   formatReportDate,
+  formatReportDateTime,
   formatStatusLabel,
   ReportPageHeader,
 } from "../components/reportUiHelpers";
@@ -15,18 +17,21 @@ import {
   type NetEarningsBookingDetail,
   type NetEarningsBookingStatus,
   type NetEarningsBookingType,
+  type NetEarningsChargeGroup,
   type NetEarningsDatePreset,
   type NetEarningsPaymentStatus,
   type NetEarningsReportResponse,
 } from "../services/netEarningsReportService";
 import type { ExportJobStatus } from "../services/reportExportService";
 import {
+  BedDouble,
   Building2,
   CalendarDays,
   Download,
   Filter,
   Loader2,
   Search,
+  User,
   Wallet,
   X,
 } from "lucide-react";
@@ -91,6 +96,63 @@ function paymentStatusTone(status: string): string {
   return "bg-slate-100 text-slate-700 ring-slate-200";
 }
 
+function ChargeGroupCard({
+  letter,
+  title,
+  group,
+  tone,
+}: {
+  letter: string;
+  title: string;
+  group: NetEarningsChargeGroup;
+  tone: {
+    wrap: string;
+    badge: string;
+    total: string;
+  };
+}) {
+  return (
+    <div className={cn("rounded-xl border p-3", tone.wrap)}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "inline-flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-bold",
+              tone.badge,
+            )}
+          >
+            {letter}
+          </span>
+          <h4 className="text-sm font-semibold text-slate-900">{title}</h4>
+        </div>
+        <span className={cn("text-sm font-bold tabular-nums", tone.total)}>
+          {formatFinanceCurrency(group.total.amount, group.total.currency)}
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {group.details.map((line) => (
+          <div
+            key={`${line.code}-${line.label}`}
+            className="flex items-center justify-between gap-3 text-sm"
+          >
+            <span className="text-slate-600">
+              {line.code ? (
+                <span className="mr-1 font-mono text-[11px] text-slate-400">
+                  {line.code}
+                </span>
+              ) : null}
+              {line.label}
+            </span>
+            <span className="font-medium tabular-nums text-slate-800">
+              {formatFinanceCurrency(line.amount, group.total.currency)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function BookingDetailDrawer({
   open,
   detail,
@@ -103,66 +165,197 @@ function BookingDetailDrawer({
   onClose: () => void;
 }) {
   if (!open) return null;
+  const booking = detail?.booking;
+  const earnings = detail?.earnings;
+  const payout = detail?.payout;
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40">
       <button type="button" className="flex-1" onClick={onClose} aria-label="Close detail" />
       <div className="h-full w-full max-w-xl overflow-auto bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-          <h2 className="text-lg font-bold text-slate-900">Booking Details</h2>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Booking payout</h2>
+            {booking?.bookingRef ? (
+              <p className="font-mono text-xs text-slate-500">{booking.bookingRef}</p>
+            ) : null}
+          </div>
           <button type="button" onClick={onClose} className="rounded p-1 hover:bg-slate-100">
             <X className="h-5 w-5 text-slate-600" />
           </button>
         </div>
-        <div className="p-4">
+        <div className="space-y-3 p-4">
           {loading ? (
             <div className="flex min-h-40 items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
             </div>
-          ) : detail ? (
-            <div className="space-y-4">
-              <div className="rounded-lg border border-slate-200 p-4">
-                <div className="grid grid-cols-2 gap-3 text-sm">
+          ) : detail && booking && earnings && payout ? (
+            <>
+              <section className="rounded-xl border border-slate-200 p-3">
+                <div className="mb-3 flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-slate-500">Booking ID</p>
-                    <p className="font-semibold">{detail.bookingId}</p>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {booking.hotelName || "Hotel"}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      ID {booking.bookingId}
+                      {booking.pnr ? ` · ${booking.pnr}` : ""}
+                    </p>
                   </div>
-                  <div>
-                    <p className="text-slate-500">PNR</p>
-                    <p className="font-semibold">{detail.pnr ?? "—"}</p>
+                  <span
+                    className={cn(
+                      "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset",
+                      booking.bookingStatus.toUpperCase().includes("CONFIRM")
+                        ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                        : booking.bookingStatus.toUpperCase().includes("CANCEL")
+                          ? "bg-rose-50 text-rose-700 ring-rose-200"
+                          : "bg-slate-100 text-slate-700 ring-slate-200",
+                    )}
+                  >
+                    {formatStatusLabel(booking.bookingStatus)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-lg bg-slate-50 px-2.5 py-2">
+                    <p className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                      <User className="h-3 w-3" /> Guest
+                    </p>
+                    <p className="font-semibold text-slate-900">{booking.guestName}</p>
+                    <p className="text-[11px] text-slate-500">
+                      {booking.guestCount != null
+                        ? `${booking.guestCount} guest${booking.guestCount === 1 ? "" : "s"}`
+                        : "—"}
+                    </p>
                   </div>
-                  <div className="col-span-2">
-                    <p className="text-slate-500">Guest</p>
-                    <p className="font-semibold">{detail.guestName}</p>
+                  <div className="rounded-lg bg-slate-50 px-2.5 py-2">
+                    <p className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                      <CalendarDays className="h-3 w-3" /> Stay
+                    </p>
+                    <p className="font-semibold text-slate-900">
+                      {formatReportDate(booking.checkIn)} –{" "}
+                      {formatReportDate(booking.checkOut)}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {booking.stayDurationDays != null
+                        ? `${booking.stayDurationDays} night${booking.stayDurationDays === 1 ? "" : "s"}`
+                        : "—"}
+                    </p>
                   </div>
-                  <div className="col-span-2">
-                    <p className="text-slate-500">Stay</p>
-                    <p className="font-semibold">
-                      {formatReportDate(detail.checkInDate)} – {formatReportDate(detail.checkOutDate)}
+                  <div className="col-span-2 rounded-lg bg-slate-50 px-2.5 py-2">
+                    <p className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                      <BedDouble className="h-3 w-3" /> Rooms
+                    </p>
+                    <p className="font-medium text-slate-800">
+                      {booking.roomNames.length
+                        ? booking.roomNames.join(", ")
+                        : booking.roomCount != null
+                          ? `${booking.roomCount} room${booking.roomCount === 1 ? "" : "s"}`
+                          : "—"}
                     </p>
                   </div>
                 </div>
-              </div>
-              <div className="rounded-lg border border-slate-200 p-4">
-                <h3 className="mb-2 text-sm font-bold text-slate-900">Earnings Breakup</h3>
-                <div className="space-y-2">
-                  {detail.earningsLines.map((line) => (
-                    <div
-                      key={`${line.code}-${line.label}`}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span className="text-slate-700">
-                        ({line.code}) {line.label}
-                      </span>
-                      <span className="font-semibold">{formatReportCurrency(line.amount)}</span>
-                    </div>
-                  ))}
-                  <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-sm font-bold">
-                    <span>Payable to Property</span>
-                    <span>{formatReportCurrency(detail.netPayable)}</span>
+              </section>
+
+              <section className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900">Earnings</h3>
+                  {earnings.formula ? (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-600">
+                      {earnings.formula}
+                    </span>
+                  ) : null}
+                </div>
+                <ChargeGroupCard
+                  letter="A"
+                  title="Property gross charges"
+                  group={earnings.propertyGrossCharges}
+                  tone={{
+                    wrap: "border-sky-200 bg-sky-50/60",
+                    badge: "bg-sky-600 text-white",
+                    total: "text-sky-800",
+                  }}
+                />
+                <ChargeGroupCard
+                  letter="B"
+                  title="Commission incl. GST"
+                  group={earnings.commissionIncludingGst}
+                  tone={{
+                    wrap: "border-amber-200 bg-amber-50/60",
+                    badge: "bg-amber-500 text-white",
+                    total: "text-amber-800",
+                  }}
+                />
+                <ChargeGroupCard
+                  letter="C"
+                  title="Tax deduction"
+                  group={earnings.taxDeduction}
+                  tone={{
+                    wrap: "border-rose-200 bg-rose-50/60",
+                    badge: "bg-rose-600 text-white",
+                    total: "text-rose-800",
+                  }}
+                />
+                <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                  <span className="text-sm font-semibold text-emerald-800">
+                    Payable to property
+                  </span>
+                  <span className="text-base font-bold tabular-nums text-emerald-900">
+                    {formatFinanceCurrency(
+                      earnings.payableToProperty.amount,
+                      earnings.payableToProperty.currency,
+                    )}
+                  </span>
+                </div>
+              </section>
+
+              <section className="rounded-xl border border-slate-200 p-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900">Payout</h3>
+                  <span
+                    className={cn(
+                      "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset",
+                      paymentStatusTone(payout.paymentStatus),
+                    )}
+                  >
+                    {formatStatusLabel(payout.paymentStatus)}
+                  </span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Amount transferred</span>
+                    <span className="font-semibold tabular-nums text-slate-900">
+                      {formatFinanceCurrency(
+                        payout.amountTransferred.amount,
+                        payout.amountTransferred.currency,
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Amount adjusted</span>
+                    <span className="font-semibold tabular-nums text-slate-900">
+                      {formatFinanceCurrency(
+                        payout.amountAdjusted.amount,
+                        payout.amountAdjusted.currency,
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Due date</span>
+                    <span className="font-medium text-slate-800">
+                      {formatReportDate(payout.dueDate)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Settled at</span>
+                    <span className="font-medium text-slate-800">
+                      {payout.settledAt
+                        ? formatReportDateTime(payout.settledAt)
+                        : "—"}
+                    </span>
                   </div>
                 </div>
-              </div>
-            </div>
+              </section>
+            </>
           ) : null}
         </div>
       </div>
@@ -372,14 +565,23 @@ export default function NetEarningsReportPage() {
                 type="button"
                 onClick={downloadExport}
                 disabled={exporting || loading || customRangeInvalid}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800"
+                aria-label={
+                  exporting
+                    ? exportStatusLabel(exportStatus) || "Exporting"
+                    : "Download report"
+                }
+                title={
+                  exporting
+                    ? exportStatusLabel(exportStatus) || "Exporting…"
+                    : "Download report"
+                }
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-60"
               >
                 {exporting ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Download className="h-3.5 w-3.5" />
+                  <Download className="h-4 w-4" />
                 )}
-                {exporting ? exportStatusLabel(exportStatus) || "Exporting…" : "Download Report"}
               </button>
             }
           />

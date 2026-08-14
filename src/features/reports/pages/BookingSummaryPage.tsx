@@ -29,7 +29,6 @@ import {
   MapPin,
   RefreshCw,
   Search,
-  Sparkles,
   Wallet,
   X,
 } from "lucide-react";
@@ -295,13 +294,10 @@ export default function BookingSummaryPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
   const [selectedCityIds, setSelectedCityIds] = useState<number[]>([]);
-  const [propertyOpen, setPropertyOpen] = useState(false);
-  const [cityOpen, setCityOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [propertyFilterQuery, setPropertyFilterQuery] = useState("");
   const [cityFilterQuery, setCityFilterQuery] = useState("");
-  const propertyDropdownRef = useRef<HTMLDivElement>(null);
-  const cityDropdownRef = useRef<HTMLDivElement>(null);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
 
   const [propertyOptions, setPropertyOptions] = useState<HotelLookupItem[]>([]);
@@ -317,28 +313,11 @@ export default function BookingSummaryPage() {
   }, [search]);
 
   useEffect(() => {
-    if (!propertyOpen && !cityOpen && !dateOpen) return;
+    if (!dateOpen) return;
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node | null;
       if (!target) return;
       if (
-        propertyOpen &&
-        propertyDropdownRef.current &&
-        !propertyDropdownRef.current.contains(target)
-      ) {
-        setPropertyOpen(false);
-        setPropertyFilterQuery("");
-      }
-      if (
-        cityOpen &&
-        cityDropdownRef.current &&
-        !cityDropdownRef.current.contains(target)
-      ) {
-        setCityOpen(false);
-        setCityFilterQuery("");
-      }
-      if (
-        dateOpen &&
         dateDropdownRef.current &&
         !dateDropdownRef.current.contains(target)
       ) {
@@ -351,7 +330,7 @@ export default function BookingSummaryPage() {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("touchstart", onPointerDown);
     };
-  }, [propertyOpen, cityOpen, dateOpen]);
+  }, [dateOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -465,40 +444,16 @@ export default function BookingSummaryPage() {
     setSelectedCityIds([]);
     setPropertyFilterQuery("");
     setCityFilterQuery("");
-    setPropertyOpen(false);
-    setCityOpen(false);
     setDatePreset("LAST_30_DAYS");
     setCustomFrom("");
     setCustomTo("");
     setPage(0);
   };
 
-  const hasActiveFilters =
-    search.trim() !== "" ||
-    selectedPropertyIds.length > 0 ||
-    selectedCityIds.length > 0 ||
-    datePreset !== "LAST_30_DAYS";
-
-  const selectedPropertyLabel = useMemo(() => {
-    if (!selectedPropertyIds.length) return "Property";
-    if (selectedPropertyIds.length === 1) {
-      return (
-        propertyOptions.find((p) => p.hotelId === selectedPropertyIds[0])
-          ?.hotelName ?? "1 property"
-      );
-    }
-    return `${selectedPropertyIds.length} properties`;
-  }, [selectedPropertyIds, propertyOptions]);
-
-  const selectedCityLabel = useMemo(() => {
-    if (!selectedCityIds.length) return "City";
-    if (selectedCityIds.length === 1) {
-      return (
-        cityOptions.find((c) => c.id === selectedCityIds[0])?.name ?? "1 city"
-      );
-    }
-    return `${selectedCityIds.length} cities`;
-  }, [selectedCityIds, cityOptions]);
+  const activeFilterCount =
+    (search.trim() ? 1 : 0) +
+    (selectedPropertyIds.length ? 1 : 0) +
+    (selectedCityIds.length ? 1 : 0);
 
   const filteredPropertyOptions = useMemo(() => {
     const query = propertyFilterQuery.trim().toLowerCase();
@@ -595,68 +550,74 @@ export default function BookingSummaryPage() {
         onClose={hideToast}
       />
       <div className="min-h-full bg-gradient-to-b from-slate-50 via-white to-indigo-50/30">
-        <div className="container mx-auto px-4 py-5">
-          {/* Header */}
-          <div className="mb-5 overflow-hidden rounded-2xl border border-indigo-100/80 bg-white shadow-sm">
-            <div className="relative px-5 py-5 sm:px-6">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(47,61,149,0.08),_transparent_55%)]" />
-              <div className="relative flex flex-wrap items-start justify-between gap-4">
-                <div className="flex min-w-0 items-start gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2f3d95] to-indigo-500 text-white shadow-md shadow-indigo-200">
-                    <ClipboardList className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-indigo-700">
-                      <Sparkles className="h-3 w-3" />
-                      Reports
-                    </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                      Booking Summary
-                    </h1>
-                    <p className="mt-1 max-w-xl text-sm text-slate-500">
-                      Today&apos;s bookings, check-ins, stays, and earnings
-                      across your properties.
-                    </p>
-                  </div>
+        <div className="container mx-auto px-4 py-4">
+          <div className="mb-3 overflow-hidden rounded-2xl border border-indigo-100/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#2f3d95] to-indigo-500 text-white shadow-sm">
+                  <ClipboardList className="h-5 w-5" />
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600">
-                    Last updated{" "}
-                    {lastUpdatedAt
-                      ? lastUpdatedAt.toLocaleTimeString("en-IN", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "—"}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={fetchSummary}
-                    disabled={loading}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-60"
-                  >
-                    <RefreshCw
-                      className={cn("h-3.5 w-3.5", loading && "animate-spin")}
-                    />
-                    Refresh
-                  </button>
-                  <button
-                    type="button"
-                    onClick={downloadCsv}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-white px-3 py-1.5 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download
-                  </button>
-                </div>
+                <h1 className="truncate text-lg font-bold text-slate-900">
+                  Booking Summary
+                </h1>
               </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen(true)}
+                  className={cn(
+                    "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition",
+                    activeFilterCount
+                      ? "border-indigo-200 bg-indigo-50 text-indigo-800"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50",
+                  )}
+                >
+                  <Filter className="h-4 w-4" />
+                  Filter
+                  {activeFilterCount ? (
+                    <span className="rounded-full bg-indigo-600 px-1.5 text-[11px] font-bold text-white">
+                      {activeFilterCount}
+                    </span>
+                  ) : null}
+                </button>
+                <span className="hidden rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 sm:inline">
+                  Last updated{" "}
+                  {lastUpdatedAt
+                    ? lastUpdatedAt.toLocaleTimeString("en-IN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "—"}
+                </span>
+                <button
+                  type="button"
+                  onClick={fetchSummary}
+                  disabled={loading}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-60"
+                >
+                  <RefreshCw
+                    className={cn("h-3.5 w-3.5", loading && "animate-spin")}
+                  />
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadCsv}
+                  aria-label="Download"
+                  title="Download"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-200 bg-white text-emerald-700 shadow-sm transition hover:bg-emerald-50"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
 
-              <div
-                className={cn(
-                  "relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3",
-                  isSuperAdmin ? "xl:grid-cols-5" : "xl:grid-cols-4",
-                )}
-              >
+            <div
+              className={cn(
+                "grid grid-cols-2 gap-2 border-t border-slate-100 px-4 py-3 sm:grid-cols-3",
+                isSuperAdmin ? "xl:grid-cols-5" : "xl:grid-cols-4",
+              )}
+            >
                 {[
                   {
                     label: "Hotels",
@@ -722,215 +683,6 @@ export default function BookingSummaryPage() {
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm">
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">
-              <Filter className="h-3.5 w-3.5 text-indigo-500" />
-              Filter
-            </span>
-
-            <div className="relative" ref={propertyDropdownRef}>
-              <button
-                type="button"
-                onClick={() => {
-                  setPropertyOpen((v) => {
-                    if (v) setPropertyFilterQuery("");
-                    return !v;
-                  });
-                  setCityOpen(false);
-                  setCityFilterQuery("");
-                  setDateOpen(false);
-                }}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition",
-                  selectedPropertyIds.length
-                    ? "border-indigo-200 bg-indigo-50 text-indigo-800"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
-                )}
-              >
-                <Building2 className="h-3.5 w-3.5" />
-                {selectedPropertyLabel}
-              </button>
-              {propertyOpen && (
-                <div className="absolute z-30 mt-1 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
-                  <div className="relative mb-2">
-                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      autoFocus
-                      value={propertyFilterQuery}
-                      onChange={(e) => setPropertyFilterQuery(e.target.value)}
-                      placeholder="Search property…"
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/80 py-1.5 pl-8 pr-8 text-sm focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                    />
-                    {propertyFilterQuery ? (
-                      <button
-                        type="button"
-                        onClick={() => setPropertyFilterQuery("")}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                        aria-label="Clear property search"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="max-h-56 space-y-1 overflow-y-auto">
-                    {filtersLoading ? (
-                      <p className="px-2 py-3 text-sm text-slate-500">
-                        Loading…
-                      </p>
-                    ) : filteredPropertyOptions.length === 0 ? (
-                      <p className="px-2 py-3 text-sm text-slate-500">
-                        {propertyFilterQuery.trim()
-                          ? "No matching properties"
-                          : "No properties found"}
-                      </p>
-                    ) : (
-                      filteredPropertyOptions.map((p) => {
-                        const checked = selectedPropertyIds.includes(p.hotelId);
-                        return (
-                          <label
-                            key={p.hotelId}
-                            className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-                          >
-                            <input
-                              type="checkbox"
-                              className="mt-0.5"
-                              checked={checked}
-                              onChange={() => {
-                                setPage(0);
-                                setSelectedPropertyIds((prev) =>
-                                  checked
-                                    ? prev.filter((id) => id !== p.hotelId)
-                                    : [...prev, p.hotelId],
-                                );
-                              }}
-                            />
-                            <span className="text-sm text-slate-800">
-                              {p.hotelName}
-                              {p.city ? (
-                                <span className="block text-xs text-slate-500">
-                                  {p.city}
-                                </span>
-                              ) : null}
-                            </span>
-                          </label>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="relative" ref={cityDropdownRef}>
-              <button
-                type="button"
-                onClick={() => {
-                  setCityOpen((v) => {
-                    if (v) setCityFilterQuery("");
-                    return !v;
-                  });
-                  setPropertyOpen(false);
-                  setPropertyFilterQuery("");
-                  setDateOpen(false);
-                }}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition",
-                  selectedCityIds.length
-                    ? "border-sky-200 bg-sky-50 text-sky-800"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
-                )}
-              >
-                <MapPin className="h-3.5 w-3.5" />
-                {selectedCityLabel}
-              </button>
-              {cityOpen && (
-                <div className="absolute z-30 mt-1 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
-                  <div className="relative mb-2">
-                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      autoFocus
-                      value={cityFilterQuery}
-                      onChange={(e) => setCityFilterQuery(e.target.value)}
-                      placeholder="Search city…"
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50/80 py-1.5 pl-8 pr-8 text-sm focus:border-sky-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-200"
-                    />
-                    {cityFilterQuery ? (
-                      <button
-                        type="button"
-                        onClick={() => setCityFilterQuery("")}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                        aria-label="Clear city search"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="max-h-56 space-y-1 overflow-y-auto">
-                    {filteredCityOptions.length === 0 ? (
-                      <p className="px-2 py-3 text-sm text-slate-500">
-                        {cityFilterQuery.trim()
-                          ? "No matching cities"
-                          : "No cities found"}
-                      </p>
-                    ) : (
-                      filteredCityOptions.map((c) => {
-                        const checked = selectedCityIds.includes(c.id);
-                        return (
-                          <label
-                            key={c.id}
-                            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => {
-                                setPage(0);
-                                setSelectedCityIds((prev) =>
-                                  checked
-                                    ? prev.filter((id) => id !== c.id)
-                                    : [...prev, c.id],
-                                );
-                              }}
-                            />
-                            <span className="text-sm text-slate-800">
-                              {c.name}
-                            </span>
-                          </label>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="relative min-w-[200px] max-w-[300px] flex-1">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search property…"
-                className="w-full rounded-full border border-slate-200 bg-slate-50/80 py-1.5 pl-9 pr-3 text-sm focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-              />
-            </div>
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-              >
-                <X className="h-3.5 w-3.5" />
-                Clear
-              </button>
-            )}
           </div>
 
           <div
@@ -1165,13 +917,7 @@ export default function BookingSummaryPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => {
-                      setDateOpen((v) => !v);
-                      setPropertyOpen(false);
-                      setPropertyFilterQuery("");
-                      setCityOpen(false);
-                      setCityFilterQuery("");
-                    }}
+                    onClick={() => setDateOpen((v) => !v)}
                     className="inline-flex items-center gap-0.5 text-sm font-semibold text-indigo-700 hover:underline"
                   >
                     Change Dates
@@ -1385,6 +1131,166 @@ export default function BookingSummaryPage() {
           </div>
         </div>
       </div>
+
+      {filterOpen ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close filters"
+            className="fixed inset-0 z-40 bg-slate-900/30"
+            onClick={() => setFilterOpen(false)}
+          />
+          <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-slate-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
+              <button
+                type="button"
+                onClick={() => setFilterOpen(false)}
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Search
+                </label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search property…"
+                    className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Property
+                </label>
+                <div className="relative mb-2">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={propertyFilterQuery}
+                    onChange={(e) => setPropertyFilterQuery(e.target.value)}
+                    placeholder="Search property…"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50/80 py-1.5 pl-8 pr-8 text-sm"
+                  />
+                </div>
+                <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-100 p-1">
+                  {filtersLoading ? (
+                    <p className="px-2 py-3 text-sm text-slate-500">Loading…</p>
+                  ) : filteredPropertyOptions.length === 0 ? (
+                    <p className="px-2 py-3 text-sm text-slate-500">
+                      No properties found
+                    </p>
+                  ) : (
+                    filteredPropertyOptions.map((p) => {
+                      const checked = selectedPropertyIds.includes(p.hotelId);
+                      return (
+                        <label
+                          key={p.hotelId}
+                          className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-0.5"
+                            checked={checked}
+                            onChange={() => {
+                              setPage(0);
+                              setSelectedPropertyIds((prev) =>
+                                checked
+                                  ? prev.filter((id) => id !== p.hotelId)
+                                  : [...prev, p.hotelId],
+                              );
+                            }}
+                          />
+                          <span className="text-sm text-slate-800">
+                            {p.hotelName}
+                            {p.city ? (
+                              <span className="block text-xs text-slate-500">
+                                {p.city}
+                              </span>
+                            ) : null}
+                          </span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  City
+                </label>
+                <div className="relative mb-2">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={cityFilterQuery}
+                    onChange={(e) => setCityFilterQuery(e.target.value)}
+                    placeholder="Search city…"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50/80 py-1.5 pl-8 pr-8 text-sm"
+                  />
+                </div>
+                <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-100 p-1">
+                  {filteredCityOptions.length === 0 ? (
+                    <p className="px-2 py-3 text-sm text-slate-500">
+                      No cities found
+                    </p>
+                  ) : (
+                    filteredCityOptions.map((c) => {
+                      const checked = selectedCityIds.includes(c.id);
+                      return (
+                        <label
+                          key={c.id}
+                          className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setPage(0);
+                              setSelectedCityIds((prev) =>
+                                checked
+                                  ? prev.filter((id) => id !== c.id)
+                                  : [...prev, c.id],
+                              );
+                            }}
+                          />
+                          <span className="text-sm text-slate-800">{c.name}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3">
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-sm font-semibold text-[#2f3d95] hover:underline"
+              >
+                Clear all
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterOpen(false)}
+                className="rounded-lg bg-[#2f3d95] px-6 py-2 text-sm font-semibold text-white hover:bg-[#26317a]"
+              >
+                Done
+              </button>
+            </div>
+          </aside>
+        </>
+      ) : null}
     </>
   );
 }

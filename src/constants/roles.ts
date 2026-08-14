@@ -119,7 +119,6 @@ export const HOTEL_BD_REPORT_ROLES = [
   "ZontalHotelManager",
   "FINANCE",
   "AUDITOR",
-  "SALES_MANAGER",
   "ZONAL_MANAGER_SALES",
 ] as const;
 
@@ -144,7 +143,6 @@ export function canFilterHotelBdReportsByUser(
       "ZontalHotelManager",
       "FINANCE",
       "AUDITOR",
-      "SALES_MANAGER",
       "ZONAL_MANAGER_SALES",
     ].includes(role),
   );
@@ -173,6 +171,22 @@ export function canFilterSalesManagerReportsByUser(
   if (!userRoles?.length) return false;
   return userRoles.some((role) =>
     ["SUPER_ADMIN", "ZONAL_MANAGER_SALES"].includes(role),
+  );
+}
+
+/** Roles allowed to view Payment Report (net earnings). */
+export const PAYMENT_REPORT_ROLES = [
+  "SUPER_ADMIN",
+  "HOTEL_OWNER",
+  "HOTEL_BD",
+] as const;
+
+export function canViewPaymentReport(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (PAYMENT_REPORT_ROLES as readonly string[]).includes(role),
   );
 }
 

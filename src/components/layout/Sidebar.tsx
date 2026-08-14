@@ -4,6 +4,7 @@ import logo from "@/assets/originallogo.webp";
 import {
   canViewHotelBdReports,
   canViewHotelBookingFinancialMis,
+  canViewPaymentReport,
   canViewSalesManagerReports,
   isHotelBdRole,
   isReviewerPortalRole,
@@ -101,14 +102,15 @@ function getReportsNavItem(
     options?.includeHotelFinancialMis ??
     canViewHotelBookingFinancialMis(user?.roles);
   const includeBookingReports = canViewModule(user, "BOOKINGS");
-  const showPaymentReport = hasAnyRole(user?.roles, [ROLES.SUPER_ADMIN]);
+  const showPaymentReport = canViewPaymentReport(user?.roles);
 
   if (
     !includeOnboardingPipeline &&
     !includeBookingReports &&
     !includeSalesManagerDashboard &&
     !includeSalesManagerPortfolio &&
-    !includeHotelFinancialMis
+    !includeHotelFinancialMis &&
+    !showPaymentReport
   ) {
     return null;
   }
@@ -140,15 +142,15 @@ function getReportsNavItem(
             path: ROUTES.REPORTS.INVENTORY_ALLOCATION,
             icon: Package,
           },
-          ...(showPaymentReport
-            ? [
-                {
-                  label: "Payment Report",
-                  path: ROUTES.REPORTS.NET_EARNINGS,
-                  icon: Wallet,
-                },
-              ]
-            : []),
+        ]
+      : []),
+    ...(showPaymentReport
+      ? [
+          {
+            label: "Payment Report",
+            path: ROUTES.REPORTS.NET_EARNINGS,
+            icon: Wallet,
+          },
         ]
       : []),
   ];
@@ -206,7 +208,7 @@ const getNavItems = (user: User | null): NavItem[] => {
   }
   if (isSalesManager) {
     const reportsNav = getReportsNavItem(user, {
-      includeOnboardingPipeline: canViewHotelBdReports(userRoles),
+      includeOnboardingPipeline: false,
       includeSalesManagerPortfolio: canViewSalesManagerReports(userRoles),
     });
     if (reportsNav) items.push(reportsNav);

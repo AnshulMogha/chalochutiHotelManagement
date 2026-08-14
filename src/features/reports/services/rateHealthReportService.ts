@@ -36,7 +36,9 @@ export interface RateHealthSummary {
 
 export interface RateHealthRow {
   stayDate: string;
+  roomTypeId?: number | null;
   roomType: string;
+  ratePlanId?: number | null;
   ratePlan: string;
   totalRooms: number;
   allocated: number;
@@ -72,14 +74,20 @@ export interface RateHealthReportParams {
   datePreset?: RateHealthDatePreset;
   fromDate?: string;
   toDate?: string;
+  roomTypeIds?: number[];
+  ratePlanIds?: number[];
   page?: number;
   size?: number;
 }
 
 type RawRateRow = Partial<{
   stayDate: string;
+  roomTypeId: number;
   roomType: string;
+  roomTypeName: string;
+  ratePlanId: number;
   ratePlan: string;
+  ratePlanName: string;
   totalHotelRooms: number;
   allocatedRooms: number;
   soldRooms: number;
@@ -108,11 +116,24 @@ function appendPropertyIds(search: URLSearchParams, propertyIds: string[]) {
   }
 }
 
+function appendIdList(
+  search: URLSearchParams,
+  key: string,
+  ids?: number[],
+) {
+  const unique = [...new Set((ids ?? []).filter((id) => Number.isFinite(id)))];
+  if (unique.length) {
+    search.set(key, unique.join(","));
+  }
+}
+
 function normalizeRow(raw: RawRateRow): RateHealthRow {
   return {
     stayDate: raw.stayDate ?? "",
-    roomType: raw.roomType ?? "—",
-    ratePlan: raw.ratePlan ?? "—",
+    roomTypeId: raw.roomTypeId ?? null,
+    roomType: raw.roomType ?? raw.roomTypeName ?? "—",
+    ratePlanId: raw.ratePlanId ?? null,
+    ratePlan: raw.ratePlan ?? raw.ratePlanName ?? "—",
     totalRooms: raw.totalHotelRooms ?? 0,
     allocated: raw.allocatedRooms ?? 0,
     sold: raw.soldRooms ?? 0,
@@ -192,6 +213,8 @@ function buildSearchParams(
     if (params.fromDate) search.set("fromDate", params.fromDate);
     if (params.toDate) search.set("toDate", params.toDate);
   }
+  appendIdList(search, "roomTypeIds", params.roomTypeIds);
+  appendIdList(search, "ratePlanIds", params.ratePlanIds);
   return search;
 }
 

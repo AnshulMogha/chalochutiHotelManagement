@@ -14,6 +14,8 @@ import {
   type PromotionTier,
 } from "../services/promotionReportService";
 import {
+  ArrowDown,
+  ArrowUp,
   ArrowUpDown,
   BedDouble,
   Building2,
@@ -90,38 +92,31 @@ function expiringTone(row: PromotionReportRow): string {
 
 function SortHeader({
   label,
-  subLabel,
   field,
   activeField,
   direction,
   onSort,
-  align = "left",
 }: {
   label: string;
-  subLabel?: string;
   field?: PromotionSortField;
   activeField: PromotionSortField;
   direction: PromotionSortDir;
   onSort: (field: PromotionSortField) => void;
-  align?: "left" | "right";
 }) {
   const isActive = !!field && field === activeField;
+  const SortIcon = !field
+    ? null
+    : isActive
+      ? direction === "asc"
+        ? ArrowUp
+        : ArrowDown
+      : ArrowUpDown;
 
   if (!field) {
     return (
-      <div
-        className={cn(
-          "text-xs font-semibold uppercase tracking-wide text-slate-600",
-          align === "right" && "text-right",
-        )}
-      >
+      <span className="inline-flex h-7 items-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-slate-600">
         {label}
-        {subLabel ? (
-          <span className="block text-[11px] font-normal normal-case text-slate-400">
-            {subLabel}
-          </span>
-        ) : null}
-      </div>
+      </span>
     );
   }
 
@@ -129,35 +124,19 @@ function SortHeader({
     <button
       type="button"
       onClick={() => onSort(field)}
+      title={isActive ? `Sorted ${direction === "asc" ? "ascending" : "descending"}` : `Sort by ${label}`}
       className={cn(
-        "group inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-wide",
+        "inline-flex h-7 cursor-pointer items-center gap-1 whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide",
         isActive ? "text-[#2f3d95]" : "text-slate-600 hover:text-slate-900",
-        align === "right" && "flex-row-reverse",
       )}
     >
-      <span className="text-left">
-        {label}
-        {subLabel ? (
-          <span className="block text-[11px] font-normal normal-case text-slate-400">
-            {subLabel}
-          </span>
-        ) : null}
-      </span>
-      <span
+      {label}
+      <SortIcon
         className={cn(
-          "inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 normal-case tracking-normal",
-          isActive
-            ? "border-indigo-200 bg-indigo-100 text-[#2f3d95]"
-            : "border-slate-200 bg-white text-slate-400 group-hover:border-slate-300",
+          "h-3.5 w-3.5 shrink-0",
+          isActive ? "text-[#2f3d95]" : "text-slate-400",
         )}
-      >
-        <ArrowUpDown className="h-3.5 w-3.5" />
-        {isActive ? (
-          <span className="text-[11px] font-bold leading-none">
-            {direction === "asc" ? "Asc" : "Desc"}
-          </span>
-        ) : null}
-      </span>
+      />
     </button>
   );
 }
@@ -465,245 +444,194 @@ export default function PromotionReportPage() {
         onClose={hideToast}
       />
       <div className="min-h-full bg-gradient-to-b from-slate-50 via-white to-indigo-50/30">
-        <div className="container mx-auto px-4 py-5">
-          {/* Header */}
-          <div className="mb-4 overflow-hidden rounded-2xl border border-indigo-100/80 bg-white shadow-sm">
-            <div className="relative px-5 py-5">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(47,61,149,0.08),_transparent_55%)]" />
-              <div className="relative flex flex-wrap items-start justify-between gap-4">
-                <div className="flex min-w-0 items-start gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2f3d95] to-indigo-500 text-white shadow-md shadow-indigo-200">
-                    <Tag className="h-6 w-6" />
+        <div className="container mx-auto px-4 py-3">
+          <div className="mb-3 overflow-hidden rounded-xl border border-indigo-100/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#2f3d95] to-indigo-500 text-white shadow-sm">
+                  <Tag className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="mb-0.5 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-px text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                    <Sparkles className="h-2.5 w-2.5" />
+                    Reports
                   </div>
+                  <h1 className="text-lg font-bold tracking-tight text-slate-900">
+                    Promotion Report
+                  </h1>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                  Updated{" "}
+                  {lastUpdatedAt
+                    ? lastUpdatedAt.toLocaleTimeString("en-IN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "—"}
+                </span>
+                <button
+                  type="button"
+                  onClick={fetchReport}
+                  disabled={loading}
+                  aria-label="Refresh"
+                  title="Refresh"
+                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-60"
+                >
+                  <RefreshCw
+                    className={cn("h-3.5 w-3.5", loading && "animate-spin")}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadCsv}
+                  aria-label="Download"
+                  title="Download"
+                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-emerald-200 bg-white text-emerald-700 shadow-sm transition hover:bg-emerald-50"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1">
+                  {tabs.map((tab) => {
+                    const isActive = tab.value === lifecycleTab;
+                    return (
+                      <button
+                        key={tab.value}
+                        type="button"
+                        onClick={() => switchTab(tab.value)}
+                        className={cn(
+                          "cursor-pointer rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition",
+                          isActive
+                            ? "bg-indigo-100 text-[#2f3d95]"
+                            : "text-slate-500 hover:bg-slate-100 hover:text-slate-800",
+                        )}
+                      >
+                        {tab.label}
+                        <span
+                          className={cn(
+                            "ml-1.5 rounded-full px-1.5 py-px text-[10px] font-bold",
+                            isActive
+                              ? "bg-white text-[#2f3d95]"
+                              : "bg-slate-100 text-slate-500",
+                          )}
+                        >
+                          {tab.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="hidden h-6 w-px bg-slate-200 sm:block" />
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+                    <BedDouble className="h-3.5 w-3.5" />
+                  </span>
                   <div>
-                    <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-indigo-700">
-                      <Sparkles className="h-3 w-3" />
-                      Reports
-                    </div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                      Promotion Report
-                    </h1>
-                    <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                      Promotions and coupons with their contribution to room
-                      nights and revenue.
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      Room nights
+                    </p>
+                    <p className="text-sm font-bold tabular-nums text-slate-900">
+                      {summary.roomNights}
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600">
-                    Last updated{" "}
-                    {lastUpdatedAt
-                      ? lastUpdatedAt.toLocaleTimeString("en-IN", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "—"}
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                    <CircleDollarSign className="h-3.5 w-3.5" />
                   </span>
-                  <button
-                    type="button"
-                    onClick={fetchReport}
-                    disabled={loading}
-                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-60"
-                  >
-                    <RefreshCw
-                      className={cn("h-3.5 w-3.5", loading && "animate-spin")}
-                    />
-                    Refresh
-                  </button>
-                  <button
-                    type="button"
-                    onClick={downloadCsv}
-                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-emerald-200 bg-white px-3 py-1.5 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download
-                  </button>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      Revenue
+                    </p>
+                    <p className="text-sm font-bold tabular-nums text-emerald-700">
+                      {formatCurrency(summary.revenue, summary.currency)}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Lifecycle tabs */}
-            <div className="flex flex-wrap items-center gap-1 border-t border-slate-100 px-5">
-              {tabs.map((tab) => {
-                const isActive = tab.value === lifecycleTab;
-                return (
-                  <button
-                    key={tab.value}
-                    type="button"
-                    onClick={() => switchTab(tab.value)}
-                    className={cn(
-                      "-mb-px cursor-pointer border-b-2 px-3 py-3 text-sm font-semibold uppercase tracking-wide transition",
-                      isActive
-                        ? "border-[#2f3d95] text-[#2f3d95]"
-                        : "border-transparent text-slate-500 hover:text-slate-800",
-                    )}
-                  >
-                    {tab.label}
-                    <span
-                      className={cn(
-                        "ml-2 rounded-full px-2 py-0.5 text-[11px] font-bold",
-                        isActive
-                          ? "bg-indigo-100 text-[#2f3d95]"
-                          : "bg-slate-100 text-slate-500",
-                      )}
-                    >
-                      {tab.count}
+              <div className="flex items-center gap-2">
+                <p className="hidden text-[11px] text-slate-400 sm:block">
+                  {performanceAxis === "BOOKING" ? "Booking" : "Stay"}{" "}
+                  {formatDisplayDate(performanceRange.fromDate)} –{" "}
+                  {formatDisplayDate(performanceRange.toDate)}
+                  {tiers.length ? ` · ${tiers.length} tier(s)` : ""}
+                </p>
+                <button
+                  type="button"
+                  onClick={openFilters}
+                  className={cn(
+                    "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    activeFilterCount
+                      ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
+                  )}
+                >
+                  <Filter className="h-3.5 w-3.5" />
+                  Filter
+                  {activeFilterCount ? (
+                    <span className="rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">
+                      {activeFilterCount}
                     </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Summary + filter trigger */}
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 shadow-sm">
-            <div className="flex flex-wrap items-center gap-6">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
-                  <BedDouble className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Room nights
-                  </p>
-                  <p className="text-xl font-extrabold tabular-nums text-slate-900">
-                    {summary.roomNights}
-                  </p>
-                </div>
+                  ) : null}
+                </button>
               </div>
-              <div className="hidden h-10 w-px bg-slate-200 sm:block" />
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                  <CircleDollarSign className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Revenue
-                  </p>
-                  <p className="text-xl font-extrabold tabular-nums text-emerald-700">
-                    {formatCurrency(summary.revenue, summary.currency)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-start gap-1 sm:items-end">
-              <button
-                type="button"
-                onClick={openFilters}
-                className={cn(
-                  "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition",
-                  activeFilterCount
-                    ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
-                )}
-              >
-                <Filter className="h-4 w-4" />
-                Filter
-                {activeFilterCount ? (
-                  <span className="rounded-full bg-indigo-600 px-1.5 text-[11px] font-bold text-white">
-                    {activeFilterCount}
-                  </span>
-                ) : null}
-              </button>
-              <p className="text-[11px] text-slate-400">
-                {performanceAxis === "BOOKING" ? "Booking" : "Stay"} dates{" "}
-                {formatDisplayDate(performanceRange.fromDate)} –{" "}
-                {formatDisplayDate(performanceRange.toDate)}
-                {tiers.length ? ` · ${tiers.length} tier(s)` : ""}
-              </p>
             </div>
           </div>
 
           {/* Table */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
             <div className="overflow-x-auto">
               <table className="min-w-full">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/90">
-                    <th className="px-4 py-3.5 text-left">
-                      <SortHeader
-                        label="Promotion Name"
-                        field="name"
-                        activeField={sort}
-                        direction={sortDir}
-                        onSort={handleSort}
-                      />
-                    </th>
-                    <th className="px-3 py-3.5 text-left">
-                      <SortHeader
-                        label="Promotion Type"
-                        field="type"
-                        activeField={sort}
-                        direction={sortDir}
-                        onSort={handleSort}
-                      />
-                    </th>
-                    <th className="px-3 py-3.5 text-left">
-                      <SortHeader
-                        label="Booking Date"
-                        activeField={sort}
-                        direction={sortDir}
-                        onSort={handleSort}
-                      />
-                    </th>
-                    <th className="px-3 py-3.5 text-left">
-                      <SortHeader
-                        label="Stay Date"
-                        activeField={sort}
-                        direction={sortDir}
-                        onSort={handleSort}
-                      />
-                    </th>
-                    <th className="px-3 py-3.5 text-left">
-                      <SortHeader
-                        label="Discount"
-                        subLabel="All user (+ logged in)"
-                        activeField={sort}
-                        direction={sortDir}
-                        onSort={handleSort}
-                      />
-                    </th>
-                    <th className="px-3 py-3.5 text-left">
-                      <SortHeader
-                        label={
-                          lifecycleTab === "ACTIVE"
-                            ? "Expiring"
-                            : "De-activated On"
-                        }
-                        field={
-                          lifecycleTab === "ACTIVE" ? "expiring" : "deactivatedOn"
-                        }
-                        activeField={sort}
-                        direction={sortDir}
-                        onSort={handleSort}
-                      />
-                    </th>
-                    <th className="px-3 py-3.5 text-left">
-                      <SortHeader
-                        label="Room Nights"
-                        field="roomNights"
-                        activeField={sort}
-                        direction={sortDir}
-                        onSort={handleSort}
-                      />
-                    </th>
-                    <th className="px-3 py-3.5 text-left">
-                      <SortHeader
-                        label="Revenue"
-                        field="revenue"
-                        activeField={sort}
-                        direction={sortDir}
-                        onSort={handleSort}
-                      />
-                    </th>
+                  <tr className="border-b border-slate-200 bg-slate-50">
+                    {(
+                      [
+                        { label: "Promotion Name", field: "name" as const },
+                        { label: "Promotion Type", field: "type" as const },
+                        { label: "Booking Date" },
+                        { label: "Stay Date" },
+                        { label: "Discount" },
+                        {
+                          label:
+                            lifecycleTab === "ACTIVE"
+                              ? "Expiring"
+                              : "Deactivated On",
+                          field:
+                            lifecycleTab === "ACTIVE"
+                              ? ("expiring" as const)
+                              : ("deactivatedOn" as const),
+                        },
+                        { label: "Room Nights", field: "roomNights" as const },
+                        { label: "Revenue", field: "revenue" as const },
+                      ] as const
+                    ).map((col) => (
+                      <th
+                        key={col.label}
+                        className="whitespace-nowrap px-3 py-2.5 text-left align-middle"
+                      >
+                        <SortHeader
+                          label={col.label}
+                          field={"field" in col ? col.field : undefined}
+                          activeField={sort}
+                          direction={sortDir}
+                          onSort={handleSort}
+                        />
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={colSpan} className="px-4 py-20 text-center">
-                        <Loader2 className="mx-auto mb-3 h-9 w-9 animate-spin text-indigo-600" />
+                      <td colSpan={colSpan} className="px-4 py-12 text-center">
+                        <Loader2 className="mx-auto mb-2 h-7 w-7 animate-spin text-indigo-600" />
                         <p className="text-sm font-medium text-slate-600">
                           Loading promotion report…
                         </p>
@@ -711,9 +639,9 @@ export default function PromotionReportPage() {
                     </tr>
                   ) : rows.length === 0 ? (
                     <tr>
-                      <td colSpan={colSpan} className="px-4 py-20 text-center">
-                        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-                          <Tag className="h-7 w-7 text-slate-400" />
+                      <td colSpan={colSpan} className="px-4 py-12 text-center">
+                        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
+                          <Tag className="h-5 w-5 text-slate-400" />
                         </div>
                         <p className="text-sm font-semibold text-slate-800">
                           No {lifecycleTab === "ACTIVE" ? "active" : "expired"}{" "}
@@ -730,7 +658,7 @@ export default function PromotionReportPage() {
                         key={row.promotionId}
                         className="align-top transition-colors hover:bg-indigo-50/40"
                       >
-                        <td className="px-4 py-3.5">
+                        <td className="px-3 py-2">
                           <button
                             type="button"
                             onClick={() =>
@@ -743,28 +671,28 @@ export default function PromotionReportPage() {
                             {row.promotionName}
                           </button>
                           {row.lastModified ? (
-                            <p className="mt-1 text-[11px] text-slate-400">
+                            <p className="mt-0.5 text-[11px] text-slate-400">
                               Last modified{" "}
                               {formatDisplayDate(row.lastModified)}
                             </p>
                           ) : null}
                         </td>
-                        <td className="px-3 py-3.5">
+                        <td className="px-3 py-2">
                           <span className="text-sm text-slate-700">
                             {row.promotionTypeLabel ?? row.promotionType}
                           </span>
                         </td>
-                        <td className="px-3 py-3.5">
+                        <td className="px-3 py-2">
                           <span className="text-sm text-slate-700">
                             {row.bookingDateLabel ?? "—"}
                           </span>
                         </td>
-                        <td className="px-3 py-3.5">
+                        <td className="px-3 py-2">
                           <span className="text-sm text-slate-700">
                             {row.stayDateLabel ?? "—"}
                           </span>
                         </td>
-                        <td className="px-3 py-3.5">
+                        <td className="px-3 py-2">
                           <span className="text-sm font-semibold text-slate-800">
                             {row.discountLabel ?? "—"}
                           </span>
@@ -774,7 +702,7 @@ export default function PromotionReportPage() {
                             </p>
                           ) : null}
                         </td>
-                        <td className="px-3 py-3.5">
+                        <td className="px-3 py-2">
                           {lifecycleTab === "ACTIVE" ? (
                             row.expiringLabel ? (
                               <span
@@ -795,12 +723,12 @@ export default function PromotionReportPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-3.5">
+                        <td className="px-3 py-2">
                           <span className="text-sm font-bold tabular-nums text-indigo-700">
                             {row.roomNights || "—"}
                           </span>
                         </td>
-                        <td className="px-3 py-3.5">
+                        <td className="px-3 py-2">
                           <span className="text-sm font-bold tabular-nums text-emerald-700">
                             {formatCurrency(
                               row.revenue?.amount,
@@ -825,7 +753,7 @@ export default function PromotionReportPage() {
             </div>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-4 py-3">
+              <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-3 py-2">
                 <p className="text-xs text-slate-500">
                   Page {page + 1} of {totalPages} · {totalElements} promotions
                 </p>

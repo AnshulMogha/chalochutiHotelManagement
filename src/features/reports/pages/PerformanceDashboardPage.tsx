@@ -18,6 +18,7 @@ import {
   type PerformanceCompetitorsResponse,
   type PerformanceDateAxis,
   type PerformanceDatePreset,
+  type PerformanceDimensionType,
   type PerformanceMetric,
   type PerformanceOverviewResponse,
   type PerformanceRanking,
@@ -29,9 +30,12 @@ import {
   type PerformanceSeriesChartHandle,
 } from "../components/PerformanceSeriesChart";
 import {
+  Banknote,
+  BedDouble,
   Building2,
-  ChevronDown,
+  CalendarDays,
   Download,
+  Eye,
   FileImage,
   FileSpreadsheet,
   Filter,
@@ -39,8 +43,11 @@ import {
   LayoutDashboard,
   Loader2,
   Search,
+  TrendingUp,
   Trophy,
+  Wallet,
   X,
+  type LucideIcon,
 } from "lucide-react";
 
 const DURATION_OPTIONS: { value: PerformanceDatePreset; label: string }[] = [
@@ -79,6 +86,124 @@ const METRIC_SHORT: Record<PerformanceMetric, string> = {
   ASP: "ASP (Average Selling Price)",
   PROPERTY_VISITS: "Property Visits",
   CONVERSION: "Conversion",
+};
+
+const METRIC_HELP: Record<PerformanceMetric, string> = {
+  ROOM_NIGHTS:
+    "Room nights = nights × rooms for confirmed bookings only. Cancelled and refunded bookings are excluded.",
+  REVENUE:
+    "Net amount receivable by the property for the selected period, excluding taxes. Revenue = post-promotion room/rate price − OTA commission. Not included: hotel GST, service fee, commission GST, TCS, TDS, or guest-paid amount including tax.",
+  ASP: "Average post-promotion sell price to the customer across room nights. ASP = total post-promotion sell price ÷ total room nights. This is not Revenue ÷ Room Nights — Revenue is what the hotel earns after commission; ASP is what the guest is charged for the room after promotions (before tax).",
+  PROPERTY_VISITS:
+    "Counts when a customer successfully opens this hotel’s details page. One visit per session + hotel (refresh in the same session is not counted again). Uses view date in IST. Package page opens do not count.",
+  CONVERSION:
+    "Conversion % = (confirmed bookings ÷ property visits) × 100, rounded to 2 decimals. If visits = 0, conversion is 0.00%. Bookings include confirmed direct hotel and package hotel stays.",
+};
+
+const BREAKDOWN_HELP: Record<PerformanceDimensionType, string> = {
+  BUSINESS_CHANNEL:
+    "Share of room nights by booking channel (B2C, B2B, PACKAGE/HOLIDAYS, etc.). Blank channel is treated as B2C. Percent = room nights in that channel ÷ total room nights — not booking count.",
+  ROOM_RATE_PLAN:
+    "Share of room nights by the booking’s main room (highest quantity) and its rate plan. The whole booking’s nights are assigned to that one room/plan, not split across every room type.",
+  DAY_OF_WEEK:
+    "Share of room nights by weekday. On Booking dates this is the weekday the booking was created (IST). On Stay dates this is the weekday of each occupied night.",
+  MEAL_PLAN:
+    "Share of room nights by meal plan from the rate plan code (EP / CP / MAP / AP). Unknown plans go to Others. One plan per booking — not split per room.",
+  TRAVELLER_MIX:
+    "Share of room nights by guest mix: child present → Family; 1 adult → 1 Adult; 2 adults → Couple; 3+ adults → Group.",
+  LENGTH_OF_STAY:
+    "Share of room nights by stay length buckets: 1 / 2 / 3 / 4 / 5+ days.",
+  ADVANCE_PURCHASE:
+    "Share of room nights by days from booking date (IST) to check-in: 0–3, 4–7, 8–15, 16–30, 31+ days.",
+};
+
+function InfoTip({
+  text,
+  className,
+  align = "start",
+}: {
+  text: string;
+  className?: string;
+  align?: "start" | "end" | "center";
+}) {
+  return (
+    <span
+      className={cn("group/info relative inline-flex shrink-0", className)}
+      onClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+    >
+      <span
+        className="inline-flex cursor-help items-center justify-center rounded-full text-slate-400 transition hover:text-slate-600"
+        aria-label="More information"
+      >
+        <Info className="h-3.5 w-3.5" />
+      </span>
+      <span
+        role="tooltip"
+        className={cn(
+          "pointer-events-none absolute top-full z-50 mt-2 hidden w-72 max-w-[min(18rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-slate-900 px-3 py-2 text-left text-[11px] leading-relaxed font-normal whitespace-normal text-white shadow-lg group-hover/info:block",
+          align === "start" && "left-0",
+          align === "end" && "right-0",
+          align === "center" && "left-1/2 -translate-x-1/2",
+        )}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
+const METRIC_THEME: Record<
+  PerformanceMetric,
+  {
+    icon: LucideIcon;
+    tab: string;
+    tabActive: string;
+    iconWrap: string;
+    bar: string;
+    value: string;
+  }
+> = {
+  ROOM_NIGHTS: {
+    icon: BedDouble,
+    tab: "hover:bg-violet-50/80",
+    tabActive: "bg-violet-50",
+    iconWrap: "bg-violet-100 text-violet-700",
+    bar: "bg-violet-600",
+    value: "text-violet-900",
+  },
+  REVENUE: {
+    icon: Wallet,
+    tab: "hover:bg-emerald-50/80",
+    tabActive: "bg-emerald-50",
+    iconWrap: "bg-emerald-100 text-emerald-700",
+    bar: "bg-emerald-600",
+    value: "text-emerald-900",
+  },
+  ASP: {
+    icon: Banknote,
+    tab: "hover:bg-amber-50/80",
+    tabActive: "bg-amber-50",
+    iconWrap: "bg-amber-100 text-amber-700",
+    bar: "bg-amber-500",
+    value: "text-amber-900",
+  },
+  PROPERTY_VISITS: {
+    icon: Eye,
+    tab: "hover:bg-sky-50/80",
+    tabActive: "bg-sky-50",
+    iconWrap: "bg-sky-100 text-sky-700",
+    bar: "bg-sky-600",
+    value: "text-sky-900",
+  },
+  CONVERSION: {
+    icon: TrendingUp,
+    tab: "hover:bg-rose-50/80",
+    tabActive: "bg-rose-50",
+    iconWrap: "bg-rose-100 text-rose-700",
+    bar: "bg-rose-600",
+    value: "text-rose-900",
+  },
 };
 
 type PerformanceFilterDraft = {
@@ -286,7 +411,12 @@ function BreakdownCardView({ card }: { card: PerformanceBreakdownCard }) {
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-1 flex items-center gap-1.5">
         <h3 className="text-base font-bold text-slate-900">{card.title}</h3>
-        <Info className="h-3.5 w-3.5 text-slate-400" />
+        <InfoTip
+          text={
+            BREAKDOWN_HELP[card.dimensionType] ??
+            "Share of room nights for this category among confirmed bookings only. Percentages are room-night share, not booking count."
+          }
+        />
       </div>
       <p className="mb-4 text-sm text-slate-600">{card.insight}</p>
 
@@ -1047,103 +1177,39 @@ export default function PerformanceDashboardPage() {
 
       <div className="min-h-full bg-[#f7f8fa]">
         <div ref={pageCaptureRef} className="container mx-auto px-4 py-5">
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">
-                Performance Overview
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Room Nights, Revenue, ASP, Property Visits, and Conversion for the
-                selected property.
-              </p>
-            </div>
-            <div
-              className="relative"
-              ref={downloadMenuRef}
-              data-exclude-from-capture="true"
-            >
-              <button
-                type="button"
-                onClick={() => setDownloadOpen((v) => !v)}
-                disabled={capturingPage}
-                className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-[#3B6FE8] shadow-sm hover:bg-blue-50 disabled:opacity-60"
-              >
-                {capturingPage ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                {capturingPage ? "Capturing…" : `Download ${metricName} Report`}
-                <ChevronDown
-                  className={cn(
-                    "h-3.5 w-3.5 text-slate-400 transition",
-                    downloadOpen && "rotate-180",
-                  )}
-                />
-              </button>
-              {downloadOpen ? (
-                <div className="absolute right-0 z-30 mt-1 w-60 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                  <button
-                    type="button"
-                    onClick={downloadFullPagePng}
-                    disabled={capturingPage || !overview}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    <LayoutDashboard className="h-4 w-4 text-[#3B6FE8]" />
-                    Full page (PNG)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={downloadFullDataCsv}
-                    disabled={!overview}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                    Full data (CSV)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={downloadChartPng}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <FileImage className="h-4 w-4 text-[#3B6FE8]" />
-                    Chart image (PNG)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={downloadSeriesCsv}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <FileSpreadsheet className="h-4 w-4 text-slate-500" />
-                    Series data (CSV)
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 shadow-sm">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-800">
-                {durationLabel(datePreset)}
-                {overview?.dateRange ? (
-                  <span className="font-normal text-slate-500">
-                    {" "}
-                    ({formatDisplayDate(overview.dateRange.fromDate)} –{" "}
-                    {formatDisplayDate(overview.dateRange.toDate)})
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-white px-4 py-3 shadow-sm">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-indigo-600 to-blue-500 text-white shadow-sm">
+                <LayoutDashboard className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-bold text-slate-900">
+                  Performance Overview
+                </h1>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays className="h-3.5 w-3.5 text-indigo-500" />
+                    <span className="font-semibold text-slate-700">
+                      {durationLabel(datePreset)}
+                    </span>
+                    {overview?.dateRange ? (
+                      <span>
+                        {formatDisplayDate(overview.dateRange.fromDate)} –{" "}
+                        {formatDisplayDate(overview.dateRange.toDate)}
+                      </span>
+                    ) : null}
                   </span>
-                ) : null}
-              </p>
-              <p className="mt-0.5 text-xs text-slate-500">
-                {DATE_AXIS_OPTIONS.find((o) => o.value === dateAxis)?.label ??
-                  dateAxis}
-                {" · "}
-                {COMPARISON_OPTIONS.find((o) => o.value === comparisonType)
-                  ?.label ?? comparisonType}
-              </p>
+                  <span>
+                    {DATE_AXIS_OPTIONS.find((o) => o.value === dateAxis)?.label ??
+                      dateAxis}
+                    {" · "}
+                    {COMPARISON_OPTIONS.find((o) => o.value === comparisonType)
+                      ?.label ?? comparisonType}
+                  </span>
+                </p>
+              </div>
             </div>
-
-            <div className="flex flex-col items-start gap-1 sm:items-end">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={openFilters}
@@ -1151,7 +1217,7 @@ export default function PerformanceDashboardPage() {
                   "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition",
                   activeFilterCount
                     ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
+                    : "border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50",
                 )}
               >
                 <Filter className="h-4 w-4" />
@@ -1162,6 +1228,68 @@ export default function PerformanceDashboardPage() {
                   </span>
                 ) : null}
               </button>
+              <div
+                className="relative"
+                ref={downloadMenuRef}
+                data-exclude-from-capture="true"
+              >
+                <button
+                  type="button"
+                  onClick={() => setDownloadOpen((v) => !v)}
+                  disabled={capturingPage}
+                  aria-label={
+                    capturingPage ? "Capturing" : `Download ${metricName} report`
+                  }
+                  title={
+                    capturingPage ? "Capturing…" : `Download ${metricName} report`
+                  }
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm transition hover:bg-indigo-100 disabled:opacity-60"
+                >
+                  {capturingPage ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                </button>
+                {downloadOpen ? (
+                  <div className="absolute right-0 z-30 mt-1 w-60 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                    <button
+                      type="button"
+                      onClick={downloadFullPagePng}
+                      disabled={capturingPage || !overview}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-indigo-50 disabled:opacity-50"
+                    >
+                      <LayoutDashboard className="h-4 w-4 text-indigo-600" />
+                      Full page (PNG)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={downloadFullDataCsv}
+                      disabled={!overview}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-indigo-50 disabled:opacity-50"
+                    >
+                      <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                      Full data (CSV)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={downloadChartPng}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-indigo-50"
+                    >
+                      <FileImage className="h-4 w-4 text-sky-600" />
+                      Chart image (PNG)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={downloadSeriesCsv}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-indigo-50"
+                    >
+                      <FileSpreadsheet className="h-4 w-4 text-slate-500" />
+                      Series data (CSV)
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -1177,7 +1305,7 @@ export default function PerformanceDashboardPage() {
             </div>
           ) : overview ? (
             <>
-              <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="mb-4 overflow-visible rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div className="grid grid-cols-2 divide-x divide-slate-100 border-b border-slate-100 sm:grid-cols-3 lg:grid-cols-5">
                   {(overview.kpis?.length
                     ? overview.kpis
@@ -1191,24 +1319,51 @@ export default function PerformanceDashboardPage() {
                       )
                   ).map((kpi) => {
                     const active = kpi.metric === metric;
+                    const theme = METRIC_THEME[kpi.metric];
+                    const Icon = theme.icon;
+                    const tipAlign =
+                      kpi.metric === "CONVERSION" ||
+                      kpi.metric === "PROPERTY_VISITS"
+                        ? "end"
+                        : "start";
                     return (
                       <button
                         key={kpi.metric}
                         type="button"
                         onClick={() => loadOverviewForMetric(kpi.metric)}
                         className={cn(
-                          "relative px-4 py-4 text-left transition hover:bg-slate-50",
-                          active && "bg-white",
+                          "relative px-4 py-4 text-left transition",
+                          theme.tab,
+                          active && theme.tabActive,
                         )}
                       >
                         <div className="mb-2 flex items-start justify-between gap-2">
-                          <span className="text-sm font-medium text-slate-600">
-                            {METRIC_LABELS[kpi.metric] ?? kpi.metric}
+                          <span className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-slate-600">
+                            <span
+                              className={cn(
+                                "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
+                                theme.iconWrap,
+                              )}
+                            >
+                              <Icon className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="leading-snug">
+                              {METRIC_LABELS[kpi.metric] ?? kpi.metric}
+                            </span>
                           </span>
-                          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-300" />
+                          <InfoTip
+                            text={METRIC_HELP[kpi.metric]}
+                            align={tipAlign}
+                            className="mt-0.5"
+                          />
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xl font-bold text-slate-900">
+                          <span
+                            className={cn(
+                              "text-xl font-bold",
+                              active ? theme.value : "text-slate-900",
+                            )}
+                          >
                             {formatMetricValue(kpi.metric, kpi.value)}
                           </span>
                           <ChangePill
@@ -1218,7 +1373,12 @@ export default function PerformanceDashboardPage() {
                           />
                         </div>
                         {active ? (
-                          <span className="absolute inset-x-0 bottom-0 h-1 bg-[#3B6FE8]" />
+                          <span
+                            className={cn(
+                              "absolute inset-x-0 bottom-0 h-1",
+                              theme.bar,
+                            )}
+                          />
                         ) : null}
                       </button>
                     );
@@ -1239,7 +1399,12 @@ export default function PerformanceDashboardPage() {
                       </span>
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <span className="text-4xl font-bold tracking-tight text-slate-900">
+                      <span
+                        className={cn(
+                          "text-4xl font-bold tracking-tight",
+                          METRIC_THEME[metric].value,
+                        )}
+                      >
                         {formatMetricValue(
                           metric,
                           overview.metricDetail?.value ?? selectedKpi?.value,
@@ -1260,9 +1425,10 @@ export default function PerformanceDashboardPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-4">
+                  <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
                     <div className="mb-2 flex items-center justify-between">
-                      <h3 className="text-sm font-bold text-slate-800">
+                      <h3 className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-800">
+                        <Building2 className="h-4 w-4 text-indigo-500" />
                         Competitors
                       </h3>
                       <button
@@ -1306,10 +1472,11 @@ export default function PerformanceDashboardPage() {
                     <button
                       type="button"
                       onClick={downloadChartPng}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#3B6FE8] hover:underline"
+                      aria-label="Download chart"
+                      title="Download chart"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-700 transition hover:bg-sky-100"
                     >
-                      <FileImage className="h-3.5 w-3.5" />
-                      Download chart
+                      <FileImage className="h-4 w-4" />
                     </button>
                   </div>
                   <PerformanceSeriesChart

@@ -2,6 +2,7 @@ import type { User } from "@/types";
 import {
   canViewHotelBdReports,
   canViewHotelBookingFinancialMis,
+  canViewPaymentReport,
   canViewSalesManagerReports,
   isHotelBdRole,
   isSuperAdmin,
@@ -230,12 +231,11 @@ export function canViewPath(user: User | null, pathname: string): boolean {
     return canViewHotelBookingFinancialMis(user?.roles);
   }
 
-  // Payment Report is Super Admin only.
   if (
     pathOnly === ROUTES.REPORTS.NET_EARNINGS ||
     pathOnly.startsWith(`${ROUTES.REPORTS.NET_EARNINGS}/`)
   ) {
-    return isSuperAdmin(user?.roles);
+    return canViewPaymentReport(user?.roles);
   }
 
   // Performance dashboard moved from /reports to /analytics.

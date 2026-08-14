@@ -2,13 +2,20 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
+import { inventoryService } from "@/features/inventory/services/inventoryService";
+import { rateService } from "@/features/inventory/services/rateService";
+import {
+  mergeIdOptions,
+  ReportIdMultiSelect,
+  selectedOptionLabel,
+  type ReportIdOption,
+} from "../components/ReportIdMultiSelect";
 import {
   exportStatusLabel,
   formatReportCurrency,
   formatReportDate,
   formatStatusLabel,
   healthStatusTone,
-  ReportPageHeader,
   SummaryCard,
 } from "../components/reportUiHelpers";
 import {
@@ -18,11 +25,13 @@ import {
 } from "../services/rateHealthReportService";
 import type { ExportJobStatus } from "../services/reportExportService";
 import {
+  BedDouble,
   Building2,
   CalendarDays,
   Download,
   Filter,
   HeartPulse,
+  Layers,
   Loader2,
   X,
 } from "lucide-react";
@@ -42,12 +51,16 @@ type FilterDraft = {
   datePreset: RateHealthDatePreset;
   fromDate: string;
   toDate: string;
+  roomTypeIds: number[];
+  ratePlanIds: number[];
 };
 
 const DEFAULT_DRAFT: FilterDraft = {
   datePreset: DEFAULT_DATE_PRESET,
   fromDate: "",
   toDate: "",
+  roomTypeIds: [],
+  ratePlanIds: [],
 };
 
 export default function RateHealthReportPage() {
@@ -59,6 +72,10 @@ export default function RateHealthReportPage() {
     useState<RateHealthDatePreset>(DEFAULT_DATE_PRESET);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [roomTypeIds, setRoomTypeIds] = useState<number[]>([]);
+  const [ratePlanIds, setRatePlanIds] = useState<number[]>([]);
+  const [roomOptions, setRoomOptions] = useState<ReportIdOption[]>([]);
+  const [ratePlanOptions, setRatePlanOptions] = useState<ReportIdOption[]>([]);
   const [page, setPage] = useState(0);
   const [pageSize] = useState(20);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -79,7 +96,9 @@ export default function RateHealthReportPage() {
 
   const activeFilterCount =
     (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
-    (datePreset === "CUSTOM" && (fromDate || toDate) ? 1 : 0);
+    (datePreset === "CUSTOM" && (fromDate || toDate) ? 1 : 0) +
+    (roomTypeIds.length ? 1 : 0) +
+    (ratePlanIds.length ? 1 : 0);
 
   const loadReport = useCallback(
     async (overrides?: Partial<FilterDraft>) => {
@@ -87,6 +106,8 @@ export default function RateHealthReportPage() {
       const nextPreset = overrides?.datePreset ?? datePreset;
       const nextFrom = overrides?.fromDate ?? fromDate;
       const nextTo = overrides?.toDate ?? toDate;
+      const nextRoomTypeIds = overrides?.roomTypeIds ?? roomTypeIds;
+      const nextRatePlanIds = overrides?.ratePlanIds ?? ratePlanIds;
       if (nextPreset === "CUSTOM" && (!nextFrom || !nextTo)) return;
 
       setLoading(true);
@@ -97,6 +118,8 @@ export default function RateHealthReportPage() {
           datePreset: nextPreset,
           fromDate: nextPreset === "CUSTOM" ? nextFrom : undefined,
           toDate: nextPreset === "CUSTOM" ? nextTo : undefined,
+          roomTypeIds: nextRoomTypeIds,
+          ratePlanIds: nextRatePlanIds,
           page,
           size: pageSize,
         });
@@ -113,7 +136,17 @@ export default function RateHealthReportPage() {
         setLoading(false);
       }
     },
-    [hotelId, datePreset, fromDate, toDate, page, pageSize, showToast],
+    [
+      hotelId,
+      datePreset,
+      fromDate,
+      toDate,
+      roomTypeIds,
+      ratePlanIds,
+      page,
+      pageSize,
+      showToast,
+    ],
   );
 
   useEffect(() => {
@@ -121,8 +154,78 @@ export default function RateHealthReportPage() {
     loadReport();
   }, [hotelId, page, loadReport, customRangeInvalid]);
 
+  useEffect(() => {
+    if (!hotelId) {
+      setRoomOptions([]);
+      setRatePlanOptions([]);
+      setRoomTypeIds([]);
+      setRatePlanIds([]);
+      return;
+    }
+    let cancelled = false;
+    const today = new Date().toISOString().slice(0, 10);
+    (async () => {
+      const [rooms, plans] = await Promise.all([
+        inventoryService.getCalendar(hotelId, today, today).catch(() => []),
+        rateService.getHotelRatePlans(hotelId).catch(() => []),
+      ]);
+      if (cancelled) return;
+      setRoomOptions(
+        mergeIdOptions(
+          [],
+          rooms.map((room) => ({ id: room.roomId, name: room.roomName })),
+        ),
+      );
+      const nameCounts = new Map<string, number>();
+      for (const plan of plans) {
+        const name = plan.ratePlanName || "Rate plan";
+        nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
+      }
+      setRatePlanOptions(
+        mergeIdOptions(
+          [],
+          plans.map((plan) => ({
+            id: plan.ratePlanId,
+            name:
+              (nameCounts.get(plan.ratePlanName || "Rate plan") ?? 0) > 1 &&
+              plan.roomName
+                ? `${plan.ratePlanName} · ${plan.roomName}`
+                : plan.ratePlanName || `Rate plan ${plan.ratePlanId}`,
+          })),
+        ),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hotelId]);
+
+  useEffect(() => {
+    if (!report?.rates.length) return;
+    setRoomOptions((prev) =>
+      mergeIdOptions(
+        prev,
+        report.rates.flatMap((row) =>
+          row.roomTypeId != null
+            ? [{ id: row.roomTypeId, name: row.roomType }]
+            : [],
+        ),
+      ),
+    );
+    setRatePlanOptions((prev) =>
+      mergeIdOptions(
+        prev,
+        report.rates.flatMap((row) =>
+          row.ratePlanId != null
+            ? [{ id: row.ratePlanId, name: row.ratePlan }]
+            : [],
+        ),
+      ),
+    );
+  }, [report]);
+
   const openFilters = () => {
-    setDraft({ datePreset, fromDate, toDate });
+    setDraft({ datePreset, fromDate, toDate, roomTypeIds, ratePlanIds });
     setFilterOpen(true);
   };
 
@@ -134,6 +237,8 @@ export default function RateHealthReportPage() {
     setDatePreset(draft.datePreset);
     setFromDate(draft.fromDate);
     setToDate(draft.toDate);
+    setRoomTypeIds(draft.roomTypeIds);
+    setRatePlanIds(draft.ratePlanIds);
     setPage(0);
     setFilterOpen(false);
     loadReport(draft);
@@ -154,6 +259,8 @@ export default function RateHealthReportPage() {
           datePreset,
           fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
           toDate: datePreset === "CUSTOM" ? toDate : undefined,
+          roomTypeIds,
+          ratePlanIds,
         },
         defaultFileName: `rate-health-${report?.dateRange.fromDate || "report"}`,
         onStatus: setExportStatus,
@@ -192,6 +299,18 @@ export default function RateHealthReportPage() {
   const totalPages = report?.page.totalPages ?? 0;
   const presetLabel =
     DATE_PRESET_OPTIONS.find((o) => o.value === datePreset)?.label ?? datePreset;
+  const selectedRoomTypeName = selectedOptionLabel(
+    roomOptions,
+    roomTypeIds,
+    "Room type",
+    "room types",
+  );
+  const selectedRatePlanName = selectedOptionLabel(
+    ratePlanOptions,
+    ratePlanIds,
+    "Rate plan",
+    "rate plans",
+  );
 
   return (
     <>
@@ -203,73 +322,84 @@ export default function RateHealthReportPage() {
       />
       <div className="min-h-full bg-linear-to-b from-slate-50 via-white to-rose-50/20">
         <div className="container mx-auto px-4 py-4">
-          <ReportPageHeader
-            icon={HeartPulse}
-            iconClassName="bg-linear-to-br from-rose-600 to-orange-500"
-            borderClassName="border-rose-100"
-            title="Rate Disparity Report"
-            description="Stay-date rate health across room types and rate plans."
-            actions={
-              <button
-                type="button"
-                onClick={handleExport}
-                disabled={exporting || loading || customRangeInvalid}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-800 transition hover:bg-rose-100 disabled:opacity-60 sm:text-sm"
-              >
-                {exporting ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                {exporting
-                  ? exportStatusLabel(exportStatus) || "Exporting…"
-                  : "Download Excel"}
-              </button>
-            }
-          />
-
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 shadow-sm">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-800">
-                {presetLabel}
-                {report?.dateRange.fromDate ? (
-                  <span className="font-normal text-slate-500">
-                    {" "}
-                    ({formatReportDate(report.dateRange.fromDate)} –{" "}
-                    {formatReportDate(report.dateRange.toDate)})
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-100 bg-white px-4 py-3 shadow-sm">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-rose-600 to-orange-500 text-white shadow-sm">
+                <HeartPulse className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-bold text-slate-900">
+                  Rate Disparity Report
+                </h1>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays className="h-3.5 w-3.5 text-rose-500" />
+                    <span className="font-semibold text-slate-700">
+                      {presetLabel}
+                    </span>
+                    {report?.dateRange.fromDate ? (
+                      <span>
+                        {formatReportDate(report.dateRange.fromDate)} –{" "}
+                        {formatReportDate(report.dateRange.toDate)}
+                      </span>
+                    ) : null}
                   </span>
-                ) : null}
-              </p>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Stay-date rate health for selected period
-              </p>
+                  {selectedRoomTypeName ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700 ring-1 ring-rose-200">
+                      <BedDouble className="h-3 w-3" />
+                      {selectedRoomTypeName}
+                    </span>
+                  ) : null}
+                  {selectedRatePlanName ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 font-medium text-orange-700 ring-1 ring-orange-200">
+                      <Layers className="h-3 w-3" />
+                      {selectedRatePlanName}
+                    </span>
+                  ) : null}
+                </p>
+              </div>
             </div>
-            <div className="flex flex-col items-start gap-1 sm:items-end">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={openFilters}
                 className={cn(
                   "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition",
                   activeFilterCount
-                    ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
+                    ? "border-rose-200 bg-rose-50 text-rose-800"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-rose-200 hover:bg-rose-50",
                 )}
               >
                 <Filter className="h-4 w-4" />
                 Filter
                 {activeFilterCount ? (
-                  <span className="rounded-full bg-indigo-600 px-1.5 text-[11px] font-bold text-white">
+                  <span className="rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">
                     {activeFilterCount}
                   </span>
                 ) : null}
               </button>
-              {report?.dateRange.fromDate ? (
-                <p className="inline-flex items-center gap-1 text-[11px] text-slate-400">
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  {formatReportDate(report.dateRange.fromDate)} –{" "}
-                  {formatReportDate(report.dateRange.toDate)}
-                </p>
-              ) : null}
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={exporting || loading || customRangeInvalid}
+                aria-label={
+                  exporting
+                    ? exportStatusLabel(exportStatus) || "Exporting"
+                    : "Download report"
+                }
+                title={
+                  exporting
+                    ? exportStatusLabel(exportStatus) || "Exporting…"
+                    : "Download"
+                }
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-800 transition hover:bg-rose-100 disabled:opacity-60"
+              >
+                {exporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+              </button>
             </div>
           </div>
 
@@ -513,6 +643,25 @@ export default function RateHealthReportPage() {
                   </div>
                 ) : null}
               </section>
+
+              <ReportIdMultiSelect
+                title="Room type"
+                hint="Single or multiple rooms"
+                options={roomOptions}
+                selectedIds={draft.roomTypeIds}
+                onChange={(ids) =>
+                  setDraft((prev) => ({ ...prev, roomTypeIds: ids }))
+                }
+              />
+              <ReportIdMultiSelect
+                title="Rate plan"
+                hint="Single or multiple rate plans"
+                options={ratePlanOptions}
+                selectedIds={draft.ratePlanIds}
+                onChange={(ids) =>
+                  setDraft((prev) => ({ ...prev, ratePlanIds: ids }))
+                }
+              />
             </div>
 
             <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-4">

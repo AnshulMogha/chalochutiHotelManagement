@@ -39,7 +39,6 @@ import {
   GitBranch,
   LayoutDashboard,
   Loader2,
-  Search,
   X,
 } from "lucide-react";
 
@@ -302,14 +301,23 @@ export default function HotelBdPipelineReportPage() {
               type="button"
               onClick={() => void handleExport()}
               disabled={exporting || loading}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              aria-label={
+                exportStatus
+                  ? exportStatusLabel(exportStatus)
+                  : "Download report"
+              }
+              title={
+                exportStatus
+                  ? exportStatusLabel(exportStatus)
+                  : "Download report"
+              }
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
             >
               {exporting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Download className="h-4 w-4" />
               )}
-              {exportStatus ? exportStatusLabel(exportStatus) : "Export Excel"}
             </button>
             <Link
               to={ROUTES.REPORTS.HOTEL_BD_DASHBOARD}
@@ -321,59 +329,6 @@ export default function HotelBdPipelineReportPage() {
           </div>
         }
       />
-
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-56 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                setPage(0);
-                void loadReport({
-                  search: event.currentTarget.value,
-                  city,
-                  page: 0,
-                });
-              }
-            }}
-            placeholder="Search hotel code or property name"
-            className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm"
-          />
-        </div>
-        <div className="relative min-w-44 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="search"
-            value={city}
-            onChange={(event) => setCity(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                setPage(0);
-                void loadReport({
-                  search,
-                  city: event.currentTarget.value,
-                  page: 0,
-                });
-              }
-            }}
-            placeholder="Search by city"
-            className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setPage(0);
-            void loadReport({ search, city, page: 0 });
-          }}
-          className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          Search
-        </button>
-      </div>
 
       {error ? (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -447,9 +402,6 @@ export default function HotelBdPipelineReportPage() {
                 <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Days Stuck
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Rejection Reason
-                </th>
                 <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Action
                 </th>
@@ -458,13 +410,13 @@ export default function HotelBdPipelineReportPage() {
             <tbody className="divide-y divide-slate-100 bg-white">
               {loading && !report ? (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
                     <Loader2 className="mx-auto h-5 w-5 animate-spin text-indigo-600" />
                   </td>
                 </tr>
               ) : !report?.rows.length ? (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
                     No pipeline rows match your filters.
                   </td>
                 </tr>
@@ -532,9 +484,6 @@ export default function HotelBdPipelineReportPage() {
                       </td>
                       <td className="px-3 py-2 tabular-nums text-slate-700">
                         {row.daysStuck != null ? row.daysStuck : "—"}
-                      </td>
-                      <td className="max-w-48 truncate px-3 py-2 text-xs text-slate-600">
-                        {row.rejectionReason || "—"}
                       </td>
                       <td className="px-3 py-2 text-right">
                         {link ? (

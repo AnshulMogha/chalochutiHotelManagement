@@ -323,13 +323,15 @@ export function ReportPageHeader({
   iconClassName,
   title,
   description,
+  descriptionClassName = "truncate text-xs text-slate-500",
   actions,
   borderClassName = "border-slate-200",
 }: {
   icon: LucideIcon;
   iconClassName: string;
   title: string;
-  description?: string;
+  description?: ReactNode;
+  descriptionClassName?: string;
   actions?: ReactNode;
   borderClassName?: string;
 }) {
@@ -352,7 +354,7 @@ export function ReportPageHeader({
         <div className="min-w-0">
           <h1 className="truncate text-lg font-bold text-slate-900">{title}</h1>
           {description ? (
-            <p className="truncate text-xs text-slate-500">{description}</p>
+            <p className={cn(descriptionClassName)}>{description}</p>
           ) : null}
         </div>
       </div>

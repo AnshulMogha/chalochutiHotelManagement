@@ -38,7 +38,6 @@ import {
   LayoutDashboard,
   Loader2,
   RefreshCw,
-  Search,
   UserRoundCog,
   X,
 } from "lucide-react";
@@ -360,7 +359,16 @@ export default function SalesManagerAgentsReportPage() {
         icon={UserRoundCog}
         iconClassName="bg-gradient-to-br from-emerald-500 to-teal-600"
         title="Agent Portfolio"
-        description="Search, filter and review assigned travel agent performance"
+        description={
+          report?.dateRange?.fromDate && report?.dateRange?.toDate
+            ? `${formatReportDate(report.dateRange.fromDate)} – ${formatReportDate(report.dateRange.toDate)}${
+                report.metricWindow
+                  ? ` · ${formatStatusLabel(report.metricWindow)} metrics`
+                  : ""
+              }`
+            : undefined
+        }
+        descriptionClassName="truncate text-xs font-bold text-slate-800"
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -420,34 +428,6 @@ export default function SalesManagerAgentsReportPage() {
           </div>
         }
       />
-
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[240px] flex-1 sm:max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                setPage(0);
-                void loadReport({ search: event.currentTarget.value, page: 0 });
-              }
-            }}
-            placeholder="Search agency, email or contact…"
-            className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm shadow-sm"
-          />
-        </div>
-        {report?.dateRange?.fromDate && report?.dateRange?.toDate ? (
-          <p className="text-xs text-slate-500">
-            {formatReportDate(report.dateRange.fromDate)} –{" "}
-            {formatReportDate(report.dateRange.toDate)}
-            {report.metricWindow
-              ? ` · ${formatStatusLabel(report.metricWindow)} metrics`
-              : null}
-          </p>
-        ) : null}
-      </div>
 
       {error ? (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
