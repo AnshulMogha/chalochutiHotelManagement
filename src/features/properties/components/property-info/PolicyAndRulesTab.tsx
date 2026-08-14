@@ -135,8 +135,8 @@ const EMPTY_CUSTOM_CHAIN: CustomChainRow[] = [
 ];
 
 function splitTotalHoursToDaysAndHours(totalHours: number): {
-  days: NumericInput;
-  hours: NumericInput;
+  days: number;
+  hours: number;
 } {
   const safe = Math.max(0, Math.floor(totalHours));
   return {
@@ -308,7 +308,7 @@ function slabsToCustomChain(slabs: CancellationSlabForm[]): CustomChainRow[] {
   if (!free) {
     // Fallback: treat farthest window as free-till if possible
     const farthest = sorted[0];
-    return [
+    const fallbackRows: CustomChainRow[] = [
       {
         tillHours: farthest.fromHours,
         penaltyType: "PERCENTAGE",
@@ -319,7 +319,8 @@ function slabsToCustomChain(slabs: CancellationSlabForm[]): CustomChainRow[] {
         penaltyType: slab.penaltyType,
         penaltyValue: slab.penaltyValue,
       })),
-    ].slice(0, MAX_CUSTOM_CONDITIONS);
+    ];
+    return fallbackRows.slice(0, MAX_CUSTOM_CONDITIONS);
   }
 
   const rows: CustomChainRow[] = [
@@ -1495,7 +1496,22 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
       await loadCancellationPolicies();
     } catch (error) {
       console.error("Error saving cancellation policy:", error);
-      showToast("Failed to save cancellation policy", "error");
+      // Prefer the field-level detail (e.g. data.effectiveFrom) over the generic message.
+      const data = (error as { data?: unknown } | null)?.data;
+      let fieldMessage: string | undefined;
+      if (data && typeof data === "object" && !Array.isArray(data)) {
+        fieldMessage = Object.values(data as Record<string, unknown>)
+          .filter(
+            (value): value is string =>
+              typeof value === "string" && value.trim() !== "",
+          )
+          .join("\n");
+      }
+      const message =
+        (fieldMessage && fieldMessage.trim()) ||
+        (error as { message?: string } | null)?.message ||
+        "Failed to save cancellation policy";
+      showToast(message, "error");
     } finally {
       setCancellationSaving(false);
     }
@@ -2322,6 +2338,14 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                         </p>
                       )}
                     </div>
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                      <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                      <p className="leading-relaxed">
+                        Leave both dates empty to make this the default policy.
+                        Enter dates to create a blackout policy for specific
+                        dates.
+                      </p>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -2687,9 +2711,10 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                             onChange={(e) =>
                               setCancellationForm((prev) => ({
                                 ...prev,
-                                noShowPenaltyValue: parseNumberInput(
-                                  e.target.value,
-                                ),
+                                noShowPenaltyValue:
+                                  e.target.value.trim() === ""
+                                    ? null
+                                    : Number(e.target.value),
                               }))
                             }
                             placeholder="e.g. 100"
