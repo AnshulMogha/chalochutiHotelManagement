@@ -22,6 +22,7 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  Filter,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
 import type { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
@@ -42,7 +43,21 @@ import {
 
 type HotelReviewFetchMode = "super_admin" | "qc" | "zonal";
 type ReviewBucket = "pending" | "approved" | "rejected";
+type ReviewFilters = {
+  city: string;
+  hotelName: string;
+  hotelCode: string;
+  submittedBy: string;
+  submittedAt: string;
+};
 const REVIEW_CONTEXT_KEY = "hotel-review-context";
+const DEFAULT_FILTERS: ReviewFilters = {
+  city: "",
+  hotelName: "",
+  hotelCode: "",
+  submittedBy: "",
+  submittedAt: "",
+};
 
 const REVIEW_TABS: {
   value: ReviewBucket;
@@ -87,7 +102,7 @@ function getHotelReviewFetchMode(
 }
 
 export default function HotelReviewListPage() {
-  const [activeTab, setActiveTab] = useState("pending");
+  const [activeTab, setActiveTab] = useState<ReviewBucket>("pending");
   const [pendingHotels, setPendingHotels] = useState<HotelReviewItem[]>([]);
   const [approvedHotels, setApprovedHotels] = useState<ApprovedHotelItem[]>([]);
   const [rejectedHotels, setRejectedHotels] = useState<RejectedHotelItem[]>([]);
@@ -106,6 +121,9 @@ export default function HotelReviewListPage() {
     hotelName: string;
     remarks: ReviewRemark[];
   } | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<ReviewFilters>(DEFAULT_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<ReviewFilters>(DEFAULT_FILTERS);
   const navigate = useNavigate();
   const { user } = useAuth();
   const fetchMode = getHotelReviewFetchMode(user?.roles);
@@ -132,6 +150,19 @@ export default function HotelReviewListPage() {
         const params = {
           page: paginationModel.page,
           size: paginationModel.pageSize,
+          ...(appliedFilters.city ? { city: appliedFilters.city } : {}),
+          ...(appliedFilters.hotelName
+            ? { hotelName: appliedFilters.hotelName }
+            : {}),
+          ...(appliedFilters.hotelCode
+            ? { hotelCode: appliedFilters.hotelCode }
+            : {}),
+          ...(appliedFilters.submittedBy
+            ? { submittedBy: appliedFilters.submittedBy }
+            : {}),
+          ...(appliedFilters.submittedAt
+            ? { submittedAt: appliedFilters.submittedAt }
+            : {}),
         };
         if (activeTab === "pending") {
           const response =
@@ -170,7 +201,13 @@ export default function HotelReviewListPage() {
     };
 
     fetchHotelsByTab();
-  }, [fetchMode, activeTab, paginationModel.page, paginationModel.pageSize]);
+  }, [
+    fetchMode,
+    activeTab,
+    paginationModel.page,
+    paginationModel.pageSize,
+    appliedFilters,
+  ]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -195,6 +232,33 @@ export default function HotelReviewListPage() {
   };
   const truncateRemark = (remark: string, max = 52) =>
     remark.length > max ? `${remark.slice(0, max)}...` : remark;
+
+  const applyFilters = () => {
+    setAppliedFilters({
+      city: draftFilters.city.trim(),
+      hotelName: draftFilters.hotelName.trim(),
+      hotelCode: draftFilters.hotelCode.trim(),
+      submittedBy: draftFilters.submittedBy.trim(),
+      submittedAt: draftFilters.submittedAt,
+    });
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    setFilterOpen(false);
+  };
+
+  const resetFilters = () => {
+    setDraftFilters(DEFAULT_FILTERS);
+    setAppliedFilters(DEFAULT_FILTERS);
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    setFilterOpen(false);
+  };
+
+  const hasActiveFilters = Boolean(
+    appliedFilters.city ||
+      appliedFilters.hotelName ||
+      appliedFilters.hotelCode ||
+      appliedFilters.submittedBy ||
+      appliedFilters.submittedAt,
+  );
 
   const getCurrentHotels = () => {
     switch (activeTab) {
@@ -477,9 +541,23 @@ export default function HotelReviewListPage() {
               <Building2 className="h-8 w-8 text-gray-400" />
             </div>
             <h3 className="mb-1 text-lg font-semibold text-gray-900">
-              {message.title}
+              {hasActiveFilters ? "No hotels match your filters" : message.title}
             </h3>
-            <p className="max-w-sm text-sm text-gray-500">{message.description}</p>
+            <p className="max-w-sm text-sm text-gray-500">
+              {hasActiveFilters
+                ? "Try a different hotel name, code, or city."
+                : message.description}
+            </p>
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <X className="h-4 w-4" />
+                Clear filters
+              </button>
+            ) : null}
           </div>
         ) : (
           <DataTable
@@ -524,11 +602,31 @@ export default function HotelReviewListPage() {
               </span>
             )}
           </h1>
-          {currentHotels.length > 0 && !isLoading && (
-            <ExportButton
-              onExportCSV={handleExportCSV}
-              onExportExcel={handleExportExcel}
-            />
+          {!isLoading && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftFilters(appliedFilters);
+                  setFilterOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                <Filter className="h-4 w-4" />
+                Filters
+                {hasActiveFilters ? (
+                  <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    Active
+                  </span>
+                ) : null}
+              </button>
+              {currentHotels.length > 0 ? (
+                <ExportButton
+                  onExportCSV={handleExportCSV}
+                  onExportExcel={handleExportExcel}
+                />
+              ) : null}
+            </div>
           )}
         </div>
 
@@ -589,6 +687,131 @@ export default function HotelReviewListPage() {
             {renderPanel(rejectedHotels)}
           </TabsContent>
         </Tabs>
+
+        {filterOpen ? (
+          <div className="fixed inset-0 z-50 flex">
+            <button
+              type="button"
+              aria-label="Close filters"
+              className="absolute inset-0 bg-slate-900/40"
+              onClick={() => setFilterOpen(false)}
+            />
+            <aside className="relative ml-auto flex h-full w-full max-w-sm flex-col bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen(false)}
+                  className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    City
+                  </label>
+                  <input
+                    type="search"
+                    value={draftFilters.city}
+                    onChange={(event) =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        city: event.target.value,
+                      }))
+                    }
+                    placeholder="Goa"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Hotel name
+                  </label>
+                  <input
+                    type="search"
+                    value={draftFilters.hotelName}
+                    onChange={(event) =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        hotelName: event.target.value,
+                      }))
+                    }
+                    placeholder="Taj"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Hotel code
+                  </label>
+                  <input
+                    type="search"
+                    value={draftFilters.hotelCode}
+                    onChange={(event) =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        hotelCode: event.target.value,
+                      }))
+                    }
+                    placeholder="HTL"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Submitted by
+                  </label>
+                  <input
+                    type="search"
+                    value={draftFilters.submittedBy}
+                    onChange={(event) =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        submittedBy: event.target.value,
+                      }))
+                    }
+                    placeholder="owner@"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Submitted date
+                  </label>
+                  <input
+                    type="date"
+                    value={draftFilters.submittedAt}
+                    onChange={(event) =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        submittedAt: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 border-t border-slate-200 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={applyFilters}
+                  className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                >
+                  Apply
+                </button>
+              </div>
+            </aside>
+          </div>
+        ) : null}
 
         {remarkModalData && (
         <div

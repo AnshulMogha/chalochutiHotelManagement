@@ -65,6 +65,14 @@ export interface PaginationParams {
   size?: number;
 }
 
+export interface HotelReviewListParams extends PaginationParams {
+  city?: string;
+  hotelName?: string;
+  hotelCode?: string;
+  submittedBy?: string;
+  submittedAt?: string;
+}
+
 function normalizeReviewRemarks<T extends { qcRemarks?: ReviewRemark[] }>(
   items: T[] | undefined,
 ): T[] {
@@ -1022,7 +1030,7 @@ export const adminService = {
     return response.data || [];
   },
   getHotelsForReviewPaginated: async (
-    params?: PaginationParams,
+    params?: HotelReviewListParams,
   ): Promise<PaginatedResponse<HotelReviewItem>> => {
     const response = await apiClient.get<
       ApiSuccessResponse<PaginatedResponse<HotelReviewItem>>
@@ -1034,7 +1042,7 @@ export const adminService = {
     };
   },
   getApprovedHotelsPaginated: async (
-    params?: PaginationParams,
+    params?: HotelReviewListParams,
   ): Promise<PaginatedResponse<ApprovedHotelItem>> => {
     const response = await apiClient.get<
       ApiSuccessResponse<PaginatedResponse<ApprovedHotelItem>>
@@ -1046,7 +1054,7 @@ export const adminService = {
     };
   },
   getRejectedHotelsPaginated: async (
-    params?: PaginationParams,
+    params?: HotelReviewListParams,
   ): Promise<PaginatedResponse<RejectedHotelItem>> => {
     const response = await apiClient.get<
       ApiSuccessResponse<PaginatedResponse<RejectedHotelItem>>
@@ -1058,7 +1066,7 @@ export const adminService = {
     };
   },
   getQcPendingHotelsPaginated: async (
-    params?: PaginationParams,
+    params?: HotelReviewListParams,
   ): Promise<PaginatedResponse<HotelReviewItem>> => {
     const response = await apiClient.get<
       ApiSuccessResponse<PaginatedResponse<HotelReviewItem>>
@@ -1070,7 +1078,7 @@ export const adminService = {
     };
   },
   getQcApprovedHotelsPaginated: async (
-    params?: PaginationParams,
+    params?: HotelReviewListParams,
   ): Promise<PaginatedResponse<ApprovedHotelItem>> => {
     const response = await apiClient.get<
       ApiSuccessResponse<PaginatedResponse<ApprovedHotelItem>>
@@ -1082,7 +1090,7 @@ export const adminService = {
     };
   },
   getQcRejectedHotelsPaginated: async (
-    params?: PaginationParams,
+    params?: HotelReviewListParams,
   ): Promise<PaginatedResponse<RejectedHotelItem>> => {
     const response = await apiClient.get<
       ApiSuccessResponse<PaginatedResponse<RejectedHotelItem>>
@@ -1094,7 +1102,7 @@ export const adminService = {
     };
   },
   getZonalPendingHotelsPaginated: async (
-    params?: PaginationParams,
+    params?: HotelReviewListParams,
   ): Promise<PaginatedResponse<HotelReviewItem>> => {
     const response = await apiClient.get<
       ApiSuccessResponse<PaginatedResponse<HotelReviewItem>>
@@ -1106,7 +1114,7 @@ export const adminService = {
     };
   },
   getZonalApprovedHotelsPaginated: async (
-    params?: PaginationParams,
+    params?: HotelReviewListParams,
   ): Promise<PaginatedResponse<ApprovedHotelItem>> => {
     const response = await apiClient.get<
       ApiSuccessResponse<PaginatedResponse<ApprovedHotelItem>>
@@ -1118,7 +1126,7 @@ export const adminService = {
     };
   },
   getZonalRejectedHotelsPaginated: async (
-    params?: PaginationParams,
+    params?: HotelReviewListParams,
   ): Promise<PaginatedResponse<RejectedHotelItem>> => {
     const response = await apiClient.get<
       ApiSuccessResponse<PaginatedResponse<RejectedHotelItem>>
