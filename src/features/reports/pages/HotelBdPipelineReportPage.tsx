@@ -58,6 +58,35 @@ const STATUS_OPTIONS: { value: HotelBdPipelineStatus; label: string }[] = [
   { value: "REJECTED", label: "Rejected" },
 ];
 
+const FUNNEL_CARDS: {
+  status: HotelBdPipelineStatus;
+  label: string;
+  tone: "default" | "success" | "warning" | "danger";
+  valueKey: keyof NonNullable<HotelBdPipelineReportResponse["funnel"]>;
+}[] = [
+  { status: "DRAFT", label: "Draft", tone: "default", valueKey: "draft" },
+  { status: "UNDER_QC", label: "Under QC", tone: "warning", valueKey: "underQc" },
+  {
+    status: "QC_REJECTED",
+    label: "QC Rejected",
+    tone: "danger",
+    valueKey: "qcRejected",
+  },
+  {
+    status: "UNDER_ZONAL_REVIEW",
+    label: "Under Zonal",
+    tone: "warning",
+    valueKey: "underZonalReview",
+  },
+  {
+    status: "ZONAL_REJECTED",
+    label: "Zonal Rejected",
+    tone: "danger",
+    valueKey: "zonalRejected",
+  },
+  { status: "LIVE", label: "Live", tone: "success", valueKey: "live" },
+];
+
 const SORT_OPTIONS: { value: HotelBdPipelineSort; label: string }[] = [
   { value: "UPDATED_AT", label: "Updated at" },
   { value: "CREATED_AT", label: "Created at" },
@@ -229,6 +258,14 @@ export default function HotelBdPipelineReportPage() {
     void loadReport({ ...draft, page: 0 });
   };
 
+  const applyStatusFilter = (nextStatus: HotelBdPipelineStatus) => {
+    const resolved = status === nextStatus ? DEFAULT_STATUS : nextStatus;
+    setStatus(resolved);
+    setDraft((prev) => ({ ...prev, status: resolved }));
+    setPage(0);
+    void loadReport({ status: resolved, page: 0 });
+  };
+
   const resetFilters = () => {
     setDraft(DEFAULT_DRAFT);
     setStatus(DEFAULT_DRAFT.status);
@@ -339,32 +376,16 @@ export default function HotelBdPipelineReportPage() {
 
       {report?.funnel ? (
         <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <SummaryCard label="Draft" value={report.funnel.draft} />
-          <SummaryCard
-            label="Under QC"
-            tone="warning"
-            value={report.funnel.underQc}
-          />
-          <SummaryCard
-            label="QC Rejected"
-            tone="danger"
-            value={report.funnel.qcRejected}
-          />
-          <SummaryCard
-            label="Under Zonal"
-            tone="warning"
-            value={report.funnel.underZonalReview}
-          />
-          <SummaryCard
-            label="Zonal Rejected"
-            tone="danger"
-            value={report.funnel.zonalRejected}
-          />
-          <SummaryCard
-            label="Live"
-            tone="success"
-            value={report.funnel.live}
-          />
+          {FUNNEL_CARDS.map((card) => (
+            <SummaryCard
+              key={card.status}
+              label={card.label}
+              tone={card.tone}
+              value={report.funnel[card.valueKey]}
+              active={status === card.status}
+              onClick={() => applyStatusFilter(card.status)}
+            />
+          ))}
         </div>
       ) : null}
 

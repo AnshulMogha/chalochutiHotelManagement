@@ -339,10 +339,14 @@ export function SummaryCard({
   label,
   value,
   tone = "default",
+  active = false,
+  onClick,
 }: {
   label: string;
   value: string | number;
   tone?: "default" | "success" | "warning" | "danger";
+  active?: boolean;
+  onClick?: () => void;
 }) {
   const tones = {
     default: "border-slate-200 bg-white text-slate-900",
@@ -350,9 +354,32 @@ export function SummaryCard({
     warning: "border-amber-200 bg-amber-50 text-amber-800",
     danger: "border-rose-200 bg-rose-50 text-rose-800",
   };
+  const activeRing = {
+    default: "ring-2 ring-slate-400 ring-offset-1",
+    success: "ring-2 ring-emerald-500 ring-offset-1",
+    warning: "ring-2 ring-amber-500 ring-offset-1",
+    danger: "ring-2 ring-rose-500 ring-offset-1",
+  };
+  const className = cn(
+    "rounded-lg border px-3 py-2 text-left shadow-sm",
+    tones[tone],
+    onClick && "cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md",
+    active && activeRing[tone],
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={className}>
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+          {label}
+        </p>
+        <p className="mt-0.5 text-xl font-bold tabular-nums">{value}</p>
+      </button>
+    );
+  }
 
   return (
-    <div className={cn("rounded-lg border px-3 py-2 shadow-sm", tones[tone])}>
+    <div className={className}>
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </p>
