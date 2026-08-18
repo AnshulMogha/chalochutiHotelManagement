@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/ui";
 import SuperAdminDashboardPage from "@/features/admin/pages/SuperAdminDashboardPage";
 import {
+  isHelpdeskAgentRole,
   isHotelBdRole,
   isSalesManagerRole,
 } from "@/constants/roles";
@@ -17,6 +18,10 @@ export default function PortalHomePage() {
         <LoadingSpinner />
       </div>
     );
+  }
+
+  if (isHelpdeskAgentRole(user?.roles)) {
+    return <Navigate to={ROUTES.HELPDESK.LOOKUP} replace />;
   }
 
   if (isHotelBdRole(user?.roles)) {

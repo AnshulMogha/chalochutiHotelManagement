@@ -7,17 +7,32 @@ import {
   type BookingListResponse,
   type BookingListOrderBy,
   type BookingListSortDir,
+  type BookingListExportParams,
 } from "../services/bookingService";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { DataTable } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
+import {
+  exportStatusLabel,
+  formatReportDate,
+  isoToReportDateText,
+  parseOptionalReportDate,
+  validateCustomDateRange,
+} from "@/features/reports/components/reportUiHelpers";
+import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import {
   ArrowUpDown,
   BookOpen,
   Building2,
   Calendar,
   CalendarDays,
+  Download,
   Hash,
+  Layers,
   Loader2,
   RefreshCw,
   Search,
@@ -228,6 +243,28 @@ function getMealPlanStyle(plan: string | undefined): string {
   return "bg-gray-50 text-gray-600 ring-gray-200";
 }
 
+function formatBookingModeLabel(mode: string | undefined | null): string {
+  if (!mode?.trim()) return "—";
+  return mode
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getBookingModeStyle(mode: string | undefined | null): string {
+  const normalized = (mode || "").trim().toUpperCase();
+  if (normalized === "B2B" || normalized.includes("AGENT")) {
+    return "bg-indigo-50 text-indigo-700 ring-indigo-200";
+  }
+  if (normalized === "B2C" || normalized.includes("CUSTOMER")) {
+    return "bg-teal-50 text-teal-700 ring-teal-200";
+  }
+  if (normalized.includes("PACKAGE")) {
+    return "bg-violet-50 text-violet-700 ring-violet-200";
+  }
+  return "bg-slate-50 text-slate-700 ring-slate-200";
+}
+
 export default function BookingListPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -248,6 +285,12 @@ export default function BookingListPage() {
   });
   const [voucherBookingId, setVoucherBookingId] = useState<number | null>(null);
   const [voucherBookingRef, setVoucherBookingRef] = useState<string>("");
+  const [downloadOpen, setDownloadOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
+    null,
+  );
+  const downloadMenuRef = useRef<HTMLDivElement>(null);
 
   // Date/status filters double as drill-down targets from Booking Summary,
   // so they seed from the URL and stay editable afterwards.
@@ -280,6 +323,8 @@ export default function BookingListPage() {
       ""
     );
   });
+  const [customFromText, setCustomFromText] = useState("");
+  const [customToText, setCustomToText] = useState("");
   const [bookingStatus, setBookingStatus] = useState(() =>
     readParam("bookingStatus"),
   );
@@ -382,9 +427,10 @@ export default function BookingListPage() {
       DATE_AXIS_OPTIONS.find((o) => o.value === dateAxis)?.label ?? "Date";
     if (datePreset === "CUSTOM") {
       if (customFrom && customTo && customFrom !== customTo) {
-        return `${axisLabel}: ${customFrom} → ${customTo}`;
+        return `${axisLabel}: ${formatReportDate(customFrom)} → ${formatReportDate(customTo)}`;
       }
-      return `${axisLabel}: ${customFrom || customTo || "Custom"}`;
+      const single = customFrom || customTo;
+      return `${axisLabel}: ${single ? formatReportDate(single) : "Custom"}`;
     }
     const presetLabel =
       DATE_PRESET_OPTIONS.find((o) => o.value === datePreset)?.label ??
@@ -446,6 +492,99 @@ export default function BookingListPage() {
       window.removeEventListener("scroll", updateMenuPosition, true);
     };
   }, [dateOpen, dateAxis, datePreset]);
+
+  useEffect(() => {
+    if (!dateOpen || datePreset !== "CUSTOM") return;
+    setCustomFromText(isoToReportDateText(customFrom));
+    setCustomToText(isoToReportDateText(customTo));
+  }, [dateOpen, datePreset, customFrom, customTo]);
+
+  useEffect(() => {
+    if (!downloadOpen) return;
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (
+        target &&
+        downloadMenuRef.current &&
+        !downloadMenuRef.current.contains(target)
+      ) {
+        setDownloadOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+    };
+  }, [downloadOpen]);
+
+  const listExportParams = useMemo((): BookingListExportParams | null => {
+    if (!selectedHotelId) return null;
+    return {
+      hotelId: selectedHotelId,
+      guestName: debouncedGuestName.trim() || undefined,
+      bookingId: debouncedBookingId.trim() || undefined,
+      checkInDate: dateFilterParams.checkInDate,
+      checkOutDate: dateFilterParams.checkOutDate,
+      bookingDate: dateFilterParams.bookingDate,
+      today: dateFilterParams.today,
+      checkOutFrom: dateFilterParams.checkOutFrom,
+      checkOutTo: dateFilterParams.checkOutTo,
+      bookingStatus: bookingStatus.trim() || undefined,
+      view: drillView || undefined,
+      orderBy,
+      sortDir,
+    };
+  }, [
+    selectedHotelId,
+    debouncedGuestName,
+    debouncedBookingId,
+    dateFilterParams.checkInDate,
+    dateFilterParams.checkOutDate,
+    dateFilterParams.bookingDate,
+    dateFilterParams.today,
+    dateFilterParams.checkOutFrom,
+    dateFilterParams.checkOutTo,
+    bookingStatus,
+    drillView,
+    orderBy,
+    sortDir,
+  ]);
+
+  const exportBaseName = () => {
+    const hotelPart = selectedHotelId
+      ? selectedHotelId.slice(0, 8)
+      : "bookings";
+    const datePart = new Date().toISOString().slice(0, 10);
+    return `booking-list-${hotelPart}-${datePart}`;
+  };
+
+  const handleExport = async (format: ReportExportFormat) => {
+    if (!listExportParams) return;
+    setDownloadOpen(false);
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await bookingService.exportBookingList({
+        params: listExportParams,
+        format,
+        defaultFileName: exportBaseName(),
+        onStatus: setExportStatus,
+      });
+      showToast("Booking list downloaded.", "success");
+    } catch (err) {
+      console.error("Booking list export failed:", err);
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: unknown }).message)
+          : "Export failed";
+      showToast(message, "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
+  };
 
   // Seed the filter bar from Booking Summary drill-down params, then drop them
   // from the URL so the filters stay fully editable afterwards.
@@ -671,6 +810,30 @@ export default function BookingListPage() {
         ),
       },
       {
+        field: "bookingMode",
+        headerName: "Mode",
+        flex: 0.55,
+        minWidth: 92,
+        renderHeader: () => (
+          <BookingColumnHeader icon={Layers} label="Booking mode" />
+        ),
+        renderCell: (params) => {
+          const label = formatBookingModeLabel(params.value);
+          if (label === "—") {
+            return <span className="text-sm text-gray-400">—</span>;
+          }
+          return (
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ${getBookingModeStyle(params.value)}`}
+              title={params.value || undefined}
+            >
+              <Layers className="h-3 w-3 shrink-0 opacity-70" />
+              {label}
+            </span>
+          );
+        },
+      },
+      {
         field: "status",
         headerName: "Status",
         flex: 0.7,
@@ -846,16 +1009,65 @@ export default function BookingListPage() {
                 </span>
               ) : null}
             </div>
-            <button
-              onClick={fetchBookings}
-              disabled={loading}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="relative" ref={downloadMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setDownloadOpen((open) => !open)}
+                  disabled={exporting || loading}
+                  title={
+                    exporting
+                      ? exportStatusLabel(exportStatus) || "Exporting…"
+                      : "Download bookings"
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#2f3d95]/20 bg-[#2f3d95]/10 px-3 py-1.5 text-sm font-medium text-[#2f3d95] shadow-sm transition-colors hover:border-[#2f3d95]/35 hover:bg-[#2f3d95]/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {exporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {exporting
+                    ? exportStatusLabel(exportStatus) || "Exporting"
+                    : "Download"}
+                </button>
+                {downloadOpen && !exporting ? (
+                  <div className="absolute right-0 z-30 mt-1 w-52 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => void handleExport("EXCEL")}
+                      className="flex w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Download Excel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleExport("CSV")}
+                      className="flex w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Download CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleExport("PDF")}
+                      className="flex w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Download PDF
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <button
+                onClick={fetchBookings}
+                disabled={loading}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </button>
+            </div>
           </div>
 
           {drillView ? (
@@ -1020,71 +1232,61 @@ export default function BookingListPage() {
                         {datePreset === "CUSTOM" && (
                           <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
                             {isSingleDayAxis(dateAxis) ? (
-                              <div>
-                                <label className="mb-1 block text-xs text-slate-500">
-                                  Date
-                                </label>
-                                <input
-                                  type="date"
-                                  value={customFrom}
-                                  onChange={(e) => {
-                                    setCustomFrom(e.target.value);
-                                    setCustomTo(e.target.value);
-                                    setPaginationModel((prev) => ({
-                                      ...prev,
-                                      page: 0,
-                                    }));
-                                  }}
-                                  className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm"
-                                />
-                              </div>
+                              <ReportCustomDateFields
+                                singleDate
+                                singleLabel="Date"
+                                fromText={customFromText}
+                                onFromTextChange={setCustomFromText}
+                                inputClassName="rounded-md"
+                              />
                             ) : (
-                              <>
-                                <div>
-                                  <label className="mb-1 block text-xs text-slate-500">
-                                    From
-                                  </label>
-                                  <input
-                                    type="date"
-                                    value={customFrom}
-                                    onChange={(e) => {
-                                      setCustomFrom(e.target.value);
-                                      setPaginationModel((prev) => ({
-                                        ...prev,
-                                        page: 0,
-                                      }));
-                                    }}
-                                    className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="mb-1 block text-xs text-slate-500">
-                                    To
-                                  </label>
-                                  <input
-                                    type="date"
-                                    value={customTo}
-                                    min={customFrom || undefined}
-                                    onChange={(e) => {
-                                      setCustomTo(e.target.value);
-                                      setPaginationModel((prev) => ({
-                                        ...prev,
-                                        page: 0,
-                                      }));
-                                    }}
-                                    className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm"
-                                  />
-                                </div>
-                              </>
+                              <ReportCustomDateFields
+                                fromText={customFromText}
+                                toText={customToText}
+                                onFromTextChange={setCustomFromText}
+                                onToTextChange={setCustomToText}
+                                inputClassName="rounded-md"
+                              />
                             )}
                             <button
                               type="button"
                               disabled={
                                 isSingleDayAxis(dateAxis)
-                                  ? !customFrom
-                                  : !customFrom || !customTo
+                                  ? !parseOptionalReportDate(customFromText)
+                                  : !validateCustomDateRange(
+                                      customFromText,
+                                      customToText,
+                                    ).ok
                               }
-                              onClick={() => setDateOpen(false)}
+                              onClick={() => {
+                                if (isSingleDayAxis(dateAxis)) {
+                                  const parsed = parseOptionalReportDate(
+                                    customFromText,
+                                  );
+                                  if (!parsed) return;
+                                  setCustomFrom(parsed);
+                                  setCustomTo(parsed);
+                                  setCustomFromText(formatReportDate(parsed));
+                                  setCustomToText(formatReportDate(parsed));
+                                } else {
+                                  const parsed = validateCustomDateRange(
+                                    customFromText,
+                                    customToText,
+                                  );
+                                  if (!parsed.ok) return;
+                                  setCustomFrom(parsed.fromDate);
+                                  setCustomTo(parsed.toDate);
+                                  setCustomFromText(
+                                    formatReportDate(parsed.fromDate),
+                                  );
+                                  setCustomToText(formatReportDate(parsed.toDate));
+                                }
+                                setPaginationModel((prev) => ({
+                                  ...prev,
+                                  page: 0,
+                                }));
+                                setDateOpen(false);
+                              }}
                               className="w-full rounded-lg bg-[#2f3d95] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
                             >
                               Apply

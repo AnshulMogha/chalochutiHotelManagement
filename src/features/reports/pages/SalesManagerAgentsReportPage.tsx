@@ -15,7 +15,12 @@ import {
   formatReportDateTime,
   formatReportMoney,
   formatStatusLabel,
+  isoToReportDateText,
+  isValidCustomDateRange,
+  validateCustomDateRange,
+  validateOptionalDateRange,
 } from "../components/reportUiHelpers";
+import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
   salesManagerAgentsReportService,
   type SalesManagerAgentPortfolioRow,
@@ -142,6 +147,12 @@ export default function SalesManagerAgentsReportPage() {
   const [page, setPage] = useState(0);
   const [filterOpen, setFilterOpen] = useState(false);
   const [draft, setDraft] = useState<FilterDraft>(DEFAULT_DRAFT);
+  const [customFromText, setCustomFromText] = useState("");
+  const [customToText, setCustomToText] = useState("");
+  const [onboardedFromText, setOnboardedFromText] = useState("");
+  const [onboardedToText, setOnboardedToText] = useState("");
+  const [lastBookingFromText, setLastBookingFromText] = useState("");
+  const [lastBookingToText, setLastBookingToText] = useState("");
 
   const [report, setReport] = useState<SalesManagerAgentsReportResponse | null>(
     null,
@@ -158,7 +169,8 @@ export default function SalesManagerAgentsReportPage() {
   const customRangeInvalid =
     datePreset === "CUSTOM" && (!fromDate || !toDate);
   const draftCustomInvalid =
-    draft.datePreset === "CUSTOM" && (!draft.fromDate || !draft.toDate);
+    draft.datePreset === "CUSTOM" &&
+    !isValidCustomDateRange(customFromText, customToText);
 
   const activeFilterCount =
     (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
@@ -300,30 +312,70 @@ export default function SalesManagerAgentsReportPage() {
 
   const applyFilters = () => {
     if (draftCustomInvalid) return;
-    setDatePreset(draft.datePreset);
-    setFromDate(draft.fromDate);
-    setToDate(draft.toDate);
-    setDateAxis(draft.dateAxis);
-    setBookingType(draft.bookingType);
-    setStateId(draft.stateId);
-    setState(draft.state);
-    setAgencyTier(draft.agencyTier);
-    setSalesManagerId(draft.salesManagerId);
-    setSearch(draft.search);
-    setAgentStatus(draft.agentStatus);
-    setSort(draft.sort);
-    setSortDir(draft.sortDir);
-    setOnboardedFrom(draft.onboardedFrom);
-    setOnboardedTo(draft.onboardedTo);
-    setLastBookingFrom(draft.lastBookingFrom);
-    setLastBookingTo(draft.lastBookingTo);
+
+    let nextDraft = { ...draft };
+    if (draft.datePreset === "CUSTOM") {
+      const parsed = validateCustomDateRange(customFromText, customToText);
+      if (!parsed.ok) {
+        showToast(parsed.message, "error");
+        return;
+      }
+      nextDraft.fromDate = parsed.fromDate;
+      nextDraft.toDate = parsed.toDate;
+    }
+
+    const onboarded = validateOptionalDateRange(
+      onboardedFromText,
+      onboardedToText,
+    );
+    if (!onboarded.ok) {
+      showToast(onboarded.message, "error");
+      return;
+    }
+    nextDraft.onboardedFrom = onboarded.fromDate ?? "";
+    nextDraft.onboardedTo = onboarded.toDate ?? "";
+
+    const lastBooking = validateOptionalDateRange(
+      lastBookingFromText,
+      lastBookingToText,
+    );
+    if (!lastBooking.ok) {
+      showToast(lastBooking.message, "error");
+      return;
+    }
+    nextDraft.lastBookingFrom = lastBooking.fromDate ?? "";
+    nextDraft.lastBookingTo = lastBooking.toDate ?? "";
+
+    setDatePreset(nextDraft.datePreset);
+    setFromDate(nextDraft.fromDate);
+    setToDate(nextDraft.toDate);
+    setDateAxis(nextDraft.dateAxis);
+    setBookingType(nextDraft.bookingType);
+    setStateId(nextDraft.stateId);
+    setState(nextDraft.state);
+    setAgencyTier(nextDraft.agencyTier);
+    setSalesManagerId(nextDraft.salesManagerId);
+    setSearch(nextDraft.search);
+    setAgentStatus(nextDraft.agentStatus);
+    setSort(nextDraft.sort);
+    setSortDir(nextDraft.sortDir);
+    setOnboardedFrom(nextDraft.onboardedFrom);
+    setOnboardedTo(nextDraft.onboardedTo);
+    setLastBookingFrom(nextDraft.lastBookingFrom);
+    setLastBookingTo(nextDraft.lastBookingTo);
     setPage(0);
     setFilterOpen(false);
-    void loadReport({ ...draft, page: 0 });
+    void loadReport({ ...nextDraft, page: 0 });
   };
 
   const resetFilters = () => {
     setDraft(DEFAULT_DRAFT);
+    setCustomFromText("");
+    setCustomToText("");
+    setOnboardedFromText("");
+    setOnboardedToText("");
+    setLastBookingFromText("");
+    setLastBookingToText("");
     setDatePreset(DEFAULT_DRAFT.datePreset);
     setFromDate("");
     setToDate("");
@@ -393,6 +445,12 @@ export default function SalesManagerAgentsReportPage() {
                   lastBookingFrom,
                   lastBookingTo,
                 });
+                setCustomFromText(isoToReportDateText(fromDate));
+                setCustomToText(isoToReportDateText(toDate));
+                setOnboardedFromText(isoToReportDateText(onboardedFrom));
+                setOnboardedToText(isoToReportDateText(onboardedTo));
+                setLastBookingFromText(isoToReportDateText(lastBookingFrom));
+                setLastBookingToText(isoToReportDateText(lastBookingTo));
                 setFilterOpen(true);
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
@@ -610,34 +668,12 @@ export default function SalesManagerAgentsReportPage() {
                 </select>
               </FilterField>
               {draft.datePreset === "CUSTOM" ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <FilterField label="From">
-                    <input
-                      type="date"
-                      value={draft.fromDate}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          fromDate: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    />
-                  </FilterField>
-                  <FilterField label="To">
-                    <input
-                      type="date"
-                      value={draft.toDate}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          toDate: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    />
-                  </FilterField>
-                </div>
+                <ReportCustomDateFields
+                  fromText={customFromText}
+                  toText={customToText}
+                  onFromTextChange={setCustomFromText}
+                  onToTextChange={setCustomToText}
+                />
               ) : null}
               <FilterField label="Date axis">
                 <select
@@ -809,62 +845,22 @@ export default function SalesManagerAgentsReportPage() {
                   <option value="ASC">Ascending</option>
                 </select>
               </FilterField>
-              <div className="grid grid-cols-2 gap-2">
-                <FilterField label="Onboarded from">
-                  <input
-                    type="date"
-                    value={draft.onboardedFrom}
-                    onChange={(event) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        onboardedFrom: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  />
-                </FilterField>
-                <FilterField label="Onboarded to">
-                  <input
-                    type="date"
-                    value={draft.onboardedTo}
-                    onChange={(event) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        onboardedTo: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  />
-                </FilterField>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <FilterField label="Last booking from">
-                  <input
-                    type="date"
-                    value={draft.lastBookingFrom}
-                    onChange={(event) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        lastBookingFrom: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  />
-                </FilterField>
-                <FilterField label="Last booking to">
-                  <input
-                    type="date"
-                    value={draft.lastBookingTo}
-                    onChange={(event) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        lastBookingTo: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  />
-                </FilterField>
-              </div>
+              <ReportCustomDateFields
+                fromLabel="Onboarded from"
+                toLabel="Onboarded to"
+                fromText={onboardedFromText}
+                toText={onboardedToText}
+                onFromTextChange={setOnboardedFromText}
+                onToTextChange={setOnboardedToText}
+              />
+              <ReportCustomDateFields
+                fromLabel="Last booking from"
+                toLabel="Last booking to"
+                fromText={lastBookingFromText}
+                toText={lastBookingToText}
+                onFromTextChange={setLastBookingFromText}
+                onToTextChange={setLastBookingToText}
+              />
             </div>
             <div className="flex gap-2 border-t border-slate-100 px-4 py-3">
               <button

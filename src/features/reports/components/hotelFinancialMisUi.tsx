@@ -141,8 +141,10 @@ export function readCachedFinancialMisRow<T>(): T | null {
   }
 }
 
-export function bookingStatusTone(status: string): string {
-  const normalized = status.trim().toUpperCase();
+export function bookingStatusTone(status: string | null | undefined): string {
+  const normalized = String(status ?? "")
+    .trim()
+    .toUpperCase();
   if (normalized === "CONFIRMED" || normalized === "COMPLETED") {
     return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   }
@@ -152,8 +154,10 @@ export function bookingStatusTone(status: string): string {
   return "bg-slate-100 text-slate-700 ring-slate-200";
 }
 
-export function paymentStatusTone(status: string): string {
-  const normalized = status.trim().toUpperCase();
+export function paymentStatusTone(status: string | null | undefined): string {
+  const normalized = String(status ?? "")
+    .trim()
+    .toUpperCase();
   if (
     normalized === "PAID" ||
     normalized.includes("PAID") ||
@@ -176,8 +180,10 @@ export function paymentStatusTone(status: string): string {
   return "bg-slate-100 text-slate-700 ring-slate-200";
 }
 
-export function refundStatusTone(status: string): string {
-  const normalized = status.trim().toUpperCase();
+export function refundStatusTone(status: string | null | undefined): string {
+  const normalized = String(status ?? "")
+    .trim()
+    .toUpperCase();
   if (normalized.includes("SUCCESS") || normalized === "REFUND_SUCCESS") {
     return "bg-emerald-50 text-emerald-700 ring-emerald-200";
   }

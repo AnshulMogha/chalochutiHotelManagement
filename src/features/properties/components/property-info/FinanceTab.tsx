@@ -29,6 +29,7 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
     pan: "",
     businessName: "",
     businessAddress: "",
+    bankAccountHolderName: "",
     bankAccountNumber: "",
     bankName: "",
     bankIfsc: "",
@@ -43,6 +44,7 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
         pan: "",
         businessName: "",
         businessAddress: "",
+        bankAccountHolderName: "",
         bankAccountNumber: "",
         bankName: "",
         bankIfsc: "",
@@ -58,6 +60,7 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
             pan: financeData.pan || "",
             businessName: financeData.businessName || "",
             businessAddress: financeData.businessAddress || "",
+            bankAccountHolderName: financeData.bankAccountHolderName || "",
             bankAccountNumber: financeData.bankAccountNumber || "",
             bankName: financeData.bankName || "",
             bankIfsc: financeData.bankIfsc || "",
@@ -153,6 +156,10 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
     }
     if (!formData.businessAddress.trim()) {
       showToast("Please enter business address", "error");
+      return false;
+    }
+    if (!formData.bankAccountHolderName.trim()) {
+      showToast("Please enter bank account holder name", "error");
       return false;
     }
     if (!formData.bankAccountNumber.trim()) {
@@ -337,6 +344,26 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
           />
 
           <div className="space-y-3">
+            <FinanceFieldWrap theme="teal">
+              <FinanceFieldLabel
+                htmlFor="bankAccountHolderName"
+                required
+                theme="teal"
+              >
+                Account Holder Name
+              </FinanceFieldLabel>
+              <Input
+                id="bankAccountHolderName"
+                type="text"
+                placeholder="Enter name as per bank records"
+                value={formData.bankAccountHolderName}
+                onChange={(e) =>
+                  handleChange("bankAccountHolderName", e.target.value)
+                }
+                className="bg-white"
+              />
+            </FinanceFieldWrap>
+
             <FinanceFieldWrap theme="teal">
               <FinanceFieldLabel htmlFor="bankAccountNumber" required theme="teal">
                 Bank Account Number

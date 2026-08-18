@@ -3,6 +3,12 @@ import { useNavigate, useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import {
+  formatReportDate,
+  isoToReportDateText,
+  validateCustomDateRange,
+} from "../components/reportUiHelpers";
+import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import {
   promotionReportService,
   type PromotionApplicabilityFilter,
   type PromotionDatePreset,
@@ -67,19 +73,6 @@ function formatCurrency(amount?: number | null, currency = "INR"): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
-}
-
-function formatDisplayDate(value?: string | null): string {
-  if (!value) return "—";
-  const parsed = new Date(
-    value.length <= 10 ? `${value}T00:00:00` : value,
-  );
-  if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "2-digit",
-  });
 }
 
 /** Expiry chips are colour coded: urgent (<=7 days), upcoming, open ended. */
@@ -186,6 +179,10 @@ export default function PromotionReportPage() {
   const [promotionName, setPromotionName] = useState("");
   const [applicabilityFrom, setApplicabilityFrom] = useState("");
   const [applicabilityTo, setApplicabilityTo] = useState("");
+  const [customFromText, setCustomFromText] = useState("");
+  const [customToText, setCustomToText] = useState("");
+  const [applicFromText, setApplicFromText] = useState("");
+  const [applicToText, setApplicToText] = useState("");
 
   const [draft, setDraft] = useState({
     tiers: [] as PromotionTier[],
@@ -211,19 +208,50 @@ export default function PromotionReportPage() {
       applicabilityFrom,
       applicabilityTo,
     });
+    setCustomFromText(isoToReportDateText(customFrom));
+    setCustomToText(isoToReportDateText(customTo));
+    setApplicFromText(isoToReportDateText(applicabilityFrom));
+    setApplicToText(isoToReportDateText(applicabilityTo));
     setFilterOpen(true);
   };
 
   const applyFilters = () => {
+    let nextCustomFrom = customFrom;
+    let nextCustomTo = customTo;
+    if (draft.datePreset === "CUSTOM") {
+      const parsed = validateCustomDateRange(customFromText, customToText);
+      if (!parsed.ok) {
+        showToast(parsed.message, "error");
+        return;
+      }
+      nextCustomFrom = parsed.fromDate;
+      nextCustomTo = parsed.toDate;
+    }
+
+    let nextApplicFrom = applicabilityFrom;
+    let nextApplicTo = applicabilityTo;
+    if (
+      draft.applicability === "BOOKING_WINDOW" ||
+      draft.applicability === "STAY_WINDOW"
+    ) {
+      const parsed = validateCustomDateRange(applicFromText, applicToText);
+      if (!parsed.ok) {
+        showToast(parsed.message, "error");
+        return;
+      }
+      nextApplicFrom = parsed.fromDate;
+      nextApplicTo = parsed.toDate;
+    }
+
     setTiers(draft.tiers);
     setDatePreset(draft.datePreset);
-    setCustomFrom(draft.customFrom);
-    setCustomTo(draft.customTo);
+    setCustomFrom(nextCustomFrom);
+    setCustomTo(nextCustomTo);
     setPerformanceAxis(draft.performanceAxis);
     setApplicability(draft.applicability);
     setPromotionName(draft.promotionName);
-    setApplicabilityFrom(draft.applicabilityFrom);
-    setApplicabilityTo(draft.applicabilityTo);
+    setApplicabilityFrom(nextApplicFrom);
+    setApplicabilityTo(nextApplicTo);
     setPage(0);
     setFilterOpen(false);
   };
@@ -240,6 +268,10 @@ export default function PromotionReportPage() {
       applicabilityFrom: "",
       applicabilityTo: "",
     });
+    setCustomFromText("");
+    setCustomToText("");
+    setApplicFromText("");
+    setApplicToText("");
   };
 
   const activeFilterCount =
@@ -559,8 +591,8 @@ export default function PromotionReportPage() {
               <div className="flex items-center gap-2">
                 <p className="hidden text-[11px] text-slate-400 sm:block">
                   {performanceAxis === "BOOKING" ? "Booking" : "Stay"}{" "}
-                  {formatDisplayDate(performanceRange.fromDate)} –{" "}
-                  {formatDisplayDate(performanceRange.toDate)}
+                  {formatReportDate(performanceRange.fromDate)} –{" "}
+                  {formatReportDate(performanceRange.toDate)}
                   {tiers.length ? ` · ${tiers.length} tier(s)` : ""}
                 </p>
                 <button
@@ -673,7 +705,7 @@ export default function PromotionReportPage() {
                           {row.lastModified ? (
                             <p className="mt-0.5 text-[11px] text-slate-400">
                               Last modified{" "}
-                              {formatDisplayDate(row.lastModified)}
+                              {formatReportDate(row.lastModified)}
                             </p>
                           ) : null}
                         </td>
@@ -719,7 +751,7 @@ export default function PromotionReportPage() {
                           ) : (
                             <span className="text-sm text-slate-700">
                               {row.deactivatedOnLabel ??
-                                formatDisplayDate(row.deactivatedOn)}
+                                formatReportDate(row.deactivatedOn)}
                             </span>
                           )}
                         </td>
@@ -861,41 +893,13 @@ export default function PromotionReportPage() {
                 </select>
 
                 {draft.datePreset === "CUSTOM" && (
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="mb-1 block text-xs text-slate-500">
-                        From
-                      </label>
-                      <input
-                        type="date"
-                        value={draft.customFrom}
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            customFrom: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs text-slate-500">
-                        To
-                      </label>
-                      <input
-                        type="date"
-                        value={draft.customTo}
-                        min={draft.customFrom || undefined}
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            customTo: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                      />
-                    </div>
-                  </div>
+                  <ReportCustomDateFields
+                    className="mt-3"
+                    fromText={customFromText}
+                    toText={customToText}
+                    onFromTextChange={setCustomFromText}
+                    onToTextChange={setCustomToText}
+                  />
                 )}
 
                 <div className="mt-3">
@@ -982,41 +986,13 @@ export default function PromotionReportPage() {
 
                       {draft.applicability === option.value &&
                         option.value !== "NAME" && (
-                          <div className="ml-7 mt-1 grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3">
-                            <div>
-                              <label className="mb-1 block text-xs text-slate-500">
-                                From
-                              </label>
-                              <input
-                                type="date"
-                                value={draft.applicabilityFrom}
-                                onChange={(e) =>
-                                  setDraft((prev) => ({
-                                    ...prev,
-                                    applicabilityFrom: e.target.value,
-                                  }))
-                                }
-                                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                              />
-                            </div>
-                            <div>
-                              <label className="mb-1 block text-xs text-slate-500">
-                                To
-                              </label>
-                              <input
-                                type="date"
-                                value={draft.applicabilityTo}
-                                min={draft.applicabilityFrom || undefined}
-                                onChange={(e) =>
-                                  setDraft((prev) => ({
-                                    ...prev,
-                                    applicabilityTo: e.target.value,
-                                  }))
-                                }
-                                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                              />
-                            </div>
-                          </div>
+                          <ReportCustomDateFields
+                            className="ml-7 mt-1 rounded-lg bg-slate-50 p-3"
+                            fromText={applicFromText}
+                            toText={applicToText}
+                            onFromTextChange={setApplicFromText}
+                            onToTextChange={setApplicToText}
+                          />
                         )}
                     </div>
                   ))}

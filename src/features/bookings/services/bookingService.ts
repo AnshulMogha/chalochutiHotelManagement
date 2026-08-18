@@ -1,6 +1,11 @@
 import { apiClient } from "@/services/api/client";
 import type { ApiSuccessResponse } from "@/services/api/types";
 import { API_ENDPOINTS } from "@/constants";
+import {
+  runReportExportJob,
+  type ExportJobStatus,
+  type ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 
 /** Single booking item from /reports/booking-list API */
 export interface BookingListItem {
@@ -16,6 +21,7 @@ export interface BookingListItem {
   guestContact: string;
   netAmount: number;
   bookingSource: string;
+  bookingMode?: string | null;
   status: string;
 }
 
@@ -476,82 +482,124 @@ export interface BookingListParams {
   size?: number;
 }
 
+export type BookingListExportParams = Omit<
+  BookingListParams,
+  "page" | "size"
+>;
+
+function buildBookingListQuery(
+  params: BookingListParams,
+  options?: { includePagination?: boolean },
+): string {
+  const includePagination = options?.includePagination ?? true;
+  const {
+    hotelId,
+    guestName,
+    bookingId,
+    checkInDate,
+    checkOutDate,
+    bookingDate,
+    today,
+    checkOutFrom,
+    checkOutTo,
+    bookingStatus,
+    view,
+    orderBy,
+    sortDir,
+    page = 0,
+    size = 10,
+  } = params;
+
+  const search = new URLSearchParams();
+  search.set("hotelId", hotelId);
+  if (view != null && view.trim() !== "") {
+    search.set("view", view.trim());
+  }
+  if (guestName != null && guestName.trim() !== "") {
+    search.set("guestName", guestName.trim());
+  }
+  if (bookingId != null && bookingId.trim() !== "") {
+    search.set("bookingId", bookingId.trim());
+  }
+  if (checkInDate != null && checkInDate.trim() !== "") {
+    search.set("checkInDate", checkInDate.trim());
+  }
+  if (checkOutDate != null && checkOutDate.trim() !== "") {
+    search.set("checkOutDate", checkOutDate.trim());
+  }
+  if (bookingDate != null && bookingDate.trim() !== "") {
+    search.set("bookingDate", bookingDate.trim());
+  }
+  if (today != null && today.trim() !== "") {
+    search.set("today", today.trim());
+  }
+  if (checkOutFrom != null && checkOutFrom.trim() !== "") {
+    search.set("checkOutFrom", checkOutFrom.trim());
+  }
+  if (checkOutTo != null && checkOutTo.trim() !== "") {
+    search.set("checkOutTo", checkOutTo.trim());
+  }
+  if (bookingStatus != null && bookingStatus.trim() !== "") {
+    search.set("bookingStatus", bookingStatus.trim());
+  }
+  if (orderBy) {
+    search.set("orderBy", orderBy);
+  }
+  if (sortDir) {
+    search.set("sortDir", sortDir);
+  }
+  if (includePagination) {
+    search.set("page", String(page));
+    search.set("size", String(size));
+  }
+  return search.toString();
+}
+
 export const bookingService = {
   getBookingList: async (
     params: BookingListParams,
   ): Promise<BookingListResponse> => {
-    const {
-      hotelId,
-      guestName,
-      bookingId,
-      checkInDate,
-      checkOutDate,
-      bookingDate,
-      today,
-      checkOutFrom,
-      checkOutTo,
-      bookingStatus,
-      view,
-      orderBy,
-      sortDir,
-      page = 0,
-      size = 10,
-    } = params;
-    const search = new URLSearchParams();
-    search.set("hotelId", hotelId);
-    if (view != null && view.trim() !== "") {
-      search.set("view", view.trim());
-    }
-    if (guestName != null && guestName.trim() !== "") {
-      search.set("guestName", guestName.trim());
-    }
-    if (bookingId != null && bookingId.trim() !== "") {
-      search.set("bookingId", bookingId.trim());
-    }
-    if (checkInDate != null && checkInDate.trim() !== "") {
-      search.set("checkInDate", checkInDate.trim());
-    }
-    if (checkOutDate != null && checkOutDate.trim() !== "") {
-      search.set("checkOutDate", checkOutDate.trim());
-    }
-    if (bookingDate != null && bookingDate.trim() !== "") {
-      search.set("bookingDate", bookingDate.trim());
-    }
-    if (today != null && today.trim() !== "") {
-      search.set("today", today.trim());
-    }
-    if (checkOutFrom != null && checkOutFrom.trim() !== "") {
-      search.set("checkOutFrom", checkOutFrom.trim());
-    }
-    if (checkOutTo != null && checkOutTo.trim() !== "") {
-      search.set("checkOutTo", checkOutTo.trim());
-    }
-    if (bookingStatus != null && bookingStatus.trim() !== "") {
-      search.set("bookingStatus", bookingStatus.trim());
-    }
-    if (orderBy) {
-      search.set("orderBy", orderBy);
-    }
-    if (sortDir) {
-      search.set("sortDir", sortDir);
-    }
-    search.set("page", String(page));
-    search.set("size", String(size));
+    const query = buildBookingListQuery(params);
     const response = await apiClient.get<
       ApiSuccessResponse<BookingListResponse>
-    >(`${API_ENDPOINTS.REPORTS.BOOKING_LIST}?${search.toString()}`);
+    >(`${API_ENDPOINTS.REPORTS.BOOKING_LIST}?${query}`);
     const payload = response.data;
     if (!payload || !Array.isArray(payload.data)) {
       return {
         data: [],
-        page: page,
-        size: size,
+        page: params.page ?? 0,
+        size: params.size ?? 10,
         totalElements: 0,
         totalPages: 0,
         checkInSummary: null,
       };
     }
     return payload;
+  },
+
+  exportBookingList: async (options: {
+    params: BookingListExportParams;
+    format?: ReportExportFormat;
+    defaultFileName: string;
+    onStatus?: (status: ExportJobStatus) => void;
+  }): Promise<void> => {
+    const format = options.format ?? "EXCEL";
+    const query = buildBookingListQuery(
+      { ...options.params, page: undefined, size: undefined },
+      { includePagination: false },
+    );
+    const formatParam = query
+      ? `?${query}&format=${format}`
+      : `?format=${format}`;
+
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.REPORTS.BOOKING_LIST_EXPORT}${formatParam}`,
+      statusUrl: API_ENDPOINTS.REPORTS.BOOKING_LIST_EXPORT_JOB,
+      downloadUrl: API_ENDPOINTS.REPORTS.BOOKING_LIST_EXPORT_DOWNLOAD,
+      defaultFileName: options.defaultFileName,
+      format,
+      onStatus: options.onStatus,
+    });
   },
 
   getBookingDetail: async (

@@ -2,10 +2,12 @@ import { cn } from "@/lib/utils";
 import { Link } from "react-router";
 import logo from "@/assets/originallogo.webp";
 import {
+  canViewHelpdeskBookings,
   canViewHotelBdReports,
   canViewHotelBookingFinancialMis,
   canViewPaymentReport,
   canViewSalesManagerReports,
+  isHelpdeskAgentRole,
   isHotelBdRole,
   isReviewerPortalRole,
   isSalesManagerRole,
@@ -38,6 +40,7 @@ import {
   UserRoundCog,
   Bus,
   Package,
+  Headphones,
   HeartPulse,
   Wallet,
   GitBranch,
@@ -174,9 +177,12 @@ const getNavItems = (user: User | null): NavItem[] => {
   const isReviewer = isReviewerPortalRole(userRoles);
   const isZonalSales = isZonalManagerSalesRole(userRoles);
   const isSalesManager = isSalesManagerRole(userRoles);
+  const isHelpdeskAgent = isHelpdeskAgentRole(userRoles);
   const isSuperAdmin = hasAnyRole(userRoles, [ROLES.SUPER_ADMIN]);
   const isHotelBd = isHotelBdRole(userRoles);
-  const dashboardPath = isHotelBd
+  const dashboardPath = isHelpdeskAgent
+    ? ROUTES.HELPDESK.LOOKUP
+    : isHotelBd
     ? ROUTES.REPORTS.HOTEL_BD_DASHBOARD
     : isSalesManager
       ? ROUTES.REPORTS.SALES_MANAGER_DASHBOARD
@@ -203,6 +209,14 @@ const getNavItems = (user: User | null): NavItem[] => {
       path: ROUTES.ADMIN.TRANSPORT,
       icon: Bus,
       external: true,
+    });
+    return items;
+  }
+  if (isHelpdeskAgent && !isSuperAdmin) {
+    items.push({
+      label: "Order Lookup",
+      path: ROUTES.HELPDESK.LOOKUP,
+      icon: Headphones,
     });
     return items;
   }
@@ -521,6 +535,15 @@ const getNavItems = (user: User | null): NavItem[] => {
   // Items visible only to SUPER_ADMIN
   if (isSuperAdmin) {
     items.push(
+      ...(canViewHelpdeskBookings(userRoles)
+        ? [
+            {
+              label: "Order Lookup",
+              path: ROUTES.HELPDESK.LOOKUP,
+              icon: Headphones,
+            },
+          ]
+        : []),
       {
         label: "Hotel Review",
         path: ROUTES.ADMIN.HOTEL_REVIEW,

@@ -171,6 +171,12 @@ const BookingListPage = lazy(
 const BookingDetailPage = lazy(
   () => import("../features/bookings/pages/BookingDetailPage"),
 );
+const HelpdeskBookingLookupPage = lazy(
+  () => import("../features/helpdesk/pages/HelpdeskBookingLookupPage"),
+);
+const HelpdeskBookingDetailPage = lazy(
+  () => import("../features/helpdesk/pages/HelpdeskBookingDetailPage"),
+);
 const BookingSummaryPage = lazy(
   () => import("../features/reports/pages/BookingSummaryPage"),
 );
@@ -458,6 +464,14 @@ export const routes: RouteObject[] = [
       {
         path: "bookings/:id",
         element: <BookingDetailPage />,
+      },
+      {
+        path: "helpdesk/orders",
+        element: <HelpdeskBookingLookupPage />,
+      },
+      {
+        path: "helpdesk/orders/:bookingRef",
+        element: <HelpdeskBookingDetailPage />,
       },
       {
         path: "reports/booking-summary",

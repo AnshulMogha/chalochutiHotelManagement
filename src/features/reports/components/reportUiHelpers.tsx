@@ -6,14 +6,108 @@ import type { ReactNode } from "react";
 export function formatReportDate(value?: string | null): string {
   if (!value) return "—";
   try {
-    return new Date(`${value}T00:00:00`).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = String(date.getFullYear());
+    return `${dd}/${mm}/${yyyy}`;
   } catch {
     return value;
   }
+}
+
+/** Parse dd/mm/yyyy or dd-mm-yyyy into YYYY-MM-DD for APIs and date inputs. */
+export function parseReportDateDdMmYyyy(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const match = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  const iso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const date = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() + 1 !== month ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return iso;
+}
+
+export function isoToReportDateText(iso: string | null | undefined): string {
+  return iso ? formatReportDate(iso) : "";
+}
+
+export function parseOptionalReportDate(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return parseReportDateDdMmYyyy(trimmed);
+}
+
+export function validateCustomDateRange(
+  fromText: string,
+  toText: string,
+):
+  | { ok: true; fromDate: string; toDate: string }
+  | { ok: false; message: string } {
+  const fromDate = parseReportDateDdMmYyyy(fromText);
+  const toDate = parseReportDateDdMmYyyy(toText);
+  if (!fromDate || !toDate) {
+    return { ok: false, message: "Enter dates as dd/mm/yyyy" };
+  }
+  if (fromDate > toDate) {
+    return { ok: false, message: "From date must be before to date" };
+  }
+  return { ok: true, fromDate, toDate };
+}
+
+export function validateOptionalDateRange(
+  fromText: string,
+  toText: string,
+):
+  | { ok: true; fromDate: string | null; toDate: string | null }
+  | { ok: false; message: string } {
+  const fromDate = parseOptionalReportDate(fromText);
+  const toDate = parseOptionalReportDate(toText);
+  if (fromText.trim() && !fromDate) {
+    return { ok: false, message: "Enter from date as dd/mm/yyyy" };
+  }
+  if (toText.trim() && !toDate) {
+    return { ok: false, message: "Enter to date as dd/mm/yyyy" };
+  }
+  if (fromDate && toDate && fromDate > toDate) {
+    return { ok: false, message: "From date must be before to date" };
+  }
+  return { ok: true, fromDate, toDate };
+}
+
+export function isValidCustomDateRange(fromText: string, toText: string): boolean {
+  return validateCustomDateRange(fromText, toText).ok;
+}
+
+/** Format chart/table labels when the API returns ISO dates (YYYY-MM-DD). */
+export function formatReportDateLabel(value?: string | null): string {
+  if (!value) return "—";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return formatReportDate(value);
+  }
+  const isoRange = value.match(
+    /(\d{4}-\d{2}-\d{2})\s*(?:–|-|to)\s*(\d{4}-\d{2}-\d{2})/i,
+  );
+  if (isoRange) {
+    return `${formatReportDate(isoRange[1])} – ${formatReportDate(isoRange[2])}`;
+  }
+  return value;
 }
 
 export function formatReportCurrency(value: number | null | undefined): string {
@@ -100,20 +194,26 @@ export function getSalesManagerActionLink(
 export function formatReportDateTime(value?: string | null): string {
   if (!value) return "—";
   try {
-    return new Date(value).toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = String(date.getFullYear());
+    const time = date.toLocaleTimeString("en-GB", {
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     });
+    return `${dd}/${mm}/${yyyy}, ${time}`;
   } catch {
     return value;
   }
 }
 
-export function formatStatusLabel(status: string): string {
-  return status
+export function formatStatusLabel(status: string | null | undefined): string {
+  if (status == null || status === "") return "—";
+  const text = String(status);
+  return text
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase());

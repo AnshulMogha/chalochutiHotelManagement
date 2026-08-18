@@ -320,3 +320,25 @@ export function isZonalManagerSalesRole(
 export function isSalesManagerRole(userRoles: string[] | undefined): boolean {
   return !!userRoles?.includes("SALES_MANAGER");
 }
+
+/** Helpdesk agent: customer order lookup and support view. */
+export function isHelpdeskAgentRole(
+  userRoles: string[] | undefined,
+): boolean {
+  return !!userRoles?.includes("HELPDESK_AGENT");
+}
+
+/** Roles allowed to access helpdesk booking lookup APIs and screens. */
+export const HELPDESK_BOOKING_ROLES = [
+  "HELPDESK_AGENT",
+  "SUPER_ADMIN",
+] as const;
+
+export function canViewHelpdeskBookings(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (HELPDESK_BOOKING_ROLES as readonly string[]).includes(role),
+  );
+}

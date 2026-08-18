@@ -65,6 +65,11 @@ export const ROUTES = {
     LIST: "/bookings",
     DETAIL: (id: string) => `/bookings/${id}`,
   },
+  HELPDESK: {
+    LOOKUP: "/helpdesk/orders",
+    DETAIL: (bookingRef: string) =>
+      `/helpdesk/orders/${encodeURIComponent(bookingRef)}`,
+  },
   REPORTS: {
     LIST: "/reports",
     BOOKING_SUMMARY: "/reports/booking-summary",
@@ -367,6 +372,11 @@ export const API_ENDPOINTS = {
   },
   REPORTS: {
     BOOKING_LIST: "/reports/booking-list",
+    BOOKING_LIST_EXPORT: "/reports/booking-list/export",
+    BOOKING_LIST_EXPORT_JOB: (jobId: string) =>
+      `/reports/booking-list/export/${jobId}`,
+    BOOKING_LIST_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/booking-list/export/${jobId}/download`,
     BOOKING_DETAIL: (id: string) => `/reports/booking-list/${id}`,
     /** Super Admin only — full booking details; path param is list item id (numeric) */
     ADMIN_BOOKING_FULL_DETAILS: (id: string) =>
@@ -409,9 +419,31 @@ export const API_ENDPOINTS = {
     SALES_MANAGER_DASHBOARD: "/reports/sales-manager-dashboard",
     SALES_MANAGER_AGENTS: "/reports/sales-manager-agents",
     HOTEL_BOOKING_FINANCIAL_MIS: "/reports/hotel-booking-financial-mis",
+    HOTEL_BOOKING_FINANCIAL_MIS_EXPORT:
+      "/reports/hotel-booking-financial-mis/export",
+    HOTEL_BOOKING_FINANCIAL_MIS_EXPORT_JOB: (jobId: string) =>
+      `/reports/hotel-booking-financial-mis/export/${jobId}`,
+    HOTEL_BOOKING_FINANCIAL_MIS_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/hotel-booking-financial-mis/export/${jobId}/download`,
   },
   CUSTOMER: {
     HOTEL_LOOKUP: "/customer/packages/hotel/lookup",
+  },
+  HELPDESK: {
+    BOOKINGS: "/helpdesk/bookings",
+    BOOKING_BY_ID: (bookingRef: string) =>
+      `/helpdesk/bookings/${encodeURIComponent(bookingRef)}`,
+    BOOKING_VOUCHER: (
+      bookingRef: string,
+      audience: string,
+      documentType: string,
+    ) => {
+      const search = new URLSearchParams({
+        audience,
+        documentType,
+      });
+      return `/helpdesk/bookings/${encodeURIComponent(bookingRef)}/voucher?${search.toString()}`;
+    },
   },
   RATES: {
     GET_CALENDAR: (

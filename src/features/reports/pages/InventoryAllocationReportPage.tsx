@@ -7,7 +7,11 @@ import {
   exportStatusLabel,
   formatReportDate,
   formatStatusLabel,
+  isoToReportDateText,
+  isValidCustomDateRange,
+  validateCustomDateRange,
 } from "../components/reportUiHelpers";
+import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import { inventoryService } from "@/features/inventory/services/inventoryService";
 import { rateService } from "@/features/inventory/services/rateService";
 import {
@@ -142,6 +146,8 @@ export default function InventoryAllocationReportPage() {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [customFromText, setCustomFromText] = useState("");
+  const [customToText, setCustomToText] = useState("");
   const [draft, setDraft] = useState<FilterDraft>(DEFAULT_DRAFT);
 
   const [report, setReport] =
@@ -156,7 +162,8 @@ export default function InventoryAllocationReportPage() {
   const customRangeInvalid =
     datePreset === "CUSTOM" && (!fromDate || !toDate);
   const draftCustomInvalid =
-    draft.datePreset === "CUSTOM" && (!draft.fromDate || !draft.toDate);
+    draft.datePreset === "CUSTOM" &&
+    !isValidCustomDateRange(customFromText, customToText);
 
   const activeFilterCount =
     (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
@@ -301,26 +308,39 @@ export default function InventoryAllocationReportPage() {
 
   const openFilters = () => {
     setDraft({ datePreset, fromDate, toDate, roomTypeIds, ratePlanIds });
+    setCustomFromText(isoToReportDateText(fromDate));
+    setCustomToText(isoToReportDateText(toDate));
     setFilterOpen(true);
   };
 
   const applyFilters = () => {
-    if (draft.datePreset === "CUSTOM" && (!draft.fromDate || !draft.toDate)) {
-      showToast("Select both from and to dates", "error");
-      return;
+    let nextDraft = draft;
+    if (draft.datePreset === "CUSTOM") {
+      const parsed = validateCustomDateRange(customFromText, customToText);
+      if (!parsed.ok) {
+        showToast(parsed.message, "error");
+        return;
+      }
+      nextDraft = {
+        ...draft,
+        fromDate: parsed.fromDate,
+        toDate: parsed.toDate,
+      };
     }
-    setDatePreset(draft.datePreset);
-    setFromDate(draft.fromDate);
-    setToDate(draft.toDate);
-    setRoomTypeIds(draft.roomTypeIds);
-    setRatePlanIds(draft.ratePlanIds);
+    setDatePreset(nextDraft.datePreset);
+    setFromDate(nextDraft.fromDate);
+    setToDate(nextDraft.toDate);
+    setRoomTypeIds(nextDraft.roomTypeIds);
+    setRatePlanIds(nextDraft.ratePlanIds);
     setPage(0);
     setFilterOpen(false);
-    loadReport(draft);
+    loadReport(nextDraft);
   };
 
   const clearAll = () => {
     setDraft(DEFAULT_DRAFT);
+    setCustomFromText("");
+    setCustomToText("");
   };
 
   const handleExport = async (format: ReportExportFormat) => {
@@ -789,41 +809,13 @@ export default function InventoryAllocationReportPage() {
                 </select>
 
                 {draft.datePreset === "CUSTOM" ? (
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="mb-1 block text-xs text-slate-500">
-                        From
-                      </label>
-                      <input
-                        type="date"
-                        value={draft.fromDate}
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            fromDate: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs text-slate-500">
-                        To
-                      </label>
-                      <input
-                        type="date"
-                        value={draft.toDate}
-                        min={draft.fromDate || undefined}
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            toDate: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                      />
-                    </div>
-                  </div>
+                  <ReportCustomDateFields
+                    className="mt-3"
+                    fromText={customFromText}
+                    toText={customToText}
+                    onFromTextChange={setCustomFromText}
+                    onToTextChange={setCustomToText}
+                  />
                 ) : null}
               </section>
 

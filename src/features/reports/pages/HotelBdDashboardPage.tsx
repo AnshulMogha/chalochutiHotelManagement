@@ -16,10 +16,14 @@ import {
   getHotelOnboardingReadOnlyLink,
   hotelStatusTone,
   isHotelOnboardingEditable,
+  isoToReportDateText,
+  isValidCustomDateRange,
   ReportPageHeader,
   severityTone,
   SummaryCard,
+  validateCustomDateRange,
 } from "../components/reportUiHelpers";
+import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
   hotelBdDashboardReportService,
@@ -126,6 +130,8 @@ export default function HotelBdDashboardPage() {
   const [bdUserId, setBdUserId] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [draft, setDraft] = useState<FilterDraft>(DEFAULT_DRAFT);
+  const [customFromText, setCustomFromText] = useState("");
+  const [customToText, setCustomToText] = useState("");
   const [inboxTab, setInboxTab] = useState<HotelBdInboxCategory | "ALL">("ALL");
   const [inboxSearch, setInboxSearch] = useState("");
   const [inboxCity, setInboxCity] = useState("");
@@ -141,7 +147,8 @@ export default function HotelBdDashboardPage() {
   const customRangeInvalid =
     datePreset === "CUSTOM" && (!fromDate || !toDate);
   const draftCustomInvalid =
-    draft.datePreset === "CUSTOM" && (!draft.fromDate || !draft.toDate);
+    draft.datePreset === "CUSTOM" &&
+    !isValidCustomDateRange(customFromText, customToText);
 
   const activeFilterCount =
     (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
@@ -249,17 +256,32 @@ export default function HotelBdDashboardPage() {
 
   const applyFilters = () => {
     if (draftCustomInvalid) return;
-    setDatePreset(draft.datePreset);
-    setFromDate(draft.fromDate);
-    setToDate(draft.toDate);
-    setStuckDaysThreshold(draft.stuckDaysThreshold);
-    setBdUserId(draft.bdUserId);
+    let nextDraft = draft;
+    if (draft.datePreset === "CUSTOM") {
+      const parsed = validateCustomDateRange(customFromText, customToText);
+      if (!parsed.ok) {
+        showToast(parsed.message, "error");
+        return;
+      }
+      nextDraft = {
+        ...draft,
+        fromDate: parsed.fromDate,
+        toDate: parsed.toDate,
+      };
+    }
+    setDatePreset(nextDraft.datePreset);
+    setFromDate(nextDraft.fromDate);
+    setToDate(nextDraft.toDate);
+    setStuckDaysThreshold(nextDraft.stuckDaysThreshold);
+    setBdUserId(nextDraft.bdUserId);
     setFilterOpen(false);
-    void loadReport(draft);
+    void loadReport(nextDraft);
   };
 
   const resetFilters = () => {
     setDraft(DEFAULT_DRAFT);
+    setCustomFromText("");
+    setCustomToText("");
     setDatePreset(DEFAULT_DRAFT.datePreset);
     setFromDate("");
     setToDate("");
@@ -290,6 +312,8 @@ export default function HotelBdDashboardPage() {
                   stuckDaysThreshold,
                   bdUserId,
                 });
+                setCustomFromText(isoToReportDateText(fromDate));
+                setCustomToText(isoToReportDateText(toDate));
                 setFilterOpen(true);
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
@@ -343,7 +367,7 @@ export default function HotelBdDashboardPage() {
         </div>
       ) : null}
 
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
         <SummaryCard
           label="Assigned Hotels"
           value={report?.portfolioKpis.assignedHotels ?? (loading ? "…" : 0)}
@@ -363,11 +387,11 @@ export default function HotelBdDashboardPage() {
           tone="danger"
           value={report?.portfolioKpis.rejectedHotels ?? (loading ? "…" : 0)}
         />
-        {/* <SummaryCard
-          label="Go-Lives In Period"
+        <SummaryCard
+          label="Go Lives in Period"
           tone="success"
           value={report?.portfolioKpis.goLivesInPeriod ?? (loading ? "…" : 0)}
-        /> */}
+        />
       </div>
 
       <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -623,40 +647,12 @@ export default function HotelBdDashboardPage() {
                 </select>
               </div>
               {draft.datePreset === "CUSTOM" ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">
-                      From
-                    </label>
-                    <input
-                      type="date"
-                      value={draft.fromDate}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          fromDate: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">
-                      To
-                    </label>
-                    <input
-                      type="date"
-                      value={draft.toDate}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          toDate: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    />
-                  </div>
-                </div>
+                <ReportCustomDateFields
+                  fromText={customFromText}
+                  toText={customToText}
+                  onFromTextChange={setCustomFromText}
+                  onToTextChange={setCustomToText}
+                />
               ) : null}
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">

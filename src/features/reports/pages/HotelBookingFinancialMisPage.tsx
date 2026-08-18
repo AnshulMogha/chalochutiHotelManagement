@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import {
   format,
@@ -8,6 +8,7 @@ import {
   startOfDay,
   endOfMonth,
 } from "date-fns";
+import { toPng } from "html-to-image";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
 import { cn } from "@/lib/utils";
@@ -33,10 +34,17 @@ import {
 } from "../components/hotelFinancialMisUi";
 import {
   ReportPageHeader,
+  exportStatusLabel,
   formatFinanceMoney,
   formatReportDate,
   formatStatusLabel,
+  isoToReportDateText,
+  isValidCustomDateRange,
+  validateCustomDateRange,
+  validateOptionalDateRange,
 } from "../components/reportUiHelpers";
+import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import type { ExportJobStatus } from "../services/reportExportService";
 import {
   hotelBookingFinancialMisService,
   type HotelFinancialMisBookingRow,
@@ -54,10 +62,13 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
+  Download,
   Eye,
+  FileSpreadsheet,
   Filter,
   HandCoins,
   Landmark,
+  LayoutDashboard,
   Loader2,
   Receipt,
   RefreshCw,
@@ -260,6 +271,25 @@ function resolveApiDateRange(draft: FilterDraft): {
   };
 }
 
+function csvEscape(value: string | number | null | undefined) {
+  const text = value == null ? "" : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadRowsAsCsv(
+  rows: (string | number | null | undefined)[][],
+  filename: string,
+) {
+  const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function FilterField({
   label,
   children,
@@ -286,6 +316,12 @@ export default function HotelBookingFinancialMisPage() {
   const [draft, setDraft] = useState<FilterDraft>(initialListState.filters);
   const [page, setPage] = useState(initialListState.page);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [customFromText, setCustomFromText] = useState("");
+  const [customToText, setCustomToText] = useState("");
+  const [checkInFromText, setCheckInFromText] = useState("");
+  const [checkInToText, setCheckInToText] = useState("");
+  const [checkOutFromText, setCheckOutFromText] = useState("");
+  const [checkOutToText, setCheckOutToText] = useState("");
   const [hotelOptions, setHotelOptions] = useState<HotelLookupItem[]>([]);
   const [hotelQuery, setHotelQuery] = useState("");
 
@@ -294,12 +330,21 @@ export default function HotelBookingFinancialMisPage() {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [downloadOpen, setDownloadOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
+    null,
+  );
+  const [capturingPage, setCapturingPage] = useState(false);
+  const downloadMenuRef = useRef<HTMLDivElement>(null);
+  const pageCaptureRef = useRef<HTMLDivElement>(null);
 
   const customInvalid =
     filters.uiDatePreset === "CUSTOM" &&
     (!filters.fromDate || !filters.toDate);
   const draftCustomInvalid =
-    draft.uiDatePreset === "CUSTOM" && (!draft.fromDate || !draft.toDate);
+    draft.uiDatePreset === "CUSTOM" &&
+    !isValidCustomDateRange(customFromText, customToText);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -398,6 +443,31 @@ export default function HotelBookingFinancialMisPage() {
     [filters, page, showToast],
   );
 
+  const reportParams = useCallback(
+    (nextFilters: FilterDraft = filters) => {
+      const dateRange = resolveApiDateRange(nextFilters);
+      return {
+        datePreset: dateRange.datePreset,
+        fromDate: dateRange.fromDate,
+        toDate: dateRange.toDate,
+        dateAxis: nextFilters.dateAxis,
+        bookingStatus: nextFilters.bookingStatus,
+        bookingSource: "HOTEL" as const,
+        paymentStatus: nextFilters.paymentStatus,
+        refundStatus: nextFilters.refundStatus,
+        hotelIds: nextFilters.hotelId ? [nextFilters.hotelId] : undefined,
+        search: nextFilters.search.trim() || undefined,
+        sort: nextFilters.sort,
+        sortDir: nextFilters.sortDir,
+        checkInFrom: nextFilters.checkInFrom || undefined,
+        checkInTo: nextFilters.checkInTo || undefined,
+        checkOutFrom: nextFilters.checkOutFrom || undefined,
+        checkOutTo: nextFilters.checkOutTo || undefined,
+      };
+    },
+    [filters],
+  );
+
   useEffect(() => {
     if (customInvalid) return;
     void loadReport();
@@ -417,21 +487,247 @@ export default function HotelBookingFinancialMisPage() {
     });
   };
 
+  const syncFilterDateTexts = (source: FilterDraft) => {
+    setCustomFromText(isoToReportDateText(source.fromDate));
+    setCustomToText(isoToReportDateText(source.toDate));
+    setCheckInFromText(isoToReportDateText(source.checkInFrom));
+    setCheckInToText(isoToReportDateText(source.checkInTo));
+    setCheckOutFromText(isoToReportDateText(source.checkOutFrom));
+    setCheckOutToText(isoToReportDateText(source.checkOutTo));
+  };
+
   const applyFilters = () => {
     if (draftCustomInvalid) return;
-    setFilters(draft);
+
+    let nextDraft = { ...draft };
+    if (draft.uiDatePreset === "CUSTOM") {
+      const parsed = validateCustomDateRange(customFromText, customToText);
+      if (!parsed.ok) {
+        showToast(parsed.message, "error");
+        return;
+      }
+      nextDraft.fromDate = parsed.fromDate;
+      nextDraft.toDate = parsed.toDate;
+    }
+
+    const checkIn = validateOptionalDateRange(checkInFromText, checkInToText);
+    if (!checkIn.ok) {
+      showToast(checkIn.message, "error");
+      return;
+    }
+    nextDraft.checkInFrom = checkIn.fromDate ?? "";
+    nextDraft.checkInTo = checkIn.toDate ?? "";
+
+    const checkOut = validateOptionalDateRange(checkOutFromText, checkOutToText);
+    if (!checkOut.ok) {
+      showToast(checkOut.message, "error");
+      return;
+    }
+    nextDraft.checkOutFrom = checkOut.fromDate ?? "";
+    nextDraft.checkOutTo = checkOut.toDate ?? "";
+
+    setFilters(nextDraft);
+    setDraft(nextDraft);
     setPage(0);
     setFilterOpen(false);
-    void loadReport(draft, 0);
+    void loadReport(nextDraft, 0);
   };
 
   const resetFilters = () => {
     setDraft(DEFAULT_DRAFT);
     setFilters(DEFAULT_DRAFT);
+    syncFilterDateTexts(DEFAULT_DRAFT);
     setPage(0);
     setFilterOpen(false);
     clearCachedFinancialMisFilters();
     void loadReport(DEFAULT_DRAFT, 0);
+  };
+
+  useEffect(() => {
+    if (!downloadOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!downloadMenuRef.current?.contains(event.target as Node)) {
+        setDownloadOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [downloadOpen]);
+
+  const exportBaseName = () => {
+    const from = report?.dateRange.fromDate || "from";
+    const to = report?.dateRange.toDate || "to";
+    return `hotel-booking-financial-mis-${from}-${to}`;
+  };
+
+  const downloadMisExcel = async () => {
+    if (customInvalid) return;
+    setDownloadOpen(false);
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await hotelBookingFinancialMisService.exportReport({
+        params: reportParams(),
+        format: "EXCEL",
+        defaultFileName: exportBaseName(),
+        onStatus: setExportStatus,
+      });
+      showToast("MIS Excel downloaded", "success");
+    } catch (err) {
+      showToast(extractErrorMessage(err), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
+  };
+
+  const downloadCurrentViewCsv = () => {
+    if (!report) {
+      showToast("Load the report before downloading", "error");
+      return;
+    }
+    setDownloadOpen(false);
+    const summary = report.summary;
+    const rows: (string | number | null | undefined)[][] = [
+      ["Section", "Field", "Value"],
+      [
+        "Filters",
+        "Date range",
+        `${report.dateRange.fromDate ?? ""} to ${report.dateRange.toDate ?? ""}`,
+      ],
+      ["Filters", "Date axis", report.dateAxis ?? filters.dateAxis],
+      ["Filters", "Booking status", filters.bookingStatus],
+      ["Filters", "Payment status", filters.paymentStatus],
+      ["Filters", "Refund status", filters.refundStatus],
+      ["Summary", "Total bookings", summary.totalBookings],
+      [
+        "Summary",
+        "Gross booking value",
+        formatFinanceMoney(summary.grossBookingValue),
+      ],
+      ["Summary", "Hotel payout", formatFinanceMoney(summary.hotelPayout)],
+      ["Summary", "OTA revenue", formatFinanceMoney(summary.otaRevenue)],
+      ["Summary", "OTA GST", formatFinanceMoney(summary.otaRevenueGst)],
+      [
+        "Summary",
+        "OTA incl. GST",
+        formatFinanceMoney(summary.otaRevenueInclusiveGst),
+      ],
+      [
+        "Summary",
+        "Agency commission",
+        formatFinanceMoney(summary.agencyCommission),
+      ],
+      [
+        "Summary",
+        "Cancellation",
+        formatFinanceMoney(summary.cancellationAmount),
+      ],
+      ["Summary", "Refunded", formatFinanceMoney(summary.refundAmount)],
+      [
+        "Summary",
+        "Outstanding payout",
+        formatFinanceMoney(summary.outstandingHotelPayout),
+      ],
+      [
+        "Summary",
+        "Outstanding refund",
+        formatFinanceMoney(summary.outstandingCustomerRefund),
+      ],
+      [],
+      [
+        "Booking ref",
+        "Booking ID",
+        "Customer",
+        "Hotel",
+        "Hotel code",
+        "City",
+        "State",
+        "Booking date",
+        "Check-in",
+        "Check-out",
+        "Nights",
+        "Source",
+        "Booked by",
+        "Owner name",
+        "Owner email",
+        "Agency",
+        "Customer / Agent price",
+        "Hotel payout",
+        "OTA revenue",
+        "Status",
+        "Payment",
+        "Collected",
+        "Cancellation",
+        "Refund",
+      ],
+      ...report.bookings.map((row) => [
+        row.bookingRef,
+        row.bookingId,
+        row.customerName,
+        row.hotelName,
+        row.hotelCode,
+        row.hotelCity,
+        row.hotelState,
+        row.bookingDate,
+        row.checkIn,
+        row.checkOut,
+        row.nights,
+        row.bookingSource,
+        row.bookedBy,
+        row.bookingOwner?.name,
+        row.bookingOwner?.email,
+        row.bookingOwner?.agencyName,
+        formatFinanceMoney(getHotelFinancialMisDisplaySellingPrice(row)),
+        formatFinanceMoney(row.hotelPayout),
+        formatFinanceMoney(row.otaRevenue),
+        row.bookingStatus,
+        row.paymentStatus,
+        formatFinanceMoney(row.amountCollected),
+        formatFinanceMoney(row.cancellationCharge),
+        formatFinanceMoney(row.refundAmount),
+      ]),
+    ];
+    downloadRowsAsCsv(rows, `${exportBaseName()}-current-view.csv`);
+    showToast("Current view CSV downloaded", "success");
+  };
+
+  const downloadFullPagePng = async () => {
+    const node = pageCaptureRef.current;
+    if (!node) {
+      showToast("Page is not ready to capture", "error");
+      return;
+    }
+    if (!report) {
+      showToast("Load the report before downloading", "error");
+      return;
+    }
+    setDownloadOpen(false);
+    setCapturingPage(true);
+    try {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => resolve(undefined)),
+      );
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+        backgroundColor: "#f8fafc",
+        filter: (element) => {
+          if (!(element instanceof HTMLElement)) return true;
+          return !element.dataset.excludeFromCapture;
+        },
+      });
+      const link = document.createElement("a");
+      link.download = `${exportBaseName()}-full-page.png`;
+      link.href = dataUrl;
+      link.click();
+      showToast("Full page image downloaded", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to capture full page", "error");
+    } finally {
+      setCapturingPage(false);
+    }
   };
 
   const summary = report?.summary;
@@ -440,7 +736,10 @@ export default function HotelBookingFinancialMisPage() {
 
   return (
     <div className="min-h-full bg-gradient-to-b from-slate-50 via-white to-slate-50">
-      <div className="mx-auto w-full max-w-[1400px] px-3 py-3 sm:px-4">
+      <div
+        ref={pageCaptureRef}
+        className="mx-auto w-full max-w-[1400px] px-3 py-3 sm:px-4"
+      >
         <Toast toast={toast} onClose={hideToast} />
 
         <div className="space-y-2">
@@ -468,6 +767,7 @@ export default function HotelBookingFinancialMisPage() {
                   type="button"
                   onClick={() => {
                     setDraft(filters);
+                    syncFilterDateTexts(filters);
                     setFilterOpen(true);
                   }}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
@@ -493,6 +793,69 @@ export default function HotelBookingFinancialMisPage() {
                   )}
                   Refresh
                 </button>
+                <div
+                  className="relative"
+                  ref={downloadMenuRef}
+                  data-exclude-from-capture="true"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setDownloadOpen((open) => !open)}
+                    disabled={exporting || capturingPage || customInvalid}
+                    aria-label={
+                      exporting
+                        ? exportStatusLabel(exportStatus) || "Exporting"
+                        : capturingPage
+                          ? "Capturing"
+                          : "Download MIS"
+                    }
+                    title={
+                      exporting
+                        ? exportStatusLabel(exportStatus) || "Exporting…"
+                        : capturingPage
+                          ? "Capturing…"
+                          : "Download MIS"
+                    }
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 shadow-sm transition hover:bg-blue-100 disabled:opacity-60"
+                  >
+                    {exporting || capturingPage ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                  </button>
+                  {downloadOpen && !exporting && !capturingPage ? (
+                    <div className="absolute right-0 z-30 mt-1 w-60 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => void downloadMisExcel()}
+                        disabled={!report}
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-blue-50 disabled:opacity-50"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                        Download MIS (Excel)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void downloadFullPagePng()}
+                        disabled={!report}
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-blue-50 disabled:opacity-50"
+                      >
+                        <LayoutDashboard className="h-4 w-4 text-indigo-600" />
+                        Full page (PNG)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={downloadCurrentViewCsv}
+                        disabled={!report}
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-blue-50 disabled:opacity-50"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 text-slate-500" />
+                        Current view (CSV)
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             }
           />
@@ -932,42 +1295,12 @@ export default function HotelBookingFinancialMisPage() {
                     <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
                       Custom date range
                     </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <FilterField label="From">
-                        <div className="relative">
-                          <CalendarDays className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-blue-500" />
-                          <input
-                            type="date"
-                            value={draft.fromDate}
-                            max={draft.toDate || undefined}
-                            onChange={(event) =>
-                              setDraft((prev) => ({
-                                ...prev,
-                                fromDate: event.target.value,
-                              }))
-                            }
-                            className={cn(fieldClass, "pl-8")}
-                          />
-                        </div>
-                      </FilterField>
-                      <FilterField label="To">
-                        <div className="relative">
-                          <CalendarDays className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-blue-500" />
-                          <input
-                            type="date"
-                            value={draft.toDate}
-                            min={draft.fromDate || undefined}
-                            onChange={(event) =>
-                              setDraft((prev) => ({
-                                ...prev,
-                                toDate: event.target.value,
-                              }))
-                            }
-                            className={cn(fieldClass, "pl-8")}
-                          />
-                        </div>
-                      </FilterField>
-                    </div>
+                    <ReportCustomDateFields
+                      fromText={customFromText}
+                      toText={customToText}
+                      onFromTextChange={setCustomFromText}
+                      onToTextChange={setCustomToText}
+                    />
                     {draftCustomInvalid ? (
                       <p className="text-xs text-rose-600">
                         Select both from and to dates.
@@ -1092,62 +1425,22 @@ export default function HotelBookingFinancialMisPage() {
                     className={fieldClass}
                   />
                 </FilterField>
-                <div className="grid grid-cols-2 gap-2">
-                  <FilterField label="Check-in from">
-                    <input
-                      type="date"
-                      value={draft.checkInFrom}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          checkInFrom: event.target.value,
-                        }))
-                      }
-                      className={fieldClass}
-                    />
-                  </FilterField>
-                  <FilterField label="Check-in to">
-                    <input
-                      type="date"
-                      value={draft.checkInTo}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          checkInTo: event.target.value,
-                        }))
-                      }
-                      className={fieldClass}
-                    />
-                  </FilterField>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <FilterField label="Check-out from">
-                    <input
-                      type="date"
-                      value={draft.checkOutFrom}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          checkOutFrom: event.target.value,
-                        }))
-                      }
-                      className={fieldClass}
-                    />
-                  </FilterField>
-                  <FilterField label="Check-out to">
-                    <input
-                      type="date"
-                      value={draft.checkOutTo}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          checkOutTo: event.target.value,
-                        }))
-                      }
-                      className={fieldClass}
-                    />
-                  </FilterField>
-                </div>
+                <ReportCustomDateFields
+                  fromLabel="Check-in from"
+                  toLabel="Check-in to"
+                  fromText={checkInFromText}
+                  toText={checkInToText}
+                  onFromTextChange={setCheckInFromText}
+                  onToTextChange={setCheckInToText}
+                />
+                <ReportCustomDateFields
+                  fromLabel="Check-out from"
+                  toLabel="Check-out to"
+                  fromText={checkOutFromText}
+                  toText={checkOutToText}
+                  onFromTextChange={setCheckOutFromText}
+                  onToTextChange={setCheckOutToText}
+                />
                 <FilterField label="Sort by">
                   <select
                     value={draft.sort}

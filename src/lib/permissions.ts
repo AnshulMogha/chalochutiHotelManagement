@@ -1,5 +1,6 @@
 import type { User } from "@/types";
 import {
+  canViewHelpdeskBookings,
   canViewHotelBdReports,
   canViewHotelBookingFinancialMis,
   canViewPaymentReport,
@@ -216,6 +217,13 @@ function isHotelBookingFinancialMisPath(pathname: string): boolean {
   );
 }
 
+function isHelpdeskPath(pathname: string): boolean {
+  return (
+    pathname === ROUTES.HELPDESK.LOOKUP ||
+    pathname.startsWith(`${ROUTES.HELPDESK.LOOKUP}/`)
+  );
+}
+
 export function canViewPath(user: User | null, pathname: string): boolean {
   const pathOnly = pathname.split("?")[0];
 
@@ -229,6 +237,10 @@ export function canViewPath(user: User | null, pathname: string): boolean {
 
   if (isHotelBookingFinancialMisPath(pathOnly)) {
     return canViewHotelBookingFinancialMis(user?.roles);
+  }
+
+  if (isHelpdeskPath(pathOnly)) {
+    return canViewHelpdeskBookings(user?.roles);
   }
 
   if (

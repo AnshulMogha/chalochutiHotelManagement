@@ -1,6 +1,11 @@
 import { apiClient } from "@/services/api/client";
 import type { ApiSuccessResponse } from "@/services/api/types";
 import { API_ENDPOINTS } from "@/constants";
+import {
+  runReportExportJob,
+  type ExportJobStatus,
+  type ReportExportFormat,
+} from "./reportExportService";
 
 export type HotelFinancialMisDatePreset = "THIS_MONTH" | "CUSTOM";
 
@@ -664,5 +669,30 @@ export const hotelBookingFinancialMisService = {
     );
     const payload = unwrapPayload(response);
     return normalizeResponse((payload ?? {}) as Record<string, unknown>);
+  },
+
+  async exportReport(options: {
+    params: Omit<HotelFinancialMisReportParams, "page" | "size">;
+    format?: ReportExportFormat;
+    defaultFileName: string;
+    onStatus?: (status: ExportJobStatus) => void;
+  }): Promise<void> {
+    const format = options.format ?? "EXCEL";
+    const query = buildQuery({
+      ...options.params,
+      page: undefined,
+      size: undefined,
+    });
+    const formatParam = query ? `${query}&format=${format}` : `?format=${format}`;
+
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS_EXPORT}${formatParam}`,
+      statusUrl: API_ENDPOINTS.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS_EXPORT_JOB,
+      downloadUrl:
+        API_ENDPOINTS.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS_EXPORT_DOWNLOAD,
+      defaultFileName: options.defaultFileName,
+      format,
+      onStatus: options.onStatus,
+    });
   },
 };

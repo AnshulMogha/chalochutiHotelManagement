@@ -5,25 +5,42 @@ import {
   useRef,
 } from "react";
 import {
-  BarElement,
   CategoryScale,
   Chart as ChartJS,
+  Filler,
   Legend,
+  LineElement,
   LinearScale,
+  PointElement,
   Tooltip,
   type ChartData,
   type ChartOptions,
   type Plugin,
 } from "chart.js";
-import { Bar } from "react-chartjs-2";
+import { Line } from "react-chartjs-2";
 import type { PerformanceOverviewResponse } from "../services/performanceDashboardService";
+import {
+  ANALYTICS_COMPETITOR,
+  ANALYTICS_PROPERTY,
+} from "./performanceDashboardUi";
+import { formatReportDateLabel } from "./reportUiHelpers";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+);
 
-export const PROPERTY_BAR = "#3B6FE8";
-export const COMPETITOR_BAR = "#F0A07A";
+/** @deprecated use ANALYTICS_PROPERTY */
+export const PROPERTY_BAR = ANALYTICS_PROPERTY;
+/** @deprecated use ANALYTICS_COMPETITOR */
+export const COMPETITOR_BAR = ANALYTICS_COMPETITOR;
 
-const whiteBackgroundPlugin: Plugin<"bar"> = {
+const whiteBackgroundPlugin: Plugin<"line"> = {
   id: "whiteBackground",
   beforeDraw(chart) {
     const { ctx, width, height } = chart;
@@ -31,37 +48,6 @@ const whiteBackgroundPlugin: Plugin<"bar"> = {
     ctx.globalCompositeOperation = "destination-over";
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, width, height);
-    ctx.restore();
-  },
-};
-
-const barValueLabelsPlugin: Plugin<"bar"> = {
-  id: "barValueLabels",
-  afterDatasetsDraw(chart) {
-    const { ctx } = chart;
-    ctx.save();
-    ctx.font = "600 11px system-ui, sans-serif";
-    ctx.fillStyle = "#475569";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-
-    chart.data.datasets.forEach((dataset, datasetIndex) => {
-      const meta = chart.getDatasetMeta(datasetIndex);
-      if (meta.hidden) return;
-      meta.data.forEach((element, index) => {
-        const raw = dataset.data[index];
-        const value =
-          typeof raw === "number"
-            ? raw
-            : raw && typeof raw === "object" && "y" in raw
-              ? Number((raw as { y: number }).y)
-              : null;
-        if (value == null || Number.isNaN(value)) return;
-        const pos = element.tooltipPosition(true);
-        if (pos.x == null || pos.y == null) return;
-        ctx.fillText(String(value), pos.x, pos.y - 4);
-      });
-    });
     ctx.restore();
   },
 };
@@ -83,7 +69,7 @@ export const PerformanceSeriesChart = forwardRef<
   { series, showCompetitors, metricLabel },
   ref,
 ) {
-  const chartRef = useRef<ChartJS<"bar"> | null>(null);
+  const chartRef = useRef<ChartJS<"line"> | null>(null);
 
   useImperativeHandle(ref, () => ({
     downloadPng(filename: string) {
@@ -97,68 +83,89 @@ export const PerformanceSeriesChart = forwardRef<
     },
   }));
 
-  const data = useMemo<ChartData<"bar">>(() => {
-    const labels = series.map((point) => point.label);
-    const datasets: ChartData<"bar">["datasets"] = [
+  const data = useMemo<ChartData<"line">>(() => {
+    const labels = series.map((point) => formatReportDateLabel(point.label));
+    const datasets: ChartData<"line">["datasets"] = [
       {
-        label: "Your Property",
-        data: series.map((point) => point.yourProperty ?? 0),
-        backgroundColor: PROPERTY_BAR,
-        borderRadius: 2,
-        maxBarThickness: 36,
+        label: "Your property",
+        data: series.map((point) => point.yourProperty ?? null),
+        borderColor: ANALYTICS_PROPERTY,
+        backgroundColor: "rgba(79, 70, 229, 0.08)",
+        borderWidth: 2.5,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: "#ffffff",
+        pointBorderColor: ANALYTICS_PROPERTY,
+        pointBorderWidth: 2,
+        tension: 0.35,
+        fill: true,
+        spanGaps: false,
       },
     ];
+
     if (showCompetitors) {
       datasets.push({
-        label: "Competitors' Avg",
-        data: series.map((point) => point.competitorsAvg ?? 0),
-        backgroundColor: COMPETITOR_BAR,
-        borderRadius: 2,
-        maxBarThickness: 36,
+        label: "Competitor average",
+        data: series.map((point) => point.competitorsAvg ?? null),
+        borderColor: ANALYTICS_COMPETITOR,
+        backgroundColor: "transparent",
+        borderWidth: 2,
+        borderDash: [6, 4],
+        pointRadius: 2,
+        pointHoverRadius: 4,
+        pointBackgroundColor: "#ffffff",
+        pointBorderColor: ANALYTICS_COMPETITOR,
+        pointBorderWidth: 2,
+        tension: 0.35,
+        fill: false,
+        spanGaps: false,
       });
     }
+
     return { labels, datasets };
   }, [series, showCompetitors]);
 
-  const options = useMemo<ChartOptions<"bar">>(
+  const options = useMemo<ChartOptions<"line">>(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       layout: {
-        padding: { top: 18, right: 8, left: 4, bottom: 0 },
+        padding: { top: 8, right: 12, left: 0, bottom: 0 },
       },
       plugins: {
         legend: {
-          position: "bottom",
+          position: "top",
           align: "end",
           labels: {
-            boxWidth: 10,
-            boxHeight: 10,
+            boxWidth: 8,
+            boxHeight: 8,
             usePointStyle: true,
             pointStyle: "circle",
             color: "#475569",
-            font: { size: 12 },
+            font: { size: 11, weight: 500 },
             padding: 16,
           },
         },
         tooltip: {
           backgroundColor: "#0f172a",
-          titleFont: { size: 12 },
+          titleFont: { size: 12, weight: "600" },
           bodyFont: { size: 12 },
-          padding: 10,
+          padding: 12,
+          cornerRadius: 8,
+          displayColors: true,
           callbacks: {
             title(items) {
               return items[0]?.label ?? "";
             },
             label(ctx) {
               const value = ctx.parsed.y;
-              return ` ${ctx.dataset.label}: ${value ?? "—"}`;
+              if (value == null || Number.isNaN(value)) {
+                return ` ${ctx.dataset.label}: —`;
+              }
+              return ` ${ctx.dataset.label}: ${value}`;
             },
           },
-        },
-        title: {
-          display: false,
         },
       },
       scales: {
@@ -169,17 +176,18 @@ export const PerformanceSeriesChart = forwardRef<
             font: { size: 11 },
             maxRotation: 0,
             autoSkip: true,
+            maxTicksLimit: 8,
           },
-          border: { display: false },
+          border: { color: "#e2e8f0" },
         },
         y: {
           beginAtZero: true,
-          grace: "8%",
+          grace: "5%",
           title: {
             display: true,
             text: metricLabel,
             color: "#94a3b8",
-            font: { size: 11 },
+            font: { size: 11, weight: "500" },
           },
           ticks: {
             color: "#94a3b8",
@@ -198,19 +206,19 @@ export const PerformanceSeriesChart = forwardRef<
 
   if (!series.length) {
     return (
-      <div className="flex h-72 items-center justify-center text-sm text-slate-400">
-        No series data for this period.
+      <div className="flex h-80 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/50 text-sm text-slate-500">
+        No trend data for this period.
       </div>
     );
   }
 
   return (
-    <div className="h-72 w-full sm:h-80">
-      <Bar
+    <div className="h-80 w-full">
+      <Line
         ref={chartRef}
         data={data}
         options={options}
-        plugins={[whiteBackgroundPlugin, barValueLabelsPlugin]}
+        plugins={[whiteBackgroundPlugin]}
       />
     </div>
   );

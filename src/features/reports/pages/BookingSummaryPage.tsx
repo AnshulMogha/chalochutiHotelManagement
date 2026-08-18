@@ -33,6 +33,12 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  formatReportDate,
+  isoToReportDateText,
+  validateCustomDateRange,
+} from "../components/reportUiHelpers";
+import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import { ROLES, hasAnyRole } from "@/constants/roles";
 import { useAuth } from "@/hooks";
 
@@ -89,19 +95,6 @@ function formatCompactEarnings(
     return `${prefix}${lakhs.toFixed(1)}L`;
   }
   return formatCurrency(amount, currency);
-}
-
-function formatDisplayDate(value?: string | null): string {
-  if (!value) return "—";
-  try {
-    return new Date(`${value}T00:00:00`).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "2-digit",
-    });
-  } catch {
-    return value;
-  }
 }
 
 function MetricLink({
@@ -290,6 +283,8 @@ export default function BookingSummaryPage() {
     useState<BookingSummaryDatePreset>("LAST_30_DAYS");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const [customFromText, setCustomFromText] = useState("");
+  const [customToText, setCustomToText] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
@@ -912,8 +907,8 @@ export default function BookingSummaryPage() {
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="inline-flex items-center gap-1.5 text-sm font-bold text-indigo-900">
                     <CalendarDays className="h-4 w-4 text-indigo-600" />
-                    {formatDisplayDate(dateRange.fromDate)} –{" "}
-                    {formatDisplayDate(dateRange.toDate)}
+                    {formatReportDate(dateRange.fromDate)} –{" "}
+                    {formatReportDate(dateRange.toDate)}
                   </span>
                   <button
                     type="button"
@@ -937,7 +932,12 @@ export default function BookingSummaryPage() {
                           onClick={() => {
                             setDatePreset(opt.value);
                             setPage(0);
-                            if (opt.value !== "CUSTOM") setDateOpen(false);
+                            if (opt.value !== "CUSTOM") {
+                              setDateOpen(false);
+                            } else {
+                              setCustomFromText(isoToReportDateText(customFrom));
+                              setCustomToText(isoToReportDateText(customTo));
+                            }
                           }}
                           className={cn(
                             "flex w-full rounded-lg px-2 py-1.5 text-left text-sm",
@@ -952,39 +952,30 @@ export default function BookingSummaryPage() {
                     </div>
                     {datePreset === "CUSTOM" && (
                       <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
-                        <div>
-                          <label className="mb-1 block text-xs text-slate-500">
-                            From
-                          </label>
-                          <input
-                            type="date"
-                            value={customFrom}
-                            onChange={(e) => {
-                              setCustomFrom(e.target.value);
-                              setPage(0);
-                            }}
-                            className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs text-slate-500">
-                            To
-                          </label>
-                          <input
-                            type="date"
-                            value={customTo}
-                            min={customFrom || undefined}
-                            onChange={(e) => {
-                              setCustomTo(e.target.value);
-                              setPage(0);
-                            }}
-                            className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm"
-                          />
-                        </div>
+                        <ReportCustomDateFields
+                          fromText={customFromText}
+                          toText={customToText}
+                          onFromTextChange={setCustomFromText}
+                          onToTextChange={setCustomToText}
+                          inputClassName="rounded-md"
+                        />
                         <button
                           type="button"
-                          disabled={!customFrom || !customTo}
-                          onClick={() => setDateOpen(false)}
+                          disabled={
+                            !validateCustomDateRange(customFromText, customToText).ok
+                          }
+                          onClick={() => {
+                            const parsed = validateCustomDateRange(
+                              customFromText,
+                              customToText,
+                            );
+                            if (!parsed.ok) return;
+                            setCustomFrom(parsed.fromDate);
+                            setCustomTo(parsed.toDate);
+                            setCustomFromText(formatReportDate(parsed.fromDate));
+                            setCustomToText(formatReportDate(parsed.toDate));
+                            setDateOpen(false);
+                          }}
                           className="w-full rounded-lg bg-[#2f3d95] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
                         >
                           Apply

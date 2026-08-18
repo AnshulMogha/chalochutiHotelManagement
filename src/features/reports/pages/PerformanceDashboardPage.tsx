@@ -10,25 +10,37 @@ import { toPng } from "html-to-image";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import {
+  formatReportDate,
+  isoToReportDateText,
+  isValidCustomDateRange,
+  validateCustomDateRange,
+} from "../components/reportUiHelpers";
+import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import {
   performanceDashboardService,
-  type PerformanceBreakdownCard,
   type PerformanceBreakdownsResponse,
   type PerformanceComparisonType,
   type PerformanceCompetitor,
   type PerformanceCompetitorsResponse,
   type PerformanceDateAxis,
   type PerformanceDatePreset,
-  type PerformanceDimensionType,
   type PerformanceMetric,
   type PerformanceOverviewResponse,
-  type PerformanceRanking,
 } from "../services/performanceDashboardService";
 import {
-  COMPETITOR_BAR,
   PerformanceSeriesChart,
-  PROPERTY_BAR,
   type PerformanceSeriesChartHandle,
 } from "../components/PerformanceSeriesChart";
+import {
+  AnalyticsBreakdownCard,
+  AnalyticsDelta,
+  AnalyticsKpiCard,
+  AnalyticsPanel,
+  BREAKDOWN_HELP,
+  METRIC_HELP,
+  METRIC_LABELS,
+  METRIC_THEMES,
+} from "../components/performanceDashboardUi";
 import {
   Banknote,
   BedDouble,
@@ -39,15 +51,12 @@ import {
   FileImage,
   FileSpreadsheet,
   Filter,
-  Info,
   LayoutDashboard,
   Loader2,
   Search,
   TrendingUp,
-  Trophy,
   Wallet,
   X,
-  type LucideIcon,
 } from "lucide-react";
 
 const DURATION_OPTIONS: { value: PerformanceDatePreset; label: string }[] = [
@@ -72,139 +81,13 @@ const COMPARISON_OPTIONS: {
   { value: "PREVIOUS_PERIOD", label: "Previous period" },
 ];
 
-const METRIC_LABELS: Record<PerformanceMetric, string> = {
-  ROOM_NIGHTS: "Room Nights",
-  REVENUE: "Revenue",
-  ASP: "ASP (Average Selling Price)",
-  PROPERTY_VISITS: "Property Visits",
-  CONVERSION: "Conversion",
-};
-
-const METRIC_SHORT: Record<PerformanceMetric, string> = {
-  ROOM_NIGHTS: "Room Nights",
-  REVENUE: "Revenue",
-  ASP: "ASP (Average Selling Price)",
-  PROPERTY_VISITS: "Property Visits",
-  CONVERSION: "Conversion",
-};
-
-const METRIC_HELP: Record<PerformanceMetric, string> = {
-  ROOM_NIGHTS:
-    "Room nights = nights × rooms for confirmed bookings only. Cancelled and refunded bookings are excluded.",
-  REVENUE:
-    "Net amount receivable by the property for the selected period, excluding taxes. Revenue = post-promotion room/rate price − OTA commission. Not included: hotel GST, service fee, commission GST, TCS, TDS, or guest-paid amount including tax.",
-  ASP: "Average post-promotion sell price to the customer across room nights. ASP = total post-promotion sell price ÷ total room nights. This is not Revenue ÷ Room Nights — Revenue is what the hotel earns after commission; ASP is what the guest is charged for the room after promotions (before tax).",
-  PROPERTY_VISITS:
-    "Counts when a customer successfully opens this hotel’s details page. One visit per session + hotel (refresh in the same session is not counted again). Uses view date in IST. Package page opens do not count.",
-  CONVERSION:
-    "Conversion % = (confirmed bookings ÷ property visits) × 100, rounded to 2 decimals. If visits = 0, conversion is 0.00%. Bookings include confirmed direct hotel and package hotel stays.",
-};
-
-const BREAKDOWN_HELP: Record<PerformanceDimensionType, string> = {
-  BUSINESS_CHANNEL:
-    "Share of room nights by booking channel (B2C, B2B, PACKAGE/HOLIDAYS, etc.). Blank channel is treated as B2C. Percent = room nights in that channel ÷ total room nights — not booking count.",
-  ROOM_RATE_PLAN:
-    "Share of room nights by the booking’s main room (highest quantity) and its rate plan. The whole booking’s nights are assigned to that one room/plan, not split across every room type.",
-  DAY_OF_WEEK:
-    "Share of room nights by weekday. On Booking dates this is the weekday the booking was created (IST). On Stay dates this is the weekday of each occupied night.",
-  MEAL_PLAN:
-    "Share of room nights by meal plan from the rate plan code (EP / CP / MAP / AP). Unknown plans go to Others. One plan per booking — not split per room.",
-  TRAVELLER_MIX:
-    "Share of room nights by guest mix: child present → Family; 1 adult → 1 Adult; 2 adults → Couple; 3+ adults → Group.",
-  LENGTH_OF_STAY:
-    "Share of room nights by stay length buckets: 1 / 2 / 3 / 4 / 5+ days.",
-  ADVANCE_PURCHASE:
-    "Share of room nights by days from booking date (IST) to check-in: 0–3, 4–7, 8–15, 16–30, 31+ days.",
-};
-
-function InfoTip({
-  text,
-  className,
-  align = "start",
-}: {
-  text: string;
-  className?: string;
-  align?: "start" | "end" | "center";
-}) {
-  return (
-    <span
-      className={cn("group/info relative inline-flex shrink-0", className)}
-      onClick={(event) => event.stopPropagation()}
-      onMouseDown={(event) => event.stopPropagation()}
-    >
-      <span
-        className="inline-flex cursor-help items-center justify-center rounded-full text-slate-400 transition hover:text-slate-600"
-        aria-label="More information"
-      >
-        <Info className="h-3.5 w-3.5" />
-      </span>
-      <span
-        role="tooltip"
-        className={cn(
-          "pointer-events-none absolute top-full z-50 mt-2 hidden w-72 max-w-[min(18rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-slate-900 px-3 py-2 text-left text-[11px] leading-relaxed font-normal whitespace-normal text-white shadow-lg group-hover/info:block",
-          align === "start" && "left-0",
-          align === "end" && "right-0",
-          align === "center" && "left-1/2 -translate-x-1/2",
-        )}
-      >
-        {text}
-      </span>
-    </span>
-  );
-}
-
-const METRIC_THEME: Record<
-  PerformanceMetric,
-  {
-    icon: LucideIcon;
-    tab: string;
-    tabActive: string;
-    iconWrap: string;
-    bar: string;
-    value: string;
-  }
-> = {
-  ROOM_NIGHTS: {
-    icon: BedDouble,
-    tab: "hover:bg-violet-50/80",
-    tabActive: "bg-violet-50",
-    iconWrap: "bg-violet-100 text-violet-700",
-    bar: "bg-violet-600",
-    value: "text-violet-900",
-  },
-  REVENUE: {
-    icon: Wallet,
-    tab: "hover:bg-emerald-50/80",
-    tabActive: "bg-emerald-50",
-    iconWrap: "bg-emerald-100 text-emerald-700",
-    bar: "bg-emerald-600",
-    value: "text-emerald-900",
-  },
-  ASP: {
-    icon: Banknote,
-    tab: "hover:bg-amber-50/80",
-    tabActive: "bg-amber-50",
-    iconWrap: "bg-amber-100 text-amber-700",
-    bar: "bg-amber-500",
-    value: "text-amber-900",
-  },
-  PROPERTY_VISITS: {
-    icon: Eye,
-    tab: "hover:bg-sky-50/80",
-    tabActive: "bg-sky-50",
-    iconWrap: "bg-sky-100 text-sky-700",
-    bar: "bg-sky-600",
-    value: "text-sky-900",
-  },
-  CONVERSION: {
-    icon: TrendingUp,
-    tab: "hover:bg-rose-50/80",
-    tabActive: "bg-rose-50",
-    iconWrap: "bg-rose-100 text-rose-700",
-    bar: "bg-rose-600",
-    value: "text-rose-900",
-  },
-};
+const METRIC_ICONS = {
+  ROOM_NIGHTS: BedDouble,
+  REVENUE: Wallet,
+  ASP: Banknote,
+  PROPERTY_VISITS: Eye,
+  CONVERSION: TrendingUp,
+} as const;
 
 type PerformanceFilterDraft = {
   datePreset: PerformanceDatePreset;
@@ -229,19 +112,6 @@ function extractErrorMessage(err: unknown): string {
   return "Request failed";
 }
 
-function formatDisplayDate(value?: string | null): string {
-  if (!value) return "—";
-  try {
-    return new Date(`${value}T00:00:00`).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "2-digit",
-    });
-  } catch {
-    return value;
-  }
-}
-
 function formatMetricValue(metric: PerformanceMetric, value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";
   if (metric === "CONVERSION") {
@@ -254,14 +124,6 @@ function formatMetricValue(metric: PerformanceMetric, value: number | null | und
     return `₹ ${new Intl.NumberFormat("en-IN").format(Math.round(value))}`;
   }
   return new Intl.NumberFormat("en-IN").format(value);
-}
-
-function formatChangeBadge(changePercent: number | null | undefined, improved?: boolean) {
-  if (changePercent == null || Number.isNaN(changePercent)) return null;
-  const abs = Math.abs(changePercent);
-  const label = `${abs % 1 === 0 ? abs.toFixed(0) : abs.toFixed(1)}%`;
-  const up = improved ?? changePercent >= 0;
-  return { label, up, text: `${label} ${up ? "↑" : "↓"}` };
 }
 
 function durationLabel(preset: PerformanceDatePreset): string {
@@ -301,7 +163,7 @@ function buildComparisonInsight({
       fallbackInsight ||
       `Your property's ${metricLabel.toLowerCase()} for the selected period.`;
     if (comparisonFrom && comparisonTo) {
-      return `${base} Comparison period (${comparedTo}): ${formatDisplayDate(comparisonFrom)} - ${formatDisplayDate(comparisonTo)}.`;
+      return `${base} Comparison period (${comparedTo}): ${formatReportDate(comparisonFrom)} - ${formatReportDate(comparisonTo)}.`;
     }
     return base;
   }
@@ -314,7 +176,7 @@ function buildComparisonInsight({
   const metricLower = metricLabel.toLowerCase();
   const range =
     comparisonFrom && comparisonTo
-      ? `${formatDisplayDate(comparisonFrom)} - ${formatDisplayDate(comparisonTo)}`
+      ? `${formatReportDate(comparisonFrom)} - ${formatReportDate(comparisonTo)}`
       : comparedTo;
 
   if (changePercent === 0) {
@@ -322,132 +184,6 @@ function buildComparisonInsight({
   }
 
   return `${pct} ${direction} your ${metricLower} in comparison to ${metricLower} during ${range} (${duration}).`;
-}
-
-function ChangePill({
-  changePercent,
-  improved,
-  size = "sm",
-  comparisonType = "SAME_TIME_LAST_YEAR",
-}: {
-  changePercent: number | null | undefined;
-  improved?: boolean;
-  size?: "sm" | "md";
-  comparisonType?: PerformanceComparisonType;
-}) {
-  const badge = formatChangeBadge(changePercent, improved);
-  if (!badge) return null;
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded font-semibold",
-        badge.up
-          ? "bg-emerald-50 text-emerald-600"
-          : "bg-rose-50 text-rose-600",
-        size === "sm" ? "px-1.5 py-0.5 text-xs" : "px-2 py-1 text-sm",
-      )}
-      title={`Compared with ${comparisonLabel(comparisonType)}`}
-    >
-      {badge.text}
-    </span>
-  );
-}
-
-function RankingBars({ ranking }: { ranking: PerformanceRanking }) {
-  const yours = ranking.yourPercent ?? 0;
-  const comps = ranking.competitorsPercent ?? 0;
-  const max = Math.max(yours, comps, 1);
-
-  return (
-    <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-3 py-2.5">
-      <div className="flex min-w-0 items-center gap-1.5 text-sm text-slate-700">
-        <span className="shrink-0 font-medium text-slate-500">#{ranking.rank}</span>
-        {ranking.rank === 1 ? (
-          <Trophy className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-        ) : null}
-        <span className="truncate font-medium">{ranking.label}</span>
-      </div>
-      <div className="min-w-0">
-        <div className="mb-1 text-right text-xs font-semibold tabular-nums text-slate-700">
-          {ranking.yourPercent == null ? "—" : `${ranking.yourPercent.toFixed(2)}%`}
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="h-full rounded-full"
-            style={{
-              width: `${(yours / max) * 100}%`,
-              backgroundColor: PROPERTY_BAR,
-            }}
-          />
-        </div>
-      </div>
-      <div className="min-w-0">
-        <div className="mb-1 text-right text-xs font-semibold tabular-nums text-slate-700">
-          {ranking.competitorsPercent == null
-            ? "—"
-            : `${ranking.competitorsPercent.toFixed(2)}%`}
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="h-full rounded-full"
-            style={{
-              width: `${(comps / max) * 100}%`,
-              backgroundColor: COMPETITOR_BAR,
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BreakdownCardView({ card }: { card: PerformanceBreakdownCard }) {
-  const [expanded, setExpanded] = useState(false);
-  const isRoomPlan = card.dimensionType === "ROOM_RATE_PLAN";
-  const visible = isRoomPlan && !expanded ? card.rankings.slice(0, 2) : card.rankings;
-  const hasMore = isRoomPlan && card.rankings.length > 2;
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-1 flex items-center gap-1.5">
-        <h3 className="text-base font-bold text-slate-900">{card.title}</h3>
-        <InfoTip
-          text={
-            BREAKDOWN_HELP[card.dimensionType] ??
-            "Share of room nights for this category among confirmed bookings only. Percentages are room-night share, not booking count."
-          }
-        />
-      </div>
-      <p className="mb-4 text-sm text-slate-600">{card.insight}</p>
-
-      <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 border-b border-slate-100 pb-2 text-[10px] font-bold tracking-wide text-slate-400 uppercase">
-        <span />
-        <span className="text-right" style={{ color: PROPERTY_BAR }}>
-          Your Property
-        </span>
-        <span className="text-right" style={{ color: COMPETITOR_BAR }}>
-          Competitors
-        </span>
-      </div>
-
-      <div className="relative divide-y divide-slate-50">
-        {visible.map((row) => (
-          <RankingBars key={row.key} ranking={row} />
-        ))}
-        {hasMore && !expanded ? (
-          <div className="absolute inset-x-0 bottom-0 flex h-24 items-end justify-center bg-linear-to-t from-white via-white/90 to-transparent pb-2">
-            <button
-              type="button"
-              onClick={() => setExpanded(true)}
-              className="rounded-md border border-[#3B6FE8] px-3 py-1.5 text-sm font-semibold text-[#3B6FE8] hover:bg-blue-50"
-            >
-              View More Details
-            </button>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
 }
 
 function CompetitorManageModal({
@@ -600,7 +336,7 @@ function CompetitorManageModal({
                           {item.address || "—"}
                         </span>
                       </span>
-                      <span className="text-xs font-semibold text-[#3B6FE8]">Add</span>
+                      <span className="text-xs font-semibold text-slate-700">Add</span>
                     </button>
                   </li>
                 ))}
@@ -638,7 +374,7 @@ function CompetitorManageModal({
                     <button
                       type="button"
                       onClick={() => removeCompetitor(item.hotelId)}
-                      className="shrink-0 text-sm font-semibold text-[#3B6FE8] hover:underline"
+                      className="shrink-0 text-sm font-semibold text-slate-600 hover:text-slate-900"
                     >
                       Remove
                     </button>
@@ -661,7 +397,7 @@ function CompetitorManageModal({
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="rounded-lg bg-[#3B6FE8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2f5fd0] disabled:opacity-60"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
           >
             {saving ? "Saving…" : "Save Competitors"}
           </button>
@@ -717,6 +453,8 @@ export default function PerformanceDashboardPage() {
   const [draft, setDraft] = useState<PerformanceFilterDraft>(DEFAULT_FILTER_DRAFT);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [customFromText, setCustomFromText] = useState("");
+  const [customToText, setCustomToText] = useState("");
 
   const [overview, setOverview] = useState<PerformanceOverviewResponse | null>(
     null,
@@ -733,7 +471,8 @@ export default function PerformanceDashboardPage() {
   const customRangeInvalid =
     datePreset === "CUSTOM" && (!fromDate || !toDate);
   const draftCustomInvalid =
-    draft.datePreset === "CUSTOM" && (!draft.fromDate || !draft.toDate);
+    draft.datePreset === "CUSTOM" &&
+    !isValidCustomDateRange(customFromText, customToText);
 
   const activeFilterCount =
     (datePreset !== DEFAULT_FILTER_DRAFT.datePreset ? 1 : 0) +
@@ -838,25 +577,42 @@ export default function PerformanceDashboardPage() {
       fromDate,
       toDate,
     });
+    setCustomFromText(isoToReportDateText(fromDate));
+    setCustomToText(isoToReportDateText(toDate));
     setFilterOpen(true);
   };
 
   const applyFilters = () => {
-    if (draft.datePreset === "CUSTOM" && (!draft.fromDate || !draft.toDate)) {
-      showToast("Select a custom from/to date range", "error");
-      return;
+    let nextDraft = draft;
+
+    if (draft.datePreset === "CUSTOM") {
+      const parsed = validateCustomDateRange(customFromText, customToText);
+      if (!parsed.ok) {
+        showToast(parsed.message, "error");
+        return;
+      }
+      nextDraft = {
+        ...draft,
+        fromDate: parsed.fromDate,
+        toDate: parsed.toDate,
+      };
+      setCustomFromText(formatReportDate(parsed.fromDate));
+      setCustomToText(formatReportDate(parsed.toDate));
     }
-    setDatePreset(draft.datePreset);
-    setDateAxis(draft.dateAxis);
-    setComparisonType(draft.comparisonType);
-    setFromDate(draft.fromDate);
-    setToDate(draft.toDate);
+
+    setDatePreset(nextDraft.datePreset);
+    setDateAxis(nextDraft.dateAxis);
+    setComparisonType(nextDraft.comparisonType);
+    setFromDate(nextDraft.fromDate);
+    setToDate(nextDraft.toDate);
     setFilterOpen(false);
-    loadAll(draft);
+    loadAll(nextDraft);
   };
 
   const clearAll = () => {
     setDraft(DEFAULT_FILTER_DRAFT);
+    setCustomFromText("");
+    setCustomToText("");
   };
 
   const loadOverviewForMetric = async (nextMetric: PerformanceMetric) => {
@@ -909,7 +665,7 @@ export default function PerformanceDashboardPage() {
       [
         "Filters",
         "Date range",
-        `${overview.dateRange.fromDate} to ${overview.dateRange.toDate}`,
+        `${formatReportDate(overview.dateRange.fromDate)} to ${formatReportDate(overview.dateRange.toDate)}`,
         overview.dateRange.preset,
         dateAxis,
         comparisonType,
@@ -989,8 +745,8 @@ export default function PerformanceDashboardPage() {
       ...(overview.series ?? []).map((point) => [
         "Series",
         point.label,
-        point.fromDate,
-        point.toDate,
+        formatReportDate(point.fromDate),
+        formatReportDate(point.toDate),
         point.yourProperty,
         point.competitorsAvg,
       ]),
@@ -1042,8 +798,8 @@ export default function PerformanceDashboardPage() {
       ["Label", "From", "To", "Your Property", "Competitors Avg"],
       ...overview.series.map((s) => [
         s.label,
-        s.fromDate,
-        s.toDate,
+        formatReportDate(s.fromDate),
+        formatReportDate(s.toDate),
         s.yourProperty,
         s.competitorsAvg,
       ]),
@@ -1087,7 +843,7 @@ export default function PerformanceDashboardPage() {
       const dataUrl = await toPng(node, {
         cacheBust: true,
         pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
-        backgroundColor: "#f7f8fa",
+        backgroundColor: "#f5f3ff",
         filter: (element) => {
           if (!(element instanceof HTMLElement)) return true;
           return !element.dataset.excludeFromCapture;
@@ -1115,7 +871,7 @@ export default function PerformanceDashboardPage() {
 
   const selectedKpi =
     overview?.kpis?.find((k) => k.metric === metric) ?? overview?.kpis?.[0];
-  const metricName = METRIC_SHORT[metric] ?? metric;
+  const metricName = METRIC_LABELS[metric] ?? metric;
   const selectedChangePercent =
     overview?.metricDetail?.changePercent ?? selectedKpi?.changePercent ?? null;
   const selectedImproved =
@@ -1140,19 +896,26 @@ export default function PerformanceDashboardPage() {
   if (!hotelId) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-slate-900">Performance Overview</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="text-sm text-slate-500">
           Select a hotel from the top bar to load performance data.
         </p>
-        <div className="mt-8 flex min-h-70 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white">
+        <div className="mt-8 flex min-h-70 items-center justify-center rounded-xl border border-dashed border-indigo-200 bg-gradient-to-br from-indigo-50/50 to-white">
           <div className="text-center">
-            <Building2 className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+            <Building2 className="mx-auto mb-3 h-10 w-10 text-indigo-300" />
             <p className="text-sm font-medium text-slate-600">No hotel selected</p>
           </div>
         </div>
       </div>
     );
   }
+
+  const metricTheme = METRIC_THEMES[metric];
+  const MetricChartIcon = METRIC_ICONS[metric];
+  const visibleFromDate =
+    overview?.dateRange.fromDate ??
+    (datePreset === "CUSTOM" ? fromDate : null);
+  const visibleToDate =
+    overview?.dateRange.toDate ?? (datePreset === "CUSTOM" ? toDate : null);
 
   return (
     <>
@@ -1175,37 +938,30 @@ export default function PerformanceDashboardPage() {
         showToast={showToast}
       />
 
-      <div className="min-h-full bg-[#f7f8fa]">
-        <div ref={pageCaptureRef} className="container mx-auto px-4 py-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-white px-4 py-3 shadow-sm">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-indigo-600 to-blue-500 text-white shadow-sm">
-                <LayoutDashboard className="h-5 w-5" />
-              </div>
+      <div className="min-h-full bg-gradient-to-b from-indigo-50/40 via-slate-50 to-slate-50">
+        <div ref={pageCaptureRef} className="container mx-auto px-4 py-6">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+                <CalendarDays className="h-5 w-5" />
+              </span>
               <div className="min-w-0">
-                <h1 className="truncate text-lg font-bold text-slate-900">
-                  Performance Overview
-                </h1>
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                  <span className="inline-flex items-center gap-1.5">
-                    <CalendarDays className="h-3.5 w-3.5 text-indigo-500" />
-                    <span className="font-semibold text-slate-700">
-                      {durationLabel(datePreset)}
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-700">
+                  <span className="font-semibold text-slate-900">
+                    {durationLabel(datePreset)}
+                  </span>
+                  {visibleFromDate && visibleToDate ? (
+                    <span className="text-slate-500">
+                      {formatReportDate(visibleFromDate)} –{" "}
+                      {formatReportDate(visibleToDate)}
                     </span>
-                    {overview?.dateRange ? (
-                      <span>
-                        {formatDisplayDate(overview.dateRange.fromDate)} –{" "}
-                        {formatDisplayDate(overview.dateRange.toDate)}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span>
-                    {DATE_AXIS_OPTIONS.find((o) => o.value === dateAxis)?.label ??
-                      dateAxis}
-                    {" · "}
-                    {COMPARISON_OPTIONS.find((o) => o.value === comparisonType)
-                      ?.label ?? comparisonType}
-                  </span>
+                  ) : null}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {DATE_AXIS_OPTIONS.find((o) => o.value === dateAxis)?.label ??
+                    dateAxis}
+                  {" · "}
+                  {comparisonLabel(comparisonType)}
                 </p>
               </div>
             </div>
@@ -1214,16 +970,16 @@ export default function PerformanceDashboardPage() {
                 type="button"
                 onClick={openFilters}
                 className={cn(
-                  "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition",
+                  "inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3.5 py-2 text-sm font-medium transition",
                   activeFilterCount
-                    ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50",
+                    ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
+                    : "border-indigo-200 bg-white text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50",
                 )}
               >
                 <Filter className="h-4 w-4" />
-                Filter
+                Filters
                 {activeFilterCount ? (
-                  <span className="rounded-full bg-indigo-600 px-1.5 text-[11px] font-bold text-white">
+                  <span className="rounded-full bg-white/20 px-1.5 text-[11px] font-bold text-white">
                     {activeFilterCount}
                   </span>
                 ) : null}
@@ -1259,7 +1015,7 @@ export default function PerformanceDashboardPage() {
                       disabled={capturingPage || !overview}
                       className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-indigo-50 disabled:opacity-50"
                     >
-                      <LayoutDashboard className="h-4 w-4 text-indigo-600" />
+                      <LayoutDashboard className="h-4 w-4 text-indigo-500" />
                       Full page (PNG)
                     </button>
                     <button
@@ -1284,7 +1040,7 @@ export default function PerformanceDashboardPage() {
                       onClick={downloadSeriesCsv}
                       className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-indigo-50"
                     >
-                      <FileSpreadsheet className="h-4 w-4 text-slate-500" />
+                      <FileSpreadsheet className="h-4 w-4 text-slate-400" />
                       Series data (CSV)
                     </button>
                   </div>
@@ -1300,209 +1056,169 @@ export default function PerformanceDashboardPage() {
           ) : null}
 
           {loading && !overview ? (
-            <div className="flex min-h-80 items-center justify-center rounded-xl border border-slate-200 bg-white">
-              <Loader2 className="h-8 w-8 animate-spin text-[#3B6FE8]" />
+            <div className="flex min-h-80 items-center justify-center rounded-xl border border-indigo-100 bg-white">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
             </div>
           ) : overview ? (
             <>
-              <div className="mb-4 overflow-visible rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="grid grid-cols-2 divide-x divide-slate-100 border-b border-slate-100 sm:grid-cols-3 lg:grid-cols-5">
-                  {(overview.kpis?.length
-                    ? overview.kpis
-                    : (Object.keys(METRIC_LABELS) as PerformanceMetric[]).map(
-                        (m) => ({
-                          metric: m,
-                          value: 0,
-                          changePercent: null,
-                          improved: false,
-                        }),
-                      )
-                  ).map((kpi) => {
-                    const active = kpi.metric === metric;
-                    const theme = METRIC_THEME[kpi.metric];
-                    const Icon = theme.icon;
-                    const tipAlign =
-                      kpi.metric === "CONVERSION" ||
-                      kpi.metric === "PROPERTY_VISITS"
-                        ? "end"
-                        : "start";
-                    return (
-                      <button
-                        key={kpi.metric}
-                        type="button"
-                        onClick={() => loadOverviewForMetric(kpi.metric)}
-                        className={cn(
-                          "relative px-4 py-4 text-left transition",
-                          theme.tab,
-                          active && theme.tabActive,
-                        )}
-                      >
-                        <div className="mb-2 flex items-start justify-between gap-2">
-                          <span className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-slate-600">
-                            <span
-                              className={cn(
-                                "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
-                                theme.iconWrap,
-                              )}
-                            >
-                              <Icon className="h-3.5 w-3.5" />
-                            </span>
-                            <span className="leading-snug">
-                              {METRIC_LABELS[kpi.metric] ?? kpi.metric}
-                            </span>
-                          </span>
-                          <InfoTip
-                            text={METRIC_HELP[kpi.metric]}
-                            align={tipAlign}
-                            className="mt-0.5"
-                          />
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={cn(
-                              "text-xl font-bold",
-                              active ? theme.value : "text-slate-900",
-                            )}
-                          >
-                            {formatMetricValue(kpi.metric, kpi.value)}
-                          </span>
-                          <ChangePill
-                            changePercent={kpi.changePercent}
-                            improved={kpi.improved}
-                            comparisonType={comparisonType}
-                          />
-                        </div>
-                        {active ? (
-                          <span
-                            className={cn(
-                              "absolute inset-x-0 bottom-0 h-1",
-                              theme.bar,
-                            )}
-                          />
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
+              <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+                {(overview.kpis?.length
+                  ? overview.kpis
+                  : (Object.keys(METRIC_LABELS) as PerformanceMetric[]).map(
+                      (m) => ({
+                        metric: m,
+                        value: 0,
+                        changePercent: null,
+                        improved: false,
+                      }),
+                    )
+                ).map((kpi) => (
+                  <AnalyticsKpiCard
+                    key={kpi.metric}
+                    metric={kpi.metric}
+                    label={METRIC_LABELS[kpi.metric] ?? kpi.metric}
+                    value={formatMetricValue(kpi.metric, kpi.value)}
+                    changePercent={kpi.changePercent}
+                    improved={kpi.improved}
+                    active={kpi.metric === metric}
+                    onClick={() => loadOverviewForMetric(kpi.metric)}
+                    helpText={METRIC_HELP[kpi.metric]}
+                    icon={METRIC_ICONS[kpi.metric]}
+                  />
+                ))}
+              </div>
 
-                <div className="grid gap-6 p-5 lg:grid-cols-[1.4fr_0.8fr]">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">
-                      Your Property&apos;s {metricName} for{" "}
-                      {durationLabel(
-                        (overview.dateRange.preset as PerformanceDatePreset) ||
-                          datePreset,
-                      )}{" "}
-                      <span className="font-normal text-slate-500">
-                        ({formatDisplayDate(overview.dateRange.fromDate)} -{" "}
-                        {formatDisplayDate(overview.dateRange.toDate)})
-                      </span>
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <span
-                        className={cn(
-                          "text-4xl font-bold tracking-tight",
-                          METRIC_THEME[metric].value,
-                        )}
-                      >
-                        {formatMetricValue(
-                          metric,
-                          overview.metricDetail?.value ?? selectedKpi?.value,
-                        )}
-                      </span>
-                      <ChangePill
-                        changePercent={selectedChangePercent}
-                        improved={selectedImproved}
-                        size="md"
-                        comparisonType={comparisonType}
-                      />
-                      {loadingMetric ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                      ) : null}
-                    </div>
-                    <p className="mt-3 max-w-xl text-sm text-slate-600">
-                      {comparisonInsight}
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
-                    <div className="mb-2 flex items-center justify-between">
-                      <h3 className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                        <Building2 className="h-4 w-4 text-indigo-500" />
-                        Competitors
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => setManageOpen(true)}
-                        className="text-sm font-semibold text-[#3B6FE8] hover:underline"
-                      >
-                        View All
-                      </button>
-                    </div>
-                    {overview.competitorShare?.eligible &&
-                    overview.competitorShare.yourSharePercent != null ? (
-                      <>
-                        <p className="text-4xl font-bold text-slate-900">
-                          {overview.competitorShare.yourSharePercent}%
-                        </p>
-                        <p className="mt-2 text-sm text-slate-600">
-                          Your share among the added competitor properties.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm font-medium text-slate-700">
-                          {overview.competitorShare?.message ||
-                            "Add at least 5 competitors to unlock comparison"}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setManageOpen(true)}
-                          className="mt-3 text-sm font-semibold text-[#3B6FE8] hover:underline"
-                        >
-                          Manage competitors
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-100 px-5 py-5">
-                  <div className="mb-3 flex justify-end">
+              <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <AnalyticsPanel
+                  title={`${metricName} trend`}
+                  subtitle={`${durationLabel(
+                    (overview.dateRange.preset as PerformanceDatePreset) ||
+                      datePreset,
+                  )} · ${formatReportDate(overview.dateRange.fromDate)} – ${formatReportDate(overview.dateRange.toDate)}`}
+                  headerClassName={metricTheme.panelHeader}
+                  titleIcon={MetricChartIcon}
+                  titleIconWrap={metricTheme.iconMuted}
+                  titleIconColor={metricTheme.accent}
+                  action={
                     <button
                       type="button"
                       onClick={downloadChartPng}
                       aria-label="Download chart"
                       title="Download chart"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-700 transition hover:bg-sky-100"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100"
                     >
                       <FileImage className="h-4 w-4" />
                     </button>
+                  }
+                >
+                  <div className="mb-4 flex flex-wrap items-end gap-3 border-b border-slate-100 pb-4">
+                    <span
+                      className={cn(
+                        "text-3xl font-bold tabular-nums tracking-tight",
+                        metricTheme.value,
+                      )}
+                    >
+                      {formatMetricValue(
+                        metric,
+                        overview.metricDetail?.value ?? selectedKpi?.value,
+                      )}
+                    </span>
+                    <AnalyticsDelta
+                      changePercent={selectedChangePercent}
+                      improved={selectedImproved}
+                      comparisonType={comparisonType}
+                      size="md"
+                    />
+                    {loadingMetric ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                    ) : null}
                   </div>
+                  <p className="mb-5 max-w-3xl text-sm leading-relaxed text-slate-600">
+                    {comparisonInsight}
+                  </p>
                   <PerformanceSeriesChart
                     ref={chartRef}
                     series={overview.series ?? []}
                     showCompetitors={showCompetitors}
                     metricLabel={metricName}
                   />
-                </div>
+                </AnalyticsPanel>
+
+                <aside className="flex flex-col overflow-hidden rounded-xl border border-indigo-100 bg-white shadow-sm">
+                  <div className="flex items-center justify-between border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-white px-5 py-4">
+                    <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100">
+                        <Building2 className="h-3.5 w-3.5 text-indigo-600" />
+                      </span>
+                      Competitor set
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setManageOpen(true)}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                    >
+                      Manage
+                    </button>
+                  </div>
+                  <div className="flex flex-1 flex-col px-5 py-4">
+                    {overview.competitorShare?.eligible &&
+                    overview.competitorShare.yourSharePercent != null ? (
+                      <>
+                        <p className="text-xs font-medium uppercase tracking-wide text-indigo-600">
+                          Your market share
+                        </p>
+                        <p className="mt-2 text-4xl font-bold tabular-nums text-indigo-900">
+                          {overview.competitorShare.yourSharePercent}%
+                        </p>
+                        <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                          Share of {metricName.toLowerCase()} among tracked
+                          competitor properties in this period.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-medium text-slate-800">
+                          Benchmarking unavailable
+                        </p>
+                        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                          {overview.competitorShare?.message ||
+                            "Add at least 5 competitors to unlock market comparison."}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setManageOpen(true)}
+                          className="mt-4 inline-flex items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                        >
+                          Configure competitors
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </aside>
               </div>
 
-              <h2 className="mb-4 text-lg font-bold text-slate-900">
-                Detailed analysis of {metricName}
-              </h2>
+              <div>
+                <h2 className="mb-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-indigo-600">
+                  <LayoutDashboard className="h-4 w-4" />
+                  Segment breakdown
+                </h2>
 
-              {breakdowns?.cards?.length ? (
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-                  {breakdowns.cards.map((card) => (
-                    <BreakdownCardView key={card.dimensionType} card={card} />
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
-                  No breakdown data for this period.
-                </div>
-              )}
+                {breakdowns?.cards?.length ? (
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    {breakdowns.cards.map((card) => (
+                      <AnalyticsBreakdownCard
+                        key={card.dimensionType}
+                        card={card}
+                        helpText={BREAKDOWN_HELP[card.dimensionType]}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-400">
+                    No breakdown data for this period.
+                  </div>
+                )}
+              </div>
             </>
           ) : null}
         </div>
@@ -1536,13 +1252,21 @@ export default function PerformanceDashboardPage() {
                 </label>
                 <select
                   value={draft.datePreset}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const nextPreset = e.target.value as PerformanceDatePreset;
                     setDraft((prev) => ({
                       ...prev,
-                      datePreset: e.target.value as PerformanceDatePreset,
-                    }))
-                  }
-                  className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                      datePreset: nextPreset,
+                    }));
+                    if (nextPreset !== "CUSTOM") {
+                      setCustomFromText("");
+                      setCustomToText("");
+                    } else if (draft.fromDate && draft.toDate) {
+                      setCustomFromText(formatReportDate(draft.fromDate));
+                      setCustomToText(formatReportDate(draft.toDate));
+                    }
+                  }}
+                  className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
                 >
                   {DURATION_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -1552,39 +1276,13 @@ export default function PerformanceDashboardPage() {
                 </select>
 
                 {draft.datePreset === "CUSTOM" ? (
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="mb-1 block text-xs text-slate-500">
-                        From
-                      </label>
-                      <input
-                        type="date"
-                        value={draft.fromDate}
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            fromDate: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs text-slate-500">To</label>
-                      <input
-                        type="date"
-                        value={draft.toDate}
-                        min={draft.fromDate || undefined}
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            toDate: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                      />
-                    </div>
-                  </div>
+                  <ReportCustomDateFields
+                    className="mt-3"
+                    fromText={customFromText}
+                    toText={customToText}
+                    onFromTextChange={setCustomFromText}
+                    onToTextChange={setCustomToText}
+                  />
                 ) : null}
               </section>
 
@@ -1631,8 +1329,8 @@ export default function PerformanceDashboardPage() {
                       className={cn(
                         "flex-1 cursor-pointer rounded-lg border px-3 py-2 text-sm font-medium transition",
                         draft.dateAxis === option.value
-                          ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300",
+                          ? "border-indigo-600 bg-indigo-600 text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50",
                       )}
                     >
                       {option.label}
@@ -1646,7 +1344,7 @@ export default function PerformanceDashboardPage() {
               <button
                 type="button"
                 onClick={clearAll}
-                className="cursor-pointer text-sm font-semibold text-[#2f3d95] hover:underline"
+                className="cursor-pointer text-sm font-semibold text-indigo-600 hover:text-indigo-800"
               >
                 Clear All
               </button>
@@ -1654,7 +1352,7 @@ export default function PerformanceDashboardPage() {
                 type="button"
                 onClick={applyFilters}
                 disabled={draftCustomInvalid || loading}
-                className="cursor-pointer rounded-lg bg-[#2f3d95] px-6 py-2 text-sm font-semibold text-white transition hover:bg-[#26317a] disabled:opacity-50"
+                className="cursor-pointer rounded-lg bg-indigo-600 px-6 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
               >
                 Apply Filter
               </button>

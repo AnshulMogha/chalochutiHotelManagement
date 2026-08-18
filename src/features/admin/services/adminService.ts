@@ -902,6 +902,7 @@ export interface FinanceData {
   pan: string;
   businessName: string;
   businessAddress: string;
+  bankAccountHolderName: string;
   bankAccountNumber: string;
   bankName: string;
   bankIfsc: string;
@@ -917,6 +918,7 @@ export interface FinanceItem {
   pan: string | null;
   businessName: string | null;
   businessAddress: string | null;
+  bankAccountHolderName: string | null;
   bankAccountNumber: string | null;
   bankName: string | null;
   bankIfsc: string | null;

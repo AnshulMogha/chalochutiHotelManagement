@@ -15,8 +15,12 @@ import {
   formatReportDate,
   formatReportMoney,
   formatStatusLabel,
+  isoToReportDateText,
+  isValidCustomDateRange,
   severityTone,
+  validateCustomDateRange,
 } from "../components/reportUiHelpers";
+import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
   salesManagerDashboardReportService,
   type SalesManagerActionInboxItem,
@@ -691,6 +695,8 @@ export default function SalesManagerDashboardReportPage() {
   const [salesManagerId, setSalesManagerId] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [draft, setDraft] = useState<FilterDraft>(DEFAULT_DRAFT);
+  const [customFromText, setCustomFromText] = useState("");
+  const [customToText, setCustomToText] = useState("");
   const [inboxTab, setInboxTab] = useState<SalesManagerInboxType | "ALL">(
     "ALL",
   );
@@ -711,7 +717,8 @@ export default function SalesManagerDashboardReportPage() {
   const customRangeInvalid =
     datePreset === "CUSTOM" && (!fromDate || !toDate);
   const draftCustomInvalid =
-    draft.datePreset === "CUSTOM" && (!draft.fromDate || !draft.toDate);
+    draft.datePreset === "CUSTOM" &&
+    !isValidCustomDateRange(customFromText, customToText);
 
   const activeFilterCount =
     (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
@@ -847,20 +854,35 @@ export default function SalesManagerDashboardReportPage() {
 
   const applyFilters = () => {
     if (draftCustomInvalid) return;
-    setDatePreset(draft.datePreset);
-    setFromDate(draft.fromDate);
-    setToDate(draft.toDate);
-    setDateAxis(draft.dateAxis);
-    setBookingType(draft.bookingType);
-    setStateId(draft.stateId);
-    setAgencyTier(draft.agencyTier);
-    setSalesManagerId(draft.salesManagerId);
+    let nextDraft = draft;
+    if (draft.datePreset === "CUSTOM") {
+      const parsed = validateCustomDateRange(customFromText, customToText);
+      if (!parsed.ok) {
+        showToast(parsed.message, "error");
+        return;
+      }
+      nextDraft = {
+        ...draft,
+        fromDate: parsed.fromDate,
+        toDate: parsed.toDate,
+      };
+    }
+    setDatePreset(nextDraft.datePreset);
+    setFromDate(nextDraft.fromDate);
+    setToDate(nextDraft.toDate);
+    setDateAxis(nextDraft.dateAxis);
+    setBookingType(nextDraft.bookingType);
+    setStateId(nextDraft.stateId);
+    setAgencyTier(nextDraft.agencyTier);
+    setSalesManagerId(nextDraft.salesManagerId);
     setFilterOpen(false);
-    void loadReport(draft);
+    void loadReport(nextDraft);
   };
 
   const resetFilters = () => {
     setDraft(DEFAULT_DRAFT);
+    setCustomFromText("");
+    setCustomToText("");
     setDatePreset(DEFAULT_DRAFT.datePreset);
     setFromDate("");
     setToDate("");
@@ -904,6 +926,8 @@ export default function SalesManagerDashboardReportPage() {
                   agencyTier,
                   salesManagerId,
                 });
+                setCustomFromText(isoToReportDateText(fromDate));
+                setCustomToText(isoToReportDateText(toDate));
                 setFilterOpen(true);
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
@@ -1756,34 +1780,12 @@ export default function SalesManagerDashboardReportPage() {
                 </select>
               </FilterField>
               {draft.datePreset === "CUSTOM" ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <FilterField label="From">
-                    <input
-                      type="date"
-                      value={draft.fromDate}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          fromDate: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    />
-                  </FilterField>
-                  <FilterField label="To">
-                    <input
-                      type="date"
-                      value={draft.toDate}
-                      onChange={(event) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          toDate: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    />
-                  </FilterField>
-                </div>
+                <ReportCustomDateFields
+                  fromText={customFromText}
+                  toText={customToText}
+                  onFromTextChange={setCustomFromText}
+                  onToTextChange={setCustomToText}
+                />
               ) : null}
               <FilterField label="Date axis">
                 <select
