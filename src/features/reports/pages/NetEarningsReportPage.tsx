@@ -41,9 +41,9 @@ import {
 } from "lucide-react";
 
 const DEFAULT_DATE_PRESET: NetEarningsDatePreset = "THIS_MONTH";
-const DEFAULT_BOOKING_STATUS: NetEarningsBookingStatus = "CONFIRMED";
+const DEFAULT_BOOKING_STATUSES: NetEarningsBookingStatus[] = [];
 const DEFAULT_BOOKING_TYPE: NetEarningsBookingType = "ALL";
-const DEFAULT_PAYMENT_STATUS: NetEarningsPaymentStatus = "ALL";
+const DEFAULT_PAYMENT_STATUS: NetEarningsPaymentStatus | "ALL" = "ALL";
 
 const DATE_PRESET_OPTIONS: { value: NetEarningsDatePreset; label: string }[] = [
   { value: "THIS_MONTH", label: "Month Till Date" },
@@ -56,9 +56,7 @@ const DATE_PRESET_OPTIONS: { value: NetEarningsDatePreset; label: string }[] = [
 
 const BOOKING_STATUS_OPTIONS: { value: NetEarningsBookingStatus; label: string }[] = [
   { value: "CONFIRMED", label: "Confirmed" },
-  { value: "ALL", label: "All" },
   { value: "CANCELLED", label: "Cancelled" },
-  { value: "NO_SHOW", label: "No show" },
 ];
 
 const BOOKING_TYPE_OPTIONS: { value: NetEarningsBookingType; label: string }[] = [
@@ -67,7 +65,10 @@ const BOOKING_TYPE_OPTIONS: { value: NetEarningsBookingType; label: string }[] =
   { value: "PACKAGE", label: "Package" },
 ];
 
-const PAYMENT_STATUS_OPTIONS: { value: NetEarningsPaymentStatus; label: string }[] = [
+const PAYMENT_STATUS_OPTIONS: {
+  value: NetEarningsPaymentStatus | "ALL";
+  label: string;
+}[] = [
   { value: "ALL", label: "All" },
   { value: "PENDING", label: "Pending" },
   { value: "SETTLED", label: "Settled" },
@@ -75,9 +76,9 @@ const PAYMENT_STATUS_OPTIONS: { value: NetEarningsPaymentStatus; label: string }
 
 type FilterDraft = {
   datePreset: NetEarningsDatePreset;
-  bookingStatus: NetEarningsBookingStatus;
+  bookingStatuses: NetEarningsBookingStatus[];
   bookingType: NetEarningsBookingType;
-  paymentStatus: NetEarningsPaymentStatus;
+  paymentStatus: NetEarningsPaymentStatus | "ALL";
   search: string;
   fromDate: string;
   toDate: string;
@@ -85,7 +86,7 @@ type FilterDraft = {
 
 const DEFAULT_DRAFT: FilterDraft = {
   datePreset: DEFAULT_DATE_PRESET,
-  bookingStatus: DEFAULT_BOOKING_STATUS,
+  bookingStatuses: DEFAULT_BOOKING_STATUSES,
   bookingType: DEFAULT_BOOKING_TYPE,
   paymentStatus: DEFAULT_PAYMENT_STATUS,
   search: "",
@@ -373,11 +374,13 @@ export default function NetEarningsReportPage() {
   const { toast, showToast, hideToast } = useToast();
 
   const [datePreset, setDatePreset] = useState<NetEarningsDatePreset>(DEFAULT_DATE_PRESET);
-  const [bookingStatus, setBookingStatus] =
-    useState<NetEarningsBookingStatus>(DEFAULT_BOOKING_STATUS);
+  const [bookingStatuses, setBookingStatuses] = useState<NetEarningsBookingStatus[]>(
+    DEFAULT_BOOKING_STATUSES,
+  );
   const [bookingType, setBookingType] = useState<NetEarningsBookingType>(DEFAULT_BOOKING_TYPE);
-  const [paymentStatus, setPaymentStatus] =
-    useState<NetEarningsPaymentStatus>(DEFAULT_PAYMENT_STATUS);
+  const [paymentStatus, setPaymentStatus] = useState<
+    NetEarningsPaymentStatus | "ALL"
+  >(DEFAULT_PAYMENT_STATUS);
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -406,7 +409,7 @@ export default function NetEarningsReportPage() {
 
   const activeFilterCount =
     (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
-    (bookingStatus !== DEFAULT_BOOKING_STATUS ? 1 : 0) +
+    (bookingStatuses.length > 0 ? 1 : 0) +
     (bookingType !== DEFAULT_BOOKING_TYPE ? 1 : 0) +
     (paymentStatus !== DEFAULT_PAYMENT_STATUS ? 1 : 0) +
     (search.trim() ? 1 : 0);
@@ -414,7 +417,7 @@ export default function NetEarningsReportPage() {
   const openFilters = () => {
     setDraft({
       datePreset,
-      bookingStatus,
+      bookingStatuses,
       bookingType,
       paymentStatus,
       search,
@@ -441,7 +444,7 @@ export default function NetEarningsReportPage() {
       };
     }
     setDatePreset(nextDraft.datePreset);
-    setBookingStatus(nextDraft.bookingStatus);
+    setBookingStatuses(nextDraft.bookingStatuses);
     setBookingType(nextDraft.bookingType);
     setPaymentStatus(nextDraft.paymentStatus);
     setSearch(nextDraft.search);
@@ -467,9 +470,9 @@ export default function NetEarningsReportPage() {
         datePreset,
         fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
         toDate: datePreset === "CUSTOM" ? toDate : undefined,
-        bookingStatus,
+        bookingStatuses: bookingStatuses.length ? bookingStatuses : undefined,
         bookingType,
-        paymentStatus,
+        paymentStatus: paymentStatus === "ALL" ? undefined : paymentStatus,
         search,
         page,
         size: pageSize,
@@ -489,7 +492,7 @@ export default function NetEarningsReportPage() {
     datePreset,
     fromDate,
     toDate,
-    bookingStatus,
+    bookingStatuses,
     bookingType,
     paymentStatus,
     search,
@@ -527,9 +530,9 @@ export default function NetEarningsReportPage() {
           datePreset,
           fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
           toDate: datePreset === "CUSTOM" ? toDate : undefined,
-          bookingStatus,
+          bookingStatuses: bookingStatuses.length ? bookingStatuses : undefined,
           bookingType,
-          paymentStatus,
+          paymentStatus: paymentStatus === "ALL" ? undefined : paymentStatus,
         },
         defaultFileName: `net-earnings-${report?.dateRange.fromDate || "report"}`,
         onStatus: setExportStatus,
@@ -855,6 +858,9 @@ export default function NetEarningsReportPage() {
 
               <section className="border-t border-slate-100 pt-5">
                 <h3 className="mb-2 text-sm font-bold text-slate-900">Booking status</h3>
+                <p className="mb-2 text-xs text-slate-500">
+                  Leave unchecked to include all statuses.
+                </p>
                 <div className="space-y-2">
                   {BOOKING_STATUS_OPTIONS.map((option) => (
                     <label
@@ -862,13 +868,16 @@ export default function NetEarningsReportPage() {
                       className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-slate-50"
                     >
                       <input
-                        type="radio"
-                        name="bookingStatus"
-                        checked={draft.bookingStatus === option.value}
-                        onChange={() =>
+                        type="checkbox"
+                        checked={draft.bookingStatuses.includes(option.value)}
+                        onChange={(event) =>
                           setDraft((prev) => ({
                             ...prev,
-                            bookingStatus: option.value,
+                            bookingStatuses: event.target.checked
+                              ? [...prev.bookingStatuses, option.value]
+                              : prev.bookingStatuses.filter(
+                                  (status) => status !== option.value,
+                                ),
                           }))
                         }
                       />

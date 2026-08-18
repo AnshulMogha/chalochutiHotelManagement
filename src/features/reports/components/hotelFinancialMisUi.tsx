@@ -107,6 +107,9 @@ export function BookedByOwnerDisplay({
         {owner.email ? (
           <span className={`block ${secondaryClass}`}>{owner.email}</span>
         ) : null}
+        {owner.phone ? (
+          <span className={`block ${secondaryClass}`}>{owner.phone}</span>
+        ) : null}
         {owner.agencyName ? (
           <span className={`block ${agencyClass}`}>
             Agency · {owner.agencyName}

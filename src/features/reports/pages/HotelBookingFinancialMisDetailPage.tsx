@@ -499,7 +499,7 @@ export default function HotelBookingFinancialMisDetailPage() {
         </section>
 
         {/* KPI cards */}
-        <div className="mb-3 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+        <div className="mb-3 grid grid-cols-3 gap-1.5 sm:grid-cols-5 lg:grid-cols-6">
           <FinanceKpiCard
             label={isB2b ? "Agent Price" : "Customer"}
             value={formatFinanceMoney(displaySellingPrice)}
@@ -537,6 +537,22 @@ export default function HotelBookingFinancialMisDetailPage() {
             value={formatFinanceMoney(booking.hotelPayout)}
             icon={Landmark}
             tone={FINANCE_KPI_TONES.hotelPayout}
+            onClick={() => setTab("hotelPayout")}
+            actionLabel=""
+          />
+          <FinanceKpiCard
+            label="TDS"
+            value={formatFinanceMoney(booking.tds)}
+            icon={Landmark}
+            tone={FINANCE_KPI_TONES.margin}
+            onClick={() => setTab("hotelPayout")}
+            actionLabel=""
+          />
+          <FinanceKpiCard
+            label="TCS"
+            value={formatFinanceMoney(booking.tcs)}
+            icon={Landmark}
+            tone={FINANCE_KPI_TONES.outstanding}
             onClick={() => setTab("hotelPayout")}
             actionLabel=""
           />
@@ -782,6 +798,10 @@ export default function HotelBookingFinancialMisDetailPage() {
                 negative
               />
               <BreakupRow
+                label="Commission reversal"
+                amount={booking.otaRevenueBreakup.commissionReversal}
+              />
+              <BreakupRow
                 label="Refund adjustment"
                 amount={booking.otaRevenueBreakup.refundAdjustment}
                 negative
@@ -858,6 +878,14 @@ export default function HotelBookingFinancialMisDetailPage() {
                 <InfoLine
                   label="OTA revenue incl. GST"
                   value={formatFinanceMoney(booking.otaRevenueInclusiveGst)}
+                />
+                <InfoLine
+                  label="TDS"
+                  value={formatFinanceMoney(booking.tds)}
+                />
+                <InfoLine
+                  label="TCS"
+                  value={formatFinanceMoney(booking.tcs)}
                 />
               </div>
             </Panel>
@@ -1086,6 +1114,10 @@ export default function HotelBookingFinancialMisDetailPage() {
                 label="Agency commission"
                 amount={booking.otaRevenueBreakup.agencyCommission}
                 negative
+              />
+              <BreakupRow
+                label="Commission reversal"
+                amount={booking.otaRevenueBreakup.commissionReversal}
               />
               <BreakupRow
                 label="Refund adjustment"

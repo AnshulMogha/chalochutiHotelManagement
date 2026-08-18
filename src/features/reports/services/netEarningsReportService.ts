@@ -18,14 +18,10 @@ export type NetEarningsDatePreset =
   | "LAST_3_MONTHS"
   | "CUSTOM";
 
-export type NetEarningsBookingStatus =
-  | "ALL"
-  | "CONFIRMED"
-  | "CANCELLED"
-  | "NO_SHOW";
+export type NetEarningsBookingStatus = "CONFIRMED" | "CANCELLED";
 
 export type NetEarningsBookingType = "ALL" | "HOTEL" | "PACKAGE";
-export type NetEarningsPaymentStatus = "ALL" | "PENDING" | "SETTLED";
+export type NetEarningsPaymentStatus = "PENDING" | "SETTLED";
 
 export interface NetEarningsSummary {
   netBookings: number;
@@ -122,7 +118,7 @@ export interface NetEarningsReportParams {
   datePreset?: NetEarningsDatePreset;
   fromDate?: string;
   toDate?: string;
-  bookingStatus?: NetEarningsBookingStatus;
+  bookingStatuses?: NetEarningsBookingStatus[];
   bookingType?: NetEarningsBookingType;
   paymentStatus?: NetEarningsPaymentStatus;
   brand?: string;
@@ -157,9 +153,15 @@ function buildSearchParams(
 ): URLSearchParams {
   const search = new URLSearchParams();
   search.set("datePreset", params.datePreset ?? "THIS_MONTH");
-  search.set("bookingStatus", params.bookingStatus ?? "CONFIRMED");
-  search.set("paymentStatus", params.paymentStatus ?? "ALL");
-  if (params.bookingType) search.set("bookingType", params.bookingType);
+  if (params.bookingStatuses?.length) {
+    search.set("bookingStatus", params.bookingStatuses.join(","));
+  }
+  if (params.paymentStatus) {
+    search.set("paymentStatus", params.paymentStatus);
+  }
+  if (params.bookingType && params.bookingType !== "ALL") {
+    search.set("bookingType", params.bookingType);
+  }
   if (params.brand) search.set("brand", params.brand);
   if (!forExport) {
     search.set("page", String(params.page ?? 0));

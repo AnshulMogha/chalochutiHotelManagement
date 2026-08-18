@@ -463,17 +463,20 @@ export interface BookingListResponse {
 export type BookingListOrderBy = "bookingDate" | "checkIn";
 export type BookingListSortDir = "asc" | "desc";
 
+export type BookingListDateFilter =
+  | "BOOKING_DATE"
+  | "CHECK_IN"
+  | "CHECK_OUT"
+  | "STAYING";
+
 /** Server-side list params */
 export interface BookingListParams {
   hotelId: string;
   guestName?: string;
   bookingId?: string;
-  checkInDate?: string;
-  checkOutDate?: string;
-  bookingDate?: string;
-  today?: string;
-  checkOutFrom?: string;
-  checkOutTo?: string;
+  dateFilter?: BookingListDateFilter;
+  fromDate?: string;
+  toDate?: string;
   bookingStatus?: string;
   view?: string;
   orderBy?: BookingListOrderBy;
@@ -496,12 +499,9 @@ function buildBookingListQuery(
     hotelId,
     guestName,
     bookingId,
-    checkInDate,
-    checkOutDate,
-    bookingDate,
-    today,
-    checkOutFrom,
-    checkOutTo,
+    dateFilter,
+    fromDate,
+    toDate,
     bookingStatus,
     view,
     orderBy,
@@ -521,23 +521,14 @@ function buildBookingListQuery(
   if (bookingId != null && bookingId.trim() !== "") {
     search.set("bookingId", bookingId.trim());
   }
-  if (checkInDate != null && checkInDate.trim() !== "") {
-    search.set("checkInDate", checkInDate.trim());
+  if (dateFilter) {
+    search.set("dateFilter", dateFilter);
   }
-  if (checkOutDate != null && checkOutDate.trim() !== "") {
-    search.set("checkOutDate", checkOutDate.trim());
+  if (fromDate != null && fromDate.trim() !== "") {
+    search.set("fromDate", fromDate.trim());
   }
-  if (bookingDate != null && bookingDate.trim() !== "") {
-    search.set("bookingDate", bookingDate.trim());
-  }
-  if (today != null && today.trim() !== "") {
-    search.set("today", today.trim());
-  }
-  if (checkOutFrom != null && checkOutFrom.trim() !== "") {
-    search.set("checkOutFrom", checkOutFrom.trim());
-  }
-  if (checkOutTo != null && checkOutTo.trim() !== "") {
-    search.set("checkOutTo", checkOutTo.trim());
+  if (toDate != null && toDate.trim() !== "") {
+    search.set("toDate", toDate.trim());
   }
   if (bookingStatus != null && bookingStatus.trim() !== "") {
     search.set("bookingStatus", bookingStatus.trim());

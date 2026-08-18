@@ -131,6 +131,14 @@ export function canViewHotelBdReports(
   );
 }
 
+/** Roles allowed to view Onboarding Pipeline (includes QC; dashboard stays separate). */
+export function canViewHotelBdPipeline(
+  userRoles: string[] | undefined,
+): boolean {
+  if (canViewHotelBdReports(userRoles)) return true;
+  return !!userRoles?.includes("QC");
+}
+
 /** Platform roles that may filter pipeline/dashboard by assigned BD user. */
 export function canFilterHotelBdReportsByUser(
   userRoles: string[] | undefined,

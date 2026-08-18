@@ -6,7 +6,7 @@ import { hasAnyRole, ROLES } from "@/constants";
 import {
   isReviewerPortalRole,
   isSalesManagerRole,
-  canViewHotelBdReports,
+  canViewHotelBdPipeline,
   isZonalManagerSalesRole,
 } from "@/constants/roles";
 import {
@@ -207,7 +207,7 @@ export default function SuperAdminDashboardPage() {
     // Onboarding Pipeline on the portal home for other authorized roles.
     if (item.key === "HOTEL_BD_DASHBOARD") return false;
     if (item.key === "HOTEL_BD_PIPELINE") {
-      return canViewHotelBdReports(userRoles);
+      return canViewHotelBdPipeline(userRoles);
     }
     if (isSuperAdmin) {
       return item.key !== "AGENTS" && item.key !== "MY_TEAM";

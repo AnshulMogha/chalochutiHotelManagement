@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import logo from "@/assets/originallogo.webp";
 import {
   canViewHelpdeskBookings,
-  canViewHotelBdReports,
+  canViewHotelBdPipeline,
   canViewHotelBookingFinancialMis,
   canViewPaymentReport,
   canViewSalesManagerReports,
@@ -194,7 +194,7 @@ const getNavItems = (user: User | null): NavItem[] => {
   });
   if (isZonalSales) {
     const reportsNav = getReportsNavItem(user, {
-      includeOnboardingPipeline: canViewHotelBdReports(userRoles),
+      includeOnboardingPipeline: canViewHotelBdPipeline(userRoles),
       includeSalesManagerDashboard: canViewSalesManagerReports(userRoles),
       includeSalesManagerPortfolio: canViewSalesManagerReports(userRoles),
     });
@@ -240,7 +240,7 @@ const getNavItems = (user: User | null): NavItem[] => {
 
   if (isReviewer) {
     const reportsNav = getReportsNavItem(user, {
-      includeOnboardingPipeline: canViewHotelBdReports(userRoles),
+      includeOnboardingPipeline: canViewHotelBdPipeline(userRoles),
     });
     if (reportsNav) items.push(reportsNav);
     items.push({
@@ -373,7 +373,7 @@ const getNavItems = (user: User | null): NavItem[] => {
         : []),
       ...(() => {
         const reportsNav = getReportsNavItem(user, {
-          includeOnboardingPipeline: canViewHotelBdReports(userRoles),
+          includeOnboardingPipeline: canViewHotelBdPipeline(userRoles),
           includeSalesManagerDashboard: canViewSalesManagerReports(userRoles),
           includeSalesManagerPortfolio: canViewSalesManagerReports(userRoles),
         });
@@ -623,7 +623,7 @@ const getNavItems = (user: User | null): NavItem[] => {
   }
 
   if (
-    canViewHotelBdReports(userRoles) &&
+    canViewHotelBdPipeline(userRoles) &&
     !isHotelBd &&
     !isSuperAdmin &&
     !isReviewer &&

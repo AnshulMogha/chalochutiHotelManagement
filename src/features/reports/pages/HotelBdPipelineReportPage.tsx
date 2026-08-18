@@ -6,6 +6,7 @@ import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import {
   canFilterHotelBdReportsByUser,
+  isReviewerPortalRole,
   isSuperAdmin,
 } from "@/constants/roles";
 import { adminService } from "@/features/admin/services/adminService";
@@ -148,6 +149,7 @@ export default function HotelBdPipelineReportPage() {
   const userRoles = user?.roles;
   const canFilterByBd = canFilterHotelBdReportsByUser(userRoles);
   const isAdmin = isSuperAdmin(userRoles);
+  const hideDashboardLink = isReviewerPortalRole(userRoles);
   const { toast, showToast, hideToast } = useToast();
 
   const [status, setStatus] = useState<HotelBdPipelineStatus>(DEFAULT_STATUS);
@@ -356,13 +358,15 @@ export default function HotelBdPipelineReportPage() {
                 <Download className="h-4 w-4" />
               )}
             </button>
-            <Link
-              to={ROUTES.REPORTS.HOTEL_BD_DASHBOARD}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              Dashboard
-            </Link>
+            {hideDashboardLink ? null : (
+              <Link
+                to={ROUTES.REPORTS.HOTEL_BD_DASHBOARD}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </Link>
+            )}
           </div>
         }
       />

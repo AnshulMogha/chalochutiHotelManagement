@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, type KeyboardEvent, type RefObject } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { ROUTES } from "@/constants";
 import {
@@ -7,6 +7,7 @@ import {
   type BookingListResponse,
   type BookingListOrderBy,
   type BookingListSortDir,
+  type BookingListDateFilter,
   type BookingListExportParams,
 } from "../services/bookingService";
 import { Toast, useToast } from "@/components/ui/Toast";
@@ -19,11 +20,7 @@ import type {
 import {
   exportStatusLabel,
   formatReportDate,
-  isoToReportDateText,
-  parseOptionalReportDate,
-  validateCustomDateRange,
 } from "@/features/reports/components/reportUiHelpers";
-import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import {
   ArrowUpDown,
   BookOpen,
@@ -114,6 +111,9 @@ const DATE_PRESET_OPTIONS: { value: BookingDatePreset; label: string }[] = [
 /** Filter params Booking Summary drill-downs can put on the URL. */
 const DRILL_PARAM_KEYS = [
   "view",
+  "dateFilter",
+  "fromDate",
+  "toDate",
   "checkInDate",
   "bookingDate",
   "checkOutDate",
@@ -122,6 +122,24 @@ const DRILL_PARAM_KEYS = [
   "checkOutTo",
   "bookingStatus",
 ];
+
+function mapAxisToDateFilter(
+  axis: BookingDateAxis,
+): BookingListDateFilter | undefined {
+  switch (axis) {
+    case "BOOKING":
+      return "BOOKING_DATE";
+    case "CHECK_IN":
+      return "CHECK_IN";
+    case "CHECK_OUT":
+    case "CHECK_OUT_RANGE":
+      return "CHECK_OUT";
+    case "STAYING":
+      return "STAYING";
+    default:
+      return undefined;
+  }
+}
 
 const DRILL_VIEW_LABELS: Record<string, string> = {
   TODAYS_BOOKINGS: "Today's bookings",
@@ -188,16 +206,77 @@ function resolvePresetRange(
   return { from: toIsoDate(start), to: toIsoDate(end) };
 }
 
-function isSingleDayAxis(axis: BookingDateAxis): boolean {
+function preventManualDateEntry(event: KeyboardEvent<HTMLInputElement>) {
+  if (event.key !== "Tab" && event.key !== "Shift") {
+    event.preventDefault();
+  }
+}
+
+function openNativeDatePicker(input: HTMLInputElement | null) {
+  if (!input) return;
+  input.focus();
+  if ("showPicker" in input && typeof input.showPicker === "function") {
+    input.showPicker();
+    return;
+  }
+  input.click();
+}
+
+function CalendarDateField({
+  label,
+  value,
+  min,
+  onChange,
+  inputRef,
+}: {
+  label: string;
+  value: string;
+  min?: string;
+  onChange: (iso: string) => void;
+  inputRef: RefObject<HTMLInputElement | null>;
+}) {
   return (
-    axis === "BOOKING" ||
-    axis === "CHECK_IN" ||
-    axis === "CHECK_OUT" ||
-    axis === "STAYING"
+    <div>
+      <label className="mb-1 block text-xs text-slate-500">{label}</label>
+      <div
+        className="relative cursor-pointer"
+        onClick={() => openNativeDatePicker(inputRef.current)}
+      >
+        <CalendarDays className="pointer-events-none absolute top-1/2 right-2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+        <input
+          type="text"
+          readOnly
+          value={value ? formatReportDate(value) : ""}
+          placeholder="dd/mm/yyyy"
+          className="w-full cursor-pointer rounded-md border border-slate-200 px-2 py-1.5 pr-8 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
+        />
+        <input
+          ref={inputRef}
+          type="date"
+          value={value}
+          min={min}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={preventManualDateEntry}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </div>
+    </div>
   );
 }
 
 function inferAxisFromDrill(params: URLSearchParams): BookingDateAxis {
+  const dateFilter = params.get("dateFilter")?.trim().toUpperCase();
+  if (dateFilter === "BOOKING_DATE") return "BOOKING";
+  if (dateFilter === "CHECK_IN") return "CHECK_IN";
+  if (dateFilter === "CHECK_OUT") {
+    const from = params.get("fromDate")?.trim();
+    const to = params.get("toDate")?.trim();
+    if (from && to && from !== to) return "CHECK_OUT_RANGE";
+    return "CHECK_OUT";
+  }
+  if (dateFilter === "STAYING") return "STAYING";
   if (params.get("checkOutFrom") || params.get("checkOutTo")) {
     return "CHECK_OUT_RANGE";
   }
@@ -305,6 +384,7 @@ export default function BookingListPage() {
   });
   const [customFrom, setCustomFrom] = useState(() => {
     return (
+      readParam("fromDate") ||
       readParam("bookingDate") ||
       readParam("checkInDate") ||
       readParam("checkOutDate") ||
@@ -315,7 +395,9 @@ export default function BookingListPage() {
   });
   const [customTo, setCustomTo] = useState(() => {
     return (
+      readParam("toDate") ||
       readParam("checkOutTo") ||
+      readParam("fromDate") ||
       readParam("bookingDate") ||
       readParam("checkInDate") ||
       readParam("checkOutDate") ||
@@ -323,8 +405,6 @@ export default function BookingListPage() {
       ""
     );
   });
-  const [customFromText, setCustomFromText] = useState("");
-  const [customToText, setCustomToText] = useState("");
   const [bookingStatus, setBookingStatus] = useState(() =>
     readParam("bookingStatus"),
   );
@@ -335,6 +415,8 @@ export default function BookingListPage() {
   );
   const [dateMenuMaxHeight, setDateMenuMaxHeight] = useState<number>(320);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
+  const fromDateInputRef = useRef<HTMLInputElement>(null);
+  const toDateInputRef = useRef<HTMLInputElement>(null);
 
   const rows = listData?.data ?? [];
   const rowCount = listData?.totalElements ?? 0;
@@ -344,93 +426,65 @@ export default function BookingListPage() {
     : "";
 
   const resolvedDates = useMemo(() => {
-    if (dateAxis === "NONE") return null;
-    return resolvePresetRange(datePreset, customFrom, customTo);
-  }, [dateAxis, datePreset, customFrom, customTo]);
+    if (dateAxis === "NONE" || !customFrom || !customTo) return null;
+    const from = customFrom <= customTo ? customFrom : customTo;
+    const to = customFrom <= customTo ? customTo : customFrom;
+    return { from, to };
+  }, [dateAxis, customFrom, customTo]);
+
+  const applyPresetRange = (preset: BookingDatePreset) => {
+    const range = resolvePresetRange(preset, customFrom, customTo);
+    if (!range) return;
+    setCustomFrom(range.from);
+    setCustomTo(range.to);
+    setDatePreset(preset);
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  };
+
+  const handleFromDateChange = (value: string) => {
+    setCustomFrom(value);
+    setDatePreset("CUSTOM");
+    if (customTo && value > customTo) {
+      setCustomTo(value);
+    }
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  };
+
+  const handleToDateChange = (value: string) => {
+    setCustomTo(value);
+    setDatePreset("CUSTOM");
+    if (customFrom && value < customFrom) {
+      setCustomFrom(value);
+    }
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  };
 
   const dateFilterParams = useMemo(() => {
     if (!resolvedDates || dateAxis === "NONE") {
       return {
-        checkInDate: undefined as string | undefined,
-        checkOutDate: undefined as string | undefined,
-        bookingDate: undefined as string | undefined,
-        today: undefined as string | undefined,
-        checkOutFrom: undefined as string | undefined,
-        checkOutTo: undefined as string | undefined,
+        dateFilter: undefined as BookingListDateFilter | undefined,
+        fromDate: undefined as string | undefined,
+        toDate: undefined as string | undefined,
       };
     }
 
     const { from, to } = resolvedDates;
-    const single = from; // for single-day axes we use the start of the range
-
-    switch (dateAxis) {
-      case "BOOKING":
-        return {
-          bookingDate: single,
-          checkInDate: undefined,
-          checkOutDate: undefined,
-          today: undefined,
-          checkOutFrom: undefined,
-          checkOutTo: undefined,
-        };
-      case "CHECK_IN":
-        return {
-          checkInDate: single,
-          bookingDate: undefined,
-          checkOutDate: undefined,
-          today: undefined,
-          checkOutFrom: undefined,
-          checkOutTo: undefined,
-        };
-      case "CHECK_OUT":
-        return {
-          checkOutDate: single,
-          checkInDate: undefined,
-          bookingDate: undefined,
-          today: undefined,
-          checkOutFrom: undefined,
-          checkOutTo: undefined,
-        };
-      case "STAYING":
-        return {
-          today: single,
-          checkInDate: undefined,
-          checkOutDate: undefined,
-          bookingDate: undefined,
-          checkOutFrom: undefined,
-          checkOutTo: undefined,
-        };
-      case "CHECK_OUT_RANGE":
-        return {
-          checkOutFrom: from,
-          checkOutTo: to,
-          checkInDate: undefined,
-          checkOutDate: undefined,
-          bookingDate: undefined,
-          today: undefined,
-        };
-      default:
-        return {
-          checkInDate: undefined,
-          checkOutDate: undefined,
-          bookingDate: undefined,
-          today: undefined,
-          checkOutFrom: undefined,
-          checkOutTo: undefined,
-        };
-    }
+    return {
+      dateFilter: mapAxisToDateFilter(dateAxis),
+      fromDate: from,
+      toDate: to,
+    };
   }, [dateAxis, resolvedDates]);
 
   const dateSummaryLabel = useMemo(() => {
     if (dateAxis === "NONE") return "Any date";
     const axisLabel =
       DATE_AXIS_OPTIONS.find((o) => o.value === dateAxis)?.label ?? "Date";
-    if (datePreset === "CUSTOM") {
-      if (customFrom && customTo && customFrom !== customTo) {
-        return `${axisLabel}: ${formatReportDate(customFrom)} → ${formatReportDate(customTo)}`;
+    if (customFrom && customTo) {
+      if (customFrom === customTo) {
+        return `${axisLabel}: ${formatReportDate(customFrom)}`;
       }
-      const single = customFrom || customTo;
-      return `${axisLabel}: ${single ? formatReportDate(single) : "Custom"}`;
+      return `${axisLabel}: ${formatReportDate(customFrom)} → ${formatReportDate(customTo)}`;
     }
     const presetLabel =
       DATE_PRESET_OPTIONS.find((o) => o.value === datePreset)?.label ??
@@ -494,12 +548,6 @@ export default function BookingListPage() {
   }, [dateOpen, dateAxis, datePreset]);
 
   useEffect(() => {
-    if (!dateOpen || datePreset !== "CUSTOM") return;
-    setCustomFromText(isoToReportDateText(customFrom));
-    setCustomToText(isoToReportDateText(customTo));
-  }, [dateOpen, datePreset, customFrom, customTo]);
-
-  useEffect(() => {
     if (!downloadOpen) return;
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node | null;
@@ -525,12 +573,9 @@ export default function BookingListPage() {
       hotelId: selectedHotelId,
       guestName: debouncedGuestName.trim() || undefined,
       bookingId: debouncedBookingId.trim() || undefined,
-      checkInDate: dateFilterParams.checkInDate,
-      checkOutDate: dateFilterParams.checkOutDate,
-      bookingDate: dateFilterParams.bookingDate,
-      today: dateFilterParams.today,
-      checkOutFrom: dateFilterParams.checkOutFrom,
-      checkOutTo: dateFilterParams.checkOutTo,
+      dateFilter: dateFilterParams.dateFilter,
+      fromDate: dateFilterParams.fromDate,
+      toDate: dateFilterParams.toDate,
       bookingStatus: bookingStatus.trim() || undefined,
       view: drillView || undefined,
       orderBy,
@@ -540,12 +585,9 @@ export default function BookingListPage() {
     selectedHotelId,
     debouncedGuestName,
     debouncedBookingId,
-    dateFilterParams.checkInDate,
-    dateFilterParams.checkOutDate,
-    dateFilterParams.bookingDate,
-    dateFilterParams.today,
-    dateFilterParams.checkOutFrom,
-    dateFilterParams.checkOutTo,
+    dateFilterParams.dateFilter,
+    dateFilterParams.fromDate,
+    dateFilterParams.toDate,
     bookingStatus,
     drillView,
     orderBy,
@@ -594,6 +636,7 @@ export default function BookingListPage() {
     const read = (key: string) => searchParams.get(key)?.trim() || "";
     const nextAxis = inferAxisFromDrill(searchParams);
     const nextFrom =
+      read("fromDate") ||
       read("bookingDate") ||
       read("checkInDate") ||
       read("checkOutDate") ||
@@ -601,7 +644,9 @@ export default function BookingListPage() {
       read("checkOutFrom") ||
       "";
     const nextTo =
+      read("toDate") ||
       read("checkOutTo") ||
+      read("fromDate") ||
       read("bookingDate") ||
       read("checkInDate") ||
       read("checkOutDate") ||
@@ -642,7 +687,7 @@ export default function BookingListPage() {
     setBookingId("");
     setDebouncedBookingId("");
     setDateAxis("NONE");
-    setDatePreset("TODAY");
+    setDatePreset("THIS_MONTH");
     setCustomFrom("");
     setCustomTo("");
     setBookingStatus("");
@@ -912,12 +957,9 @@ export default function BookingListPage() {
         hotelId: selectedHotelId,
         guestName: debouncedGuestName.trim() || undefined,
         bookingId: debouncedBookingId.trim() || undefined,
-        checkInDate: dateFilterParams.checkInDate,
-        checkOutDate: dateFilterParams.checkOutDate,
-        bookingDate: dateFilterParams.bookingDate,
-        today: dateFilterParams.today,
-        checkOutFrom: dateFilterParams.checkOutFrom,
-        checkOutTo: dateFilterParams.checkOutTo,
+        dateFilter: dateFilterParams.dateFilter,
+        fromDate: dateFilterParams.fromDate,
+        toDate: dateFilterParams.toDate,
         bookingStatus: bookingStatus.trim() || undefined,
         view: drillView || undefined,
         orderBy,
@@ -945,12 +987,9 @@ export default function BookingListPage() {
     selectedHotelId,
     debouncedGuestName,
     debouncedBookingId,
-    dateFilterParams.checkInDate,
-    dateFilterParams.checkOutDate,
-    dateFilterParams.bookingDate,
-    dateFilterParams.today,
-    dateFilterParams.checkOutFrom,
-    dateFilterParams.checkOutTo,
+    dateFilterParams.dateFilter,
+    dateFilterParams.fromDate,
+    dateFilterParams.toDate,
     bookingStatus,
     drillView,
     orderBy,
@@ -1171,13 +1210,12 @@ export default function BookingListPage() {
                             }));
                             if (opt.value === "NONE") {
                               setDateOpen(false);
-                            } else if (
-                              isSingleDayAxis(opt.value) &&
-                              !["TODAY", "YESTERDAY", "CUSTOM"].includes(
-                                datePreset,
-                              )
-                            ) {
-                              setDatePreset("TODAY");
+                              return;
+                            }
+                            if (!customFrom || !customTo) {
+                              applyPresetRange(
+                                datePreset === "CUSTOM" ? "THIS_MONTH" : datePreset,
+                              );
                             }
                           }}
                           className={cn(
@@ -1195,28 +1233,14 @@ export default function BookingListPage() {
                     {dateAxis !== "NONE" && (
                       <>
                         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Range
+                          Quick range
                         </p>
                         <div className="space-y-1">
-                          {(isSingleDayAxis(dateAxis)
-                            ? DATE_PRESET_OPTIONS.filter((o) =>
-                                ["TODAY", "YESTERDAY", "CUSTOM"].includes(
-                                  o.value,
-                                ),
-                              )
-                            : DATE_PRESET_OPTIONS
-                          ).map((opt) => (
+                          {DATE_PRESET_OPTIONS.map((opt) => (
                             <button
                               key={opt.value}
                               type="button"
-                              onClick={() => {
-                                setDatePreset(opt.value);
-                                setPaginationModel((prev) => ({
-                                  ...prev,
-                                  page: 0,
-                                }));
-                                if (opt.value !== "CUSTOM") setDateOpen(false);
-                              }}
+                              onClick={() => applyPresetRange(opt.value)}
                               className={cn(
                                 "flex w-full rounded-lg px-2 py-1.5 text-left text-sm",
                                 datePreset === opt.value
@@ -1229,70 +1253,26 @@ export default function BookingListPage() {
                           ))}
                         </div>
 
-                        {datePreset === "CUSTOM" && (
-                          <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
-                            {isSingleDayAxis(dateAxis) ? (
-                              <ReportCustomDateFields
-                                singleDate
-                                singleLabel="Date"
-                                fromText={customFromText}
-                                onFromTextChange={setCustomFromText}
-                                inputClassName="rounded-md"
-                              />
-                            ) : (
-                              <ReportCustomDateFields
-                                fromText={customFromText}
-                                toText={customToText}
-                                onFromTextChange={setCustomFromText}
-                                onToTextChange={setCustomToText}
-                                inputClassName="rounded-md"
-                              />
-                            )}
-                            <button
-                              type="button"
-                              disabled={
-                                isSingleDayAxis(dateAxis)
-                                  ? !parseOptionalReportDate(customFromText)
-                                  : !validateCustomDateRange(
-                                      customFromText,
-                                      customToText,
-                                    ).ok
-                              }
-                              onClick={() => {
-                                if (isSingleDayAxis(dateAxis)) {
-                                  const parsed = parseOptionalReportDate(
-                                    customFromText,
-                                  );
-                                  if (!parsed) return;
-                                  setCustomFrom(parsed);
-                                  setCustomTo(parsed);
-                                  setCustomFromText(formatReportDate(parsed));
-                                  setCustomToText(formatReportDate(parsed));
-                                } else {
-                                  const parsed = validateCustomDateRange(
-                                    customFromText,
-                                    customToText,
-                                  );
-                                  if (!parsed.ok) return;
-                                  setCustomFrom(parsed.fromDate);
-                                  setCustomTo(parsed.toDate);
-                                  setCustomFromText(
-                                    formatReportDate(parsed.fromDate),
-                                  );
-                                  setCustomToText(formatReportDate(parsed.toDate));
-                                }
-                                setPaginationModel((prev) => ({
-                                  ...prev,
-                                  page: 0,
-                                }));
-                                setDateOpen(false);
-                              }}
-                              className="w-full rounded-lg bg-[#2f3d95] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                            >
-                              Apply
-                            </button>
+                        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                            From / To
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <CalendarDateField
+                              label="From"
+                              value={customFrom}
+                              onChange={handleFromDateChange}
+                              inputRef={fromDateInputRef}
+                            />
+                            <CalendarDateField
+                              label="To"
+                              value={customTo}
+                              min={customFrom || undefined}
+                              onChange={handleToDateChange}
+                              inputRef={toDateInputRef}
+                            />
                           </div>
-                        )}
+                        </div>
                       </>
                     )}
                   </div>

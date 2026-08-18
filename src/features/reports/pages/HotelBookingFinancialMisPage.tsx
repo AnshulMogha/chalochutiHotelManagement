@@ -606,6 +606,8 @@ export default function HotelBookingFinancialMisPage() {
         formatFinanceMoney(summary.grossBookingValue),
       ],
       ["Summary", "Hotel payout", formatFinanceMoney(summary.hotelPayout)],
+      ["Summary", "TDS", formatFinanceMoney(summary.tds)],
+      ["Summary", "TCS", formatFinanceMoney(summary.tcs)],
       ["Summary", "OTA revenue", formatFinanceMoney(summary.otaRevenue)],
       ["Summary", "OTA GST", formatFinanceMoney(summary.otaRevenueGst)],
       [
@@ -617,6 +619,11 @@ export default function HotelBookingFinancialMisPage() {
         "Summary",
         "Agency commission",
         formatFinanceMoney(summary.agencyCommission),
+      ],
+      [
+        "Summary",
+        "Commission reversal",
+        formatFinanceMoney(summary.commissionReversal),
       ],
       [
         "Summary",
@@ -654,6 +661,8 @@ export default function HotelBookingFinancialMisPage() {
         "Agency",
         "Customer / Agent price",
         "Hotel payout",
+        "TDS",
+        "TCS",
         "OTA revenue",
         "Status",
         "Payment",
@@ -680,6 +689,8 @@ export default function HotelBookingFinancialMisPage() {
         row.bookingOwner?.agencyName,
         formatFinanceMoney(getHotelFinancialMisDisplaySellingPrice(row)),
         formatFinanceMoney(row.hotelPayout),
+        formatFinanceMoney(row.tds),
+        formatFinanceMoney(row.tcs),
         formatFinanceMoney(row.otaRevenue),
         row.bookingStatus,
         row.paymentStatus,
@@ -867,7 +878,7 @@ export default function HotelBookingFinancialMisPage() {
             </div>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5 lg:grid-cols-7">
             <FinanceKpiCard
               label="Total Bookings"
               value={
@@ -899,6 +910,30 @@ export default function HotelBookingFinancialMisPage() {
               }
               icon={Landmark}
               tone={FINANCE_KPI_TONES.hotelPayout}
+            />
+            <FinanceKpiCard
+              label="TDS"
+              value={
+                summary
+                  ? formatFinanceMoney(summary.tds)
+                  : loading
+                    ? "…"
+                    : "—"
+              }
+              icon={Percent}
+              tone={FINANCE_KPI_TONES.margin}
+            />
+            <FinanceKpiCard
+              label="TCS"
+              value={
+                summary
+                  ? formatFinanceMoney(summary.tcs)
+                  : loading
+                    ? "…"
+                    : "—"
+              }
+              icon={Percent}
+              tone={FINANCE_KPI_TONES.outstanding}
             />
             <FinanceKpiCard
               label="OTA Revenue"
@@ -947,6 +982,18 @@ export default function HotelBookingFinancialMisPage() {
               }
               icon={HandCoins}
               tone={FINANCE_KPI_TONES.outstanding}
+            />
+            <FinanceKpiCard
+              label="Comm. Reversal"
+              value={
+                summary
+                  ? formatFinanceMoney(summary.commissionReversal)
+                  : loading
+                    ? "…"
+                    : "—"
+              }
+              icon={RotateCcw}
+              tone={FINANCE_KPI_TONES.refund}
             />
             <FinanceKpiCard
               label="Cancellation"
@@ -1013,6 +1060,7 @@ export default function HotelBookingFinancialMisPage() {
                   <th className="px-4 py-3">Source</th>
                   <th className="px-4 py-3">Customer / Agent Price</th>
                   <th className="px-4 py-3">Hotel Payout</th>
+                  <th className="px-4 py-3">TDS / TCS</th>
                   <th className="px-4 py-3">OTA Revenue</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Payment</th>
@@ -1120,6 +1168,14 @@ export default function HotelBookingFinancialMisPage() {
                       </button>
                     </td>
                     <td className="px-4 py-3">
+                      <p className="tabular-nums text-slate-800">
+                        TDS {formatFinanceMoney(row.tds)}
+                      </p>
+                      <p className="text-xs tabular-nums text-slate-500">
+                        TCS {formatFinanceMoney(row.tcs)}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
                       <button
                         type="button"
                         onClick={() => openDetail(row, "otaRevenue")}
@@ -1184,7 +1240,7 @@ export default function HotelBookingFinancialMisPage() {
                 {!loading && !(report?.bookings.length ?? 0) ? (
                   <tr>
                     <td
-                      colSpan={12}
+                      colSpan={13}
                       className="px-4 py-12 text-center text-sm text-slate-400"
                     >
                       No hotel bookings match the current filters

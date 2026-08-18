@@ -131,6 +131,7 @@ export interface HotelFinancialMisOtaRevenueBreakup {
   cancellationIncome: HotelFinancialMisMoney;
   refundAdjustment: HotelFinancialMisMoney;
   agencyCommission: HotelFinancialMisMoney;
+  commissionReversal: HotelFinancialMisMoney;
   netOtaRevenue: HotelFinancialMisMoney;
   netOtaRevenueGst: HotelFinancialMisMoney;
   netOtaRevenueInclusiveGst: HotelFinancialMisMoney;
@@ -141,6 +142,7 @@ export interface HotelFinancialMisBookingOwner {
   type: string;
   name: string;
   email: string | null;
+  phone?: string | null;
   code?: string | null;
   agencyName?: string | null;
 }
@@ -216,10 +218,13 @@ export interface HotelFinancialMisSummary {
   totalBookings: number;
   grossBookingValue: HotelFinancialMisMoney;
   hotelPayout: HotelFinancialMisMoney;
+  tcs: HotelFinancialMisMoney;
+  tds: HotelFinancialMisMoney;
   otaRevenue: HotelFinancialMisMoney;
   otaRevenueGst: HotelFinancialMisMoney;
   otaRevenueInclusiveGst: HotelFinancialMisMoney;
   agencyCommission: HotelFinancialMisMoney;
+  commissionReversal: HotelFinancialMisMoney;
   cancellationAmount: HotelFinancialMisMoney;
   refundAmount: HotelFinancialMisMoney;
   outstandingHotelPayout: HotelFinancialMisMoney;
@@ -472,6 +477,7 @@ function normalizeOtaRevenueBreakup(
     cancellationIncome: money(record.cancellationIncome),
     refundAdjustment: money(record.refundAdjustment),
     agencyCommission: money(record.agencyCommission),
+    commissionReversal: money(record.commissionReversal),
     netOtaRevenue: money(record.netOtaRevenue),
     netOtaRevenueGst: money(record.netOtaRevenueGst),
     netOtaRevenueInclusiveGst: money(record.netOtaRevenueInclusiveGst),
@@ -491,6 +497,7 @@ function normalizeBookingOwner(
     type: String(record.type ?? ""),
     name: name || "—",
     email: email || null,
+    phone: (record.phone as string | null | undefined) ?? null,
     code: (record.code as string | null | undefined) ?? null,
     agencyName: (record.agencyName as string | null | undefined) ?? null,
   };
@@ -608,10 +615,13 @@ function normalizeResponse(
       totalBookings: toNumber(summaryRaw.totalBookings),
       grossBookingValue: money(summaryRaw.grossBookingValue),
       hotelPayout: money(summaryRaw.hotelPayout),
+      tcs: money(summaryRaw.tcs),
+      tds: money(summaryRaw.tds),
       otaRevenue: money(summaryRaw.otaRevenue),
       otaRevenueGst: money(summaryRaw.otaRevenueGst),
       otaRevenueInclusiveGst: money(summaryRaw.otaRevenueInclusiveGst),
       agencyCommission: money(summaryRaw.agencyCommission),
+      commissionReversal: money(summaryRaw.commissionReversal),
       cancellationAmount: money(summaryRaw.cancellationAmount),
       refundAmount: money(summaryRaw.refundAmount),
       outstandingHotelPayout: money(summaryRaw.outstandingHotelPayout),

@@ -1,6 +1,7 @@
 import type { User } from "@/types";
 import {
   canViewHelpdeskBookings,
+  canViewHotelBdPipeline,
   canViewHotelBdReports,
   canViewHotelBookingFinancialMis,
   canViewPaymentReport,
@@ -196,11 +197,12 @@ export function canEditModule(
   return !!permission?.canEdit;
 }
 
-function isHotelBdReportPath(pathname: string): boolean {
-  return (
-    pathname === ROUTES.REPORTS.HOTEL_BD_DASHBOARD ||
-    pathname === ROUTES.REPORTS.HOTEL_BD_PIPELINE
-  );
+function isHotelBdDashboardPath(pathname: string): boolean {
+  return pathname === ROUTES.REPORTS.HOTEL_BD_DASHBOARD;
+}
+
+function isHotelBdPipelinePath(pathname: string): boolean {
+  return pathname === ROUTES.REPORTS.HOTEL_BD_PIPELINE;
 }
 
 function isSalesManagerReportPath(pathname: string): boolean {
@@ -227,8 +229,12 @@ function isHelpdeskPath(pathname: string): boolean {
 export function canViewPath(user: User | null, pathname: string): boolean {
   const pathOnly = pathname.split("?")[0];
 
-  if (isHotelBdReportPath(pathOnly)) {
+  if (isHotelBdDashboardPath(pathOnly)) {
     return canViewHotelBdReports(user?.roles);
+  }
+
+  if (isHotelBdPipelinePath(pathOnly)) {
+    return canViewHotelBdPipeline(user?.roles);
   }
 
   if (isSalesManagerReportPath(pathOnly)) {
