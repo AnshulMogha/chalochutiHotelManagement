@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ import {
   ReportPageHeader,
   SummaryCard,
   agentStatusTone,
+  exportStatusLabel,
   formatReportDate,
   formatReportDateTime,
   formatReportMoney,
@@ -26,6 +27,7 @@ import {
   type SalesManagerAgentPortfolioRow,
   type SalesManagerAgentsReportResponse,
 } from "../services/salesManagerAgentsReportService";
+import type { ExportJobStatus } from "../services/reportExportService";
 import type {
   SalesManagerAgencyTier,
   SalesManagerAgentStatus,
@@ -39,6 +41,7 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Download,
   Filter,
   LayoutDashboard,
   Loader2,
@@ -158,6 +161,10 @@ export default function SalesManagerAgentsReportPage() {
     null,
   );
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [managerOptions, setManagerOptions] = useState<
     Array<{ id: string; label: string }>
@@ -368,6 +375,20 @@ export default function SalesManagerAgentsReportPage() {
     void loadReport({ ...nextDraft, page: 0 });
   };
 
+  const applyStatusCardFilter = (nextStatus: SalesManagerAgentStatus | "ALL") => {
+    const value = agentStatus === nextStatus ? "ALL" : nextStatus;
+    setAgentStatus(value);
+    setPage(0);
+    void loadReport({ agentStatus: value, page: 0 });
+  };
+
+  const applyTierCardFilter = (nextTier: SalesManagerAgencyTier) => {
+    const value = agencyTier === nextTier ? "" : nextTier;
+    setAgencyTier(value);
+    setPage(0);
+    void loadReport({ agencyTier: value, page: 0 });
+  };
+
   const resetFilters = () => {
     setDraft(DEFAULT_DRAFT);
     setCustomFromText("");
@@ -402,6 +423,66 @@ export default function SalesManagerAgentsReportPage() {
   const totalElements = report?.agents.page.totalElements ?? 0;
 
   const tierSummary = report?.summary.tierDistribution;
+
+  const exportParams = useMemo(
+    () => ({
+      datePreset,
+      fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
+      toDate: datePreset === "CUSTOM" ? toDate : undefined,
+      dateAxis,
+      bookingType,
+      stateId: stateId || undefined,
+      state: state.trim() || undefined,
+      agencyTier: (agencyTier as SalesManagerAgencyTier) || undefined,
+      salesManagerId: salesManagerId || undefined,
+      search: search.trim() || undefined,
+      agentStatus,
+      sort,
+      sortDir,
+      onboardedFrom: onboardedFrom || undefined,
+      onboardedTo: onboardedTo || undefined,
+      lastBookingFrom: lastBookingFrom || undefined,
+      lastBookingTo: lastBookingTo || undefined,
+    }),
+    [
+      agencyTier,
+      agentStatus,
+      bookingType,
+      dateAxis,
+      datePreset,
+      fromDate,
+      lastBookingFrom,
+      lastBookingTo,
+      onboardedFrom,
+      onboardedTo,
+      salesManagerId,
+      search,
+      sort,
+      sortDir,
+      state,
+      stateId,
+      toDate,
+    ],
+  );
+
+  const handleExport = async () => {
+    if (customRangeInvalid) return;
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await salesManagerAgentsReportService.exportReport(
+        exportParams,
+        "EXCEL",
+        setExportStatus,
+      );
+      showToast("Agent portfolio export downloaded.", "success");
+    } catch (err) {
+      showToast(extractErrorMessage(err), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4">
@@ -476,6 +557,28 @@ export default function SalesManagerAgentsReportPage() {
               )}
               Refresh
             </button>
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              disabled={exporting || loading || customRangeInvalid}
+              aria-label={
+                exportStatus
+                  ? exportStatusLabel(exportStatus)
+                  : "Download report"
+              }
+              title={
+                exportStatus
+                  ? exportStatusLabel(exportStatus)
+                  : "Download report"
+              }
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+            </button>
             <Link
               to={ROUTES.REPORTS.SALES_MANAGER_DASHBOARD}
               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700"
@@ -503,20 +606,28 @@ export default function SalesManagerAgentsReportPage() {
           label="Active"
           tone="success"
           value={report?.summary.activeAgents ?? (loading ? "…" : 0)}
+          active={agentStatus === "ACTIVE"}
+          onClick={() => applyStatusCardFilter("ACTIVE")}
         />
         <SummaryCard
           label="Inactive"
           value={report?.summary.inactiveAgents ?? (loading ? "…" : 0)}
+          active={agentStatus === "INACTIVE"}
+          onClick={() => applyStatusCardFilter("INACTIVE")}
         />
         <SummaryCard
           label="Zero Booking"
           tone="warning"
           value={report?.summary.zeroBookingAgents ?? (loading ? "…" : 0)}
+          active={agentStatus === "ZERO_BOOKING"}
+          onClick={() => applyStatusCardFilter("ZERO_BOOKING")}
         />
         <SummaryCard
           label="Suspended"
           tone="danger"
           value={report?.summary.suspendedAgents ?? (loading ? "…" : 0)}
+          active={agentStatus === "SUSPENDED"}
+          onClick={() => applyStatusCardFilter("SUSPENDED")}
         />
       </div>
 
@@ -524,17 +635,19 @@ export default function SalesManagerAgentsReportPage() {
         <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
           {(
             [
-              ["Bronze", tierSummary.bronze],
-              ["Silver", tierSummary.silver],
-              ["Gold", tierSummary.gold],
-              ["Platinum", tierSummary.platinum],
-              ["Diamond", tierSummary.diamond],
+              ["Bronze", "BRONZE", tierSummary.bronze],
+              ["Silver", "SILVER", tierSummary.silver],
+              ["Gold", "GOLD", tierSummary.gold],
+              ["Platinum", "PLATINUM", tierSummary.platinum],
+              ["Diamond", "DIAMOND", tierSummary.diamond],
             ] as const
-          ).map(([label, value]) => (
+          ).map(([label, tier, value]) => (
             <SummaryCard
-              key={label}
+              key={tier}
               label={label}
               value={loading && !report ? "…" : value}
+              active={agencyTier === tier}
+              onClick={() => applyTierCardFilter(tier)}
             />
           ))}
         </div>

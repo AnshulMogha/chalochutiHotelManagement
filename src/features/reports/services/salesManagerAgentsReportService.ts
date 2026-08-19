@@ -5,6 +5,11 @@ import {
   appendSalesManagerSharedParams,
   type SalesManagerAgentsReportParams,
 } from "./salesManagerReportTypes";
+import {
+  runReportExportJob,
+  type ExportJobStatus,
+  type ReportExportFormat,
+} from "./reportExportService";
 import type { SalesManagerMoneyAmount } from "./salesManagerDashboardReportService";
 
 export interface SalesManagerAgentPortfolioRow {
@@ -299,5 +304,25 @@ export const salesManagerAgentsReportService = {
     >(`${API_ENDPOINTS.REPORTS.SALES_MANAGER_AGENTS}${buildQuery(params)}`);
     const payload = unwrapPayload(response);
     return normalizeAgentsResponse((payload ?? {}) as Record<string, unknown>);
+  },
+
+  async exportReport(
+    params: Omit<SalesManagerAgentsReportParams, "page" | "size">,
+    format: ReportExportFormat = "EXCEL",
+    onStatus?: (status: ExportJobStatus) => void,
+  ): Promise<void> {
+    const query = buildQuery({ ...params, page: undefined, size: undefined });
+    const formatParam = query
+      ? `${query}&format=${format}`
+      : `?format=${format}`;
+
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.REPORTS.SALES_MANAGER_AGENTS_EXPORT}${formatParam}`,
+      statusUrl: API_ENDPOINTS.REPORTS.SALES_MANAGER_AGENTS_EXPORT_JOB,
+      downloadUrl: API_ENDPOINTS.REPORTS.SALES_MANAGER_AGENTS_EXPORT_DOWNLOAD,
+      defaultFileName: "sales-manager-agents",
+      format,
+      onStatus,
+    });
   },
 };

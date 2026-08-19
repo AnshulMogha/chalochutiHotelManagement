@@ -418,6 +418,11 @@ export const API_ENDPOINTS = {
       `/reports/hotel-bd-pipeline/export/${jobId}/download`,
     SALES_MANAGER_DASHBOARD: "/reports/sales-manager-dashboard",
     SALES_MANAGER_AGENTS: "/reports/sales-manager-agents",
+    SALES_MANAGER_AGENTS_EXPORT: "/reports/sales-manager-agents/export",
+    SALES_MANAGER_AGENTS_EXPORT_JOB: (jobId: string) =>
+      `/reports/sales-manager-agents/export/${jobId}`,
+    SALES_MANAGER_AGENTS_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/sales-manager-agents/export/${jobId}/download`,
     HOTEL_BOOKING_FINANCIAL_MIS: "/reports/hotel-booking-financial-mis",
     HOTEL_BOOKING_FINANCIAL_MIS_EXPORT:
       "/reports/hotel-booking-financial-mis/export",

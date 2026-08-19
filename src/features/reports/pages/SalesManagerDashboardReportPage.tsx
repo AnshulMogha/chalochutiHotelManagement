@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
+import { toPng } from "html-to-image";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants";
@@ -45,6 +46,7 @@ import {
   BookOpen,
   CalendarDays,
   CircleDollarSign,
+  Download,
   Filter,
   Handshake,
   LayoutDashboard,
@@ -702,6 +704,8 @@ export default function SalesManagerDashboardReportPage() {
   );
   const [inboxSearch, setInboxSearch] = useState("");
   const [activeTab, setActiveTab] = useState<DashboardTab>("portfolio");
+  const analyticsCaptureRef = useRef<HTMLDivElement>(null);
+  const [capturingAnalytics, setCapturingAnalytics] = useState(false);
 
   const [report, setReport] =
     useState<SalesManagerDashboardReportResponse | null>(null);
@@ -895,6 +899,45 @@ export default function SalesManagerDashboardReportPage() {
     void loadReport(DEFAULT_DRAFT);
   };
 
+  const downloadAnalyticsPng = async () => {
+    const node = analyticsCaptureRef.current;
+    if (!node) {
+      showToast("Analytics view is not ready to capture", "error");
+      return;
+    }
+    if (!report) {
+      showToast("Load the dashboard before downloading", "error");
+      return;
+    }
+    setCapturingAnalytics(true);
+    try {
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => resolve(undefined)),
+      );
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+        backgroundColor: "#f8fafc",
+        filter: (element) => {
+          if (!(element instanceof HTMLElement)) return true;
+          return !element.dataset.excludeFromCapture;
+        },
+      });
+      const from = report.dateRange.fromDate || "from";
+      const to = report.dateRange.toDate || "to";
+      const link = document.createElement("a");
+      link.download = `sales-manager-analytics-${from}-to-${to}.png`;
+      link.href = dataUrl;
+      link.click();
+      showToast("Analytics image downloaded", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to capture analytics page", "error");
+    } finally {
+      setCapturingAnalytics(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4">
       <Toast toast={toast} onClose={hideToast} />
@@ -940,6 +983,30 @@ export default function SalesManagerDashboardReportPage() {
                 </span>
               ) : null}
             </button>
+            {activeTab === "analytics" ? (
+              <button
+                type="button"
+                onClick={() => void downloadAnalyticsPng()}
+                disabled={capturingAnalytics || loading || !report}
+                aria-label={
+                  capturingAnalytics
+                    ? "Capturing analytics page"
+                    : "Download analytics page"
+                }
+                title={
+                  capturingAnalytics
+                    ? "Capturing…"
+                    : "Download analytics page"
+                }
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              >
+                {capturingAnalytics ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => void loadReport()}
@@ -1461,6 +1528,7 @@ export default function SalesManagerDashboardReportPage() {
 
       {activeTab === "analytics" ? (
         <div className="mb-4 space-y-4">
+          <div ref={analyticsCaptureRef} className="space-y-4 rounded-xl bg-slate-50 p-1">
         <div className="grid gap-4 lg:grid-cols-3">
           {[
             {
@@ -1688,6 +1756,7 @@ export default function SalesManagerDashboardReportPage() {
           />
         </SectionPanel>
       </div>
+          </div>
         </div>
       ) : null}
 

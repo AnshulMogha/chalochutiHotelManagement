@@ -119,7 +119,6 @@ export const HOTEL_BD_REPORT_ROLES = [
   "ZontalHotelManager",
   "FINANCE",
   "AUDITOR",
-  "ZONAL_MANAGER_SALES",
 ] as const;
 
 export function canViewHotelBdReports(
@@ -135,6 +134,9 @@ export function canViewHotelBdReports(
 export function canViewHotelBdPipeline(
   userRoles: string[] | undefined,
 ): boolean {
+  if (isZonalManagerSalesRole(userRoles) && !isSuperAdmin(userRoles)) {
+    return false;
+  }
   if (canViewHotelBdReports(userRoles)) return true;
   return !!userRoles?.includes("QC");
 }

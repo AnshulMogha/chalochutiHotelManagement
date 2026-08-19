@@ -194,7 +194,7 @@ const getNavItems = (user: User | null): NavItem[] => {
   });
   if (isZonalSales) {
     const reportsNav = getReportsNavItem(user, {
-      includeOnboardingPipeline: canViewHotelBdPipeline(userRoles),
+      includeOnboardingPipeline: false,
       includeSalesManagerDashboard: canViewSalesManagerReports(userRoles),
       includeSalesManagerPortfolio: canViewSalesManagerReports(userRoles),
     });
