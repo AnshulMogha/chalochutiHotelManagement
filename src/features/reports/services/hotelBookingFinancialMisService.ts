@@ -269,6 +269,7 @@ export interface HotelFinancialMisReportParams {
   stateIds?: number[];
   paymentStatus?: HotelFinancialMisPaymentStatus;
   refundStatus?: HotelFinancialMisRefundStatus;
+  agencyId?: string;
   search?: string;
   sort?: HotelFinancialMisSort;
   sortDir?: "asc" | "desc";
@@ -654,6 +655,7 @@ function buildQuery(params: HotelFinancialMisReportParams): string {
   if (params.bookingSource) search.set("bookingSource", params.bookingSource);
   if (params.paymentStatus) search.set("paymentStatus", params.paymentStatus);
   if (params.refundStatus) search.set("refundStatus", params.refundStatus);
+  if (params.agencyId?.trim()) search.set("agencyId", params.agencyId.trim());
   if (params.search?.trim()) search.set("search", params.search.trim());
   if (params.sort) search.set("sort", params.sort);
   if (params.sortDir) search.set("sortDir", params.sortDir);

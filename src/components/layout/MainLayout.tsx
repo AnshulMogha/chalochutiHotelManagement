@@ -1,11 +1,12 @@
 import { Suspense, useState, useEffect } from "react";
-import { Outlet, useLocation, Navigate } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import { Topbar } from "./Topbar";
 import { Sidebar } from "./Sidebar";
 import { LoadingSpinner } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks";
 import { canViewPath } from "@/lib/permissions";
+import NotFoundPage from "@/features/common/pages/NotFoundPage";
 
 export default function MainLayout() {
   const { user } = useAuth();
@@ -38,7 +39,27 @@ export default function MainLayout() {
   };
 
   if (!canViewPath(user, location.pathname)) {
-    return <Navigate to="/" replace />;
+    return (
+      <div className="h-screen overflow-hidden bg-gray-50">
+        <Sidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
+        <div
+          className={cn(
+            "flex h-screen min-w-0 flex-col transition-[margin] duration-300",
+            isSidebarOpen ? "lg:ml-64" : "lg:ml-20",
+          )}
+        >
+          <Topbar
+            onSidebarToggle={toggleSidebar}
+            isSidebarOpen={isSidebarOpen}
+          />
+          <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-gray-50">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <NotFoundPage />
+            </div>
+          </main>
+        </div>
+      </div>
+    );
   }
 
   return (

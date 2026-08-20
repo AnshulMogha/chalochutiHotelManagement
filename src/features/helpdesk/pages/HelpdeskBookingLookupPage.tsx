@@ -25,19 +25,22 @@ import {
   ArrowRight,
   Building2,
   CalendarDays,
+  CheckCircle2,
   Headphones,
   Loader2,
   Search,
   User,
 } from "lucide-react";
 
-const BOOKING_REF_PATTERN = /^BR[A-Z0-9]+$/i;
+type LookupMode = "ID" | "PHONE" | "EMAIL";
+
+const LOOKUP_ID_PATTERN = /^[A-Z0-9]{6,}$/i;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^\+?\d{8,15}$/;
 
-function looksLikeBookingReference(value: string): boolean {
+function looksLikeLookupId(value: string): boolean {
   const trimmed = value.trim();
-  return trimmed.length >= 8 && BOOKING_REF_PATTERN.test(trimmed);
+  return LOOKUP_ID_PATTERN.test(trimmed);
 }
 
 function looksLikeEmail(value: string): boolean {
@@ -118,6 +121,7 @@ export default function HelpdeskBookingLookupPage() {
   const navigate = useNavigate();
   const { toast, showToast, hideToast } = useToast();
   const [query, setQuery] = useState("");
+  const [lookupMode, setLookupMode] = useState<LookupMode>("ID");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<HelpdeskBookingSearchItem[]>([]);
   const [searched, setSearched] = useState(false);
@@ -131,23 +135,36 @@ export default function HelpdeskBookingLookupPage() {
   const handleSearch = useCallback(async () => {
     const trimmed = query.trim();
     if (!trimmed) {
-      showToast("Enter a booking reference, email, or phone number.", "error");
+      showToast("Enter a value to search.", "error");
       return;
     }
 
-    if (looksLikeBookingReference(trimmed)) {
+    if (lookupMode === "ID") {
+      if (!looksLikeLookupId(trimmed)) {
+        showToast("Enter a valid lookup ID.", "error");
+        return;
+      }
       navigate(ROUTES.HELPDESK.DETAIL(trimmed.toUpperCase()));
+      return;
+    }
+
+    if (lookupMode === "EMAIL" && !looksLikeEmail(trimmed)) {
+      showToast("Enter a valid email address.", "error");
+      return;
+    }
+
+    if (lookupMode === "PHONE" && !looksLikePhone(trimmed)) {
+      showToast("Enter a valid phone number.", "error");
       return;
     }
 
     setLoading(true);
     setSearched(true);
     try {
-      const params = looksLikeEmail(trimmed)
-        ? { email: trimmed, limit: 20 }
-        : looksLikePhone(trimmed)
-          ? { phone: trimmed.replace(/[\s()-]/g, ""), limit: 20 }
-          : { email: trimmed, limit: 20 };
+      const params =
+        lookupMode === "EMAIL"
+          ? { email: trimmed, limit: 20 }
+          : { phone: trimmed.replace(/[\s()-]/g, ""), limit: 20 };
 
       const response = await helpdeskBookingService.searchBookings(params);
       setResults(response.bookings);
@@ -160,21 +177,21 @@ export default function HelpdeskBookingLookupPage() {
     } finally {
       setLoading(false);
     }
-  }, [navigate, query, showToast]);
+  }, [lookupMode, navigate, query, showToast]);
 
   return (
     <HelpdeskPageShell>
-      <div className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 bg-gradient-to-r from-[#2f3d95] to-[#3d4fa8] px-5 py-6 sm:px-6">
+      <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-[#2f3d95] to-[#3d4fa8] px-4 py-4 sm:px-5">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-white">
               <Headphones className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white sm:text-2xl">
-                Helpdesk order lookup
+              <h1 className="text-lg font-bold text-white sm:text-xl">
+                Help Desk
               </h1>
-              <p className="mt-1 max-w-2xl text-sm text-white/80">
+              <p className="mt-1 max-w-2xl text-xs text-white/80 sm:text-sm">
                 Find a booking instantly by reference, email, or phone for live
                 support, escalations, and voucher requests.
               </p>
@@ -182,14 +199,51 @@ export default function HelpdeskBookingLookupPage() {
           </div>
         </div>
 
-        <div className="p-5 sm:p-6">
+        <div className="space-y-3 p-4 sm:p-5">
           <label
             htmlFor="helpdesk-search"
             className="text-sm font-semibold text-slate-900"
           >
             Search order
           </label>
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-2.5">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Search by
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { value: "ID", label: "Lookup ID" },
+                  { value: "PHONE", label: "Phone" },
+                  { value: "EMAIL", label: "Email" },
+                ] as const
+              ).map((option) => {
+                const active = lookupMode === option.value;
+                return (
+                  <label
+                    key={option.value}
+                    className={`inline-flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition sm:text-sm ${
+                      active
+                        ? "border-[#2f3d95] bg-white font-semibold text-[#2f3d95] shadow-sm"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="helpdesk-lookup-mode"
+                      value={option.value}
+                      checked={active}
+                      onChange={() => setLookupMode(option.value)}
+                      className="h-4 w-4 accent-[#2f3d95]"
+                    />
+                    <span>{option.label}</span>
+                    {active ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
@@ -200,15 +254,21 @@ export default function HelpdeskBookingLookupPage() {
                 onKeyDown={(event) => {
                   if (event.key === "Enter") void handleSearch();
                 }}
-                placeholder="BRK5B086F3F2363, email, or phone"
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-[#2f3d95] focus:bg-white focus:ring-2 focus:ring-[#2f3d95]/15"
+                placeholder={
+                  lookupMode === "ID"
+                    ? "PBRA7F6FFA14416"
+                    : lookupMode === "PHONE"
+                      ? "9876543210"
+                      : "name@example.com"
+                }
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-[#2f3d95] focus:bg-white focus:ring-2 focus:ring-[#2f3d95]/15"
               />
             </div>
             <div className="flex gap-2 sm:shrink-0">
               <button
                 type="button"
                 onClick={handleClear}
-                className="rounded-lg border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 Clear
               </button>
@@ -216,16 +276,16 @@ export default function HelpdeskBookingLookupPage() {
                 type="button"
                 onClick={() => void handleSearch()}
                 disabled={loading}
-                className="inline-flex min-w-[110px] items-center justify-center gap-2 rounded-lg bg-[#2f3d95] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#252d73] disabled:opacity-60"
+                className="inline-flex min-w-[100px] items-center justify-center gap-2 rounded-lg bg-[#2f3d95] px-3.5 py-2.5 text-sm font-medium text-white transition hover:bg-[#252d73] disabled:opacity-60"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Search
               </button>
             </div>
           </div>
-          <p className="mt-2 text-xs text-slate-500">
-            Booking references open the support view directly. Email and phone
-            search returns recent matching orders.
+          <p className="text-xs text-slate-500">
+            Lookup ID opens the support view directly. Phone and email return
+            recent matching bookings.
           </p>
         </div>
       </div>

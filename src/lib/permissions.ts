@@ -1,15 +1,21 @@
 import type { User } from "@/types";
 import {
+  canOnboardHotel,
   canViewHelpdeskBookings,
   canViewHotelBdPipeline,
   canViewHotelBdReports,
   canViewHotelBookingFinancialMis,
   canViewPaymentReport,
   canViewSalesManagerReports,
+  isHelpdeskAgentRole,
   isHotelBdRole,
+  isQcReviewerRole,
+  isReviewerPortalRole,
+  isSalesManagerRole,
   isSuperAdmin,
+  isZonalManagerSalesRole,
 } from "@/constants/roles";
-import { ROUTES } from "@/constants";
+import { ROUTES, hasAnyRole, ROLES } from "@/constants";
 
 export type PermissionModule =
   | "BOOKINGS"
@@ -197,14 +203,6 @@ export function canEditModule(
   return !!permission?.canEdit;
 }
 
-function isHotelBdDashboardPath(pathname: string): boolean {
-  return pathname === ROUTES.REPORTS.HOTEL_BD_DASHBOARD;
-}
-
-function isHotelBdPipelinePath(pathname: string): boolean {
-  return pathname === ROUTES.REPORTS.HOTEL_BD_PIPELINE;
-}
-
 function isSalesManagerReportPath(pathname: string): boolean {
   return (
     pathname === ROUTES.REPORTS.SALES_MANAGER_DASHBOARD ||
@@ -226,14 +224,58 @@ function isHelpdeskPath(pathname: string): boolean {
   );
 }
 
-export function canViewPath(user: User | null, pathname: string): boolean {
-  const pathOnly = pathname.split("?")[0];
+function isAgentsPath(pathname: string): boolean {
+  return pathname === ROUTES.AGENTS.LIST || pathname.startsWith("/agents/");
+}
 
-  if (isHotelBdDashboardPath(pathOnly)) {
+function isAdminPath(pathname: string): boolean {
+  return pathname.startsWith("/admin/");
+}
+
+function canViewAnyReportPath(user: User | null): boolean {
+  return (
+    canViewModule(user, "BOOKINGS") ||
+    canViewPaymentReport(user?.roles) ||
+    canViewHotelBdReports(user?.roles) ||
+    canViewHotelBdPipeline(user?.roles) ||
+    canViewSalesManagerReports(user?.roles) ||
+    canViewHotelBookingFinancialMis(user?.roles)
+  );
+}
+
+function canViewReportsPath(user: User | null, pathOnly: string): boolean {
+  if (pathOnly === ROUTES.REPORTS.LIST) {
+    return canViewAnyReportPath(user);
+  }
+
+  if (pathOnly === ROUTES.REPORTS.BOOKING_SUMMARY) {
+    return canViewModule(user, "BOOKINGS");
+  }
+
+  if (pathOnly === ROUTES.REPORTS.PROMOTIONS) {
+    return canViewModule(user, "BOOKINGS");
+  }
+
+  if (pathOnly === ROUTES.REPORTS.RATE_HEALTH) {
+    return canViewModule(user, "BOOKINGS");
+  }
+
+  if (pathOnly === ROUTES.REPORTS.INVENTORY_ALLOCATION) {
+    return canViewModule(user, "BOOKINGS");
+  }
+
+  if (
+    pathOnly === ROUTES.REPORTS.NET_EARNINGS ||
+    pathOnly.startsWith(`${ROUTES.REPORTS.NET_EARNINGS}/`)
+  ) {
+    return canViewPaymentReport(user?.roles);
+  }
+
+  if (pathOnly === ROUTES.REPORTS.HOTEL_BD_DASHBOARD) {
     return canViewHotelBdReports(user?.roles);
   }
 
-  if (isHotelBdPipelinePath(pathOnly)) {
+  if (pathOnly === ROUTES.REPORTS.HOTEL_BD_PIPELINE) {
     return canViewHotelBdPipeline(user?.roles);
   }
 
@@ -245,23 +287,221 @@ export function canViewPath(user: User | null, pathname: string): boolean {
     return canViewHotelBookingFinancialMis(user?.roles);
   }
 
+  if (pathOnly === "/reports/performance") {
+    return (
+      canViewModule(user, "ANALYTICS") || canViewModule(user, "BOOKINGS")
+    );
+  }
+
+  return false;
+}
+
+function canViewAdminPath(user: User | null, pathOnly: string): boolean {
+  if (isSuperAdmin(user?.roles)) return true;
+
+  if (pathOnly.startsWith("/admin/hotels/review")) {
+    return (
+      isReviewerPortalRole(user?.roles) ||
+      !!user?.roles?.includes("ONBOARDING_REVIEWER")
+    );
+  }
+
+  if (pathOnly === ROUTES.ADMIN.TRAVEL_PARTNERS) {
+    return isZonalManagerSalesRole(user?.roles);
+  }
+
+  if (
+    pathOnly.startsWith("/admin/users") ||
+    pathOnly === ROUTES.ADMIN.COMMISSION_AND_TAX ||
+    pathOnly.startsWith(ROUTES.ADMIN.DOCUMENT_REVIEW)
+  ) {
+    return false;
+  }
+
+  return false;
+}
+
+function canViewAgentsPath(user: User | null): boolean {
+  if (isSuperAdmin(user?.roles)) return true;
+  return (
+    isSalesManagerRole(user?.roles) && !isZonalManagerSalesRole(user?.roles)
+  );
+}
+
+function canHelpdeskAgentViewPath(pathOnly: string): boolean {
+  return (
+    pathOnly === "/" ||
+    pathOnly === "" ||
+    pathOnly.startsWith("/profile") ||
+    isHelpdeskPath(pathOnly)
+  );
+}
+
+function canSalesManagerViewPath(pathOnly: string): boolean {
+  return (
+    pathOnly === "/" ||
+    pathOnly === "" ||
+    pathOnly.startsWith("/profile") ||
+    isSalesManagerReportPath(pathOnly) ||
+    isHotelBookingFinancialMisPath(pathOnly) ||
+    isAgentsPath(pathOnly)
+  );
+}
+
+function canZonalManagerSalesViewPath(pathOnly: string): boolean {
+  return (
+    pathOnly === "/" ||
+    pathOnly === "" ||
+    pathOnly.startsWith("/profile") ||
+    isSalesManagerReportPath(pathOnly) ||
+    isHotelBookingFinancialMisPath(pathOnly) ||
+    pathOnly === ROUTES.ADMIN.TRAVEL_PARTNERS
+  );
+}
+
+function canOnboardingReviewerViewPath(pathOnly: string): boolean {
+  return (
+    pathOnly === "/" ||
+    pathOnly === "" ||
+    pathOnly.startsWith("/profile") ||
+    pathOnly.startsWith("/admin/hotels/review")
+  );
+}
+
+function canReviewerPortalViewPath(user: User | null, pathOnly: string): boolean {
+  if (pathOnly === "/" || pathOnly === "") return true;
+  if (pathOnly.startsWith("/profile")) return true;
+  if (pathOnly.startsWith("/admin/hotels/review")) return true;
+  if (
+    pathOnly === ROUTES.PROPERTIES.MY_PROPERTY &&
+    hasAnyRole(user?.roles, [ROLES.HOTEL_OWNER, ROLES.HOTEL_MANAGER])
+  ) {
+    return true;
+  }
+  if (pathOnly.startsWith("/properties/hotel") && canOnboardHotel(user?.roles)) {
+    return true;
+  }
+  if (pathOnly.startsWith("/reports/")) {
+    return canViewReportsPath(user, pathOnly);
+  }
+  if (pathOnly.startsWith("/property/information/")) {
+    const module = getModuleFromPath(pathOnly);
+    return module ? canViewModule(user, module) : false;
+  }
+  if (pathOnly === ROUTES.QC.DASHBOARD && isQcReviewerRole(user?.roles)) {
+    return true;
+  }
+  return false;
+}
+
+function canViewUnmappedPath(user: User | null, pathOnly: string): boolean {
+  if (pathOnly === "/" || pathOnly === "") return true;
+
+  if (pathOnly === "/home") {
+    return hasPermissionBypass(user);
+  }
+
+  if (pathOnly === ROUTES.PROPERTIES.MY_PROPERTY) {
+    return (
+      hasPermissionBypass(user) ||
+      isHotelBdRole(user?.roles) ||
+      !!user?.roles?.some((role) =>
+        ["HOTEL_MANAGER", "FRONT_DESK_EXEC", "ACCOUNTANT"].includes(role),
+      )
+    );
+  }
+
+  if (pathOnly.startsWith("/properties/hotel")) {
+    return canOnboardHotel(user?.roles);
+  }
+
+  if (
+    pathOnly === ROUTES.MORE.LIST ||
+    pathOnly === ROUTES.RATINGS_REVIEWS.LIST
+  ) {
+    return hasAnyRole(user?.roles, [
+      ROLES.SUPER_ADMIN,
+      ROLES.HOTEL_OWNER,
+      ROLES.HOTEL_MANAGER,
+    ]);
+  }
+
+  if (pathOnly === ROUTES.QC.DASHBOARD) {
+    return isSuperAdmin(user?.roles);
+  }
+
+  if (pathOnly === ROUTES.PROPERTY_INFO.LIST) {
+    return (
+      canViewModule(user, "PROPERTY_BASIC_INFO") ||
+      canViewModule(user, "PROPERTY_ROOMS_RATEPLANS") ||
+      canViewModule(user, "PROPERTY_PHOTOS_VIDEOS") ||
+      canViewModule(user, "PROPERTY_AMENITIES_RESTAURANTS") ||
+      canViewModule(user, "PROPERTY_POLICY_RULES") ||
+      canViewModule(user, "PROPERTY_FINANCE") ||
+      canViewModule(user, "PROPERTY_DOCUMENT")
+    );
+  }
+
+  return false;
+}
+
+function passesRoleScopedPathGuard(user: User | null, pathOnly: string): boolean {
+  if (isSuperAdmin(user?.roles)) return true;
+
+  if (isZonalManagerSalesRole(user?.roles)) {
+    return canZonalManagerSalesViewPath(pathOnly);
+  }
+
+  if (isHelpdeskAgentRole(user?.roles)) {
+    return canHelpdeskAgentViewPath(pathOnly);
+  }
+
+  if (isSalesManagerRole(user?.roles)) {
+    return canSalesManagerViewPath(pathOnly);
+  }
+
+  if (isReviewerPortalRole(user?.roles)) {
+    return canReviewerPortalViewPath(user, pathOnly);
+  }
+
+  if (user?.roles?.includes("ONBOARDING_REVIEWER")) {
+    return canOnboardingReviewerViewPath(pathOnly);
+  }
+
+  return true;
+}
+
+export function canViewPath(user: User | null, pathname: string): boolean {
+  const pathOnly = pathname.split("?")[0];
+
+  if (pathOnly.startsWith("/profile")) {
+    return true;
+  }
+
+  if (pathOnly === ROUTES.REPORTS.LIST || pathOnly.startsWith("/reports/")) {
+    return canViewReportsPath(user, pathOnly);
+  }
+
   if (isHelpdeskPath(pathOnly)) {
     return canViewHelpdeskBookings(user?.roles);
   }
 
-  if (
-    pathOnly === ROUTES.REPORTS.NET_EARNINGS ||
-    pathOnly.startsWith(`${ROUTES.REPORTS.NET_EARNINGS}/`)
-  ) {
-    return canViewPaymentReport(user?.roles);
+  if (isAdminPath(pathOnly)) {
+    return canViewAdminPath(user, pathOnly);
   }
 
-  // Performance dashboard moved from /reports to /analytics.
-  // Keep access for users who only have BOOKINGS (old reports permission).
+  if (isAgentsPath(pathOnly)) {
+    return canViewAgentsPath(user);
+  }
+
   if (pathOnly === "/analytics" || pathOnly.startsWith("/analytics/")) {
     return (
       canViewModule(user, "ANALYTICS") || canViewModule(user, "BOOKINGS")
     );
+  }
+
+  if (!passesRoleScopedPathGuard(user, pathOnly)) {
+    return false;
   }
 
   const module = getModuleFromPath(pathOnly);
@@ -269,13 +509,13 @@ export function canViewPath(user: User | null, pathname: string): boolean {
   if (isHotelBdRole(user?.roles)) {
     if (module === "PROPERTY_FINANCE") return false;
     if (module) return canViewModule(user, module);
-    if (pathOnly === "/" || pathOnly === "" || pathOnly === "/my-property") return true;
-    if (pathOnly.startsWith("/properties/hotel")) return true;
-    if (pathOnly.startsWith("/profile")) return true;
-    return false;
+    return canViewUnmappedPath(user, pathOnly);
   }
 
-  if (!module) return true;
+  if (!module) {
+    return canViewUnmappedPath(user, pathOnly);
+  }
+
   return canViewModule(user, module);
 }
 

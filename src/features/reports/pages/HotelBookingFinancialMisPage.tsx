@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   format,
   startOfMonth,
@@ -106,6 +106,7 @@ type FilterDraft = {
   paymentStatus: HotelFinancialMisPaymentStatus;
   refundStatus: HotelFinancialMisRefundStatus;
   hotelId: string;
+  agencyId: string;
   search: string;
   sort: HotelFinancialMisSort;
   sortDir: "asc" | "desc";
@@ -126,6 +127,7 @@ const DEFAULT_DRAFT: FilterDraft = {
   paymentStatus: "ALL",
   refundStatus: "ALL",
   hotelId: "",
+  agencyId: "",
   search: "",
   sort: "BOOKING_DATE",
   sortDir: "desc",
@@ -309,9 +311,18 @@ function FilterField({
 
 export default function HotelBookingFinancialMisPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast, showToast, hideToast } = useToast();
 
-  const initialListState = useMemo(() => restoreMisListState(), []);
+  const initialListState = useMemo(() => {
+    const restored = restoreMisListState();
+    const urlAgencyId = searchParams.get("agencyId");
+    if (urlAgencyId) {
+      restored.filters = { ...restored.filters, agencyId: urlAgencyId };
+      restored.page = 0;
+    }
+    return restored;
+  }, [searchParams]);
   const [filters, setFilters] = useState<FilterDraft>(initialListState.filters);
   const [draft, setDraft] = useState<FilterDraft>(initialListState.filters);
   const [page, setPage] = useState(initialListState.page);
@@ -421,6 +432,7 @@ export default function HotelBookingFinancialMisPage() {
           paymentStatus: nextFilters.paymentStatus,
           refundStatus: nextFilters.refundStatus,
           hotelIds: nextFilters.hotelId ? [nextFilters.hotelId] : undefined,
+          agencyId: nextFilters.agencyId || undefined,
           search: nextFilters.search.trim() || undefined,
           sort: nextFilters.sort,
           sortDir: nextFilters.sortDir,
@@ -456,6 +468,7 @@ export default function HotelBookingFinancialMisPage() {
         paymentStatus: nextFilters.paymentStatus,
         refundStatus: nextFilters.refundStatus,
         hotelIds: nextFilters.hotelId ? [nextFilters.hotelId] : undefined,
+        agencyId: nextFilters.agencyId || undefined,
         search: nextFilters.search.trim() || undefined,
         sort: nextFilters.sort,
         sortDir: nextFilters.sortDir,

@@ -214,7 +214,7 @@ const getNavItems = (user: User | null): NavItem[] => {
   }
   if (isHelpdeskAgent && !isSuperAdmin) {
     items.push({
-      label: "Order Lookup",
+      label: "Help Desk",
       path: ROUTES.HELPDESK.LOOKUP,
       icon: Headphones,
     });
@@ -538,7 +538,7 @@ const getNavItems = (user: User | null): NavItem[] => {
       ...(canViewHelpdeskBookings(userRoles)
         ? [
             {
-              label: "Order Lookup",
+              label: "Help Desk",
               path: ROUTES.HELPDESK.LOOKUP,
               icon: Headphones,
             },

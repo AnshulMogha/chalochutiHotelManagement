@@ -66,6 +66,14 @@ export interface HelpdeskBookingOwner {
   name: string;
   email: string | null;
   code: string | null;
+  agencyName?: string | null;
+}
+
+export interface HelpdeskAgency {
+  type: string;
+  agencyName: string | null;
+  contactName: string | null;
+  email: string | null;
 }
 
 export interface HelpdeskPaymentAttempt {
@@ -106,6 +114,12 @@ export interface HelpdeskFinancialDetail {
   hotelId: string | null;
   customerName: string;
   bookingDate: string | null;
+  travelStartDate?: string | null;
+  travelEndDate?: string | null;
+  destination?: string | null;
+  packageId?: number | null;
+  packageCode?: string | null;
+  packageName?: string | null;
   checkIn: string | null;
   checkOut: string | null;
   nights: number | null;
@@ -119,6 +133,9 @@ export interface HelpdeskFinancialDetail {
   hotelPayout: HelpdeskMoney;
   otaRevenue: HelpdeskMoney;
   amountCollected: HelpdeskMoney;
+  outstandingAmount?: HelpdeskMoney | null;
+  totalSupplierPayout?: HelpdeskMoney | null;
+  grossProfit?: HelpdeskMoney | null;
   promotionDiscount: HelpdeskMoney;
   paymentStatus: string;
   payment: HelpdeskPaymentSummary;
@@ -144,6 +161,7 @@ export interface HelpdeskBookingDetail {
   bookingRef: string;
   support: HelpdeskSupportSummary;
   customer: HelpdeskCustomer;
+  agency?: HelpdeskAgency | null;
   timeline: HelpdeskTimelineEvent[];
   financial: HelpdeskFinancialDetail;
 }
@@ -223,6 +241,13 @@ function normalizeBreakup(
     if (key === "formula" || value == null || typeof value !== "object") {
       continue;
     }
+    const candidate = value as Record<string, unknown>;
+    if (
+      !("amount" in candidate) ||
+      (typeof candidate.amount !== "number" && typeof candidate.amount !== "string")
+    ) {
+      continue;
+    }
     const rated = ratedMoney(value);
     lines.push({
       key,
@@ -271,15 +296,27 @@ function normalizeFinancial(raw: Record<string, unknown>): HelpdeskFinancialDeta
   return {
     bookingId: toNumber(raw.bookingId),
     bookingRef: String(raw.bookingRef || ""),
-    hotelName: String(raw.hotelName || ""),
+    hotelName: String(raw.hotelName || raw.packageName || ""),
     hotelCode: (raw.hotelCode as string | undefined) ?? null,
     hotelCity: (raw.hotelCity as string | undefined) ?? null,
     hotelState: (raw.hotelState as string | undefined) ?? null,
     hotelId: (raw.hotelId as string | undefined) ?? null,
     customerName: String(raw.customerName || ""),
     bookingDate: (raw.bookingDate as string | undefined) ?? null,
-    checkIn: (raw.checkIn as string | undefined) ?? null,
-    checkOut: (raw.checkOut as string | undefined) ?? null,
+    travelStartDate: (raw.travelStartDate as string | undefined) ?? null,
+    travelEndDate: (raw.travelEndDate as string | undefined) ?? null,
+    destination: (raw.destination as string | undefined) ?? null,
+    packageId: raw.packageId != null ? toNumber(raw.packageId) : null,
+    packageCode: (raw.packageCode as string | undefined) ?? null,
+    packageName: (raw.packageName as string | undefined) ?? null,
+    checkIn:
+      (raw.checkIn as string | undefined) ??
+      (raw.travelStartDate as string | undefined) ??
+      null,
+    checkOut:
+      (raw.checkOut as string | undefined) ??
+      (raw.travelEndDate as string | undefined) ??
+      null,
     nights: raw.nights != null ? toNumber(raw.nights) : null,
     adult: raw.adult != null ? toNumber(raw.adult) : null,
     children: raw.children != null ? toNumber(raw.children) : null,
@@ -291,6 +328,11 @@ function normalizeFinancial(raw: Record<string, unknown>): HelpdeskFinancialDeta
     hotelPayout: money(raw.hotelPayout),
     otaRevenue: money(raw.otaRevenue),
     amountCollected: money(raw.amountCollected),
+    outstandingAmount:
+      raw.outstandingAmount != null ? money(raw.outstandingAmount) : null,
+    totalSupplierPayout:
+      raw.totalSupplierPayout != null ? money(raw.totalSupplierPayout) : null,
+    grossProfit: raw.grossProfit != null ? money(raw.grossProfit) : null,
     promotionDiscount: money(raw.promotionDiscount),
     paymentStatus: String(raw.paymentStatus || ""),
     payment: normalizePayment(paymentRaw),
@@ -313,6 +355,7 @@ function normalizeFinancial(raw: Record<string, unknown>): HelpdeskFinancialDeta
           name: String(ownerRaw.name || ""),
           email: (ownerRaw.email as string | undefined) ?? null,
           code: (ownerRaw.code as string | undefined) ?? null,
+          agencyName: (ownerRaw.agencyName as string | undefined) ?? null,
         }
       : null,
     customerSellingPriceBreakup: normalizeBreakup(
@@ -333,6 +376,7 @@ function normalizeFinancial(raw: Record<string, unknown>): HelpdeskFinancialDeta
 function normalizeDetail(raw: Record<string, unknown>): HelpdeskBookingDetail {
   const supportRaw = (raw.support || {}) as Record<string, unknown>;
   const customerRaw = (raw.customer || {}) as Record<string, unknown>;
+  const agencyRaw = (raw.agency || null) as Record<string, unknown> | null;
   const financialRaw = (raw.financial || raw) as Record<string, unknown>;
 
   return {
@@ -356,6 +400,14 @@ function normalizeDetail(raw: Record<string, unknown>): HelpdeskBookingDetail {
       email: (customerRaw.email as string | undefined) ?? null,
       phone: (customerRaw.phone as string | undefined) ?? null,
     },
+    agency: agencyRaw
+      ? {
+          type: String(agencyRaw.type || ""),
+          agencyName: (agencyRaw.agencyName as string | undefined) ?? null,
+          contactName: (agencyRaw.contactName as string | undefined) ?? null,
+          email: (agencyRaw.email as string | undefined) ?? null,
+        }
+      : null,
     timeline: normalizeTimeline(raw.timeline),
     financial: normalizeFinancial(financialRaw),
   };

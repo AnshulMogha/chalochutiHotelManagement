@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { Link } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
@@ -173,8 +179,7 @@ export default function SalesManagerAgentsReportPage() {
     [],
   );
 
-  const customRangeInvalid =
-    datePreset === "CUSTOM" && (!fromDate || !toDate);
+  const customRangeInvalid = datePreset === "CUSTOM" && (!fromDate || !toDate);
   const draftCustomInvalid =
     draft.datePreset === "CUSTOM" &&
     !isValidCustomDateRange(customFromText, customToText);
@@ -272,11 +277,13 @@ export default function SalesManagerAgentsReportPage() {
           agentStatus: overrides?.agentStatus ?? agentStatus,
           sort: overrides?.sort ?? sort,
           sortDir: overrides?.sortDir ?? sortDir,
-          onboardedFrom: (overrides?.onboardedFrom ?? onboardedFrom) || undefined,
+          onboardedFrom:
+            (overrides?.onboardedFrom ?? onboardedFrom) || undefined,
           onboardedTo: (overrides?.onboardedTo ?? onboardedTo) || undefined,
           lastBookingFrom:
             (overrides?.lastBookingFrom ?? lastBookingFrom) || undefined,
-          lastBookingTo: (overrides?.lastBookingTo ?? lastBookingTo) || undefined,
+          lastBookingTo:
+            (overrides?.lastBookingTo ?? lastBookingTo) || undefined,
           page: nextPage,
           size: PAGE_SIZE,
         });
@@ -375,7 +382,9 @@ export default function SalesManagerAgentsReportPage() {
     void loadReport({ ...nextDraft, page: 0 });
   };
 
-  const applyStatusCardFilter = (nextStatus: SalesManagerAgentStatus | "ALL") => {
+  const applyStatusCardFilter = (
+    nextStatus: SalesManagerAgentStatus | "ALL",
+  ) => {
     const value = agentStatus === nextStatus ? "ALL" : nextStatus;
     setAgentStatus(value);
     setPage(0);
@@ -826,21 +835,24 @@ export default function SalesManagerAgentsReportPage() {
                   onChange={(event) =>
                     setDraft((prev) => ({
                       ...prev,
-                      agentStatus: event.target
-                        .value as SalesManagerAgentStatus | "ALL",
+                      agentStatus: event.target.value as
+                        | SalesManagerAgentStatus
+                        | "ALL",
                     }))
                   }
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 >
-                  {(report?.filters?.status ?? [
-                    "ALL",
-                    "ACTIVE",
-                    "INACTIVE",
-                    "ZERO_BOOKING",
-                    "LOW_COLLECTION",
-                    "HIGH_OUTSTANDING",
-                    "SUSPENDED",
-                  ]).map((status) => (
+                  {(
+                    report?.filters?.status ?? [
+                      "ALL",
+                      "ACTIVE",
+                      "INACTIVE",
+                      "ZERO_BOOKING",
+                      "LOW_COLLECTION",
+                      "HIGH_OUTSTANDING",
+                      "SUSPENDED",
+                    ]
+                  ).map((status) => (
                     <option key={status} value={status}>
                       {formatStatusLabel(status)}
                     </option>
@@ -891,13 +903,15 @@ export default function SalesManagerAgentsReportPage() {
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 >
                   <option value="">All tiers</option>
-                  {(report?.filters?.tier ?? [
-                    "BRONZE",
-                    "SILVER",
-                    "GOLD",
-                    "PLATINUM",
-                    "DIAMOND",
-                  ]).map((tier) => (
+                  {(
+                    report?.filters?.tier ?? [
+                      "BRONZE",
+                      "SILVER",
+                      "GOLD",
+                      "PLATINUM",
+                      "DIAMOND",
+                    ]
+                  ).map((tier) => (
                     <option key={tier} value={tier}>
                       {formatStatusLabel(tier)}
                     </option>
@@ -1049,11 +1063,24 @@ function AgentRow({ row }: { row: SalesManagerAgentPortfolioRow }) {
         </span>
       </td>
       <td className="px-4 py-3 tabular-nums text-slate-800">
-        <p className="font-semibold">{row.bookings.total}</p>
-        <p className="text-xs text-slate-500">
-          H {row.bookings.hotel} · P {row.bookings.package}
-        </p>
-        <p className="text-xs text-slate-500">
+        <p className="font-semibold">{row.bookings.total} bookings</p>
+        <div className="mt-1 flex items-center gap-2">
+          <Link
+            to={`${ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS}?agencyId=${row.agentId}`}
+            className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+          >
+            🏨 Hotel {row.bookings.hotel}
+          </Link>
+          <a
+            href={`/packageManagement/reports/package-booking-financial-mis?agencyId=${row.agentId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+          >
+            📦 Package {row.bookings.package}
+          </a>
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
           {row.bookings.confirmed} confirmed · {row.bookings.cancelled}{" "}
           cancelled
         </p>
@@ -1095,7 +1122,9 @@ function AgentRow({ row }: { row: SalesManagerAgentPortfolioRow }) {
         <p className="text-xs">
           Cancel {row.quality.cancellationPercent.toFixed(1)}%
         </p>
-        <p className="text-xs">Refund {row.quality.refundPercent.toFixed(1)}%</p>
+        <p className="text-xs">
+          Refund {row.quality.refundPercent.toFixed(1)}%
+        </p>
       </td>
     </tr>
   );
