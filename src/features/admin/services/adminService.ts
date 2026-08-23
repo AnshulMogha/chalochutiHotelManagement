@@ -253,6 +253,7 @@ export type UserRole =
   | "ZontalHotelManager"
   | "ZONAL_MANAGER_SALES"
   | "FINANCE"
+  | "FINANCE_MANAGER"
   | "QC"
   | "HELPDESK_AGENT"
   | "AUDITOR";
@@ -917,6 +918,20 @@ export interface FinanceData {
   bankBranch: string;
 }
 
+export type BankVerificationStatus =
+  | "VERIFIED"
+  | "PENDING"
+  | "FAILED"
+  | "NOT_VERIFIED"
+  | "UNVERIFIED"
+  | (string & {});
+
+export function isFinanceBankVerified(
+  status: BankVerificationStatus | null | undefined,
+): boolean {
+  return String(status || "").toUpperCase() === "VERIFIED";
+}
+
 export interface FinanceItem {
   financeId: number;
   hotelId: string;
@@ -931,6 +946,11 @@ export interface FinanceItem {
   bankName: string | null;
   bankIfsc: string | null;
   bankBranch: string | null;
+  bankVerificationStatus?: BankVerificationStatus | null;
+  bankVerifiedName?: string | null;
+  bankVerifiedAt?: string | null;
+  bankVerificationReference?: string | null;
+  alreadyVerified?: boolean | null;
   createdBy: number;
   createdByEmail: string;
   updatedBy: number;
@@ -2006,6 +2026,12 @@ export const adminService = {
     const response = await apiClient.put<ApiSuccessResponse<null>>(
       API_ENDPOINTS.HOTEL_ADMIN.UPDATE_HOTEL_FINANCE(hotelId),
       data,
+    );
+    return response.data;
+  },
+  verifyHotelBank: async (hotelId: string): Promise<FinanceItem | null> => {
+    const response = await apiClient.post<ApiSuccessResponse<FinanceItem | null>>(
+      API_ENDPOINTS.HOTEL_ADMIN.VERIFY_HOTEL_BANK(hotelId),
     );
     return response.data;
   },

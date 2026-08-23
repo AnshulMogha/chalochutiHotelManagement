@@ -46,6 +46,7 @@ export const ADMIN_MANAGED_ROLE_BADGE_STYLES: Record<
   ZontalHotelManager: { bg: "bg-indigo-100", text: "text-indigo-800" },
   ZONAL_MANAGER_SALES: { bg: "bg-fuchsia-100", text: "text-fuchsia-800" },
   FINANCE: { bg: "bg-amber-100", text: "text-amber-800" },
+  FINANCE_MANAGER: { bg: "bg-yellow-100", text: "text-yellow-800" },
   QC: { bg: "bg-rose-100", text: "text-rose-800" },
   HELPDESK_AGENT: { bg: "bg-teal-100", text: "text-teal-800" },
   AUDITOR: { bg: "bg-slate-100", text: "text-slate-800" },
@@ -66,6 +67,7 @@ export const ADMIN_MANAGED_ROLE_LABELS: Record<string, string> = {
   ZontalHotelManager: "Zonal Hotel Manager",
   ZONAL_MANAGER_SALES: "Zonal Manager Sales",
   FINANCE: "Finance",
+  FINANCE_MANAGER: "Finance Manager",
   QC: "Quality Control",
   HELPDESK_AGENT: "Helpdesk Agent",
   AUDITOR: "Auditor",
@@ -137,6 +139,10 @@ export function canViewHotelBdPipeline(
   if (isZonalManagerSalesRole(userRoles) && !isSuperAdmin(userRoles)) {
     return false;
   }
+  // Auditor uses Financial MIS + helpdesk only — not onboarding pipeline.
+  if (isAuditorRole(userRoles) && !isSuperAdmin(userRoles)) {
+    return false;
+  }
   if (canViewHotelBdReports(userRoles)) return true;
   return !!userRoles?.includes("QC");
 }
@@ -198,10 +204,57 @@ export function canViewPaymentReport(userRoles: string[] | undefined): boolean {
   );
 }
 
+/** Roles allowed to view Hotel Payout MIS. */
+export const HOTEL_PAYOUT_MIS_ROLES = [
+  "HOTEL_OWNER",
+  "HOTEL_MANAGER",
+  "SUPER_ADMIN",
+  "FRONT_DESK_EXEC",
+  "ACCOUNTANT",
+  "HOTEL_BD",
+  "ZONAL_MANAGER_HOTEL",
+  "ZONAL_MANAGER_SALES",
+  "SALES_MANAGER",
+  "FINANCE",
+  "AUDITOR",
+] as const;
+
+export function canViewHotelPayoutMis(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (HOTEL_PAYOUT_MIS_ROLES as readonly string[]).includes(role),
+  );
+}
+
+/** Roles allowed to view Transport Payout MIS. */
+export const TRANSPORT_PAYOUT_MIS_ROLES = [
+  "TRANSPORT_AGENT_ADMIN",
+  "TRANSPORT_AGENT_USER",
+  "TRANSPORT_BD",
+  "SUPER_ADMIN",
+  "ZONAL_MANAGER_SALES",
+  "FINANCE",
+  "FINANCE_MANAGER",
+  "ACCOUNTANT",
+  "AUDITOR",
+] as const;
+
+export function canViewTransportPayoutMis(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (TRANSPORT_PAYOUT_MIS_ROLES as readonly string[]).includes(role),
+  );
+}
+
 /** Roles allowed to view Hotel Booking Financial MIS. */
 export const HOTEL_BOOKING_FINANCIAL_MIS_ROLES = [
   "ACCOUNTANT",
   "FINANCE",
+  "FINANCE_MANAGER",
   "AUDITOR",
   "SUPER_ADMIN",
   "SALES_MANAGER",
@@ -223,6 +276,16 @@ export function canViewHotelBookingFinancialMis(
 export function hasRole(userRoles: string[] | undefined, role: Role): boolean {
   if (!userRoles) return false;
   return userRoles.includes(role);
+}
+
+/** Who may verify a hotel bank account from the Finance tab. */
+export function canVerifyHotelBank(userRoles: string[] | undefined): boolean {
+  if (!userRoles?.length) return false;
+  return (
+    userRoles.includes("SUPER_ADMIN") ||
+    userRoles.includes("HOTEL_OWNER") ||
+    userRoles.includes("HOTEL_BD")
+  );
 }
 
 /**
@@ -340,10 +403,29 @@ export function isHelpdeskAgentRole(
   return !!userRoles?.includes("HELPDESK_AGENT");
 }
 
+/** Auditor: financial MIS + helpdesk (no property ops). */
+export function isAuditorRole(userRoles: string[] | undefined): boolean {
+  return !!userRoles?.includes("AUDITOR");
+}
+
+/** Finance Manager portal: settlements + hotel MIS (no property/helpdesk home). */
+export function isFinanceManagerRole(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.includes("FINANCE_MANAGER")) return false;
+  if (isSuperAdmin(userRoles)) return false;
+  if (isAuditorRole(userRoles)) return false;
+  if (isHelpdeskAgentRole(userRoles)) return false;
+  return true;
+}
+
 /** Roles allowed to access helpdesk booking lookup APIs and screens. */
 export const HELPDESK_BOOKING_ROLES = [
   "HELPDESK_AGENT",
   "SUPER_ADMIN",
+  "FINANCE",
+  "ACCOUNTANT",
+  "AUDITOR",
 ] as const;
 
 export function canViewHelpdeskBookings(
@@ -352,5 +434,85 @@ export function canViewHelpdeskBookings(
   if (!userRoles?.length) return false;
   return userRoles.some((role) =>
     (HELPDESK_BOOKING_ROLES as readonly string[]).includes(role),
+  );
+}
+
+/** Roles allowed to access helpdesk ticket APIs and screens. */
+export const HELPDESK_TICKET_ROLES = [
+  "HELPDESK_AGENT",
+  "SUPER_ADMIN",
+  "FINANCE",
+  "ACCOUNTANT",
+  "AUDITOR",
+] as const;
+
+export function canViewHelpdeskTickets(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (HELPDESK_TICKET_ROLES as readonly string[]).includes(role),
+  );
+}
+
+/** Roles allowed to assign helpdesk tickets. */
+export const HELPDESK_TICKET_ASSIGN_ROLES = [
+  "SUPER_ADMIN",
+] as const;
+
+export function canAssignHelpdeskTickets(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (HELPDESK_TICKET_ASSIGN_ROLES as readonly string[]).includes(role),
+  );
+}
+
+/** Roles allowed to view supplier settlement screens and list APIs. */
+export const SETTLEMENT_VIEW_ROLES = [
+  "SUPER_ADMIN",
+  "ACCOUNTANT",
+  "FINANCE_MANAGER",
+  "FINANCE",
+] as const;
+
+export function canViewSupplierSettlement(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (SETTLEMENT_VIEW_ROLES as readonly string[]).includes(role),
+  );
+}
+
+/** Roles allowed to approve, reject, release, and retry settlements. */
+export const SETTLEMENT_APPROVE_ROLES = [
+  "SUPER_ADMIN",
+  "FINANCE_MANAGER",
+] as const;
+
+export function canApproveSupplierSettlement(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (SETTLEMENT_APPROVE_ROLES as readonly string[]).includes(role),
+  );
+}
+
+/** Roles allowed to generate settlements (maker). */
+export const SETTLEMENT_GENERATE_ROLES = [
+  "SUPER_ADMIN",
+  "ACCOUNTANT",
+  "FINANCE_MANAGER",
+] as const;
+
+export function canGenerateSupplierSettlement(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (SETTLEMENT_GENERATE_ROLES as readonly string[]).includes(role),
   );
 }

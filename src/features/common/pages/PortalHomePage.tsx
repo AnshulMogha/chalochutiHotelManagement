@@ -3,6 +3,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/ui";
 import SuperAdminDashboardPage from "@/features/admin/pages/SuperAdminDashboardPage";
 import {
+  isAuditorRole,
+  isFinanceManagerRole,
   isHelpdeskAgentRole,
   isHotelBdRole,
   isSalesManagerRole,
@@ -21,7 +23,15 @@ export default function PortalHomePage() {
   }
 
   if (isHelpdeskAgentRole(user?.roles)) {
-    return <Navigate to={ROUTES.HELPDESK.LOOKUP} replace />;
+    return <Navigate to={ROUTES.HELPDESK.TICKETS} replace />;
+  }
+
+  if (isAuditorRole(user?.roles)) {
+    return <Navigate to={ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS} replace />;
+  }
+
+  if (isFinanceManagerRole(user?.roles)) {
+    return <Navigate to={ROUTES.SETTLEMENT.WORKBENCH} replace />;
   }
 
   if (isHotelBdRole(user?.roles)) {

@@ -69,6 +69,7 @@ const ROLE_OPTIONS = [
   { value: "ZONAL_MANAGER_HOTEL", label: "Zonal Manager Hotel" },
   { value: "ZONAL_MANAGER_SALES", label: "Zonal Manager Sales" },
   { value: "FINANCE", label: "Finance" },
+  { value: "FINANCE_MANAGER", label: "Finance Manager" },
   { value: "QC", label: "Quality Control" },
   { value: "HELPDESK_AGENT", label: "Helpdesk Agent" },
   { value: "AUDITOR", label: "Auditor" },

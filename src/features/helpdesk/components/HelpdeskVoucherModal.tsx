@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, FileWarning, Loader2, X } from "lucide-react";
-import {
-  helpdeskBookingService,
-  type HelpdeskVoucherAudience,
-  type HelpdeskVoucherDocumentType,
+import { bookingService } from "@/features/bookings/services/bookingService";
+import type {
+  HelpdeskVoucherAudience,
+  HelpdeskVoucherDocumentType,
 } from "../services/helpdeskBookingService";
 
 interface HelpdeskVoucherModalProps {
   open: boolean;
   onClose: () => void;
+  /** Numeric booking list / booking id — same as booking list voucher API. */
+  bookingId: string | number;
   bookingReference: string;
   audience: HelpdeskVoucherAudience;
   documentType: HelpdeskVoucherDocumentType;
@@ -28,6 +30,7 @@ const DOCUMENT_LABELS: Record<HelpdeskVoucherDocumentType, string> = {
 export function HelpdeskVoucherModal({
   open,
   onClose,
+  bookingId,
   bookingReference,
   audience,
   documentType,
@@ -39,7 +42,7 @@ export function HelpdeskVoucherModal({
   const blobUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!open || !bookingReference) return;
+    if (!open || bookingId == null || bookingId === "") return;
 
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
@@ -51,8 +54,8 @@ export function HelpdeskVoucherModal({
     setLoading(true);
 
     let cancelled = false;
-    helpdeskBookingService
-      .getVoucher(bookingReference, audience, documentType)
+    bookingService
+      .getVoucher(String(bookingId), { audience, documentType })
       .then((data) => {
         if (cancelled) return;
         const url = URL.createObjectURL(data);
@@ -75,7 +78,7 @@ export function HelpdeskVoucherModal({
         blobUrlRef.current = null;
       }
     };
-  }, [open, bookingReference, audience, documentType]);
+  }, [open, bookingId, audience, documentType]);
 
   useEffect(() => {
     if (!open) {
@@ -87,7 +90,10 @@ export function HelpdeskVoucherModal({
 
   const handleSave = () => {
     if (!blob || !blobUrl) return;
-    const name = bookingReference.replace(/[^a-zA-Z0-9-_]/g, "_");
+    const name = (bookingReference || String(bookingId)).replace(
+      /[^a-zA-Z0-9-_]/g,
+      "_",
+    );
     const filename = `voucher-${audience.toLowerCase()}-${documentType.toLowerCase()}-${name}.pdf`;
     const anchor = document.createElement("a");
     anchor.href = blobUrl;

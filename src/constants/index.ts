@@ -69,6 +69,20 @@ export const ROUTES = {
     LOOKUP: "/helpdesk/orders",
     DETAIL: (bookingRef: string) =>
       `/helpdesk/orders/${encodeURIComponent(bookingRef)}`,
+    TICKETS: "/helpdesk/tickets",
+    TICKET_CREATE: "/helpdesk/tickets/new",
+    TICKET_DETAIL: (ticketId: string | number) =>
+      `/helpdesk/tickets/${ticketId}`,
+  },
+  SETTLEMENT: {
+    WORKBENCH: "/finance/settlements/workbench",
+    PREVIEW: "/finance/settlements/preview",
+    PENDING: "/finance/settlements/pending",
+    APPROVED: "/finance/settlements/approved",
+    REJECTED: "/finance/settlements/rejected",
+    MIS: "/finance/settlements/mis",
+    DETAIL: (settlementNo: string) =>
+      `/finance/settlements/${encodeURIComponent(settlementNo)}`,
   },
   REPORTS: {
     LIST: "/reports",
@@ -78,6 +92,8 @@ export const ROUTES = {
     RATE_HEALTH: "/reports/rate-health",
     INVENTORY_ALLOCATION: "/reports/inventory-allocation",
     NET_EARNINGS: "/reports/net-earnings",
+    HOTEL_PAYOUTS: "/reports/hotel-payouts",
+    TRANSPORT_PAYOUTS: "/reports/transport-payouts",
     HOTEL_BD_DASHBOARD: "/reports/hotel-bd-dashboard",
     HOTEL_BD_PIPELINE: "/reports/hotel-bd-pipeline",
     SALES_MANAGER_DASHBOARD: "/reports/sales-manager-dashboard",
@@ -321,6 +337,8 @@ export const API_ENDPOINTS = {
       `/hotel/${hotelId}/media/${mediaId}/cover`,
     GET_HOTEL_FINANCE: (hotelId: string) => `/hotel/${hotelId}/finance`,
     UPDATE_HOTEL_FINANCE: (hotelId: string) => `/hotel/${hotelId}/finance`,
+    VERIFY_HOTEL_BANK: (hotelId: string) =>
+      `/hotel/${hotelId}/finance/verify-bank`,
     GET_HOTEL_FOOD_SERVICES: (hotelId: string) =>
       `/hotel/${hotelId}/food-services`,
     UPDATE_HOTEL_FOOD_SERVICES: (hotelId: string) =>
@@ -381,7 +399,18 @@ export const API_ENDPOINTS = {
     /** Super Admin only — full booking details; path param is list item id (numeric) */
     ADMIN_BOOKING_FULL_DETAILS: (id: string) =>
       `/reports/admin/booking-list/${id}/full-details`,
-    BOOKING_VOUCHER: (id: string) => `/reports/booking-list/${id}/voucher`,
+    BOOKING_VOUCHER: (
+      id: string,
+      opts?: { audience?: string; documentType?: string },
+    ) => {
+      const search = new URLSearchParams();
+      if (opts?.audience) search.set("audience", opts.audience);
+      if (opts?.documentType) search.set("documentType", opts.documentType);
+      const query = search.toString();
+      return query
+        ? `/reports/booking-list/${id}/voucher?${query}`
+        : `/reports/booking-list/${id}/voucher`;
+    },
     BOOKING_SUMMARY: "/reports/dashboard/booking-summary",
     PROMOTION_SUMMARY: "/reports/dashboard/booking-summary/promotions",
     PERFORMANCE_OVERVIEW: "/reports/dashboard/performance/overview",
@@ -409,6 +438,22 @@ export const API_ENDPOINTS = {
       `/reports/net-earnings/export/${jobId}`,
     NET_EARNINGS_EXPORT_DOWNLOAD: (jobId: string) =>
       `/reports/net-earnings/export/${jobId}/download`,
+    HOTEL_PAYOUTS: "/reports/hotel-payouts",
+    HOTEL_PAYOUTS_DETAIL: (paymentReference: string) =>
+      `/reports/hotel-payouts/${encodeURIComponent(paymentReference)}`,
+    HOTEL_PAYOUTS_EXPORT: "/reports/hotel-payouts/export",
+    HOTEL_PAYOUTS_EXPORT_JOB: (jobId: string) =>
+      `/reports/hotel-payouts/export/${jobId}`,
+    HOTEL_PAYOUTS_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/hotel-payouts/export/${jobId}/download`,
+    TRANSPORT_PAYOUTS: "/reports/transport-payouts",
+    TRANSPORT_PAYOUTS_DETAIL: (paymentReference: string) =>
+      `/reports/transport-payouts/${encodeURIComponent(paymentReference)}`,
+    TRANSPORT_PAYOUTS_EXPORT: "/reports/transport-payouts/export",
+    TRANSPORT_PAYOUTS_EXPORT_JOB: (jobId: string) =>
+      `/reports/transport-payouts/export/${jobId}`,
+    TRANSPORT_PAYOUTS_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/transport-payouts/export/${jobId}/download`,
     HOTEL_BD_DASHBOARD: "/reports/hotel-bd-dashboard",
     HOTEL_BD_PIPELINE: "/reports/hotel-bd-pipeline",
     HOTEL_BD_PIPELINE_EXPORT: "/reports/hotel-bd-pipeline/export",
@@ -449,6 +494,44 @@ export const API_ENDPOINTS = {
       });
       return `/helpdesk/bookings/${encodeURIComponent(bookingRef)}/voucher?${search.toString()}`;
     },
+    TICKETS: "/helpdesk/tickets",
+    TICKET_BY_ID: (ticketId: string | number) =>
+      `/helpdesk/tickets/${ticketId}`,
+    TICKET_ASSIGN: (ticketId: string | number) =>
+      `/helpdesk/tickets/${ticketId}/assign`,
+    TICKET_STATUS: (ticketId: string | number) =>
+      `/helpdesk/tickets/${ticketId}/status`,
+    TICKET_NOTES: (ticketId: string | number) =>
+      `/helpdesk/tickets/${ticketId}/notes`,
+    TICKET_CLOSE: (ticketId: string | number) =>
+      `/helpdesk/tickets/${ticketId}/close`,
+    TICKET_REOPEN: (ticketId: string | number) =>
+      `/helpdesk/tickets/${ticketId}/reopen`,
+    TICKET_REFERENCES: (ticketId: string | number) =>
+      `/helpdesk/tickets/${ticketId}/references`,
+    DASHBOARD: "/helpdesk/dashboard",
+    DASHBOARD_SLA: "/helpdesk/dashboard/sla",
+  },
+  SETTLEMENT: {
+    WORKBENCH: "/admin/settlements/workbench",
+    PREVIEW: "/admin/settlements/preview",
+    GENERATE: "/admin/settlements",
+    PENDING: "/admin/settlements/pending",
+    APPROVED: "/admin/settlements/approved",
+    REJECTED: "/admin/settlements/rejected",
+    MIS: "/admin/reports/settlement-mis",
+    BY_ID: (settlementNo: string) =>
+      `/admin/settlements/${encodeURIComponent(settlementNo)}`,
+    APPROVE: (settlementNo: string) =>
+      `/admin/settlements/${encodeURIComponent(settlementNo)}/approve`,
+    REJECT: (settlementNo: string) =>
+      `/admin/settlements/${encodeURIComponent(settlementNo)}/reject`,
+    RELEASE_PAYMENT: (settlementNo: string) =>
+      `/admin/settlements/${encodeURIComponent(settlementNo)}/release-payment`,
+    RETRY_PAYMENT: (settlementNo: string) =>
+      `/admin/settlements/${encodeURIComponent(settlementNo)}/retry-payment`,
+    STATUS_HISTORY: (settlementNo: string) =>
+      `/admin/settlements/${encodeURIComponent(settlementNo)}/status-history`,
   },
   RATES: {
     GET_CALENDAR: (

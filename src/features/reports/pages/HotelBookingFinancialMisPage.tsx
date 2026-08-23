@@ -317,8 +317,19 @@ export default function HotelBookingFinancialMisPage() {
   const initialListState = useMemo(() => {
     const restored = restoreMisListState();
     const urlAgencyId = searchParams.get("agencyId");
+    const urlBookingId = searchParams.get("bookingId");
     if (urlAgencyId) {
       restored.filters = { ...restored.filters, agencyId: urlAgencyId };
+      restored.page = 0;
+    }
+    if (urlBookingId) {
+      restored.filters = {
+        ...restored.filters,
+        search: urlBookingId,
+        uiDatePreset: "LAST_30_DAYS",
+        fromDate: "",
+        toDate: "",
+      };
       restored.page = 0;
     }
     return restored;
@@ -480,6 +491,26 @@ export default function HotelBookingFinancialMisPage() {
     },
     [filters],
   );
+
+  useEffect(() => {
+    const urlBookingId = searchParams.get("bookingId");
+    if (!urlBookingId) return;
+    setFilters((prev) => ({
+      ...prev,
+      search: urlBookingId,
+      uiDatePreset: "LAST_30_DAYS",
+      fromDate: "",
+      toDate: "",
+    }));
+    setDraft((prev) => ({
+      ...prev,
+      search: urlBookingId,
+      uiDatePreset: "LAST_30_DAYS",
+      fromDate: "",
+      toDate: "",
+    }));
+    setPage(0);
+  }, [searchParams]);
 
   useEffect(() => {
     if (customInvalid) return;

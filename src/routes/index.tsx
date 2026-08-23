@@ -177,6 +177,30 @@ const HelpdeskBookingLookupPage = lazy(
 const HelpdeskBookingDetailPage = lazy(
   () => import("../features/helpdesk/pages/HelpdeskBookingDetailPage"),
 );
+const HelpdeskTicketsPage = lazy(
+  () => import("../features/helpdesk/pages/HelpdeskTicketsPage"),
+);
+const HelpdeskTicketCreatePage = lazy(
+  () => import("../features/helpdesk/pages/HelpdeskTicketCreatePage"),
+);
+const HelpdeskTicketDetailPage = lazy(
+  () => import("../features/helpdesk/pages/HelpdeskTicketDetailPage"),
+);
+const SettlementWorkbenchPage = lazy(
+  () => import("../features/settlement/pages/SettlementWorkbenchPage"),
+);
+const SettlementPreviewPage = lazy(
+  () => import("../features/settlement/pages/SettlementPreviewPage"),
+);
+const SettlementQueuePage = lazy(
+  () => import("../features/settlement/pages/SettlementQueuePage"),
+);
+const SettlementMisPage = lazy(
+  () => import("../features/settlement/pages/SettlementMisPage"),
+);
+const SettlementDetailPage = lazy(
+  () => import("../features/settlement/pages/SettlementDetailPage"),
+);
 const BookingSummaryPage = lazy(
   () => import("../features/reports/pages/BookingSummaryPage"),
 );
@@ -194,6 +218,9 @@ const InventoryAllocationReportPage = lazy(
 );
 const NetEarningsReportPage = lazy(
   () => import("../features/reports/pages/NetEarningsReportPage"),
+);
+const HotelPayoutMisPage = lazy(
+  () => import("../features/reports/pages/HotelPayoutMisPage"),
 );
 const HotelBdDashboardPage = lazy(
   () => import("../features/reports/pages/HotelBdDashboardPage"),
@@ -474,6 +501,50 @@ export const routes: RouteObject[] = [
         element: <HelpdeskBookingDetailPage />,
       },
       {
+        path: "helpdesk/tickets",
+        element: <HelpdeskTicketsPage />,
+      },
+      {
+        path: "helpdesk/tickets/new",
+        element: <HelpdeskTicketCreatePage />,
+      },
+      {
+        path: "helpdesk/tickets/:ticketId",
+        element: <HelpdeskTicketDetailPage />,
+      },
+      {
+        path: "finance/settlements/workbench",
+        element: <SettlementWorkbenchPage />,
+      },
+      {
+        path: "finance/settlements/preview",
+        element: <SettlementPreviewPage />,
+      },
+      {
+        path: "finance/settlements/pending",
+        element: <SettlementQueuePage />,
+      },
+      {
+        path: "finance/settlements/approved",
+        element: <SettlementQueuePage />,
+      },
+      {
+        path: "finance/settlements/rejected",
+        element: <SettlementQueuePage />,
+      },
+      {
+        path: "finance/settlements/mis",
+        element: <SettlementMisPage />,
+      },
+      {
+        path: "finance/settlements/:settlementNo",
+        element: <SettlementDetailPage />,
+      },
+      {
+        path: "finance/settlements",
+        element: <Navigate to="/finance/settlements/workbench" replace />,
+      },
+      {
         path: "reports/booking-summary",
         element: <BookingSummaryPage />,
       },
@@ -496,6 +567,10 @@ export const routes: RouteObject[] = [
       {
         path: "reports/net-earnings",
         element: <NetEarningsReportPage />,
+      },
+      {
+        path: "reports/hotel-payouts",
+        element: <HotelPayoutMisPage />,
       },
       {
         path: "reports/hotel-bd-dashboard",

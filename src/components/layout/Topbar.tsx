@@ -106,6 +106,8 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     location.pathname === ROUTES.REPORTS.INVENTORY_ALLOCATION;
   const isNetEarningsReportPage =
     location.pathname === ROUTES.REPORTS.NET_EARNINGS;
+  const isHotelPayoutMisPage =
+    location.pathname === ROUTES.REPORTS.HOTEL_PAYOUTS;
 
   // Check My Properties page. Selecting a hotel here jumps to its info.
   const isMyPropertiesPage =
@@ -124,6 +126,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     isRateHealthReportPage ||
     isInventoryAllocationReportPage ||
     isNetEarningsReportPage ||
+    isHotelPayoutMisPage ||
     isDocumentReviewPage ||
     isMyPropertiesPage;
   const hotelIdFromUrl = searchParams.get("hotelId");

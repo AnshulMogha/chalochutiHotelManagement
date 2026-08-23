@@ -3,10 +3,15 @@ import { Link } from "react-router";
 import logo from "@/assets/originallogo.webp";
 import {
   canViewHelpdeskBookings,
+  canViewHelpdeskTickets,
   canViewHotelBdPipeline,
   canViewHotelBookingFinancialMis,
+  canViewHotelPayoutMis,
   canViewPaymentReport,
   canViewSalesManagerReports,
+  canViewSupplierSettlement,
+  isAuditorRole,
+  isFinanceManagerRole,
   isHelpdeskAgentRole,
   isHotelBdRole,
   isReviewerPortalRole,
@@ -44,6 +49,11 @@ import {
   HeartPulse,
   Wallet,
   GitBranch,
+  Ticket,
+  Landmark,
+  CheckCircle2,
+  ClipboardList,
+  RotateCcw,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTES, hasAnyRole, ROLES } from "@/constants";
@@ -55,6 +65,86 @@ export interface NavItem {
   badge?: string;
   children?: NavItem[];
   external?: boolean;
+}
+
+function getHelpdeskNavItems(userRoles: string[] | undefined): NavItem[] {
+  const items: NavItem[] = [];
+  if (canViewHelpdeskTickets(userRoles)) {
+    items.push({
+      label: "Tickets",
+      path: ROUTES.HELPDESK.TICKETS,
+      icon: Ticket,
+    });
+  }
+  if (canViewHelpdeskBookings(userRoles)) {
+    items.push({
+      label: "Order Lookup",
+      path: ROUTES.HELPDESK.LOOKUP,
+      icon: Headphones,
+    });
+  }
+  return items;
+}
+
+function getSettlementNavItem(): NavItem {
+  return {
+    label: "Settlements",
+    path: ROUTES.SETTLEMENT.WORKBENCH,
+    icon: Landmark,
+    children: [
+      {
+        label: "Workbench",
+        path: ROUTES.SETTLEMENT.WORKBENCH,
+        icon: Landmark,
+      },
+      {
+        label: "Pending",
+        path: ROUTES.SETTLEMENT.PENDING,
+        icon: ClipboardList,
+      },
+      {
+        label: "Approved",
+        path: ROUTES.SETTLEMENT.APPROVED,
+        icon: CheckCircle2,
+      },
+      {
+        label: "Rejected",
+        path: ROUTES.SETTLEMENT.REJECTED,
+        icon: RotateCcw,
+      },
+      {
+        label: "Settlement MIS",
+        path: ROUTES.SETTLEMENT.MIS,
+        icon: BarChart3,
+      },
+    ],
+  };
+}
+
+/** Auditor sidebar: Tickets, Order Lookup, and a single Reports group. */
+function getAuditorNavItems(user: User | null): NavItem[] {
+  const userRoles = user?.roles;
+  const items = getHelpdeskNavItems(userRoles);
+  const reportsNav = getReportsNavItem(user, {
+    includeOnboardingPipeline: false,
+    includeHotelFinancialMis: canViewHotelBookingFinancialMis(userRoles),
+  });
+  if (reportsNav) items.push(reportsNav);
+  return items;
+}
+
+/** Finance Manager sidebar: settlements + hotel MIS only. */
+function getFinanceManagerNavItems(userRoles: string[] | undefined): NavItem[] {
+  const items: NavItem[] = [];
+  if (canViewSupplierSettlement(userRoles)) {
+    items.push(getSettlementNavItem());
+  }
+  items.push({
+    label: "Hotel MIS",
+    path: ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS,
+    icon: Wallet,
+  });
+  return items;
 }
 
 function getOnboardingPipelineNavItem(): NavItem {
@@ -106,6 +196,8 @@ function getReportsNavItem(
     canViewHotelBookingFinancialMis(user?.roles);
   const includeBookingReports = canViewModule(user, "BOOKINGS");
   const showPaymentReport = canViewPaymentReport(user?.roles);
+  const showHotelPayouts = canViewHotelPayoutMis(user?.roles);
+  const showHotelPayments = showPaymentReport || showHotelPayouts;
 
   if (
     !includeOnboardingPipeline &&
@@ -113,7 +205,7 @@ function getReportsNavItem(
     !includeSalesManagerDashboard &&
     !includeSalesManagerPortfolio &&
     !includeHotelFinancialMis &&
-    !showPaymentReport
+    !showHotelPayments
   ) {
     return null;
   }
@@ -147,11 +239,13 @@ function getReportsNavItem(
           },
         ]
       : []),
-    ...(showPaymentReport
+    ...(showHotelPayments
       ? [
           {
-            label: "Payment Report",
-            path: ROUTES.REPORTS.NET_EARNINGS,
+            label: "Payments",
+            path: showPaymentReport
+              ? ROUTES.REPORTS.NET_EARNINGS
+              : ROUTES.REPORTS.HOTEL_PAYOUTS,
             icon: Wallet,
           },
         ]
@@ -178,11 +272,23 @@ const getNavItems = (user: User | null): NavItem[] => {
   const isZonalSales = isZonalManagerSalesRole(userRoles);
   const isSalesManager = isSalesManagerRole(userRoles);
   const isHelpdeskAgent = isHelpdeskAgentRole(userRoles);
+  const isAuditor = isAuditorRole(userRoles);
   const isSuperAdmin = hasAnyRole(userRoles, [ROLES.SUPER_ADMIN]);
   const isHotelBd = isHotelBdRole(userRoles);
-  const dashboardPath = isHelpdeskAgent
-    ? ROUTES.HELPDESK.LOOKUP
-    : isHotelBd
+
+  if (isHelpdeskAgent && !isSuperAdmin) {
+    return getHelpdeskNavItems(userRoles);
+  }
+
+  if (isAuditor && !isSuperAdmin) {
+    return getAuditorNavItems(user);
+  }
+
+  if (isFinanceManagerRole(userRoles)) {
+    return getFinanceManagerNavItems(userRoles);
+  }
+
+  const dashboardPath = isHotelBd
     ? ROUTES.REPORTS.HOTEL_BD_DASHBOARD
     : isSalesManager
       ? ROUTES.REPORTS.SALES_MANAGER_DASHBOARD
@@ -209,14 +315,6 @@ const getNavItems = (user: User | null): NavItem[] => {
       path: ROUTES.ADMIN.TRANSPORT,
       icon: Bus,
       external: true,
-    });
-    return items;
-  }
-  if (isHelpdeskAgent && !isSuperAdmin) {
-    items.push({
-      label: "Help Desk",
-      path: ROUTES.HELPDESK.LOOKUP,
-      icon: Headphones,
     });
     return items;
   }
@@ -535,15 +633,7 @@ const getNavItems = (user: User | null): NavItem[] => {
   // Items visible only to SUPER_ADMIN
   if (isSuperAdmin) {
     items.push(
-      ...(canViewHelpdeskBookings(userRoles)
-        ? [
-            {
-              label: "Help Desk",
-              path: ROUTES.HELPDESK.LOOKUP,
-              icon: Headphones,
-            },
-          ]
-        : []),
+      ...getHelpdeskNavItems(userRoles),
       {
         label: "Hotel Review",
         path: ROUTES.ADMIN.HOTEL_REVIEW,
@@ -584,6 +674,19 @@ const getNavItems = (user: User | null): NavItem[] => {
     );
   }
 
+  // Finance / auditor roles that are not super admin still need tickets.
+  if (
+    !isSuperAdmin &&
+    !isHelpdeskAgent &&
+    canViewHelpdeskTickets(userRoles)
+  ) {
+    items.push(...getHelpdeskNavItems(userRoles));
+  }
+
+  if (canViewSupplierSettlement(userRoles)) {
+    items.push(getSettlementNavItem());
+  }
+
   // "More" item at the end - visible to SUPER_ADMIN, HOTEL_OWNER, HOTEL_MANAGER
   if (isAdminOrOwner) {
     items.push({
@@ -613,12 +716,22 @@ const getNavItems = (user: User | null): NavItem[] => {
     });
   }
   if (canViewHotelBookingFinancialMis(userRoles)) {
-    const hasReportsNav = items.some((item) => item.path === ROUTES.REPORTS.LIST);
-    if (!hasReportsNav) {
+    const existingReports = items.find((item) => item.path === ROUTES.REPORTS.LIST);
+    if (!existingReports) {
       const reportsNav = getReportsNavItem(user, {
         includeHotelFinancialMis: true,
       });
       if (reportsNav) items.push(reportsNav);
+    } else if (
+      canViewHotelBookingFinancialMis(userRoles) &&
+      !(existingReports.children ?? []).some(
+        (child) => child.path === ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS,
+      )
+    ) {
+      existingReports.children = [
+        ...(existingReports.children ?? []),
+        getHotelFinancialMisNavItem(),
+      ];
     }
   }
 
@@ -630,12 +743,24 @@ const getNavItems = (user: User | null): NavItem[] => {
     !isZonalSales &&
     !isSalesManager
   ) {
-    const reportsNav = getReportsNavItem(user, {
-      includeOnboardingPipeline: true,
-      includeSalesManagerDashboard: canViewSalesManagerReports(userRoles),
-      includeSalesManagerPortfolio: canViewSalesManagerReports(userRoles),
-    });
-    if (reportsNav) items.push(reportsNav);
+    const existingReports = items.find((item) => item.path === ROUTES.REPORTS.LIST);
+    if (!existingReports) {
+      const reportsNav = getReportsNavItem(user, {
+        includeOnboardingPipeline: true,
+        includeSalesManagerDashboard: canViewSalesManagerReports(userRoles),
+        includeSalesManagerPortfolio: canViewSalesManagerReports(userRoles),
+      });
+      if (reportsNav) items.push(reportsNav);
+    } else if (
+      !(existingReports.children ?? []).some(
+        (child) => child.path === ROUTES.REPORTS.HOTEL_BD_PIPELINE,
+      )
+    ) {
+      existingReports.children = [
+        ...(existingReports.children ?? []),
+        getOnboardingPipelineNavItem(),
+      ];
+    }
   }
 
   return items;
@@ -703,7 +828,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
             </Link>
           </div>
 
-          <nav className="relative flex-1 overflow-y-auto overflow-x-hidden px-2 py-4 lg:px-3">
+          <nav className="sidebar-scroll relative flex-1 overflow-y-auto overflow-x-hidden px-2 py-4 lg:px-3">
             <ul className="min-w-0 space-y-1.5">
               {navItems.map((item) => (
                 <SidebarItem

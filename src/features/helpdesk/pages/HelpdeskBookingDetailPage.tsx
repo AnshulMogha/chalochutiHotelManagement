@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ROUTES } from "@/constants";
 import { Toast, useToast } from "@/components/ui/Toast";
@@ -8,7 +8,6 @@ import {
   formatReportDate,
   formatStatusLabel,
 } from "@/features/reports/components/reportUiHelpers";
-import { HelpdeskVoucherModal } from "../components/HelpdeskVoucherModal";
 import {
   HelpdeskActionButton,
   HelpdeskBreakupAccordion,
@@ -25,18 +24,14 @@ import {
   formatStayLabel,
 } from "../components/helpdeskUi";
 import {
-  getHelpdeskVoucherOptions,
   helpdeskBookingService,
   type HelpdeskBookingDetail,
-  type HelpdeskVoucherAudience,
-  type HelpdeskVoucherDocumentType,
 } from "../services/helpdeskBookingService";
 import {
   ArrowLeft,
   Building2,
   CalendarDays,
   Copy,
-  FileText,
   Hash,
   Loader2,
   Mail,
@@ -51,10 +46,6 @@ import {
   Wallet,
 } from "lucide-react";
 
-type VoucherSelection = {
-  audience: HelpdeskVoucherAudience;
-  documentType: HelpdeskVoucherDocumentType;
-};
 type DetailTab = "overview" | "financial" | "payment" | "timeline" | "actions";
 
 export default function HelpdeskBookingDetailPage() {
@@ -63,8 +54,6 @@ export default function HelpdeskBookingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<HelpdeskBookingDetail | null>(null);
   const [activeTab, setActiveTab] = useState<DetailTab>("overview");
-  const [voucherSelection, setVoucherSelection] =
-    useState<VoucherSelection | null>(null);
 
   useEffect(() => {
     if (!bookingRef.trim()) return;
@@ -88,11 +77,6 @@ export default function HelpdeskBookingDetailPage() {
       cancelled = true;
     };
   }, [bookingRef, showToast]);
-
-  const voucherOptions = useMemo(
-    () => (detail ? getHelpdeskVoucherOptions(detail) : []),
-    [detail],
-  );
 
   const copyValue = async (label: string, value?: string | null) => {
     if (!value?.trim()) {
@@ -529,29 +513,6 @@ export default function HelpdeskBookingDetailPage() {
                   Copy payment ID
                 </HelpdeskActionButton>
               </div>
-              {voucherOptions.length ? (
-                <div className="border-t border-slate-100 pt-3">
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Vouchers
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {voucherOptions.map((option) => (
-                      <HelpdeskActionButton
-                        key={option.key}
-                        icon={FileText}
-                        onClick={() =>
-                          setVoucherSelection({
-                            audience: option.audience,
-                            documentType: option.documentType,
-                          })
-                        }
-                      >
-                        {option.label}
-                      </HelpdeskActionButton>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </div>
           </HelpdeskPanel>
           <HelpdeskPanel title="Account summary">
@@ -572,16 +533,6 @@ export default function HelpdeskBookingDetailPage() {
             />
           </HelpdeskPanel>
         </div>
-      ) : null}
-
-      {voucherSelection ? (
-        <HelpdeskVoucherModal
-          open
-          onClose={() => setVoucherSelection(null)}
-          bookingReference={detail.bookingRef}
-          audience={voucherSelection.audience}
-          documentType={voucherSelection.documentType}
-        />
       ) : null}
 
       <Toast toast={toast} onClose={hideToast} />

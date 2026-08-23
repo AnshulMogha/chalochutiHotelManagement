@@ -629,8 +629,11 @@ export const bookingService = {
   },
 
   /** Fetch voucher as blob (PDF). id = list item id (numeric) from booking list. */
-  getVoucher: async (id: string): Promise<Blob> => {
-    const url = API_ENDPOINTS.REPORTS.BOOKING_VOUCHER(id);
+  getVoucher: async (
+    id: string,
+    opts?: { audience?: string; documentType?: string },
+  ): Promise<Blob> => {
+    const url = API_ENDPOINTS.REPORTS.BOOKING_VOUCHER(id, opts);
     const blob = await apiClient.get<Blob>(url, {
       responseType: "blob",
       headers: { Accept: "application/pdf" },

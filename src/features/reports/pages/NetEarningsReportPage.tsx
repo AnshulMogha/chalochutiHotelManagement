@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { useAuth } from "@/hooks/useAuth";
+import { canViewHotelPayoutMis } from "@/constants/roles";
 import { cn } from "@/lib/utils";
+import { PaymentsTabNav } from "../components/payoutMisUi";
 import {
   exportStatusLabel,
   formatFinanceCurrency,
@@ -371,7 +374,9 @@ function BookingDetailDrawer({
 export default function NetEarningsReportPage() {
   const [searchParams] = useSearchParams();
   const hotelId = searchParams.get("hotelId");
+  const { user } = useAuth();
   const { toast, showToast, hideToast } = useToast();
+  const showPayoutsTab = canViewHotelPayoutMis(user?.roles);
 
   const [datePreset, setDatePreset] = useState<NetEarningsDatePreset>(DEFAULT_DATE_PRESET);
   const [bookingStatuses, setBookingStatuses] = useState<NetEarningsBookingStatus[]>(
@@ -549,7 +554,7 @@ export default function NetEarningsReportPage() {
   if (!hotelId) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-slate-900">Payment Report</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Payments</h1>
         <p className="mt-1 text-sm text-slate-500">Select a hotel from top bar.</p>
         <div className="mt-8 flex min-h-70 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white">
           <Building2 className="h-10 w-10 text-slate-300" />
@@ -581,7 +586,7 @@ export default function NetEarningsReportPage() {
             icon={Wallet}
             iconClassName="bg-linear-to-br from-emerald-600 to-teal-500"
             borderClassName="border-emerald-100"
-            title="Payment Report"
+            title="Payments"
             description="Net earnings and settlement details"
             actions={
               <button
@@ -608,6 +613,14 @@ export default function NetEarningsReportPage() {
               </button>
             }
           />
+
+          {showPayoutsTab ? (
+            <PaymentsTabNav
+              active="net-earnings"
+              showNetEarnings
+              hotelId={hotelId}
+            />
+          ) : null}
 
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 shadow-sm">
             {summary ? (

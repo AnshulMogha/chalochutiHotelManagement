@@ -14,6 +14,40 @@ export {
   PolicySectionHeader as FinanceSectionHeader,
 };
 
+export function FinanceBankBadge({
+  status,
+}: {
+  status: string | null | undefined;
+}) {
+  const normalized = String(status || "NOT_VERIFIED").toUpperCase();
+  const styles: Record<string, string> = {
+    VERIFIED: "bg-emerald-50 text-emerald-800 ring-emerald-200",
+    PENDING: "bg-amber-50 text-amber-800 ring-amber-200",
+    FAILED: "bg-rose-50 text-rose-800 ring-rose-200",
+    NOT_VERIFIED: "bg-rose-50 text-rose-800 ring-rose-200",
+    UNVERIFIED: "bg-rose-50 text-rose-800 ring-rose-200",
+  };
+  const labels: Record<string, string> = {
+    VERIFIED: "Verified",
+    PENDING: "Pending",
+    FAILED: "Failed",
+    NOT_VERIFIED: "Not verified",
+    UNVERIFIED: "Not verified",
+  };
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset",
+        styles[normalized] ?? "bg-slate-50 text-slate-700 ring-slate-200",
+      )}
+    >
+      {labels[normalized] ??
+        normalized.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase())}
+    </span>
+  );
+}
+
 export function FinanceFieldLabel({
   htmlFor,
   children,

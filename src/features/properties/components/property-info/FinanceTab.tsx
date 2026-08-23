@@ -1,11 +1,16 @@
-import { useState, useEffect } from "react";
-import { Building2, Landmark } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Building2, Landmark, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { Input } from "@/components/ui/Input";
-import { adminService, type FinanceData } from "@/features/admin/services/adminService";
+import { adminService, type FinanceData, isFinanceBankVerified } from "@/features/admin/services/adminService";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks";
+import { canVerifyHotelBank } from "@/constants/roles";
+import { canEditModule } from "@/lib/permissions";
+import { extractErrorMessage, extractFieldErrors } from "@/features/reports/components/ReportJsonPanel";
 import {
+  FinanceBankBadge,
   FinanceFieldHint,
   FinanceFieldLabel,
   FinanceFieldWrap,
@@ -20,10 +25,29 @@ interface FinanceTabProps {
   hotelId: string;
 }
 
+function financeSnapshot(data: FinanceData): string {
+  return JSON.stringify(data);
+}
+
 export function FinanceTab({ hotelId }: FinanceTabProps) {
+  const { user } = useAuth();
+  const canEditFinance = canEditModule(user, "PROPERTY_FINANCE");
   const { toast, showToast, hideToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [bankVerificationStatus, setBankVerificationStatus] = useState<
+    string | null
+  >(null);
+  const [bankVerifiedAt, setBankVerifiedAt] = useState<string | null>(null);
+  const [bankVerifiedName, setBankVerifiedName] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [saveFieldErrors, setSaveFieldErrors] = useState<
+    Partial<Record<keyof FinanceData, string>>
+  >({});
+  const [lastSavedSnapshot, setLastSavedSnapshot] = useState("");
+  const canVerifyBank = canVerifyHotelBank(user?.roles);
+  const isBankVerified = isFinanceBankVerified(bankVerificationStatus);
   const [formData, setFormData] = useState<FinanceData>({
     gstin: "",
     pan: "",
@@ -35,51 +59,69 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
     bankIfsc: "",
     bankBranch: "",
   });
+  const isDirty = financeSnapshot(formData) !== lastSavedSnapshot;
 
-  useEffect(() => {
-    const fetchFinance = async () => {
-      setLoading(true);
-      setFormData({
-        gstin: "",
-        pan: "",
-        businessName: "",
-        businessAddress: "",
-        bankAccountHolderName: "",
-        bankAccountNumber: "",
-        bankName: "",
-        bankIfsc: "",
-        bankBranch: "",
-      });
+  const fetchFinance = useCallback(async () => {
+    setLoading(true);
+    setFormData({
+      gstin: "",
+      pan: "",
+      businessName: "",
+      businessAddress: "",
+      bankAccountHolderName: "",
+      bankAccountNumber: "",
+      bankName: "",
+      bankIfsc: "",
+      bankBranch: "",
+    });
+    setBankVerificationStatus(null);
+    setBankVerifiedAt(null);
+    setBankVerifiedName(null);
+    setLastSavedSnapshot("");
 
-      try {
-        const response = await adminService.getHotelFinance(hotelId);
-        if (response.finances && response.finances.length > 0) {
-          const financeData = response.finances[0];
-          setFormData({
-            gstin: financeData.gstin || "",
-            pan: financeData.pan || "",
-            businessName: financeData.businessName || "",
-            businessAddress: financeData.businessAddress || "",
-            bankAccountHolderName: financeData.bankAccountHolderName || "",
-            bankAccountNumber: financeData.bankAccountNumber || "",
-            bankName: financeData.bankName || "",
-            bankIfsc: financeData.bankIfsc || "",
-            bankBranch: financeData.bankBranch || "",
-          });
-        }
-      } catch (error) {
-        console.error("Error fetching finance data:", error);
-      } finally {
-        setLoading(false);
+    try {
+      const response = await adminService.getHotelFinance(hotelId);
+      if (response.finances && response.finances.length > 0) {
+        const financeData = response.finances[0];
+        const nextFormData = {
+          gstin: financeData.gstin || "",
+          pan: financeData.pan || "",
+          businessName: financeData.businessName || "",
+          businessAddress: financeData.businessAddress || "",
+          bankAccountHolderName: financeData.bankAccountHolderName || "",
+          bankAccountNumber: financeData.bankAccountNumber || "",
+          bankName: financeData.bankName || "",
+          bankIfsc: financeData.bankIfsc || "",
+          bankBranch: financeData.bankBranch || "",
+        };
+        setFormData(nextFormData);
+        setLastSavedSnapshot(financeSnapshot(nextFormData));
+        setBankVerificationStatus(
+          financeData.bankVerificationStatus ?? "NOT_VERIFIED",
+        );
+        setBankVerifiedAt(financeData.bankVerifiedAt ?? null);
+        setBankVerifiedName(financeData.bankVerifiedName ?? null);
       }
-    };
-
-    if (hotelId) {
-      fetchFinance();
+    } catch (error) {
+      console.error("Error fetching finance data:", error);
+    } finally {
+      setLoading(false);
     }
   }, [hotelId]);
 
+  useEffect(() => {
+    if (hotelId) {
+      void fetchFinance();
+    }
+  }, [hotelId, fetchFinance]);
+
   const handleChange = (field: keyof FinanceData, value: string) => {
+    setSaveFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -188,18 +230,60 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
     return true;
   };
 
+  const handleVerifyBank = async () => {
+    if (!canVerifyBank || isBankVerified) return;
+
+    setVerifying(true);
+    setVerifyError(null);
+    try {
+      if (canEditFinance) {
+        if (!validateForm()) {
+          return;
+        }
+        setSaveFieldErrors({});
+        await adminService.updateHotelFinance(hotelId, formData);
+        setLastSavedSnapshot(financeSnapshot(formData));
+      }
+
+      const result = await adminService.verifyHotelBank(hotelId);
+      setBankVerificationStatus(result?.bankVerificationStatus ?? "VERIFIED");
+      setBankVerifiedAt(result?.bankVerifiedAt ?? null);
+      setBankVerifiedName(result?.bankVerifiedName ?? null);
+      showToast("Bank account verified successfully", "success");
+      await fetchFinance();
+    } catch (error) {
+      console.error("Error verifying bank account:", error);
+      const fieldErrors = extractFieldErrors(error);
+      if (Object.keys(fieldErrors).length > 0) {
+        setSaveFieldErrors(
+          fieldErrors as Partial<Record<keyof FinanceData, string>>,
+        );
+      }
+      const message = extractErrorMessage(error);
+      setVerifyError(message);
+      showToast(message, "error");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!validateForm()) {
       return;
     }
 
     setSaving(true);
+    setSaveFieldErrors({});
     try {
       await adminService.updateHotelFinance(hotelId, formData);
+      setLastSavedSnapshot(financeSnapshot(formData));
       showToast("Finance information saved successfully", "success");
+      await fetchFinance();
     } catch (error) {
       console.error("Error saving finance data:", error);
-      showToast("Failed to save finance information", "error");
+      const fieldErrors = extractFieldErrors(error);
+      setSaveFieldErrors(fieldErrors as Partial<Record<keyof FinanceData, string>>);
+      showToast(extractErrorMessage(error), "error");
     } finally {
       setSaving(false);
     }
@@ -260,10 +344,12 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
                   maxLength={15}
                   className={cn(
                     "bg-white font-mono uppercase",
-                    gstinInvalid && "border-red-500",
+                    (gstinInvalid || saveFieldErrors.gstin) && "border-red-500",
                   )}
                 />
-                {gstinInvalid ? (
+                {saveFieldErrors.gstin ? (
+                  <FinanceFieldHint error>{saveFieldErrors.gstin}</FinanceFieldHint>
+                ) : gstinInvalid ? (
                   <FinanceFieldHint error>
                     GSTIN must be exactly 15 characters
                   </FinanceFieldHint>
@@ -287,10 +373,15 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
                   maxLength={10}
                   className={cn(
                     "bg-white font-mono uppercase",
-                    (panLengthInvalid || panFormatInvalid) && "border-red-500",
+                    (panLengthInvalid ||
+                      panFormatInvalid ||
+                      saveFieldErrors.pan) &&
+                      "border-red-500",
                   )}
                 />
-                {panLengthInvalid ? (
+                {saveFieldErrors.pan ? (
+                  <FinanceFieldHint error>{saveFieldErrors.pan}</FinanceFieldHint>
+                ) : panLengthInvalid ? (
                   <FinanceFieldHint error>
                     PAN must be exactly 10 characters
                   </FinanceFieldHint>
@@ -316,8 +407,14 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
                 placeholder="Enter business name"
                 value={formData.businessName}
                 onChange={(e) => handleChange("businessName", e.target.value)}
-                className="bg-white"
+                className={cn(
+                  "bg-white",
+                  saveFieldErrors.businessName && "border-red-500",
+                )}
               />
+              {saveFieldErrors.businessName ? (
+                <FinanceFieldHint error>{saveFieldErrors.businessName}</FinanceFieldHint>
+              ) : null}
             </FinanceFieldWrap>
 
             <FinanceFieldWrap theme="emerald">
@@ -330,18 +427,29 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
                 placeholder="Enter complete business address"
                 value={formData.businessAddress}
                 onChange={(e) => handleChange("businessAddress", e.target.value)}
+                className={cn(saveFieldErrors.businessAddress && "border-red-500")}
               />
+              {saveFieldErrors.businessAddress ? (
+                <FinanceFieldHint error>
+                  {saveFieldErrors.businessAddress}
+                </FinanceFieldHint>
+              ) : null}
             </FinanceFieldWrap>
           </div>
         </FinanceSectionCard>
 
         <FinanceSectionCard theme="teal">
-          <FinanceSectionHeader
-            icon={Landmark}
-            title="Bank Account Information"
-            subtitle="Provide your bank account details for payments"
-            theme="teal"
-          />
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+            <FinanceSectionHeader
+              icon={Landmark}
+              title="Bank Account Information"
+              subtitle="Provide your bank account details for payments"
+              theme="teal"
+            />
+            {bankVerificationStatus ? (
+              <FinanceBankBadge status={bankVerificationStatus} />
+            ) : null}
+          </div>
 
           <div className="space-y-3">
             <FinanceFieldWrap theme="teal">
@@ -438,6 +546,69 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
                 className="bg-white"
               />
             </FinanceFieldWrap>
+
+            {canVerifyBank ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-teal-100 bg-teal-50/50 px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-teal-900">
+                    Bank account verification
+                  </p>
+                  <p className="mt-0.5 text-xs text-teal-700">
+                    {isBankVerified
+                      ? "This bank account has been verified for settlements."
+                      : canEditFinance && isDirty
+                        ? "Save your bank details first. Verify will save changes and then verify the saved account."
+                        : "Verification uses the bank details already saved on the server."}
+                  </p>
+                  {isBankVerified && (bankVerifiedName || bankVerifiedAt) ? (
+                    <p className="mt-1 text-xs text-teal-600">
+                      {bankVerifiedName
+                        ? `Name on record: ${bankVerifiedName}`
+                        : null}
+                      {bankVerifiedName && bankVerifiedAt ? " · " : null}
+                      {bankVerifiedAt
+                        ? `Verified on ${new Date(bankVerifiedAt).toLocaleString("en-IN")}`
+                        : null}
+                    </p>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  data-readonly-allow="true"
+                  onClick={handleVerifyBank}
+                  disabled={verifying || saving || isBankVerified}
+                  className="shrink-0 bg-teal-700 text-white hover:bg-teal-800 disabled:opacity-60"
+                >
+                  <ShieldCheck className="mr-1.5 h-4 w-4" />
+                  {verifying
+                    ? canEditFinance && isDirty
+                      ? "Saving & verifying..."
+                      : "Verifying..."
+                    : isBankVerified
+                      ? "Verified"
+                      : canEditFinance && isDirty
+                        ? "Save & verify bank account"
+                        : "Verify bank account"}
+                </Button>
+              </div>
+            ) : bankVerificationStatus ? (
+              <div className="rounded-lg border border-teal-100 bg-teal-50/50 px-3 py-2.5">
+                <p className="text-sm font-medium text-teal-900">
+                  Bank account verification
+                </p>
+                <p className="mt-0.5 text-xs text-teal-700">
+                  {isBankVerified
+                    ? "This bank account has been verified for settlements."
+                    : "Bank account is not verified yet."}
+                </p>
+              </div>
+            ) : null}
+
+            {verifyError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                {verifyError}
+              </div>
+            ) : null}
           </div>
         </FinanceSectionCard>
 

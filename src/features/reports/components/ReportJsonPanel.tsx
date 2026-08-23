@@ -39,8 +39,131 @@ export function ReportJsonPanel({
 }
 
 export function extractErrorMessage(err: unknown): string {
-  if (err && typeof err === "object" && "message" in err) {
-    return String((err as { message?: unknown }).message || "Request failed");
+  if (!err || typeof err !== "object") return "Request failed";
+
+  const error = err as {
+    message?: unknown;
+    data?: unknown;
+  };
+
+  let detailPayload = error.data;
+
+  if (
+    detailPayload &&
+    typeof detailPayload === "object" &&
+    !Array.isArray(detailPayload) &&
+    "data" in detailPayload &&
+    (detailPayload as { data: unknown }).data != null
+  ) {
+    const inner = (detailPayload as { data: unknown }).data;
+    if (typeof inner === "object" || typeof inner === "string") {
+      detailPayload = inner;
+    }
   }
-  return "Request failed";
+
+  const topMessage =
+    error.message != null && String(error.message).trim()
+      ? String(error.message).trim()
+      : "";
+
+  if (typeof detailPayload === "string" && detailPayload.trim()) {
+    const detail = detailPayload.trim();
+    return detail === topMessage ? detail : detail;
+  }
+
+  if (Array.isArray(detailPayload)) {
+    const parts = detailPayload
+      .map((part) =>
+        typeof part === "object" && part != null && "message" in part
+          ? String((part as { message: unknown }).message)
+          : String(part),
+      )
+      .filter((part) => part && part !== "undefined");
+    if (parts.length === 1) return parts[0];
+    if (parts.length > 1) {
+      return topMessage ? `${topMessage} ${parts.join(" ")}` : parts.join(" ");
+    }
+  }
+
+  if (detailPayload && typeof detailPayload === "object") {
+    const data = detailPayload as {
+      message?: unknown;
+      code?: unknown;
+      [key: string]: unknown;
+    };
+
+    const nestedMessage =
+      data.message != null && String(data.message).trim()
+        ? String(data.message).trim()
+        : "";
+    const code =
+      data.code != null && String(data.code).trim()
+        ? String(data.code).trim()
+        : "";
+
+    if (code === "MAKER_CHECKER_VIOLATION") {
+      return (
+        nestedMessage ||
+        topMessage ||
+        "Settlement creator cannot approve or reject the same settlement."
+      );
+    }
+
+    const fieldMessages = Object.entries(data)
+      .filter(
+        ([key, value]) =>
+          key !== "message" &&
+          key !== "code" &&
+          value != null &&
+          String(value).trim() !== "",
+      )
+      .map(([, value]) => String(value).trim());
+
+    if (fieldMessages.length === 1) return fieldMessages[0];
+    if (fieldMessages.length > 1) {
+      return topMessage
+        ? `${topMessage} ${fieldMessages.join(" ")}`
+        : fieldMessages.join(" ");
+    }
+
+    if (nestedMessage) return nestedMessage;
+  }
+
+  return topMessage || "Request failed";
+}
+
+export function extractFieldErrors(err: unknown): Record<string, string> {
+  if (!err || typeof err !== "object") return {};
+
+  const error = err as { data?: unknown };
+  let detailPayload = error.data;
+
+  if (
+    detailPayload &&
+    typeof detailPayload === "object" &&
+    !Array.isArray(detailPayload) &&
+    "data" in detailPayload &&
+    (detailPayload as { data: unknown }).data != null
+  ) {
+    const inner = (detailPayload as { data: unknown }).data;
+    if (typeof inner === "object" && inner != null && !Array.isArray(inner)) {
+      detailPayload = inner;
+    }
+  }
+
+  if (!detailPayload || typeof detailPayload !== "object" || Array.isArray(detailPayload)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(detailPayload as Record<string, unknown>)
+      .filter(
+        ([key, value]) =>
+          key !== "message" &&
+          key !== "code" &&
+          value != null &&
+          String(value).trim() !== "",
+      )
+      .map(([key, value]) => [key, String(value).trim()]),
+  );
 }
