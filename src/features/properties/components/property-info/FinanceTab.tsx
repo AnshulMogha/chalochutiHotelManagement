@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/Input";
 import { adminService, type FinanceData, isFinanceBankVerified } from "@/features/admin/services/adminService";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks";
+import { canEditHotelFinanceDetails } from "@/lib/permissions";
 import { canVerifyHotelBank } from "@/constants/roles";
-import { canEditModule } from "@/lib/permissions";
 import { extractErrorMessage, extractFieldErrors } from "@/features/reports/components/ReportJsonPanel";
 import {
   FinanceBankBadge,
@@ -31,7 +31,7 @@ function financeSnapshot(data: FinanceData): string {
 
 export function FinanceTab({ hotelId }: FinanceTabProps) {
   const { user } = useAuth();
-  const canEditFinance = canEditModule(user, "PROPERTY_FINANCE");
+  const canEditFinance = canEditHotelFinanceDetails(user);
   const { toast, showToast, hideToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -558,7 +558,9 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
                       ? "This bank account has been verified for settlements."
                       : canEditFinance && isDirty
                         ? "Save your bank details first. Verify will save changes and then verify the saved account."
-                        : "Verification uses the bank details already saved on the server."}
+                        : canEditFinance
+                          ? "Ask Super Admin or Finance Manager to verify after you save bank details."
+                          : "Verify the bank details saved by the hotel owner."}
                   </p>
                   {isBankVerified && (bankVerifiedName || bankVerifiedAt) ? (
                     <p className="mt-1 text-xs text-teal-600">
@@ -575,9 +577,13 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
                 <Button
                   type="button"
                   data-readonly-allow="true"
-                  onClick={handleVerifyBank}
+                  onClick={isBankVerified ? undefined : handleVerifyBank}
                   disabled={verifying || saving || isBankVerified}
-                  className="shrink-0 bg-teal-700 text-white hover:bg-teal-800 disabled:opacity-60"
+                  aria-disabled={isBankVerified}
+                  className={cn(
+                    "shrink-0 bg-teal-700 text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60",
+                    isBankVerified && "hover:bg-teal-700",
+                  )}
                 >
                   <ShieldCheck className="mr-1.5 h-4 w-4" />
                   {verifying
@@ -612,15 +618,17 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
           </div>
         </FinanceSectionCard>
 
-        <FinanceSaveBar>
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-[#2f3d95] hover:bg-[#263578] text-white"
-          >
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
-        </FinanceSaveBar>
+        {canEditFinance ? (
+          <FinanceSaveBar>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-[#2f3d95] hover:bg-[#263578] text-white"
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </FinanceSaveBar>
+        ) : null}
       </div>
     </>
   );

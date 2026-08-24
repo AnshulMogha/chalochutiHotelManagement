@@ -283,8 +283,25 @@ export function canVerifyHotelBank(userRoles: string[] | undefined): boolean {
   if (!userRoles?.length) return false;
   return (
     userRoles.includes("SUPER_ADMIN") ||
-    userRoles.includes("HOTEL_OWNER") ||
-    userRoles.includes("HOTEL_BD")
+    userRoles.includes("FINANCE_MANAGER")
+  );
+}
+
+/** Roles allowed to moderate customer reviews (admin rating APIs). */
+export const REVIEW_MODERATION_ROLES = [
+  "SUPER_ADMIN",
+  "HOTEL_BD",
+  "PACKAGE_BD",
+  "ZONAL_MANAGER_HOTEL",
+  "QC",
+] as const;
+
+export function canModerateReviews(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (REVIEW_MODERATION_ROLES as readonly string[]).includes(role),
   );
 }
 

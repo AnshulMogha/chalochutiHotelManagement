@@ -189,6 +189,12 @@ const HelpdeskTicketDetailPage = lazy(
 const SettlementWorkbenchPage = lazy(
   () => import("../features/settlement/pages/SettlementWorkbenchPage"),
 );
+const ReviewModerationQueuePage = lazy(
+  () => import("../features/reviews/pages/ReviewModerationQueuePage"),
+);
+const ReviewModerationDetailPage = lazy(
+  () => import("../features/reviews/pages/ReviewModerationDetailPage"),
+);
 const SettlementPreviewPage = lazy(
   () => import("../features/settlement/pages/SettlementPreviewPage"),
 );
@@ -610,7 +616,11 @@ export const routes: RouteObject[] = [
       },
       {
         path: "ratings-reviews",
-        element: <ComingSoonPage />,
+        element: <ReviewModerationQueuePage />,
+      },
+      {
+        path: "ratings-reviews/:reviewId",
+        element: <ReviewModerationDetailPage />,
       },
     ],
   },

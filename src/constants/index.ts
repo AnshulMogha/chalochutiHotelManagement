@@ -104,6 +104,7 @@ export const ROUTES = {
   },
   RATINGS_REVIEWS: {
     LIST: "/ratings-reviews",
+    DETAIL: (reviewId: string) => `/ratings-reviews/${encodeURIComponent(reviewId)}`,
   },
   ANALYTICS: {
     DASHBOARD: "/analytics",
@@ -532,6 +533,19 @@ export const API_ENDPOINTS = {
       `/admin/settlements/${encodeURIComponent(settlementNo)}/retry-payment`,
     STATUS_HISTORY: (settlementNo: string) =>
       `/admin/settlements/${encodeURIComponent(settlementNo)}/status-history`,
+  },
+  REVIEW_MODERATION: {
+    FLAG_QUEUE: "/admin/reviews/moderation/flag-queue",
+    AUDIT: (reviewId: string) =>
+      `/admin/reviews/moderation/${encodeURIComponent(reviewId)}/audit`,
+    APPROVE: (reviewId: string) =>
+      `/admin/reviews/moderation/${encodeURIComponent(reviewId)}/approve`,
+    REJECT: (reviewId: string) =>
+      `/admin/reviews/moderation/${encodeURIComponent(reviewId)}/reject`,
+    FLAG: (reviewId: string) =>
+      `/admin/reviews/moderation/${encodeURIComponent(reviewId)}/flag`,
+    UNFLAG: (reviewId: string) =>
+      `/admin/reviews/moderation/${encodeURIComponent(reviewId)}/unflag`,
   },
   RATES: {
     GET_CALENDAR: (

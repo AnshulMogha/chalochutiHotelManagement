@@ -1,7 +1,8 @@
 import axios from "axios";
 import type { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 import type { ApiFailureResponse } from "./types/api";
-import { canEditPath, shouldBlockBasicInfoWriteRequest } from "@/lib/permissions";
+import { canEditPath, canEditHotelFinanceDetails, shouldBlockBasicInfoWriteRequest } from "@/lib/permissions";
+import { canVerifyHotelBank } from "@/constants/roles";
 import { getStoredUserProfile } from "@/lib/userProfileStorage";
 
 // Base URL
@@ -80,6 +81,26 @@ export class ApiClient {
               timestamp: new Date().toISOString(),
               data: null,
             } satisfies ApiFailureResponse);
+          }
+          const isHotelFinanceUpdate =
+            (method === "put" || method === "patch") &&
+            /\/hotel\/[^/]+\/finance$/i.test(requestUrl);
+          if (isHotelFinanceUpdate && !canEditHotelFinanceDetails(user)) {
+            return Promise.reject({
+              message:
+                "You cannot modify finance details. You can verify the bank account only.",
+              statusCode: 403,
+              status: "FORBIDDEN",
+              traceId: "",
+              timestamp: new Date().toISOString(),
+              data: null,
+            } satisfies ApiFailureResponse);
+          }
+          const isFinanceVerifyBank =
+            method === "post" &&
+            /\/hotel\/[^/]+\/finance\/verify-bank$/i.test(requestUrl);
+          if (isFinanceVerifyBank && canVerifyHotelBank(user?.roles)) {
+            return config;
           }
           if (!canEditPath(user, window.location.pathname)) {
             return Promise.reject({

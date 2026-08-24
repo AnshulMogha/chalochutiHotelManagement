@@ -10,6 +10,7 @@ import {
   canViewPaymentReport,
   canViewSalesManagerReports,
   canViewSupplierSettlement,
+  canModerateReviews,
   isAuditorRole,
   isFinanceManagerRole,
   isHelpdeskAgentRole,
@@ -133,17 +134,32 @@ function getAuditorNavItems(user: User | null): NavItem[] {
   return items;
 }
 
+function getReviewModerationNavItem(): NavItem {
+  return {
+    label: "Review Moderation",
+    path: ROUTES.RATINGS_REVIEWS.LIST,
+    icon: Star,
+  };
+}
+
 /** Finance Manager sidebar: settlements + hotel MIS only. */
 function getFinanceManagerNavItems(userRoles: string[] | undefined): NavItem[] {
   const items: NavItem[] = [];
   if (canViewSupplierSettlement(userRoles)) {
     items.push(getSettlementNavItem());
   }
-  items.push({
-    label: "Hotel MIS",
-    path: ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS,
-    icon: Wallet,
-  });
+  items.push(
+    {
+      label: "Hotel MIS",
+      path: ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS,
+      icon: Wallet,
+    },
+    {
+      label: "Finance",
+      path: ROUTES.PROPERTY_INFO.FINANCE,
+      icon: CreditCard,
+    },
+  );
   return items;
 }
 
@@ -341,6 +357,9 @@ const getNavItems = (user: User | null): NavItem[] => {
       includeOnboardingPipeline: canViewHotelBdPipeline(userRoles),
     });
     if (reportsNav) items.push(reportsNav);
+    if (canModerateReviews(userRoles)) {
+      items.push(getReviewModerationNavItem());
+    }
     items.push({
       label: "Hotel Review",
       path: ROUTES.ADMIN.HOTEL_REVIEW,
@@ -477,11 +496,9 @@ const getNavItems = (user: User | null): NavItem[] => {
         });
         return reportsNav ? [reportsNav] : [];
       })(),
-      {
-        label: "Rating and Review",
-        path: ROUTES.RATINGS_REVIEWS.LIST,
-        icon: Star,
-      },
+      ...(canModerateReviews(userRoles)
+        ? [getReviewModerationNavItem()]
+        : []),
       ...(canViewModule(user, "ANALYTICS") || canViewModule(user, "BOOKINGS")
         ? [
             {
@@ -584,6 +601,9 @@ const getNavItems = (user: User | null): NavItem[] => {
         });
         return reportsNav ? [reportsNav] : [];
       })(),
+      ...(canModerateReviews(userRoles)
+        ? [getReviewModerationNavItem()]
+        : []),
       ...(canViewModule(user, "ANALYTICS") || canViewModule(user, "BOOKINGS")
         ? [
             {

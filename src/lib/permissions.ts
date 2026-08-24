@@ -11,6 +11,7 @@ import {
   canViewSalesManagerReports,
   canViewSupplierSettlement,
   canVerifyHotelBank,
+  canModerateReviews,
   isAuditorRole,
   isFinanceManagerRole,
   isHelpdeskAgentRole,
@@ -175,9 +176,12 @@ export function canViewModule(
 ): boolean {
   if (!user) return true;
   if (isSuperAdmin(user.roles) && module === "MY_TEAM") return false;
+  if (module === "PROPERTY_FINANCE" && canVerifyHotelBank(user.roles)) {
+    return true;
+  }
   if (hasPermissionBypass(user)) return true;
   if (isHotelBdRole(user.roles)) {
-    if (module === "PROPERTY_FINANCE") return canVerifyHotelBank(user.roles);
+    if (module === "PROPERTY_FINANCE") return false;
     return !!findPermission(user, module)?.canView;
   }
   if (!canRoleAccessModule(user, module)) return false;
@@ -191,6 +195,12 @@ export function canEditModule(
 ): boolean {
   if (!user) return true;
   if (isSuperAdmin(user.roles) && module === "MY_TEAM") return false;
+  if (
+    module === "PROPERTY_FINANCE" &&
+    (isSuperAdmin(user.roles) || user.roles?.includes("FINANCE_MANAGER"))
+  ) {
+    return false;
+  }
   if (hasPermissionBypass(user)) return true;
   if (isHotelBdRole(user.roles)) {
     if (module === "PROPERTY_FINANCE") return false;
@@ -207,6 +217,11 @@ export function canEditModule(
   if (constrainedRole === "FRONT_DESK_EXEC") return false;
   const permission = findPermission(user, module);
   return !!permission?.canEdit;
+}
+
+/** Hotel Owner / staff may edit finance details; Super Admin & Finance Manager verify only. */
+export function canEditHotelFinanceDetails(user: User | null): boolean {
+  return canEditModule(user, "PROPERTY_FINANCE");
 }
 
 function isSalesManagerReportPath(pathname: string): boolean {
@@ -245,6 +260,13 @@ function isSettlementPath(pathname: string): boolean {
   return (
     pathname === "/finance/settlements" ||
     pathname.startsWith("/finance/settlements/")
+  );
+}
+
+function isReviewModerationPath(pathname: string): boolean {
+  return (
+    pathname === ROUTES.RATINGS_REVIEWS.LIST ||
+    pathname.startsWith(`${ROUTES.RATINGS_REVIEWS.LIST}/`)
   );
 }
 
@@ -390,7 +412,8 @@ function canFinanceManagerViewPath(pathOnly: string): boolean {
     pathOnly === "" ||
     pathOnly.startsWith("/profile") ||
     isSettlementPath(pathOnly) ||
-    isHotelBookingFinancialMisPath(pathOnly)
+    isHotelBookingFinancialMisPath(pathOnly) ||
+    pathOnly === ROUTES.PROPERTY_INFO.FINANCE
   );
 }
 
@@ -441,6 +464,9 @@ function canReviewerPortalViewPath(user: User | null, pathOnly: string): boolean
   if (pathOnly.startsWith("/reports/")) {
     return canViewReportsPath(user, pathOnly);
   }
+  if (isReviewModerationPath(pathOnly)) {
+    return canModerateReviews(user?.roles);
+  }
   if (pathOnly.startsWith("/property/information/")) {
     const module = getModuleFromPath(pathOnly);
     return module ? canViewModule(user, module) : false;
@@ -472,15 +498,16 @@ function canViewUnmappedPath(user: User | null, pathOnly: string): boolean {
     return canOnboardHotel(user?.roles);
   }
 
-  if (
-    pathOnly === ROUTES.MORE.LIST ||
-    pathOnly === ROUTES.RATINGS_REVIEWS.LIST
-  ) {
+  if (pathOnly === ROUTES.MORE.LIST) {
     return hasAnyRole(user?.roles, [
       ROLES.SUPER_ADMIN,
       ROLES.HOTEL_OWNER,
       ROLES.HOTEL_MANAGER,
     ]);
+  }
+
+  if (isReviewModerationPath(pathOnly)) {
+    return false;
   }
 
   if (pathOnly === ROUTES.QC.DASHBOARD) {
@@ -551,6 +578,10 @@ export function canViewPath(user: User | null, pathname: string): boolean {
     return canViewSupplierSettlement(user?.roles);
   }
 
+  if (isReviewModerationPath(pathOnly)) {
+    return canModerateReviews(user?.roles);
+  }
+
   if (isHelpdeskPath(pathOnly)) {
     if (isHelpdeskTicketsPath(pathOnly)) {
       return canViewHelpdeskTickets(user?.roles);
@@ -592,7 +623,7 @@ export function canViewPath(user: User | null, pathname: string): boolean {
   const module = getModuleFromPath(pathOnly);
 
   if (isHotelBdRole(user?.roles)) {
-    if (module === "PROPERTY_FINANCE") return canVerifyHotelBank(user?.roles);
+    if (module === "PROPERTY_FINANCE") return false;
     if (module) return canViewModule(user, module);
     return canViewUnmappedPath(user, pathOnly);
   }
