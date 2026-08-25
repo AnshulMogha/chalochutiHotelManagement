@@ -11,6 +11,7 @@ import {
   canViewSalesManagerReports,
   canViewSupplierSettlement,
   canModerateReviews,
+  canManageHotelReviews,
   isAuditorRole,
   isFinanceManagerRole,
   isHelpdeskAgentRole,
@@ -497,6 +498,16 @@ const getNavItems = (user: User | null): NavItem[] => {
               label: "Bookings",
               path: ROUTES.BOOKINGS.LIST,
               icon: BookOpen,
+            },
+          ]
+        : []),
+      ...(canManageHotelReviews(userRoles) &&
+      hasAnyRole(userRoles, [ROLES.HOTEL_OWNER, ROLES.HOTEL_MANAGER])
+        ? [
+            {
+              label: "Guest Reviews",
+              path: ROUTES.HOTEL_REVIEWS.LIST,
+              icon: Star,
             },
           ]
         : []),

@@ -198,6 +198,9 @@ const ReviewMisPage = lazy(
 const ReviewModerationDetailPage = lazy(
   () => import("../features/reviews/pages/ReviewModerationDetailPage"),
 );
+const HotelReviewsPage = lazy(
+  () => import("../features/reviews/pages/HotelReviewsPage"),
+);
 const SettlementPreviewPage = lazy(
   () => import("../features/settlement/pages/SettlementPreviewPage"),
 );
@@ -628,6 +631,10 @@ export const routes: RouteObject[] = [
       {
         path: "ratings-reviews/:reviewId",
         element: <ReviewModerationDetailPage />,
+      },
+      {
+        path: "hotel-reviews",
+        element: <HotelReviewsPage />,
       },
     ],
   },

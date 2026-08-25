@@ -107,6 +107,9 @@ export const ROUTES = {
     MIS: "/ratings-reviews/mis",
     DETAIL: (reviewId: string) => `/ratings-reviews/${encodeURIComponent(reviewId)}`,
   },
+  HOTEL_REVIEWS: {
+    LIST: "/hotel-reviews",
+  },
   ANALYTICS: {
     DASHBOARD: "/analytics",
   },
@@ -480,6 +483,7 @@ export const API_ENDPOINTS = {
   },
   CUSTOMER: {
     HOTEL_LOOKUP: "/customer/packages/hotel/lookup",
+    PACKAGE_LOOKUP: "/customer/packages/lookup",
   },
   HELPDESK: {
     BOOKINGS: "/helpdesk/bookings",
@@ -548,6 +552,13 @@ export const API_ENDPOINTS = {
       `/admin/reviews/moderation/${encodeURIComponent(reviewId)}/flag`,
     UNFLAG: (reviewId: string) =>
       `/admin/reviews/moderation/${encodeURIComponent(reviewId)}/unflag`,
+  },
+  HOTEL_REVIEWS: {
+    LIST: "/hotel/reviews",
+    REPLY: (reviewId: string) =>
+      `/hotel/reviews/${encodeURIComponent(reviewId)}/reply`,
+    REPORT: (reviewId: string) =>
+      `/hotel/reviews/${encodeURIComponent(reviewId)}/report`,
   },
   RATES: {
     GET_CALENDAR: (

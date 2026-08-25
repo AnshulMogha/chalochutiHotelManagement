@@ -98,6 +98,11 @@ function normalizeMedia(raw: Record<string, unknown>): ReviewMisMediaItem {
     storageKey: (raw.storageKey as string | null) ?? null,
     fileSizeBytes: toNumber(raw.fileSizeBytes),
     displayOrder: toNumber(raw.displayOrder),
+    url:
+      (raw.url as string | null) ??
+      (raw.fileUrl as string | null) ??
+      (raw.signedUrl as string | null) ??
+      null,
   };
 }
 
@@ -136,6 +141,8 @@ function normalizeItem(raw: Record<string, unknown>): ReviewMisItem {
     bookingType: String(raw.bookingType ?? ""),
     bookingRef: (raw.bookingRef as string | null) ?? null,
     subjectId: raw.subjectId != null ? String(raw.subjectId) : null,
+    subjectType: (raw.subjectType as string | null) ?? null,
+    subjectName: (raw.subjectName as string | null) ?? null,
     overallRating: toNumber(raw.overallRating),
     title: (raw.title as string | null) ?? null,
     reviewText: (raw.reviewText as string | null) ?? null,

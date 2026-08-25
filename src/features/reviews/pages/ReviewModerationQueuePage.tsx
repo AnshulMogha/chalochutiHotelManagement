@@ -20,6 +20,7 @@ import {
   ReviewModerationStatCard,
   ReviewRatingStars,
   ReviewStatusBadge,
+  ReviewSubjectLookupField,
 } from "../components/reviewModerationUi";
 import {
   ChevronLeft,
@@ -52,6 +53,7 @@ type FilterDraft = {
   bookingType: string;
   bookingRef: string;
   subjectId: string;
+  subjectLabel: string;
   rating: string;
   dateText: string;
 };
@@ -60,6 +62,7 @@ const DEFAULT_FILTERS: FilterDraft = {
   bookingType: "",
   bookingRef: "",
   subjectId: "",
+  subjectLabel: "",
   rating: "",
   dateText: "",
 };
@@ -453,6 +456,8 @@ export default function ReviewModerationQueuePage() {
                     setDraft((prev) => ({
                       ...prev,
                       bookingType: e.target.value,
+                      subjectId: "",
+                      subjectLabel: "",
                     }))
                   }
                   className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
@@ -485,23 +490,14 @@ export default function ReviewModerationQueuePage() {
                   Partial match, case-insensitive
                 </p>
               </div>
-              <div>
-                <label className="mb-1 block text-xs text-slate-500">
-                  Subject ID
-                </label>
-                <input
-                  type="text"
-                  value={draft.subjectId}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      subjectId: e.target.value,
-                    }))
-                  }
-                  placeholder="Hotel UUID or package ID"
-                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-mono text-xs"
-                />
-              </div>
+              <ReviewSubjectLookupField
+                bookingType={draft.bookingType}
+                value={draft.subjectId}
+                selectedLabel={draft.subjectLabel}
+                onChange={({ subjectId, subjectLabel }) =>
+                  setDraft((prev) => ({ ...prev, subjectId, subjectLabel }))
+                }
+              />
               <div>
                 <label className="mb-1 block text-xs text-slate-500">
                   Overall rating
@@ -563,6 +559,7 @@ function filtersToDraft(filters: AppliedFilters): FilterDraft {
     bookingType: filters.bookingType || "",
     bookingRef: filters.bookingRef || "",
     subjectId: filters.subjectId || "",
+    subjectLabel: "",
     rating:
       filters.rating != null && Number.isFinite(filters.rating)
         ? String(filters.rating)

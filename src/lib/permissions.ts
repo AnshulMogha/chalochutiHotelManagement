@@ -12,6 +12,7 @@ import {
   canViewSupplierSettlement,
   canVerifyHotelBank,
   canModerateReviews,
+  canManageHotelReviews,
   isAuditorRole,
   isFinanceManagerRole,
   isHelpdeskAgentRole,
@@ -270,6 +271,13 @@ function isReviewModerationPath(pathname: string): boolean {
   );
 }
 
+function isHotelReviewsPath(pathname: string): boolean {
+  return (
+    pathname === ROUTES.HOTEL_REVIEWS.LIST ||
+    pathname.startsWith(`${ROUTES.HOTEL_REVIEWS.LIST}/`)
+  );
+}
+
 function isAgentsPath(pathname: string): boolean {
   return pathname === ROUTES.AGENTS.LIST || pathname.startsWith("/agents/");
 }
@@ -467,6 +475,9 @@ function canReviewerPortalViewPath(user: User | null, pathOnly: string): boolean
   if (isReviewModerationPath(pathOnly)) {
     return canModerateReviews(user?.roles);
   }
+  if (isHotelReviewsPath(pathOnly)) {
+    return canManageHotelReviews(user?.roles);
+  }
   if (pathOnly.startsWith("/property/information/")) {
     const module = getModuleFromPath(pathOnly);
     return module ? canViewModule(user, module) : false;
@@ -508,6 +519,10 @@ function canViewUnmappedPath(user: User | null, pathOnly: string): boolean {
 
   if (isReviewModerationPath(pathOnly)) {
     return false;
+  }
+
+  if (isHotelReviewsPath(pathOnly)) {
+    return canManageHotelReviews(user?.roles);
   }
 
   if (pathOnly === ROUTES.QC.DASHBOARD) {
@@ -580,6 +595,10 @@ export function canViewPath(user: User | null, pathname: string): boolean {
 
   if (isReviewModerationPath(pathOnly)) {
     return canModerateReviews(user?.roles);
+  }
+
+  if (isHotelReviewsPath(pathOnly)) {
+    return canManageHotelReviews(user?.roles);
   }
 
   if (isHelpdeskPath(pathOnly)) {

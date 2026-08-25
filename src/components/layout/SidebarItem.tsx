@@ -46,6 +46,7 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
       path === ROUTES.BOOKINGS.LIST ||
       path === ROUTES.TEAM.LIST ||
       path === ROUTES.PROMOTIONS.LIST ||
+      path === ROUTES.HOTEL_REVIEWS.LIST ||
       path === ROUTES.ADMIN.DOCUMENT_REVIEW
     );
   };

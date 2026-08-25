@@ -40,6 +40,13 @@ export interface HotelLookupItem {
   city?: string;
 }
 
+export interface PackageLookupItem {
+  packageId: string;
+  packageCode?: string;
+  packageName: string;
+  destination?: string;
+}
+
 export interface ReviewRemark {
   remark: string;
   remarkedAt: string;
@@ -1044,6 +1051,50 @@ export const adminService = {
         } satisfies HotelLookupItem;
       })
       .filter((hotel): hotel is HotelLookupItem => hotel !== null);
+  },
+  getPackageLookup: async (
+    search: string = "",
+  ): Promise<PackageLookupItem[]> => {
+    const response = await apiClient.get<unknown>(
+      API_ENDPOINTS.CUSTOMER.PACKAGE_LOOKUP,
+      {
+        params: { search },
+      },
+    );
+    const rows = Array.isArray(response)
+      ? response
+      : Array.isArray((response as { content?: unknown[] })?.content)
+        ? ((response as { content: unknown[] }).content ?? [])
+        : Array.isArray((response as { data?: unknown[] })?.data)
+          ? ((response as { data: unknown[] }).data ?? [])
+          : [];
+
+    return rows
+      .map((item) => {
+        const row = item as Record<string, unknown>;
+        const packageId = String(
+          row.packageId ?? row.id ?? row.package_id ?? "",
+        ).trim();
+        const packageName = String(
+          row.packageName ?? row.name ?? row.package_name ?? "",
+        ).trim();
+        const packageCode = String(
+          row.packageCode ?? row.code ?? row.package_code ?? "",
+        ).trim();
+        const destination = String(
+          row.destination ?? row.city ?? "",
+        ).trim();
+        if (!packageId || !packageName) {
+          return null;
+        }
+        return {
+          packageId,
+          packageName,
+          packageCode: packageCode || undefined,
+          destination: destination || undefined,
+        } satisfies PackageLookupItem;
+      })
+      .filter((pkg): pkg is PackageLookupItem => pkg !== null);
   },
   getStates: async (): Promise<StateMasterItem[]> => {
     const response = await apiClient.get<ApiSuccessResponse<StateMasterItem[]>>(

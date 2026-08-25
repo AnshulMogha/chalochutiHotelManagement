@@ -42,6 +42,8 @@ export interface ReviewMisMediaItem {
   storageKey: string | null;
   fileSizeBytes: number | null;
   displayOrder: number | null;
+  /** Absolute or signed URL when API provides one */
+  url?: string | null;
 }
 
 export interface ReviewMisReply {
@@ -69,6 +71,8 @@ export interface ReviewMisItem {
   bookingType: ReviewBookingType | string;
   bookingRef: string | null;
   subjectId: string | null;
+  subjectType: string | null;
+  subjectName: string | null;
   overallRating: number | null;
   title: string | null;
   reviewText: string | null;

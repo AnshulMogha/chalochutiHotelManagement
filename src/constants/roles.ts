@@ -305,6 +305,18 @@ export function canModerateReviews(
   );
 }
 
+/** Hotel owners (and managers) can view/reply/report their hotel reviews. */
+export function canManageHotelReviews(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return (
+    userRoles.includes("HOTEL_OWNER") ||
+    userRoles.includes("HOTEL_MANAGER") ||
+    userRoles.includes("SUPER_ADMIN")
+  );
+}
+
 /**
  * Check if user is super admin
  */

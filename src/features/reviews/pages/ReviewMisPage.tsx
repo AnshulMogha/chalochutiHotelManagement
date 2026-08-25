@@ -12,6 +12,7 @@ import {
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import { reviewMisService } from "../services/reviewMisService";
+import { resolveReviewMediaUrl } from "../services/reviewMediaUrl";
 import type {
   ReviewMisItem,
   ReviewMisSummary,
@@ -25,6 +26,7 @@ import {
   ReviewFilterField,
   ReviewModerationPageShell,
   ReviewStatusBadge,
+  ReviewSubjectLookupField,
 } from "../components/reviewModerationUi";
 import {
   BarChart3,
@@ -37,6 +39,7 @@ import {
   Clock3,
   Eye,
   Filter,
+  ImageIcon,
   Flag,
   Hotel,
   IndianRupee,
@@ -50,6 +53,7 @@ import {
   Star,
   UserRound,
   Users,
+  X,
   XCircle,
   type LucideIcon,
 } from "lucide-react";
@@ -149,6 +153,7 @@ type FilterDraft = {
   status: string;
   bookingRef: string;
   subjectId: string;
+  subjectLabel: string;
   fromDateText: string;
   toDateText: string;
 };
@@ -158,6 +163,7 @@ const DEFAULT_FILTERS: FilterDraft = {
   status: "",
   bookingRef: "",
   subjectId: "",
+  subjectLabel: "",
   fromDateText: "",
   toDateText: "",
 };
@@ -278,6 +284,10 @@ export default function ReviewMisPage() {
   const [draft, setDraft] = useState<FilterDraft>(DEFAULT_FILTERS);
   const [filterOpen, setFilterOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<{
+    url: string;
+    label: string;
+  } | null>(null);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(totalElements / PAGE_SIZE)),
@@ -609,6 +619,12 @@ export default function ReviewMisPage() {
                     Booking
                   </th>
                   <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
+                    Type
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
+                    Hotel name
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
                     Rating
                   </th>
                   <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
@@ -632,7 +648,7 @@ export default function ReviewMisPage() {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={10}
                       className="px-4 py-20 text-center text-slate-500"
                     >
                       <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-slate-400" />
@@ -642,7 +658,7 @@ export default function ReviewMisPage() {
                 ) : rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={10}
                       className="px-4 py-20 text-center text-sm text-slate-500"
                     >
                       No reviews match the selected filters.
@@ -661,6 +677,7 @@ export default function ReviewMisPage() {
                             prev === row.id ? null : row.id,
                           )
                         }
+                        onOpenMedia={(preview) => setMediaPreview(preview)}
                       />
                     );
                   })
@@ -709,7 +726,12 @@ export default function ReviewMisPage() {
           <select
             value={draft.bookingType}
             onChange={(e) =>
-              setDraft((prev) => ({ ...prev, bookingType: e.target.value }))
+              setDraft((prev) => ({
+                ...prev,
+                bookingType: e.target.value,
+                subjectId: "",
+                subjectLabel: "",
+              }))
             }
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
           >
@@ -748,17 +770,14 @@ export default function ReviewMisPage() {
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
           />
         </ReviewFilterField>
-        <ReviewFilterField label="Subject ID">
-          <input
-            type="text"
-            value={draft.subjectId}
-            onChange={(e) =>
-              setDraft((prev) => ({ ...prev, subjectId: e.target.value }))
-            }
-            placeholder="Hotel UUID or package ID"
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs outline-none focus:border-slate-400"
-          />
-        </ReviewFilterField>
+        <ReviewSubjectLookupField
+          bookingType={draft.bookingType}
+          value={draft.subjectId}
+          selectedLabel={draft.subjectLabel}
+          onChange={({ subjectId, subjectLabel }) =>
+            setDraft((prev) => ({ ...prev, subjectId, subjectLabel }))
+          }
+        />
         <div>
           <p className="mb-1 text-xs font-medium text-slate-600">
             Date range (dd/mm/yyyy)
@@ -776,6 +795,42 @@ export default function ReviewMisPage() {
           />
         </div>
       </ReviewFilterDrawer>
+
+      {mediaPreview ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Close image preview"
+            className="absolute inset-0 bg-slate-900/70 backdrop-blur-[1px]"
+            onClick={() => setMediaPreview(null)}
+          />
+          <div className="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {mediaPreview.label}
+                </p>
+                <p className="text-[11px] text-slate-500">Review media</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMediaPreview(null)}
+                className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex min-h-0 flex-1 items-center justify-center bg-slate-950/95 p-3 sm:p-5">
+              <img
+                src={mediaPreview.url}
+                alt={mediaPreview.label}
+                className="max-h-[75vh] max-w-full rounded-lg object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -784,10 +839,12 @@ function FragmentRow({
   row,
   expanded,
   onToggle,
+  onOpenMedia,
 }: {
   row: ReviewMisItem;
   expanded: boolean;
   onToggle: () => void;
+  onOpenMedia: (preview: { url: string; label: string }) => void;
 }) {
   return (
     <>
@@ -809,8 +866,15 @@ function FragmentRow({
         </td>
         <td className="px-4 py-4">
           <p className="font-medium text-slate-900">{row.bookingRef || "—"}</p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {formatStatusLabel(row.bookingType)}
+        </td>
+        <td className="px-4 py-4">
+          <span className="inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-800 ring-1 ring-inset ring-indigo-200">
+            {formatStatusLabel(row.subjectType || row.bookingType || "—")}
+          </span>
+        </td>
+        <td className="px-4 py-4">
+          <p className="max-w-[14rem] font-medium text-slate-900">
+            {row.subjectName || "—"}
           </p>
         </td>
         <td className="px-4 py-4">
@@ -893,7 +957,7 @@ function FragmentRow({
       </tr>
       {expanded ? (
         <tr className="bg-slate-50/50">
-          <td colSpan={8} className="px-4 py-4">
+          <td colSpan={10} className="px-4 py-4">
             <div className="grid gap-3 lg:grid-cols-2">
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
@@ -923,21 +987,54 @@ function FragmentRow({
                     <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
                       Media ({row.media.length})
                     </p>
-                    <ul className="mt-2 space-y-1">
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {[...row.media]
                         .sort(
                           (a, b) =>
                             (a.displayOrder ?? 0) - (b.displayOrder ?? 0),
                         )
-                        .map((media, index) => (
-                          <li
-                            key={`${media.storageKey || media.fileName}-${index}`}
-                            className="truncate text-xs text-slate-600"
-                          >
-                            {media.fileName || media.storageKey || "File"}
-                          </li>
-                        ))}
-                    </ul>
+                        .map((media, index) => {
+                          const label =
+                            media.fileName || media.storageKey || "File";
+                          const href = resolveReviewMediaUrl(media);
+                          if (!href) {
+                            return (
+                              <div
+                                key={`${media.storageKey || media.fileName}-${index}`}
+                                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-3 text-center text-[11px] text-slate-500"
+                              >
+                                {label}
+                              </div>
+                            );
+                          }
+                          return (
+                            <button
+                              key={`${media.storageKey || media.fileName}-${index}`}
+                              type="button"
+                              onClick={() =>
+                                onOpenMedia({ url: href, label })
+                              }
+                              className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left transition hover:border-[#2f3d95]/40 hover:shadow-sm"
+                              title="Preview image"
+                            >
+                              <div className="relative aspect-video bg-slate-200">
+                                <img
+                                  src={href}
+                                  alt={label}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                                <span className="absolute inset-0 flex items-center justify-center bg-slate-900/0 transition group-hover:bg-slate-900/25">
+                                  <ImageIcon className="h-5 w-5 text-white opacity-0 drop-shadow transition group-hover:opacity-100" />
+                                </span>
+                              </div>
+                              <p className="truncate px-2 py-1.5 text-[11px] text-slate-600">
+                                {label}
+                              </p>
+                            </button>
+                          );
+                        })}
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -996,6 +1093,7 @@ function filtersToDraft(filters: AppliedFilters): FilterDraft {
     status: filters.status || "",
     bookingRef: filters.bookingRef || "",
     subjectId: filters.subjectId || "",
+    subjectLabel: "",
     fromDateText: filters.fromDate ? isoToReportDateText(filters.fromDate) : "",
     toDateText: filters.toDate ? isoToReportDateText(filters.toDate) : "",
   };
