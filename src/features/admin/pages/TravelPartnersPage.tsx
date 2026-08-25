@@ -34,8 +34,16 @@ import {
   Briefcase,
   Loader2,
   AlertCircle,
+  Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Toast, useToast } from "@/components/ui/Toast";
+import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import {
+  isoToReportDateText,
+  parseOptionalReportDate,
+  validateOptionalDateRange,
+} from "@/features/reports/components/reportUiHelpers";
 import {
   TravelPartnerBadge,
   TravelPartnerColumnHeader,
@@ -46,6 +54,26 @@ import {
 } from "../components/travelPartnerTableUi";
 
 export type TravelPartnerStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+type PartnerListFilters = {
+  email: string;
+  name: string;
+  agencyName: string;
+  agencyTier: string;
+  createdAt: string;
+  createdAtFrom: string;
+  createdAtTo: string;
+};
+
+const DEFAULT_PARTNER_FILTERS: PartnerListFilters = {
+  email: "",
+  name: "",
+  agencyName: "",
+  agencyTier: "",
+  createdAt: "",
+  createdAtFrom: "",
+  createdAtTo: "",
+};
 
 export interface TravelPartner {
   id: string;
@@ -175,6 +203,7 @@ function formatAgencyTier(tier?: AgencyTier) {
 
 export default function TravelPartnersPage() {
   const { user } = useAuth();
+  const { toast, showToast, hideToast } = useToast();
   const [partners, setPartners] = useState<TravelPartner[]>([]);
   const [activeTab, setActiveTab] = useState<TravelPartnerStatus>("PENDING");
   const [selectedPartner, setSelectedPartner] = useState<TravelPartner | null>(
@@ -205,6 +234,13 @@ export default function TravelPartnersPage() {
     APPROVED: 0,
     REJECTED: 0,
   });
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<PartnerListFilters>(
+    DEFAULT_PARTNER_FILTERS,
+  );
+  const [appliedFilters, setAppliedFilters] = useState<PartnerListFilters>(
+    DEFAULT_PARTNER_FILTERS,
+  );
   const isZonalSales = isZonalManagerSalesRole(user?.roles);
   const canUpdateTier = Boolean(
     isSuperAdmin(user?.roles) ||
@@ -215,6 +251,68 @@ export default function TravelPartnersPage() {
     selectedPartner?.status === "PENDING" &&
     (!isZonalSales || detailStep === 2);
 
+  const hasActiveFilters = Boolean(
+    appliedFilters.email ||
+      appliedFilters.name ||
+      appliedFilters.agencyName ||
+      appliedFilters.agencyTier ||
+      appliedFilters.createdAt ||
+      appliedFilters.createdAtFrom ||
+      appliedFilters.createdAtTo,
+  );
+
+  const applyFilters = () => {
+    const createdAtIso = parseOptionalReportDate(draftFilters.createdAt);
+    if (draftFilters.createdAt.trim() && !createdAtIso) {
+      showToast("Enter created date as dd/mm/yyyy", "error");
+      return;
+    }
+
+    let createdAtFrom = "";
+    let createdAtTo = "";
+    if (!createdAtIso) {
+      const range = validateOptionalDateRange(
+        draftFilters.createdAtFrom,
+        draftFilters.createdAtTo,
+      );
+      if (!range.ok) {
+        showToast(range.message, "error");
+        return;
+      }
+      createdAtFrom = range.fromDate || "";
+      createdAtTo = range.toDate || "";
+    }
+
+    setAppliedFilters({
+      email: draftFilters.email.trim(),
+      name: draftFilters.name.trim(),
+      agencyName: draftFilters.agencyName.trim(),
+      agencyTier: draftFilters.agencyTier.trim(),
+      createdAt: createdAtIso || "",
+      createdAtFrom,
+      createdAtTo,
+    });
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    setFilterOpen(false);
+  };
+
+  const resetFilters = () => {
+    setDraftFilters(DEFAULT_PARTNER_FILTERS);
+    setAppliedFilters(DEFAULT_PARTNER_FILTERS);
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    setFilterOpen(false);
+  };
+
+  const openFilterDrawer = () => {
+    setDraftFilters({
+      ...appliedFilters,
+      createdAt: isoToReportDateText(appliedFilters.createdAt),
+      createdAtFrom: isoToReportDateText(appliedFilters.createdAtFrom),
+      createdAtTo: isoToReportDateText(appliedFilters.createdAtTo),
+    });
+    setFilterOpen(true);
+  };
+
   const fetchPartners = useCallback(async () => {
     setLoading(true);
     setListError(null);
@@ -223,6 +321,28 @@ export default function TravelPartnersPage() {
         page: paginationModel.page,
         size: paginationModel.pageSize,
         status: activeTab,
+        ...(appliedFilters.email ? { email: appliedFilters.email } : {}),
+        ...(appliedFilters.name ? { name: appliedFilters.name } : {}),
+        ...(appliedFilters.agencyName
+          ? { agencyName: appliedFilters.agencyName }
+          : {}),
+        ...(appliedFilters.agencyTier
+          ? { agencyTier: appliedFilters.agencyTier as AgencyTier }
+          : {}),
+        ...(appliedFilters.createdAt
+          ? { createdAt: appliedFilters.createdAt }
+          : {
+              ...(appliedFilters.createdAtFrom
+                ? {
+                    createdAtFrom: `${appliedFilters.createdAtFrom}T00:00:00.000+05:30`,
+                  }
+                : {}),
+              ...(appliedFilters.createdAtTo
+                ? {
+                    createdAtTo: `${appliedFilters.createdAtTo}T23:59:59.999+05:30`,
+                  }
+                : {}),
+            }),
       });
       setPartners(response.content.map(mapListItemToPartner));
       setTotalElements(response.totalElements);
@@ -241,7 +361,12 @@ export default function TravelPartnersPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, paginationModel.page, paginationModel.pageSize]);
+  }, [
+    activeTab,
+    paginationModel.page,
+    paginationModel.pageSize,
+    appliedFilters,
+  ]);
 
   useEffect(() => {
     fetchPartners();
@@ -494,9 +619,15 @@ export default function TravelPartnersPage() {
               <Handshake className="h-8 w-8 text-gray-400" />
             </div>
             <h3 className="mb-1 text-lg font-semibold text-gray-900">
-              {message.title}
+              {hasActiveFilters
+                ? "No partners match your filters"
+                : message.title}
             </h3>
-            <p className="max-w-sm text-sm text-gray-500">{message.description}</p>
+            <p className="max-w-sm text-sm text-gray-500">
+              {hasActiveFilters
+                ? "Try a different name, email, agency, or date."
+                : message.description}
+            </p>
           </div>
         ) : (
           <DataTable
@@ -526,6 +657,12 @@ export default function TravelPartnersPage() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden">
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
       <div className="container mx-auto flex h-full min-h-0 flex-1 flex-col px-4 py-4">
         <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
           <h1 className="text-xl font-bold tracking-tight text-gray-900">
@@ -536,6 +673,19 @@ export default function TravelPartnersPage() {
               </span>
             )}
           </h1>
+          <button
+            type="button"
+            onClick={openFilterDrawer}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            <Filter className="h-4 w-4" />
+            Filters
+            {hasActiveFilters ? (
+              <span className="rounded-full bg-[#2f3d95] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                Active
+              </span>
+            ) : null}
+          </button>
         </div>
 
         <Tabs
@@ -594,6 +744,160 @@ export default function TravelPartnersPage() {
           ))}
         </Tabs>
       </div>
+
+      {filterOpen ? (
+        <div className="fixed inset-0 z-50 flex">
+          <button
+            type="button"
+            aria-label="Close filters"
+            className="absolute inset-0 bg-slate-900/40"
+            onClick={() => setFilterOpen(false)}
+          />
+          <aside className="relative ml-auto flex h-full w-full max-w-sm flex-col bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
+                <p className="text-[11px] text-slate-500">
+                  Search partners, then apply to refresh
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFilterOpen(false)}
+                className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Email
+                </label>
+                <input
+                  type="search"
+                  value={draftFilters.email}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  placeholder="agent@"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Name
+                </label>
+                <input
+                  type="search"
+                  value={draftFilters.name}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  placeholder="John"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Agency name
+                </label>
+                <input
+                  type="search"
+                  value={draftFilters.agencyName}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      agencyName: e.target.value,
+                    }))
+                  }
+                  placeholder="Sky"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Agency tier
+                </label>
+                <select
+                  value={draftFilters.agencyTier}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      agencyTier: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="">All tiers</option>
+                  {AGENCY_TIER_OPTIONS.map((tier) => (
+                    <option key={tier.value} value={tier.value}>
+                      {tier.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <ReportCustomDateFields
+                  singleDate
+                  singleLabel="Created date (IST day)"
+                  fromText={draftFilters.createdAt}
+                  onFromTextChange={(value) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      createdAt: value,
+                      createdAtFrom: "",
+                      createdAtTo: "",
+                    }))
+                  }
+                />
+              </div>
+              <ReportCustomDateFields
+                fromLabel="Created from"
+                toLabel="Created to"
+                fromText={draftFilters.createdAtFrom}
+                toText={draftFilters.createdAtTo}
+                onFromTextChange={(value) =>
+                  setDraftFilters((prev) => ({
+                    ...prev,
+                    createdAtFrom: value,
+                    createdAt: "",
+                  }))
+                }
+                onToTextChange={(value) =>
+                  setDraftFilters((prev) => ({
+                    ...prev,
+                    createdAtTo: value,
+                    createdAt: "",
+                  }))
+                }
+              />
+            </div>
+            <div className="flex gap-2 border-t border-slate-200 px-4 py-3">
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={applyFilters}
+                className="flex-1 rounded-lg bg-[#2f3d95] px-3 py-2 text-sm font-semibold text-white hover:bg-[#263578]"
+              >
+                Apply
+              </button>
+            </div>
+          </aside>
+        </div>
+      ) : null}
 
       {/* Detail Modal */}
       {selectedPartner && (

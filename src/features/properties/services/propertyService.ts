@@ -19,6 +19,8 @@ import type {
   GetSelectedHotelAmenitiesResponse,
   LocationInfoResponse,
   HotelListResponse,
+  HotelListPageParams,
+  HotelListPageResponse,
   GetRoomDetailsResponse,
   UploadMediaResponse,
   UploadMediaRequest,
@@ -59,11 +61,91 @@ export const propertyService = {
     );
     return response.data;
   },
-  getAllHotels: async (): Promise<HotelListResponse[]> => {
+  getAllHotels: async (
+    params?: HotelListPageParams,
+  ): Promise<HotelListPageResponse> => {
+    const page = params?.page ?? 0;
+    const size = params?.size ?? 20;
+    const query: Record<string, string | number> = { page, size };
+    const trim = (value?: string) => value?.trim() || undefined;
+    const hotelName = trim(params?.hotelName);
+    const hotelCode = trim(params?.hotelCode);
+    const city = trim(params?.city);
+    const status = trim(params?.status);
+    const requestedBy = trim(params?.requestedBy);
+    const submittedAt = trim(params?.submittedAt);
+    const submittedAtFrom = trim(params?.submittedAtFrom);
+    const submittedAtTo = trim(params?.submittedAtTo);
+    if (hotelName) query.hotelName = hotelName;
+    if (hotelCode) query.hotelCode = hotelCode;
+    if (city) query.city = city;
+    if (status) query.status = status;
+    if (requestedBy) query.requestedBy = requestedBy;
+    if (submittedAt) {
+      query.submittedAt = submittedAt;
+    } else {
+      if (submittedAtFrom) query.submittedAtFrom = submittedAtFrom;
+      if (submittedAtTo) query.submittedAtTo = submittedAtTo;
+    }
     const response = await apiClient.get<
-      ApiSuccessResponse<HotelListResponse[]>
-    >(API_ENDPOINTS.HOTELS.GET_ALL_HOTELS);
-    return response.data;
+      ApiSuccessResponse<HotelListResponse[] | HotelListPageResponse>
+    >(API_ENDPOINTS.HOTELS.GET_ALL_HOTELS, {
+      params: query,
+    });
+    const payload = response.data;
+
+    if (Array.isArray(payload)) {
+      return {
+        content: payload,
+        totalElements: payload.length,
+        totalPages: 1,
+        size: payload.length,
+        number: 0,
+        numberOfElements: payload.length,
+        first: true,
+        last: true,
+        empty: payload.length === 0,
+      };
+    }
+
+    const content = Array.isArray(payload?.content) ? payload.content : [];
+    const totalElements = Number(payload?.totalElements ?? content.length);
+    const resolvedSize = Number(payload?.size ?? size);
+    const totalPages = Number(
+      payload?.totalPages ??
+        Math.max(1, Math.ceil(totalElements / Math.max(1, resolvedSize))),
+    );
+
+    return {
+      content,
+      totalElements: Number.isFinite(totalElements) ? totalElements : 0,
+      totalPages: Number.isFinite(totalPages) ? totalPages : 1,
+      size: Number.isFinite(resolvedSize) ? resolvedSize : size,
+      number: Number(payload?.number ?? page),
+      numberOfElements: Number(
+        payload?.numberOfElements ?? content.length,
+      ),
+      first: payload?.first ?? page === 0,
+      last: payload?.last ?? page >= totalPages - 1,
+      empty: payload?.empty ?? content.length === 0,
+    };
+  },
+
+  /** Fetch every page (for selectors / assignment UIs that need the full list). */
+  getAllHotelsList: async (): Promise<HotelListResponse[]> => {
+    const size = 50;
+    let page = 0;
+    let totalPages = 1;
+    const all: HotelListResponse[] = [];
+
+    do {
+      const response = await propertyService.getAllHotels({ page, size });
+      all.push(...response.content);
+      totalPages = Math.max(1, response.totalPages);
+      page += 1;
+    } while (page < totalPages);
+
+    return all;
   },
   getLocationDetails: async (
     hotelId: string,

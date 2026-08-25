@@ -136,9 +136,21 @@ function getAuditorNavItems(user: User | null): NavItem[] {
 
 function getReviewModerationNavItem(): NavItem {
   return {
-    label: "Review Moderation",
+    label: "Ratings & Reviews",
     path: ROUTES.RATINGS_REVIEWS.LIST,
     icon: Star,
+    children: [
+      {
+        label: "Review Moderation",
+        path: ROUTES.RATINGS_REVIEWS.LIST,
+        icon: Star,
+      },
+      {
+        label: "Review MIS",
+        path: ROUTES.RATINGS_REVIEWS.MIS,
+        icon: BarChart3,
+      },
+    ],
   };
 }
 

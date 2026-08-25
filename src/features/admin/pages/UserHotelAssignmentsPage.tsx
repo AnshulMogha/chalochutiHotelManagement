@@ -763,7 +763,7 @@ export default function UserHotelAssignmentsPage() {
       ? (await adminService.getSuperAdminHotelLookup("")).map(
           mapLookupToHotelOption,
         )
-      : (await propertyService.getAllHotels())
+      : (await propertyService.getAllHotelsList())
           .filter((hotel) => hotel.status === "LIVE")
           .map((hotel) => ({
             hotelId: hotel.hotelId,
@@ -843,7 +843,7 @@ export default function UserHotelAssignmentsPage() {
 
   const loadHotelsTeam = useCallback(
     async (_search: string): Promise<HotelOption[]> => {
-      const allHotels = await propertyService.getAllHotels();
+      const allHotels = await propertyService.getAllHotelsList();
       return (allHotels || [])
         .filter((hotel) => hotel.status === "LIVE")
         .map((hotel) => ({

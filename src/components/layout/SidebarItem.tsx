@@ -58,7 +58,7 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
     return path;
   };
 
-  const isActive = (path: string) => {
+  const pathMatches = (path: string) => {
     if (path === "/") {
       return location.pathname === path;
     }
@@ -67,8 +67,22 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
     );
   };
 
+  /** Prefer the longest matching sibling so `/ratings-reviews` does not stay
+   *  active when `/ratings-reviews/mis` is the current page. */
+  const isActive = (path: string, siblingPaths: string[] = []) => {
+    if (!pathMatches(path)) return false;
+    const longerSiblingMatches = siblingPaths.some(
+      (sibling) =>
+        sibling !== path &&
+        sibling.length > path.length &&
+        pathMatches(sibling),
+    );
+    return !longerSiblingMatches;
+  };
+
+  const childPaths = item.children?.map((child) => child.path) ?? [];
   const hasActiveChild =
-    hasChildren && item.children?.some((child) => isActive(child.path));
+    hasChildren && childPaths.some((path) => isActive(path, childPaths));
   // Parent groups (e.g. Reports at `/reports`) must not highlight just because
   // the URL is nested under that prefix — only when a child item matches.
   const itemActive = hasChildren ? !!hasActiveChild : isActive(item.path);
@@ -183,7 +197,7 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
         {hasChildren && isExpanded && isOpen && (
           <ul className="mt-1.5 min-w-0 space-y-1 rounded-xl border border-white/10 bg-black/12 py-1.5 pl-2 pr-1.5 backdrop-blur-sm">
             {item.children?.map((child) => {
-              const childActive = isActive(child.path);
+              const childActive = isActive(child.path, childPaths);
               const ChildIcon = child.icon;
               const childTheme = getNavIconTheme(child.path);
 

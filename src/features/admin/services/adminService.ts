@@ -122,6 +122,14 @@ export interface TravelAgentOnboardingListParams {
   page?: number;
   size?: number;
   status?: TravelAgentOnboardingStatus;
+  email?: string;
+  name?: string;
+  agencyName?: string;
+  agencyTier?: AgencyTier;
+  /** yyyy-MM-dd — full IST calendar day (overrides from/to) */
+  createdAt?: string;
+  createdAtFrom?: string;
+  createdAtTo?: string;
 }
 
 /** Full item from GET travel-agent/onboarding/:id */
@@ -2173,9 +2181,32 @@ export const adminService = {
   getTravelAgentOnboardingList: async (
     params?: TravelAgentOnboardingListParams,
   ): Promise<TravelAgentOnboardingListResponse> => {
+    const page = params?.page ?? 0;
+    const size = params?.size ?? 20;
+    const query: Record<string, string | number> = { page, size };
+    const trim = (value?: string) => value?.trim() || undefined;
+    const status = trim(params?.status);
+    const email = trim(params?.email);
+    const name = trim(params?.name);
+    const agencyName = trim(params?.agencyName);
+    const agencyTier = trim(params?.agencyTier);
+    const createdAt = trim(params?.createdAt);
+    const createdAtFrom = trim(params?.createdAtFrom);
+    const createdAtTo = trim(params?.createdAtTo);
+    if (status) query.status = status;
+    if (email) query.email = email;
+    if (name) query.name = name;
+    if (agencyName) query.agencyName = agencyName;
+    if (agencyTier) query.agencyTier = agencyTier;
+    if (createdAt) {
+      query.createdAt = createdAt;
+    } else {
+      if (createdAtFrom) query.createdAtFrom = createdAtFrom;
+      if (createdAtTo) query.createdAtTo = createdAtTo;
+    }
     const response = await apiClient.get<
       ApiSuccessResponse<TravelAgentOnboardingListResponse>
-    >(API_ENDPOINTS.TRAVEL_AGENT_ONBOARDING.ROOT, { params });
+    >(API_ENDPOINTS.TRAVEL_AGENT_ONBOARDING.ROOT, { params: query });
     return response.data;
   },
   createTravelAgentOnboarding: async (

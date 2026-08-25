@@ -6,9 +6,13 @@ import { extractErrorMessage } from "@/features/reports/components/ReportJsonPan
 import {
   formatReportDateTime,
   formatStatusLabel,
+  isoToReportDateText,
+  parseOptionalReportDate,
 } from "@/features/reports/components/reportUiHelpers";
+import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import { reviewModerationService } from "../services/reviewModerationService";
 import type { ReviewQueueItem } from "../services/reviewModerationTypes";
+import { BOOKING_TYPES } from "../services/reviewModerationTypes";
 import {
   ReviewModerationEmptyState,
   ReviewModerationFlowStrip,
@@ -22,13 +26,95 @@ import {
   ChevronRight,
   Clock3,
   Eye,
+  Filter,
   Flag,
   ListOrdered,
   Loader2,
   RefreshCw,
+  X,
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
+
+const RATING_OPTIONS = [
+  "1",
+  "1.5",
+  "2",
+  "2.5",
+  "3",
+  "3.5",
+  "4",
+  "4.5",
+  "5",
+] as const;
+
+type FilterDraft = {
+  bookingType: string;
+  bookingRef: string;
+  subjectId: string;
+  rating: string;
+  dateText: string;
+};
+
+const DEFAULT_FILTERS: FilterDraft = {
+  bookingType: "",
+  bookingRef: "",
+  subjectId: "",
+  rating: "",
+  dateText: "",
+};
+
+type AppliedFilters = {
+  bookingType?: string;
+  bookingRef?: string;
+  subjectId?: string;
+  rating?: number;
+  date?: string;
+};
+
+function buildAppliedFilters(draft: FilterDraft): AppliedFilters | null {
+  const date = parseOptionalReportDate(draft.dateText);
+  if (draft.dateText.trim() && !date) {
+    return null;
+  }
+
+  const rating =
+    draft.rating.trim() !== "" ? Number(draft.rating) : undefined;
+  if (rating != null && !Number.isFinite(rating)) {
+    return null;
+  }
+
+  return {
+    bookingType: draft.bookingType || undefined,
+    bookingRef: draft.bookingRef.trim() || undefined,
+    subjectId: draft.subjectId.trim() || undefined,
+    rating,
+    date: date || undefined,
+  };
+}
+
+function validateDraftFilters(
+  draft: FilterDraft,
+): { ok: true; filters: AppliedFilters } | { ok: false; message: string } {
+  const date = parseOptionalReportDate(draft.dateText);
+  if (draft.dateText.trim() && !date) {
+    return { ok: false, message: "Enter submitted date as dd/mm/yyyy" };
+  }
+
+  if (draft.rating.trim() !== "") {
+    const rating = Number(draft.rating);
+    if (!Number.isFinite(rating)) {
+      return { ok: false, message: "Enter a valid rating" };
+    }
+  }
+
+  const filters = buildAppliedFilters(draft);
+  if (!filters) {
+    return { ok: false, message: "Invalid filter values" };
+  }
+
+  return { ok: true, filters };
+}
 
 export default function ReviewModerationQueuePage() {
   const { toast, showToast, hideToast } = useToast();
@@ -37,11 +123,24 @@ export default function ReviewModerationQueuePage() {
   const [rows, setRows] = useState<ReviewQueueItem[]>([]);
   const [totalElements, setTotalElements] = useState(0);
   const [queueStatus, setQueueStatus] = useState<string | null>(null);
+  const [filters, setFilters] = useState<AppliedFilters>({});
+  const [draft, setDraft] = useState<FilterDraft>(DEFAULT_FILTERS);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(totalElements / PAGE_SIZE)),
     [totalElements],
   );
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.bookingType) count += 1;
+    if (filters.bookingRef) count += 1;
+    if (filters.subjectId) count += 1;
+    if (filters.rating != null) count += 1;
+    if (filters.date) count += 1;
+    return count;
+  }, [filters]);
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
@@ -49,6 +148,7 @@ export default function ReviewModerationQueuePage() {
       const data = await reviewModerationService.getFlagQueue({
         page,
         size: PAGE_SIZE,
+        ...filters,
       });
       setRows(data.items);
       setTotalElements(data.totalElements);
@@ -60,11 +160,29 @@ export default function ReviewModerationQueuePage() {
     } finally {
       setLoading(false);
     }
-  }, [page, showToast]);
+  }, [filters, page, showToast]);
 
   useEffect(() => {
     void loadQueue();
   }, [loadQueue]);
+
+  const applyFilters = () => {
+    const result = validateDraftFilters(draft);
+    if (!result.ok) {
+      showToast(result.message, "error");
+      return;
+    }
+    setFilters(result.filters);
+    setPage(0);
+    setFilterOpen(false);
+  };
+
+  const resetFilters = () => {
+    setDraft(DEFAULT_FILTERS);
+    setFilters({});
+    setPage(0);
+    setFilterOpen(false);
+  };
 
   const flaggedCount = rows.filter(
     (row) => row.status.toUpperCase() === "REVIEW_FLAGGED",
@@ -85,17 +203,35 @@ export default function ReviewModerationQueuePage() {
         title="Review Moderation"
         subtitle="Moderate customer reviews in the flag queue — approve, reject, flag, or unflag."
         actions={
-          <button
-            type="button"
-            onClick={() => void loadQueue()}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
-          >
-            <RefreshCw
-              className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"}
-            />
-            Refresh
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(filtersToDraft(filters));
+                setFilterOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+              {activeFilterCount > 0 ? (
+                <span className="rounded-full bg-[#2f3d95] px-1.5 text-[10px] font-semibold text-white">
+                  {activeFilterCount}
+                </span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              onClick={() => void loadQueue()}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+            >
+              <RefreshCw
+                className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"}
+              />
+              Refresh
+            </button>
+          </div>
         }
       >
         <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -141,6 +277,7 @@ export default function ReviewModerationQueuePage() {
                 {loading
                   ? "Loading…"
                   : `${totalElements.toLocaleString("en-IN")} review${totalElements === 1 ? "" : "s"} in queue`}
+                {activeFilterCount > 0 ? " · filtered" : ""}
               </p>
             </div>
           </div>
@@ -175,7 +312,18 @@ export default function ReviewModerationQueuePage() {
                 ) : rows.length === 0 ? (
                   <tr>
                     <td colSpan={8}>
-                      <ReviewModerationEmptyState />
+                      <ReviewModerationEmptyState
+                        title={
+                          activeFilterCount > 0
+                            ? "No matching reviews"
+                            : undefined
+                        }
+                        description={
+                          activeFilterCount > 0
+                            ? "Try adjusting or clearing your filters to see more results."
+                            : undefined
+                        }
+                      />
                     </td>
                   </tr>
                 ) : (
@@ -274,6 +422,151 @@ export default function ReviewModerationQueuePage() {
           </div>
         </div>
       </ReviewModerationPageShell>
+
+      {filterOpen ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close filters"
+            className="fixed inset-0 z-40 bg-slate-900/40"
+            onClick={() => setFilterOpen(false)}
+          />
+          <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-slate-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <h3 className="text-sm font-semibold text-slate-900">Filters</h3>
+              <button
+                type="button"
+                onClick={() => setFilterOpen(false)}
+                className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+              <div>
+                <label className="mb-1 block text-xs text-slate-500">
+                  Booking type
+                </label>
+                <select
+                  value={draft.bookingType}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      bookingType: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                >
+                  <option value="">All</option>
+                  {BOOKING_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {formatStatusLabel(type)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-slate-500">
+                  Booking reference
+                </label>
+                <input
+                  type="text"
+                  value={draft.bookingRef}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      bookingRef: e.target.value,
+                    }))
+                  }
+                  placeholder="BRKFFE8"
+                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Partial match, case-insensitive
+                </p>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-slate-500">
+                  Subject ID
+                </label>
+                <input
+                  type="text"
+                  value={draft.subjectId}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      subjectId: e.target.value,
+                    }))
+                  }
+                  placeholder="Hotel UUID or package ID"
+                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-mono text-xs"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-slate-500">
+                  Overall rating
+                </label>
+                <select
+                  value={draft.rating}
+                  onChange={(e) =>
+                    setDraft((prev) => ({ ...prev, rating: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                >
+                  <option value="">Any</option>
+                  {RATING_OPTIONS.map((rating) => (
+                    <option key={rating} value={rating}>
+                      {rating}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <p className="mb-1 text-xs text-slate-500">
+                  Submitted on (IST day, dd/mm/yyyy)
+                </p>
+                <ReportCustomDateFields
+                  singleDate
+                  singleLabel="Date"
+                  fromText={draft.dateText}
+                  onFromTextChange={(value) =>
+                    setDraft((prev) => ({ ...prev, dateText: value }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 border-t border-slate-100 px-4 py-3">
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={applyFilters}
+                className="flex-1 rounded-lg bg-[#2f3d95] px-3 py-2 text-sm font-medium text-white"
+              >
+                Apply
+              </button>
+            </div>
+          </aside>
+        </>
+      ) : null}
     </>
   );
+}
+
+function filtersToDraft(filters: AppliedFilters): FilterDraft {
+  return {
+    bookingType: filters.bookingType || "",
+    bookingRef: filters.bookingRef || "",
+    subjectId: filters.subjectId || "",
+    rating:
+      filters.rating != null && Number.isFinite(filters.rating)
+        ? String(filters.rating)
+        : "",
+    dateText: filters.date ? isoToReportDateText(filters.date) : "",
+  };
 }

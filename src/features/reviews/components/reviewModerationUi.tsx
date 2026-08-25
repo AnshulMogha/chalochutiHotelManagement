@@ -2,10 +2,12 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   CheckCircle2,
+  Clock3,
   Flag,
   Inbox,
   ShieldCheck,
   Star,
+  X,
   XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,27 +33,155 @@ export function ReviewModerationPageShell({
   subtitle,
   actions,
   children,
+  icon: Icon = Star,
+  iconClassName = "bg-linear-to-br from-amber-500 to-orange-600",
+  borderClassName = "border-amber-100",
+  wide = false,
 }: {
   title: string;
   subtitle?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
+  icon?: LucideIcon;
+  iconClassName?: string;
+  borderClassName?: string;
+  wide?: boolean;
 }) {
   return (
-    <div className="min-h-full bg-linear-to-b from-slate-50 via-white to-slate-50">
-      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+    <div className="min-h-full bg-[#f7f8fa]">
+      <div
+        className={cn(
+          "mx-auto px-3 py-4 sm:px-4",
+          wide ? "max-w-[1400px]" : "max-w-7xl",
+        )}
+      >
         <ReportPageHeader
-          icon={Star}
-          iconClassName="bg-linear-to-br from-amber-500 to-orange-600"
+          icon={Icon}
+          iconClassName={iconClassName}
           title={title}
           description={subtitle}
           descriptionClassName="text-xs text-slate-500"
-          borderClassName="border-amber-100"
+          borderClassName={borderClassName}
           actions={actions}
         />
         {children}
       </div>
     </div>
+  );
+}
+
+export function ReviewReportSection({
+  title,
+  description,
+  children,
+  action,
+  flush,
+  className,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+  action?: ReactNode;
+  flush?: boolean;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cn(
+        "overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-200/80 bg-[#f4f6fb] px-4 py-3">
+        <div>
+          <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+          {description ? (
+            <p className="mt-0.5 text-xs text-slate-500">{description}</p>
+          ) : null}
+        </div>
+        {action}
+      </div>
+      <div className={flush ? undefined : "p-4"}>{children}</div>
+    </section>
+  );
+}
+
+export function ReviewFilterField({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-slate-600">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+export function ReviewFilterDrawer({
+  open,
+  onClose,
+  onReset,
+  onApply,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onReset: () => void;
+  onApply: () => void;
+  children: ReactNode;
+}) {
+  if (!open) return null;
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close filters"
+        className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[1px]"
+        onClick={onClose}
+      />
+      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
+            <p className="text-[11px] text-slate-500">
+              Adjust criteria, then apply to refresh results
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+          {children}
+        </div>
+        <div className="flex gap-2 border-t border-slate-100 px-4 py-3">
+          <button
+            type="button"
+            onClick={onReset}
+            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            onClick={onApply}
+            className="flex-1 rounded-lg bg-[#2f3d95] px-3 py-2 text-sm font-semibold text-white hover:bg-[#263578]"
+          >
+            Apply
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
 
@@ -95,39 +225,65 @@ export function ReviewModerationStatCard({
   );
 }
 
-export function ReviewModerationFlowStrip() {
+export function ReviewModerationFlowStrip({
+  currentStatus,
+}: {
+  currentStatus?: string;
+} = {}) {
+  const normalized = String(currentStatus || "").toUpperCase();
+  const highlightCurrent = Boolean(normalized);
   const steps = [
-    { label: "Pending", tone: "bg-amber-100 text-amber-800 ring-amber-200" },
-    { label: "Flagged", tone: "bg-rose-100 text-rose-800 ring-rose-200" },
-    { label: "Approve → Published", tone: "bg-emerald-100 text-emerald-800 ring-emerald-200" },
-    { label: "Reject", tone: "bg-slate-100 text-slate-700 ring-slate-200" },
+    {
+      key: "REVIEW_PENDING",
+      label: "Pending",
+      active: "bg-amber-100 text-amber-800 ring-amber-200",
+    },
+    {
+      key: "REVIEW_FLAGGED",
+      label: "Flagged",
+      active: "bg-rose-100 text-rose-800 ring-rose-200",
+    },
+    {
+      key: "REVIEW_PUBLISHED",
+      label: "Published",
+      active: "bg-emerald-100 text-emerald-800 ring-emerald-200",
+    },
+    {
+      key: "REVIEW_REJECTED",
+      label: "Rejected",
+      active: "bg-slate-200 text-slate-700 ring-slate-300",
+    },
   ];
 
   return (
-    <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Moderation flow
-        </span>
-        <span className="hidden text-slate-300 sm:inline">·</span>
-        {steps.map((step, index) => (
-          <span key={step.label} className="inline-flex items-center gap-2">
+    <div className="mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.04em] text-slate-400">
+        {highlightCurrent ? "Status" : "Flow"}
+      </span>
+      {steps.map((step, index) => {
+        const isCurrent = normalized === step.key;
+        const tone =
+          !highlightCurrent || isCurrent
+            ? step.active
+            : "bg-slate-50 text-slate-400 ring-slate-100";
+        return (
+          <span key={step.key} className="inline-flex items-center gap-1.5">
             <span
               className={cn(
-                "inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset",
-                step.tone,
+                "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset transition",
+                tone,
               )}
             >
               {step.label}
             </span>
             {index < steps.length - 1 ? (
-              <span className="text-slate-300" aria-hidden>
+              <span className="text-slate-200" aria-hidden>
                 →
               </span>
             ) : null}
           </span>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }
@@ -179,14 +335,22 @@ export function ReviewStatusBadge({ status }: { status: string }) {
     REVIEW_FLAGGED: "Flagged",
     REVIEW_REJECTED: "Rejected",
   };
+  const icons: Record<string, LucideIcon> = {
+    REVIEW_PENDING: Clock3,
+    REVIEW_PUBLISHED: CheckCircle2,
+    REVIEW_FLAGGED: Flag,
+    REVIEW_REJECTED: XCircle,
+  };
+  const Icon = icons[normalized];
 
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset",
+        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset",
         styles[normalized] ?? "bg-slate-50 text-slate-700 ring-slate-200",
       )}
     >
+      {Icon ? <Icon className="h-3 w-3" /> : null}
       {labels[normalized] ?? formatStatusLabel(status)}
     </span>
   );

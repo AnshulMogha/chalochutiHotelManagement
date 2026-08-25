@@ -247,6 +247,15 @@ const NAV_ICON_THEMES: Record<string, NavIconTheme> = {
     row: "bg-yellow-500/28",
     rowHover: "hover:bg-yellow-500/18",
   },
+  [ROUTES.RATINGS_REVIEWS.MIS]: {
+    chip: "bg-amber-500/35",
+    chipActive: "bg-amber-500/52 ring-1 ring-amber-400/65",
+    icon: "text-amber-100",
+    iconActive: "text-amber-50",
+    accent: "bg-amber-400",
+    row: "bg-amber-500/28",
+    rowHover: "hover:bg-amber-500/18",
+  },
   [ROUTES.PROMOTIONS.LIST]: {
     chip: "bg-pink-500/35",
     chipActive: "bg-pink-500/52 ring-1 ring-pink-400/65",

@@ -192,6 +192,9 @@ const SettlementWorkbenchPage = lazy(
 const ReviewModerationQueuePage = lazy(
   () => import("../features/reviews/pages/ReviewModerationQueuePage"),
 );
+const ReviewMisPage = lazy(
+  () => import("../features/reviews/pages/ReviewMisPage"),
+);
 const ReviewModerationDetailPage = lazy(
   () => import("../features/reviews/pages/ReviewModerationDetailPage"),
 );
@@ -617,6 +620,10 @@ export const routes: RouteObject[] = [
       {
         path: "ratings-reviews",
         element: <ReviewModerationQueuePage />,
+      },
+      {
+        path: "ratings-reviews/mis",
+        element: <ReviewMisPage />,
       },
       {
         path: "ratings-reviews/:reviewId",

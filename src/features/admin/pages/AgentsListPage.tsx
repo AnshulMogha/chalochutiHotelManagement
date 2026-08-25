@@ -31,8 +31,16 @@ import {
   Plus,
   Pencil,
   Loader2,
+  Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Toast, useToast } from "@/components/ui/Toast";
+import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import {
+  isoToReportDateText,
+  parseOptionalReportDate,
+  validateOptionalDateRange,
+} from "@/features/reports/components/reportUiHelpers";
 import type { TravelPartnerStatus } from "./TravelPartnersPage";
 import type { TravelPartner } from "./TravelPartnersPage";
 
@@ -43,6 +51,26 @@ const AGENCY_TIER_OPTIONS: Array<{ value: AgencyTier; label: string }> = [
   { value: "SILVER", label: "Silver" },
   { value: "BRONZE", label: "Bronze" },
 ];
+
+type AgentListFilters = {
+  email: string;
+  name: string;
+  agencyName: string;
+  agencyTier: string;
+  createdAt: string;
+  createdAtFrom: string;
+  createdAtTo: string;
+};
+
+const DEFAULT_AGENT_FILTERS: AgentListFilters = {
+  email: "",
+  name: "",
+  agencyName: "",
+  agencyTier: "",
+  createdAt: "",
+  createdAtFrom: "",
+  createdAtTo: "",
+};
 
 function mapListItemToPartner(item: TravelAgentOnboardingListItem): TravelPartner {
   return {
@@ -130,6 +158,7 @@ function formatAgencyTier(tier?: AgencyTier) {
 
 export default function AgentsListPage() {
   const { user } = useAuth();
+  const { toast, showToast, hideToast } = useToast();
   const canUpdateTier =
     isSalesManagerRole(user?.roles) || isZonalManagerSalesRole(user?.roles);
 
@@ -157,6 +186,75 @@ export default function AgentsListPage() {
     APPROVED: 0,
     REJECTED: 0,
   });
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<AgentListFilters>(
+    DEFAULT_AGENT_FILTERS,
+  );
+  const [appliedFilters, setAppliedFilters] = useState<AgentListFilters>(
+    DEFAULT_AGENT_FILTERS,
+  );
+
+  const hasActiveFilters = Boolean(
+    appliedFilters.email ||
+      appliedFilters.name ||
+      appliedFilters.agencyName ||
+      appliedFilters.agencyTier ||
+      appliedFilters.createdAt ||
+      appliedFilters.createdAtFrom ||
+      appliedFilters.createdAtTo,
+  );
+
+  const applyFilters = () => {
+    const createdAtIso = parseOptionalReportDate(draftFilters.createdAt);
+    if (draftFilters.createdAt.trim() && !createdAtIso) {
+      showToast("Enter created date as dd/mm/yyyy", "error");
+      return;
+    }
+
+    let createdAtFrom = "";
+    let createdAtTo = "";
+    if (!createdAtIso) {
+      const range = validateOptionalDateRange(
+        draftFilters.createdAtFrom,
+        draftFilters.createdAtTo,
+      );
+      if (!range.ok) {
+        showToast(range.message, "error");
+        return;
+      }
+      createdAtFrom = range.fromDate || "";
+      createdAtTo = range.toDate || "";
+    }
+
+    setAppliedFilters({
+      email: draftFilters.email.trim(),
+      name: draftFilters.name.trim(),
+      agencyName: draftFilters.agencyName.trim(),
+      agencyTier: draftFilters.agencyTier.trim(),
+      createdAt: createdAtIso || "",
+      createdAtFrom,
+      createdAtTo,
+    });
+    setCurrentPage(0);
+    setFilterOpen(false);
+  };
+
+  const resetFilters = () => {
+    setDraftFilters(DEFAULT_AGENT_FILTERS);
+    setAppliedFilters(DEFAULT_AGENT_FILTERS);
+    setCurrentPage(0);
+    setFilterOpen(false);
+  };
+
+  const openFilterDrawer = () => {
+    setDraftFilters({
+      ...appliedFilters,
+      createdAt: isoToReportDateText(appliedFilters.createdAt),
+      createdAtFrom: isoToReportDateText(appliedFilters.createdAtFrom),
+      createdAtTo: isoToReportDateText(appliedFilters.createdAtTo),
+    });
+    setFilterOpen(true);
+  };
 
   const fetchPartners = useCallback(async () => {
     setLoading(true);
@@ -166,6 +264,28 @@ export default function AgentsListPage() {
         page: currentPage,
         size: pageSize,
         status: activeTab,
+        ...(appliedFilters.email ? { email: appliedFilters.email } : {}),
+        ...(appliedFilters.name ? { name: appliedFilters.name } : {}),
+        ...(appliedFilters.agencyName
+          ? { agencyName: appliedFilters.agencyName }
+          : {}),
+        ...(appliedFilters.agencyTier
+          ? { agencyTier: appliedFilters.agencyTier as AgencyTier }
+          : {}),
+        ...(appliedFilters.createdAt
+          ? { createdAt: appliedFilters.createdAt }
+          : {
+              ...(appliedFilters.createdAtFrom
+                ? {
+                    createdAtFrom: `${appliedFilters.createdAtFrom}T00:00:00.000+05:30`,
+                  }
+                : {}),
+              ...(appliedFilters.createdAtTo
+                ? {
+                    createdAtTo: `${appliedFilters.createdAtTo}T23:59:59.999+05:30`,
+                  }
+                : {}),
+            }),
       });
       setPartners(response.content.map(mapListItemToPartner));
       setTotalPages(response.totalPages);
@@ -187,7 +307,7 @@ export default function AgentsListPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, currentPage, pageSize]);
+  }, [activeTab, currentPage, pageSize, appliedFilters]);
 
   useEffect(() => {
     fetchPartners();
@@ -249,6 +369,12 @@ export default function AgentsListPage() {
 
   return (
     <div className="min-h-screen bg-linear-to-b from-slate-50 to-emerald-50/30">
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-3">
@@ -262,13 +388,28 @@ export default function AgentsListPage() {
               </p>
             </div>
           </div>
-          <Link
-            to={ROUTES.AGENTS.CREATE}
-            className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-base font-medium text-white shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
-          >
-            <Plus className="h-4 w-4" />
-            Add agent
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={openFilterDrawer}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+              {hasActiveFilters ? (
+                <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  Active
+                </span>
+              ) : null}
+            </button>
+            <Link
+              to={ROUTES.AGENTS.CREATE}
+              className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-base font-medium text-white shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+            >
+              <Plus className="h-4 w-4" />
+              Add agent
+            </Link>
+          </div>
         </div>
 
         {listError && (
@@ -334,14 +475,27 @@ export default function AgentsListPage() {
                     <Icon className="h-7 w-7" />
                   </div>
                   <p className="mt-4 text-sm font-medium text-gray-700">
-                    No {activeTab.toLowerCase()} agents
+                    {hasActiveFilters
+                      ? "No agents match your filters"
+                      : `No ${activeTab.toLowerCase()} agents`}
                   </p>
                   <p className="mt-1 text-sm text-gray-500">
-                    {activeTab === "PENDING"
-                      ? "Use Add agent to submit a new onboarding."
-                      : `No ${activeTab.toLowerCase()} applications in this view.`}
+                    {hasActiveFilters
+                      ? "Try a different name, email, agency, or date."
+                      : activeTab === "PENDING"
+                        ? "Use Add agent to submit a new onboarding."
+                        : `No ${activeTab.toLowerCase()} applications in this view.`}
                   </p>
-                  {activeTab === "PENDING" && (
+                  {hasActiveFilters ? (
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="mt-6 inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      <X className="h-4 w-4" />
+                      Clear filters
+                    </button>
+                  ) : activeTab === "PENDING" ? (
                     <Link
                       to={ROUTES.AGENTS.CREATE}
                       className="mt-6 inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -349,7 +503,7 @@ export default function AgentsListPage() {
                       <Plus className="h-4 w-4" />
                       Add agent
                     </Link>
-                  )}
+                  ) : null}
                 </div>
               );
             })()
@@ -858,6 +1012,160 @@ export default function AgentsListPage() {
           </div>
         </div>
       )}
+
+      {filterOpen ? (
+        <div className="fixed inset-0 z-50 flex">
+          <button
+            type="button"
+            aria-label="Close filters"
+            className="absolute inset-0 bg-slate-900/40"
+            onClick={() => setFilterOpen(false)}
+          />
+          <aside className="relative ml-auto flex h-full w-full max-w-sm flex-col bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
+                <p className="text-[11px] text-slate-500">
+                  Search agents, then apply to refresh
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFilterOpen(false)}
+                className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Email
+                </label>
+                <input
+                  type="search"
+                  value={draftFilters.email}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  placeholder="agent@"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Name
+                </label>
+                <input
+                  type="search"
+                  value={draftFilters.name}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  placeholder="John"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Agency name
+                </label>
+                <input
+                  type="search"
+                  value={draftFilters.agencyName}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      agencyName: e.target.value,
+                    }))
+                  }
+                  placeholder="Sky"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Agency tier
+                </label>
+                <select
+                  value={draftFilters.agencyTier}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      agencyTier: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="">All tiers</option>
+                  {AGENCY_TIER_OPTIONS.map((tier) => (
+                    <option key={tier.value} value={tier.value}>
+                      {tier.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <ReportCustomDateFields
+                  singleDate
+                  singleLabel="Created date (IST day)"
+                  fromText={draftFilters.createdAt}
+                  onFromTextChange={(value) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      createdAt: value,
+                      createdAtFrom: "",
+                      createdAtTo: "",
+                    }))
+                  }
+                />
+              </div>
+              <ReportCustomDateFields
+                fromLabel="Created from"
+                toLabel="Created to"
+                fromText={draftFilters.createdAtFrom}
+                toText={draftFilters.createdAtTo}
+                onFromTextChange={(value) =>
+                  setDraftFilters((prev) => ({
+                    ...prev,
+                    createdAtFrom: value,
+                    createdAt: "",
+                  }))
+                }
+                onToTextChange={(value) =>
+                  setDraftFilters((prev) => ({
+                    ...prev,
+                    createdAtTo: value,
+                    createdAt: "",
+                  }))
+                }
+              />
+            </div>
+            <div className="flex gap-2 border-t border-slate-200 px-4 py-3">
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={applyFilters}
+                className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                Apply
+              </button>
+            </div>
+          </aside>
+        </div>
+      ) : null}
 
       {showTierModal && tierTargetPartner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">

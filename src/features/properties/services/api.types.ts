@@ -196,6 +196,32 @@ export interface HotelListResponse {
   rejectionReason?: string | null;
 }
 
+export interface HotelListPageParams {
+  page?: number;
+  size?: number;
+  hotelName?: string;
+  hotelCode?: string;
+  city?: string;
+  status?: string;
+  requestedBy?: string;
+  /** yyyy-MM-dd — full IST calendar day (overrides from/to) */
+  submittedAt?: string;
+  submittedAtFrom?: string;
+  submittedAtTo?: string;
+}
+
+export interface HotelListPageResponse {
+  content: HotelListResponse[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  numberOfElements: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
+}
+
 export interface GetRoomDetailsResponse {
   roomOnboardingId: number;
   hotelId: string;

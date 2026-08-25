@@ -97,7 +97,7 @@ export default function PricingQuotePage() {
     const fetchHotels = async () => {
       try {
         setIsLoadingHotels(true);
-        const allHotels = await propertyService.getAllHotels();
+        const allHotels = await propertyService.getAllHotelsList();
         // Filter for only LIVE (active) hotels
         const activeHotels = allHotels
           .filter((hotel) => hotel.status === "LIVE")

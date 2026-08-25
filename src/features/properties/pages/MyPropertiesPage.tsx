@@ -11,27 +11,64 @@ import {
   Clock,
   User,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  X,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
 import { canOnboardHotel } from "@/constants/roles";
 import { useAuth } from "@/hooks";
 import type { HotelList, HotelStatus } from "../types";
 import { propertyService } from "../services/propertyService";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { LoadingSpinner } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import {
   DataGrid,
   GridToolbar,
-  GridToolbarExport,
-  GridToolbarQuickFilter,
 } from "@mui/x-data-grid";
 import type { GridColDef } from "@mui/x-data-grid";
 import { Box } from "@mui/material";
 import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import {
+  isoToReportDateText,
+  parseOptionalReportDate,
+  validateOptionalDateRange,
+} from "@/features/reports/components/reportUiHelpers";
 
-// Mock data - replace with actual API calls
+const HOTEL_LIST_STATUSES = [
+  "DRAFT",
+  "UNDER_QC",
+  "QC_REJECTED",
+  "UNDER_ZONAL_REVIEW",
+  "ZONAL_REJECTED",
+  "LIVE",
+] as const;
+
+type PropertyListFilters = {
+  hotelName: string;
+  hotelCode: string;
+  city: string;
+  status: string;
+  requestedBy: string;
+  submittedAt: string;
+  submittedAtFrom: string;
+  submittedAtTo: string;
+};
+
+const DEFAULT_PROPERTY_FILTERS: PropertyListFilters = {
+  hotelName: "",
+  hotelCode: "",
+  city: "",
+  status: "",
+  requestedBy: "",
+  submittedAt: "",
+  submittedAtFrom: "",
+  submittedAtTo: "",
+};
 
 const statusConfig: Record<
   HotelStatus,
@@ -102,6 +139,64 @@ const formatDate = (dateString?: string) => {
 const getOnboardingReadOnlyUrl = (hotelId: string) =>
   `${ROUTES.PROPERTIES.EDIT(hotelId)}&readOnly=true`;
 
+function mapHotelToListItem(
+  hotel: {
+    hotelId: string;
+    hotelCode: string;
+    hotelName: string;
+    city?: string | null;
+    status: string;
+    currentStep: string;
+    locked: boolean;
+    submittedAt?: string | null;
+    requestedByEmail?: string | null;
+    rejectionReason?: string | null;
+  },
+): HotelList {
+  return {
+    hotelId: hotel.hotelId,
+    hotelCode: hotel.hotelCode,
+    hotelName: hotel.hotelName,
+    city: hotel.city ?? undefined,
+    status: hotel.status as HotelStatus,
+    currentStep: hotel.currentStep,
+    locked: hotel.locked,
+    submittedAt: hotel.submittedAt ?? undefined,
+    requestedByEmail: hotel.requestedByEmail ?? undefined,
+    rejectionReason: hotel.rejectionReason,
+  };
+}
+
+function splitHotelsByTab(hotels: ReturnType<typeof mapHotelToListItem>[]) {
+  const hasRejectionFeedback = (hotel: (typeof hotels)[number]) =>
+    Boolean(
+      hotel.rejectionReason && String(hotel.rejectionReason).trim().length > 0,
+    );
+  const status = (hotel: (typeof hotels)[number]) =>
+    String(hotel.status || "").toUpperCase();
+  const isExplicitRejectedStatus = (hotel: (typeof hotels)[number]) =>
+    status(hotel) === "REJECTED";
+  const isReviewInProgressStatus = (hotel: (typeof hotels)[number]) =>
+    status(hotel) === "UNDER_QC" ||
+    status(hotel) === "UNDER_REVIEW" ||
+    status(hotel) === "PENDING";
+  const shouldGoToRejected = (hotel: (typeof hotels)[number]) =>
+    isExplicitRejectedStatus(hotel) ||
+    (status(hotel) === "DRAFT" && hasRejectionFeedback(hotel));
+
+  return {
+    active: hotels.filter((hotel) => hotel.status === "LIVE"),
+    inProcess: hotels.filter(
+      (hotel) =>
+        hotel.status !== "LIVE" &&
+        (!shouldGoToRejected(hotel) || isReviewInProgressStatus(hotel)),
+    ),
+    rejected: hotels.filter(
+      (hotel) => shouldGoToRejected(hotel) && !isReviewInProgressStatus(hotel),
+    ),
+  };
+}
+
 export default function MyPropertiesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -112,6 +207,16 @@ export default function MyPropertiesPage() {
   const [rejectedHotels, setRejectedHotels] = useState<HotelList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("active");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalElements, setTotalElements] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<PropertyListFilters>(
+    DEFAULT_PROPERTY_FILTERS,
+  );
+  const [appliedFilters, setAppliedFilters] = useState<PropertyListFilters>(
+    DEFAULT_PROPERTY_FILTERS,
+  );
   const isScopedPropertyViewer =
     !!user?.roles?.includes("HOTEL_MANAGER") ||
     !!user?.roles?.includes("FRONT_DESK_EXEC") ||
@@ -119,6 +224,11 @@ export default function MyPropertiesPage() {
   const isHotelBdUser = !!user?.roles?.includes("HOTEL_BD");
 
   const canOnboard = canOnboardHotel(user?.roles);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(totalElements / Math.max(1, pageSize))),
+    [totalElements, pageSize],
+  );
 
   const getApiErrorMessage = (error: unknown, fallback: string) => {
     const err = error as {
@@ -150,91 +260,175 @@ export default function MyPropertiesPage() {
     }
   };
 
-  useEffect(() => {
-    async function fetchProperties() {
-      try {
-        setIsLoading(true);
-        const response = await propertyService.getAllHotels();
+  const hasActiveFilters = Boolean(
+    appliedFilters.hotelName ||
+      appliedFilters.hotelCode ||
+      appliedFilters.city ||
+      appliedFilters.status ||
+      appliedFilters.requestedBy ||
+      appliedFilters.submittedAt ||
+      appliedFilters.submittedAtFrom ||
+      appliedFilters.submittedAtTo,
+  );
 
-        const hasRejectionFeedback = (hotel: (typeof response)[number]) =>
-          Boolean(
-            hotel.rejectionReason && String(hotel.rejectionReason).trim().length > 0,
-          );
-        const status = (hotel: (typeof response)[number]) =>
-          String(hotel.status || "").toUpperCase();
-        const isExplicitRejectedStatus = (hotel: (typeof response)[number]) =>
-          status(hotel) === "REJECTED";
-        const isReviewInProgressStatus = (hotel: (typeof response)[number]) =>
-          status(hotel) === "UNDER_QC" ||
-          status(hotel) === "UNDER_REVIEW" ||
-          status(hotel) === "PENDING";
-        const shouldGoToRejected = (hotel: (typeof response)[number]) =>
-          isExplicitRejectedStatus(hotel) ||
-          (status(hotel) === "DRAFT" && hasRejectionFeedback(hotel));
-
-        const activeHotelsRaw = response.filter(
-          (hotel) => hotel.status === "LIVE",
-        );
-        // In Process: non-live hotels that are not rejected.
-        // Keep review statuses (UNDER_QC / UNDER_REVIEW / PENDING) here even if
-        // backend sends rejectionReason metadata.
-        const inProcessHotelsRaw = response.filter(
-          (hotel) =>
-            hotel.status !== "LIVE" &&
-            (!shouldGoToRejected(hotel) || isReviewInProgressStatus(hotel)),
-        );
-        // Rejected: explicit rejected status, or DRAFT with rejection reason.
-        const rejectedHotelsRaw = response.filter(
-          (hotel) => shouldGoToRejected(hotel) && !isReviewInProgressStatus(hotel),
-        );
-
-        const activeHotelsList = activeHotelsRaw.map((hotel) => ({
-          hotelId: hotel.hotelId,
-          hotelCode: hotel.hotelCode,
-          hotelName: hotel.hotelName,
-          city: hotel.city,
-          status: hotel.status as HotelStatus,
-          currentStep: hotel.currentStep,
-          locked: hotel.locked,
-          submittedAt: hotel.submittedAt,
-          requestedByEmail: hotel.requestedByEmail,
-          rejectionReason: hotel.rejectionReason,
-        }));
-        const inProcessHotelsList = inProcessHotelsRaw.map((hotel) => ({
-          hotelId: hotel.hotelId,
-          hotelCode: hotel.hotelCode,
-          hotelName: hotel.hotelName,
-          city: hotel.city,
-          status: hotel.status as HotelStatus,
-          currentStep: hotel.currentStep,
-          locked: hotel.locked,
-          submittedAt: hotel.submittedAt,
-          requestedByEmail: hotel.requestedByEmail,
-          rejectionReason: hotel.rejectionReason,
-        }));
-        const rejectedHotelsList = rejectedHotelsRaw.map((hotel) => ({
-          hotelId: hotel.hotelId,
-          hotelCode: hotel.hotelCode,
-          hotelName: hotel.hotelName,
-          city: hotel.city,
-          status: hotel.status as HotelStatus,
-          currentStep: hotel.currentStep,
-          locked: hotel.locked,
-          submittedAt: hotel.submittedAt,
-          requestedByEmail: hotel.requestedByEmail,
-          rejectionReason: hotel.rejectionReason,
-        }));
-        setActiveHotels(activeHotelsList);
-        setInProcessHotels(inProcessHotelsList);
-        setRejectedHotels(rejectedHotelsList);
-      } catch (error) {
-        console.error("Error fetching properties:", error);
-      } finally {
-        setIsLoading(false);
-      }
+  const applyFilters = () => {
+    const submittedAtIso = parseOptionalReportDate(draftFilters.submittedAt);
+    if (draftFilters.submittedAt.trim() && !submittedAtIso) {
+      showToast("Enter submitted date as dd/mm/yyyy", "error");
+      return;
     }
-    fetchProperties();
-  }, []);
+
+    let submittedAtFrom = "";
+    let submittedAtTo = "";
+    if (!submittedAtIso) {
+      const range = validateOptionalDateRange(
+        draftFilters.submittedAtFrom,
+        draftFilters.submittedAtTo,
+      );
+      if (!range.ok) {
+        showToast(range.message, "error");
+        return;
+      }
+      submittedAtFrom = range.fromDate || "";
+      submittedAtTo = range.toDate || "";
+    }
+
+    setAppliedFilters({
+      hotelName: draftFilters.hotelName.trim(),
+      hotelCode: draftFilters.hotelCode.trim(),
+      city: draftFilters.city.trim(),
+      status: draftFilters.status.trim(),
+      requestedBy: draftFilters.requestedBy.trim(),
+      submittedAt: submittedAtIso || "",
+      submittedAtFrom,
+      submittedAtTo,
+    });
+    setPage(0);
+    setFilterOpen(false);
+  };
+
+  const resetFilters = () => {
+    setDraftFilters(DEFAULT_PROPERTY_FILTERS);
+    setAppliedFilters(DEFAULT_PROPERTY_FILTERS);
+    setPage(0);
+    setFilterOpen(false);
+  };
+
+  const openFilterDrawer = () => {
+    setDraftFilters({
+      ...appliedFilters,
+      submittedAt: isoToReportDateText(appliedFilters.submittedAt),
+      submittedAtFrom: isoToReportDateText(appliedFilters.submittedAtFrom),
+      submittedAtTo: isoToReportDateText(appliedFilters.submittedAtTo),
+    });
+    setFilterOpen(true);
+  };
+
+  const fetchProperties = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await propertyService.getAllHotels({
+        page,
+        size: pageSize,
+        ...(appliedFilters.hotelName
+          ? { hotelName: appliedFilters.hotelName }
+          : {}),
+        ...(appliedFilters.hotelCode
+          ? { hotelCode: appliedFilters.hotelCode }
+          : {}),
+        ...(appliedFilters.city ? { city: appliedFilters.city } : {}),
+        ...(appliedFilters.status ? { status: appliedFilters.status } : {}),
+        ...(appliedFilters.requestedBy
+          ? { requestedBy: appliedFilters.requestedBy }
+          : {}),
+        ...(appliedFilters.submittedAt
+          ? { submittedAt: appliedFilters.submittedAt }
+          : {
+              ...(appliedFilters.submittedAtFrom
+                ? {
+                    submittedAtFrom: `${appliedFilters.submittedAtFrom}T00:00:00.000+05:30`,
+                  }
+                : {}),
+              ...(appliedFilters.submittedAtTo
+                ? {
+                    submittedAtTo: `${appliedFilters.submittedAtTo}T23:59:59.999+05:30`,
+                  }
+                : {}),
+            }),
+      });
+      const hotelsList = (response.content || []).map(mapHotelToListItem);
+      const split = splitHotelsByTab(hotelsList);
+
+      setActiveHotels(split.active);
+      setInProcessHotels(split.inProcess);
+      setRejectedHotels(split.rejected);
+      setTotalElements(response.totalElements || 0);
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+      setActiveHotels([]);
+      setInProcessHotels([]);
+      setRejectedHotels([]);
+      setTotalElements(0);
+      showToast(
+        getApiErrorMessage(error, "Failed to load properties. Please try again."),
+        "error",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [page, pageSize, appliedFilters, showToast]);
+
+  useEffect(() => {
+    void fetchProperties();
+  }, [fetchProperties]);
+
+  const paginationFooter = (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+      <p className="text-sm text-gray-600">
+        Page {page + 1} of {totalPages}
+        <span className="text-gray-400"> · </span>
+        {totalElements.toLocaleString("en-IN")} total
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          Rows
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPage(0);
+              setPageSize(Number(e.target.value));
+            }}
+            className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm"
+          >
+            {[10, 20, 50, 100].map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          disabled={page <= 0 || isLoading}
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Prev
+        </button>
+        <button
+          type="button"
+          disabled={page + 1 >= totalPages || isLoading}
+          onClick={() => setPage((p) => p + 1)}
+          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
+        >
+          Next
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+
   const handleExportCSV = (
     hotels: HotelList[],
     tab: "active" | "inprocess" | "rejected",
@@ -322,7 +516,7 @@ export default function MyPropertiesPage() {
         <div className="bg-white rounded-xl border border-gray-200 shadow-md p-16 text-center">
           <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-600 text-lg font-medium mb-2">
-            No properties found
+            No properties found on this page
           </p>
           {canAddProperty && (
             <>
@@ -548,10 +742,8 @@ export default function MyPropertiesPage() {
           columns={columns}
           getRowId={(row) => row.hotelId}
           autoHeight
-          pageSizeOptions={[5, 10, 20, 50, 100]}
-          initialState={{
-            pagination: { paginationModel: { pageSize: 10 } },
-          }}
+          hideFooter
+          disableColumnFilter
           onRowClick={
             isActiveTab
               ? (params) => {
@@ -693,7 +885,7 @@ export default function MyPropertiesPage() {
     );
   };
 
-  if (isLoading) {
+  if (isLoading && totalElements === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner />
@@ -709,30 +901,26 @@ export default function MyPropertiesPage() {
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-      {/* Header with Add Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {isScopedPropertyViewer ? "Properties" : "My Properties"}
-          </h1>
-          <p className="text-gray-600">
-            Manage your property listings and information
-          </p>
-        </div>
-        {!isScopedPropertyViewer && canOnboard && (
-          <Button
-            onClick={handleAddProperty}
-            variant="primary"
-            className="gap-2 shadow-lg hover:shadow-xl transition-shadow"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Add New Property</span>
-          </Button>
-        )}
-      </div>
-
       {isScopedPropertyViewer ? (
-        renderTable(activeHotels, true, false)
+        <>
+          <div className="mb-6 flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={openFilterDrawer}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+              {hasActiveFilters ? (
+                <span className="rounded-full bg-[#2f3d95] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  Active
+                </span>
+              ) : null}
+            </button>
+          </div>
+          {renderTable(activeHotels, true, false)}
+          {paginationFooter}
+        </>
       ) : (
         <Tabs
           defaultValue="active"
@@ -740,7 +928,7 @@ export default function MyPropertiesPage() {
           onValueChange={setActiveTab}
           className="space-y-6"
         >
-          <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <TabsList className="bg-white border border-gray-200 shadow-sm h-12 px-1 space-x-1 rounded-xl">
               <TabsTrigger
                 value="active"
@@ -771,31 +959,59 @@ export default function MyPropertiesPage() {
               </TabsTrigger>
             </TabsList>
 
-            {/* Export Buttons - Show based on active tab */}
-            {activeTab === "active" && activeHotels.length > 0 && (
-              <ExportButton
-                onExportCSV={() => handleExportCSV(activeHotels, "active")}
-                onExportExcel={() => handleExportExcel(activeHotels, "active")}
-              />
-            )}
-
-            {activeTab === "inprocess" && inProcessHotels.length > 0 && (
-              <ExportButton
-                onExportCSV={() => handleExportCSV(inProcessHotels, "inprocess")}
-                onExportExcel={() =>
-                  handleExportExcel(inProcessHotels, "inprocess")
-                }
-              />
-            )}
-
-            {activeTab === "rejected" && rejectedHotels.length > 0 && (
-              <ExportButton
-                onExportCSV={() => handleExportCSV(rejectedHotels, "rejected")}
-                onExportExcel={() =>
-                  handleExportExcel(rejectedHotels, "rejected")
-                }
-              />
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={openFilterDrawer}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                <Filter className="h-4 w-4" />
+                Filters
+                {hasActiveFilters ? (
+                  <span className="rounded-full bg-[#2f3d95] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    Active
+                  </span>
+                ) : null}
+              </button>
+              {canOnboard && (
+                <Button
+                  onClick={handleAddProperty}
+                  variant="primary"
+                  className="gap-2 shadow-lg hover:shadow-xl transition-shadow"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Add New Property</span>
+                </Button>
+              )}
+              {activeTab === "active" && activeHotels.length > 0 && (
+                <ExportButton
+                  onExportCSV={() => handleExportCSV(activeHotels, "active")}
+                  onExportExcel={() =>
+                    handleExportExcel(activeHotels, "active")
+                  }
+                />
+              )}
+              {activeTab === "inprocess" && inProcessHotels.length > 0 && (
+                <ExportButton
+                  onExportCSV={() =>
+                    handleExportCSV(inProcessHotels, "inprocess")
+                  }
+                  onExportExcel={() =>
+                    handleExportExcel(inProcessHotels, "inprocess")
+                  }
+                />
+              )}
+              {activeTab === "rejected" && rejectedHotels.length > 0 && (
+                <ExportButton
+                  onExportCSV={() =>
+                    handleExportCSV(rejectedHotels, "rejected")
+                  }
+                  onExportExcel={() =>
+                    handleExportExcel(rejectedHotels, "rejected")
+                  }
+                />
+              )}
+            </div>
           </div>
 
           {/* Active Properties Tab */}
@@ -812,8 +1028,188 @@ export default function MyPropertiesPage() {
           <TabsContent value="rejected" className="mt-0">
             {renderTable(rejectedHotels, false, canOnboard, isHotelBdUser)}
           </TabsContent>
+
+          {paginationFooter}
         </Tabs>
       )}
+
+      {filterOpen ? (
+        <div className="fixed inset-0 z-50 flex">
+          <button
+            type="button"
+            aria-label="Close filters"
+            className="absolute inset-0 bg-slate-900/40"
+            onClick={() => setFilterOpen(false)}
+          />
+          <aside className="relative ml-auto flex h-full w-full max-w-sm flex-col bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
+                <p className="text-[11px] text-slate-500">
+                  Search hotels, then apply to refresh
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFilterOpen(false)}
+                className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Hotel name
+                </label>
+                <input
+                  type="search"
+                  value={draftFilters.hotelName}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      hotelName: e.target.value,
+                    }))
+                  }
+                  placeholder="Taj"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Hotel code
+                </label>
+                <input
+                  type="search"
+                  value={draftFilters.hotelCode}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      hotelCode: e.target.value,
+                    }))
+                  }
+                  placeholder="HTL"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  City
+                </label>
+                <input
+                  type="search"
+                  value={draftFilters.city}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      city: e.target.value,
+                    }))
+                  }
+                  placeholder="Mumbai"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Status
+                </label>
+                <select
+                  value={draftFilters.status}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      status: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="">All statuses</option>
+                  {HOTEL_LIST_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {status
+                        .toLowerCase()
+                        .split("_")
+                        .map(
+                          (part) =>
+                            part.charAt(0).toUpperCase() + part.slice(1),
+                        )
+                        .join(" ")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Requested by
+                </label>
+                <input
+                  type="search"
+                  value={draftFilters.requestedBy}
+                  onChange={(e) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      requestedBy: e.target.value,
+                    }))
+                  }
+                  placeholder="owner@"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <ReportCustomDateFields
+                  singleDate
+                  singleLabel="Submitted date (IST day)"
+                  fromText={draftFilters.submittedAt}
+                  onFromTextChange={(value) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      submittedAt: value,
+                      submittedAtFrom: "",
+                      submittedAtTo: "",
+                    }))
+                  }
+                />
+              </div>
+              <ReportCustomDateFields
+                fromLabel="Submitted from"
+                toLabel="Submitted to"
+                fromText={draftFilters.submittedAtFrom}
+                toText={draftFilters.submittedAtTo}
+                onFromTextChange={(value) =>
+                  setDraftFilters((prev) => ({
+                    ...prev,
+                    submittedAtFrom: value,
+                    submittedAt: "",
+                  }))
+                }
+                onToTextChange={(value) =>
+                  setDraftFilters((prev) => ({
+                    ...prev,
+                    submittedAtTo: value,
+                    submittedAt: "",
+                  }))
+                }
+              />
+            </div>
+            <div className="flex gap-2 border-t border-slate-200 px-4 py-3">
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={applyFilters}
+                className="flex-1 rounded-lg bg-[#2f3d95] px-3 py-2 text-sm font-semibold text-white hover:bg-[#263578]"
+              >
+                Apply
+              </button>
+            </div>
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }

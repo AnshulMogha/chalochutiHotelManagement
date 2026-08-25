@@ -78,6 +78,24 @@ function normalizeAuditEntry(raw: Record<string, unknown>): ReviewAuditEntry {
   };
 }
 
+function buildFlagQueueQuery(params: FlagQueueParams): string {
+  const search = new URLSearchParams();
+  search.set("page", String(params.page ?? 0));
+  search.set("size", String(params.size ?? 20));
+  if (params.bookingType) search.set("bookingType", params.bookingType);
+  if (params.bookingRef?.trim()) {
+    search.set("bookingRef", params.bookingRef.trim());
+  }
+  if (params.subjectId?.trim()) {
+    search.set("subjectId", params.subjectId.trim());
+  }
+  if (params.rating != null && Number.isFinite(params.rating)) {
+    search.set("rating", String(params.rating));
+  }
+  if (params.date) search.set("date", params.date);
+  return `?${search.toString()}`;
+}
+
 export const reviewModerationService = {
   getFlagQueue: async (
     params: FlagQueueParams = {},
@@ -86,9 +104,7 @@ export const reviewModerationService = {
     const size = params.size ?? 20;
     const response = await apiClient.get<
       ApiSuccessResponse<Record<string, unknown>>
-    >(
-      `${API_ENDPOINTS.REVIEW_MODERATION.FLAG_QUEUE}?page=${page}&size=${size}`,
-    );
+    >(`${API_ENDPOINTS.REVIEW_MODERATION.FLAG_QUEUE}${buildFlagQueueQuery(params)}`);
     const payload = unwrapPayload(response);
     return normalizeQueueResponse(
       payload && typeof payload === "object"

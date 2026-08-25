@@ -104,6 +104,7 @@ export const ROUTES = {
   },
   RATINGS_REVIEWS: {
     LIST: "/ratings-reviews",
+    MIS: "/ratings-reviews/mis",
     DETAIL: (reviewId: string) => `/ratings-reviews/${encodeURIComponent(reviewId)}`,
   },
   ANALYTICS: {
@@ -536,6 +537,7 @@ export const API_ENDPOINTS = {
   },
   REVIEW_MODERATION: {
     FLAG_QUEUE: "/admin/reviews/moderation/flag-queue",
+    MIS: "/admin/reviews/mis",
     AUDIT: (reviewId: string) =>
       `/admin/reviews/moderation/${encodeURIComponent(reviewId)}/audit`,
     APPROVE: (reviewId: string) =>

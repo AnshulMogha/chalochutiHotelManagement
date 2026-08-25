@@ -80,6 +80,11 @@ export interface ReviewModerationActionResult {
 export interface FlagQueueParams {
   page?: number;
   size?: number;
+  bookingType?: ReviewBookingType | string;
+  bookingRef?: string;
+  subjectId?: string;
+  rating?: number;
+  date?: string;
 }
 
 export interface ModerationReasonPayload {
