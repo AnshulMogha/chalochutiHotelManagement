@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { ROUTES } from "@/constants";
+import { useAuth } from "@/hooks/useAuth";
+import { canApproveSupplierSettlement } from "@/constants/roles";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
@@ -35,6 +37,7 @@ import {
   Filter,
   IndianRupee,
   Loader2,
+  RotateCcw,
   Wallet,
 } from "lucide-react";
 
@@ -70,6 +73,8 @@ const DEFAULT_MIS_FILTERS: MisFilterDraft = {
 };
 
 export default function SettlementMisPage() {
+  const { user } = useAuth();
+  const canRetry = canApproveSupplierSettlement(user?.roles);
   const { toast, showToast, hideToast } = useToast();
 
   const [applied, setApplied] = useState<MisFilterDraft>(DEFAULT_MIS_FILTERS);
@@ -77,6 +82,7 @@ export default function SettlementMisPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [retryingNo, setRetryingNo] = useState<string | null>(null);
   const [rows, setRows] = useState<SettlementMisRow[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
@@ -150,6 +156,19 @@ export default function SettlementMisPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const retryPayment = async (settlementNo: string) => {
+    setRetryingNo(settlementNo);
+    try {
+      await settlementService.retryPayment(settlementNo);
+      showToast("Payment retry queued", "success");
+      await load();
+    } catch (error) {
+      showToast(extractErrorMessage(error), "error");
+    } finally {
+      setRetryingNo(null);
+    }
+  };
 
   const openFilterDrawer = () => {
     setDraft(applied);
@@ -271,25 +290,39 @@ export default function SettlementMisPage() {
                   <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
                     UTR
                   </th>
+                  {canRetry ? (
+                    <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wide">
+                      Action
+                    </th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-16 text-center text-slate-500">
+                    <td
+                      colSpan={canRetry ? 8 : 7}
+                      className="px-4 py-16 text-center text-slate-500"
+                    >
                       <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
                       Loading MIS…
                     </td>
                   </tr>
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-16 text-center text-slate-500">
+                    <td
+                      colSpan={canRetry ? 8 : 7}
+                      className="px-4 py-16 text-center text-slate-500"
+                    >
                       No settlement records for selected filters.
                     </td>
                   </tr>
                 ) : (
                   rows.map((row) => {
                     const payoutStatus = row.payoutStatus || row.status;
+                    const isFailed =
+                      String(payoutStatus || "").toUpperCase() === "FAILED" ||
+                      String(row.status || "").toUpperCase() === "FAILED";
                     return (
                       <tr key={row.settlementNo} className="hover:bg-slate-50/80">
                         <td className="px-4 py-3">
@@ -347,6 +380,29 @@ export default function SettlementMisPage() {
                         <td className="px-4 py-3 font-mono text-xs text-slate-600">
                           {row.utr || "—"}
                         </td>
+                        {canRetry ? (
+                          <td className="px-4 py-3 text-right">
+                            {isFailed ? (
+                              <button
+                                type="button"
+                                disabled={retryingNo === row.settlementNo}
+                                onClick={() =>
+                                  void retryPayment(row.settlementNo)
+                                }
+                                className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                              >
+                                {retryingNo === row.settlementNo ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                )}
+                                Retry
+                              </button>
+                            ) : (
+                              <span className="text-xs text-slate-300">—</span>
+                            )}
+                          </td>
+                        ) : null}
                       </tr>
                     );
                   })

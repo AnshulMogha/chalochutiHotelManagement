@@ -96,6 +96,10 @@ export default function SettlementDetailPage() {
   };
 
   const status = String(detail?.status || "").toUpperCase();
+  const payoutStatus = String(
+    detail?.payoutStatus || detail?.status || "",
+  ).toUpperCase();
+  const isFailed = status === "FAILED" || payoutStatus === "FAILED";
   const id = detail?.settlementNo || detail?.settlementId || settlementNo || "";
 
   if (loading) {
@@ -133,8 +137,24 @@ export default function SettlementDetailPage() {
       icon={FileText}
       iconClassName="bg-gradient-to-br from-indigo-500 to-violet-600"
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <SettlementStatusBadge status={detail.payoutStatus || detail.status} />
+          {canApprove && isFailed ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void runAction(
+                  () => settlementService.retryPayment(id),
+                  "Payment retry queued",
+                )
+              }
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:opacity-50"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Retry payment
+            </button>
+          ) : null}
           <Link
             to={ROUTES.SETTLEMENT.PENDING}
             className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
@@ -389,7 +409,7 @@ export default function SettlementDetailPage() {
                     Release payment
                   </button>
                 ) : null}
-                {status === "FAILED" ? (
+                {isFailed ? (
                   <button
                     type="button"
                     disabled={busy}
