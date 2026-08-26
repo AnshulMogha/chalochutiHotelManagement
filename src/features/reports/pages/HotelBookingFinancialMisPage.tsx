@@ -1400,6 +1400,7 @@ export default function HotelBookingFinancialMisPage() {
                       toText={customToText}
                       onFromTextChange={setCustomFromText}
                       onToTextChange={setCustomToText}
+                      stacked
                     />
                     {draftCustomInvalid ? (
                       <p className="text-xs text-rose-600">
@@ -1532,6 +1533,7 @@ export default function HotelBookingFinancialMisPage() {
                   toText={checkInToText}
                   onFromTextChange={setCheckInFromText}
                   onToTextChange={setCheckInToText}
+                  stacked
                 />
                 <ReportCustomDateFields
                   fromLabel="Check-out from"
@@ -1540,6 +1542,7 @@ export default function HotelBookingFinancialMisPage() {
                   toText={checkOutToText}
                   onFromTextChange={setCheckOutFromText}
                   onToTextChange={setCheckOutToText}
+                  stacked
                 />
                 <FilterField label="Sort by">
                   <select

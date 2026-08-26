@@ -348,14 +348,16 @@ export default function BookingListPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const selectedHotelId = searchParams.get("hotelId");
+  const bookingIdFromUrl = searchParams.get("bookingId")?.trim() || "";
   const { toast, showToast, hideToast } = useToast();
   const [listData, setListData] = useState<BookingListResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
   const [guestName, setGuestName] = useState("");
   const [debouncedGuestName, setDebouncedGuestName] = useState("");
-  const [bookingId, setBookingId] = useState("");
-  const [debouncedBookingId, setDebouncedBookingId] = useState("");
+  const [bookingId, setBookingId] = useState(bookingIdFromUrl);
+  const [debouncedBookingId, setDebouncedBookingId] =
+    useState(bookingIdFromUrl);
   const [orderBy, setOrderBy] = useState<BookingListOrderBy>("bookingDate");
   const [sortDir, setSortDir] = useState<BookingListSortDir>("desc");
   const [paginationModel, setPaginationModel] = useState({
@@ -491,6 +493,15 @@ export default function BookingListPage() {
       datePreset;
     return `${axisLabel}: ${presetLabel}`;
   }, [dateAxis, datePreset, customFrom, customTo]);
+
+  // Seed Booking ID search from deep links (e.g. settlement preview).
+  useEffect(() => {
+    if (!bookingIdFromUrl) return;
+    setBookingId(bookingIdFromUrl);
+    setDebouncedBookingId(bookingIdFromUrl);
+    setDateAxis("NONE");
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  }, [bookingIdFromUrl]);
 
   // Debounce text filters for server request
   useEffect(() => {
@@ -695,6 +706,15 @@ export default function BookingListPage() {
     setOrderBy("bookingDate");
     setSortDir("desc");
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    if (searchParams.has("bookingId")) {
+      const hotelId = searchParams.get("hotelId");
+      navigate(
+        hotelId
+          ? `${ROUTES.BOOKINGS.LIST}?hotelId=${encodeURIComponent(hotelId)}`
+          : ROUTES.BOOKINGS.LIST,
+        { replace: true },
+      );
+    }
   };
 
   const columns: GridColDef<BookingListItem>[] = useMemo(

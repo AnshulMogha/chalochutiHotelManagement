@@ -27,14 +27,42 @@ import {
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { ROUTES } from "@/constants";
+import { setStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 
-function hotelMisBookingUrl(
+function settlementBookingListUrl(
+  bookingId?: string | number | null,
+  bookingRef?: string | null,
+  hotelId?: string | null,
+): string | null {
+  const searchBooking = String(bookingRef ?? bookingId ?? "").trim();
+  if (!searchBooking) return null;
+  const params = new URLSearchParams();
+  const hotel = hotelId?.trim();
+  if (hotel) params.set("hotelId", hotel);
+  params.set("bookingId", searchBooking);
+  return `${ROUTES.BOOKINGS.LIST}?${params.toString()}`;
+}
+
+/** TRN-309 → 309 for transport booking MIS deep link. */
+function extractTransportRequestId(
+  bookingRef?: string | null,
+  bookingId?: string | number | null,
+): string | null {
+  const raw = String(bookingRef ?? bookingId ?? "").trim();
+  if (!raw) return null;
+  const trnMatch = raw.match(/TRN-(\d+)/i);
+  if (trnMatch?.[1]) return trnMatch[1];
+  if (/^\d+$/.test(raw)) return raw;
+  return null;
+}
+
+function transportBookingMisUrl(
   bookingId?: string | number | null,
   bookingRef?: string | null,
 ): string | null {
-  const id = bookingId ?? bookingRef;
-  if (id == null || String(id).trim() === "") return null;
-  return `${ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS}?bookingId=${encodeURIComponent(String(id))}`;
+  const requestId = extractTransportRequestId(bookingRef, bookingId);
+  if (!requestId) return null;
+  return `${ROUTES.ADMIN.TRANSPORT}reports/booking-mis?requestId=${encodeURIComponent(requestId)}`;
 }
 
 export type SettlementApiDebugState = {
@@ -628,15 +656,23 @@ export function captureSettlementApiError(err: unknown): Record<string, unknown>
 
 export function SettlementPreviewBookingsTable({
   bookings,
+  hotelId,
+  component,
   limit,
   variant = "default",
 }: {
   bookings: PreviewBookingLine[];
+  /** Hotel supplier id — required so Bookings top-bar selector has a hotel. */
+  hotelId?: string | null;
+  component?: string | null;
   limit?: number;
   variant?: "default" | "report";
 }) {
   const visible = limit ? bookings.slice(0, limit) : bookings;
   const isReport = variant === "report";
+  const resolvedHotelId = hotelId?.trim() || null;
+  const isTransport =
+    String(component || "").toUpperCase() === "TRANSPORT";
 
   if (!visible.length) {
     return (
@@ -724,9 +760,16 @@ export function SettlementPreviewBookingsTable({
                 line.bookingId || line.bookingRef || idx,
               );
               const bookingLabel = line.bookingRef || line.bookingId || "—";
-              const bookingMisUrl = hotelMisBookingUrl(
-                line.bookingId,
-                line.bookingRef,
+              const bookingHref = isTransport
+                ? transportBookingMisUrl(line.bookingId, line.bookingRef)
+                : settlementBookingListUrl(
+                    line.bookingId,
+                    line.bookingRef,
+                    resolvedHotelId,
+                  );
+              const linkClassName = cn(
+                "font-mono font-semibold text-[#2f3d95] hover:text-[#263578] hover:underline",
+                isReport ? "text-xs" : "text-[11px]",
               );
               return (
                 <tr
@@ -737,13 +780,24 @@ export function SettlementPreviewBookingsTable({
                   )}
                 >
                   <td className={cn(isReport ? "px-3 py-3" : "px-2 py-2")}>
-                    {bookingMisUrl ? (
+                    {bookingHref && isTransport ? (
+                      <a
+                        href={bookingHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={linkClassName}
+                      >
+                        {bookingLabel}
+                      </a>
+                    ) : bookingHref ? (
                       <Link
-                        to={bookingMisUrl}
-                        className={cn(
-                          "font-mono font-semibold text-[#2f3d95] hover:text-[#263578] hover:underline",
-                          isReport ? "text-xs" : "text-[11px]",
-                        )}
+                        to={bookingHref}
+                        onClick={() => {
+                          if (resolvedHotelId) {
+                            setStoredSelectedHotelId(resolvedHotelId);
+                          }
+                        }}
+                        className={linkClassName}
                       >
                         {bookingLabel}
                       </Link>

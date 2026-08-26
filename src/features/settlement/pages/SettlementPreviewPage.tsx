@@ -352,6 +352,13 @@ export default function SettlementPreviewPage() {
             >
               <SettlementPreviewBookingsTable
                 bookings={preview.bookings}
+                component={preview.component || component}
+                hotelId={
+                  String(preview.component || component).toUpperCase() ===
+                  "HOTEL"
+                    ? supplierId
+                    : null
+                }
                 variant="report"
               />
             </SettlementReportSection>

@@ -17,6 +17,7 @@ export interface HotelReviewItem {
   id: string;
   bookingType: string | null;
   bookingRef: string | null;
+  customerEmail: string | null;
   subjectType: string | null;
   subjectId: string | null;
   subjectName: string | null;
@@ -50,6 +51,8 @@ export interface HotelReviewListParams {
   hotelId: string;
   page?: number;
   size?: number;
+  bookingRef?: string;
+  customerEmail?: string;
 }
 
 export interface HotelReviewReplyPayload {

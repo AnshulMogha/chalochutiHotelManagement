@@ -92,8 +92,10 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   // Check team page
   const isTeamPage = location.pathname === ROUTES.TEAM.LIST;
 
-  // Check bookings page
-  const isBookingsPage = location.pathname === ROUTES.BOOKINGS.LIST;
+  // Check bookings page (list + detail both need hotel selector)
+  const isBookingsPage =
+    location.pathname === ROUTES.BOOKINGS.LIST ||
+    location.pathname.startsWith(`${ROUTES.BOOKINGS.LIST}/`);
 
   const isHotelReviewsPage = location.pathname === ROUTES.HOTEL_REVIEWS.LIST;
 

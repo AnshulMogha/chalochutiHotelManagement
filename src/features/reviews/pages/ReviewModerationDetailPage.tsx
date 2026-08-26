@@ -31,6 +31,7 @@ import {
   History,
   Hotel,
   Loader2,
+  Mail,
   MessageSquareText,
   RotateCcw,
   Shield,
@@ -41,6 +42,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { resolveReviewMediaUrl } from "../services/reviewMediaUrl";
 
 type ActionType = "approve" | "reject" | "flag" | "unflag";
 
@@ -142,6 +144,20 @@ export default function ReviewModerationDetailPage() {
       className: "bg-indigo-50 text-indigo-700 ring-indigo-200",
     });
   }
+  if (review?.subjectName) {
+    metaChips.push({
+      label: review.subjectName,
+      icon: Hotel,
+      className: "bg-slate-50 text-slate-700 ring-slate-200",
+    });
+  }
+  if (review?.customerEmail) {
+    metaChips.push({
+      label: review.customerEmail,
+      icon: Mail,
+      className: "bg-sky-50 text-sky-700 ring-sky-200",
+    });
+  }
   if (review?.travellerType) {
     metaChips.push({
       label: formatStatusLabel(review.travellerType),
@@ -240,10 +256,64 @@ export default function ReviewModerationDetailPage() {
                   ) : null}
 
                   <div className="rounded-xl border border-sky-100 bg-sky-50/40 px-3.5 py-3">
+                    {review?.title ? (
+                      <p className="mb-1.5 text-sm font-semibold text-slate-900">
+                        {review.title}
+                      </p>
+                    ) : null}
                     <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-slate-800">
                       {review?.reviewText || "No review text available."}
                     </p>
                   </div>
+
+                  {review?.media && review.media.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {[...review.media]
+                        .sort(
+                          (a, b) =>
+                            (a.displayOrder ?? 0) - (b.displayOrder ?? 0),
+                        )
+                        .map((media, index) => {
+                          const href = resolveReviewMediaUrl(media);
+                          if (!href) return null;
+                          const label =
+                            media.fileName || media.storageKey || "Image";
+                          return (
+                            <a
+                              key={`${media.storageKey || label}-${index}`}
+                              href={href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="h-16 w-20 overflow-hidden rounded-lg border border-slate-200"
+                            >
+                              <img
+                                src={href}
+                                alt={label}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            </a>
+                          );
+                        })}
+                    </div>
+                  ) : null}
+
+                  {review?.reply?.replyText ? (
+                    <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50/60 px-3 py-2.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-sky-800">
+                        Hotel reply
+                      </p>
+                      <p className="mt-1 text-sm text-slate-800">
+                        {review.reply.replyText}
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        {review.reply.repliedByName || "—"}
+                        {review.reply.repliedAt
+                          ? ` · ${formatReportDateTime(review.reply.repliedAt)}`
+                          : ""}
+                      </p>
+                    </div>
+                  ) : null}
 
                   {review?.moderationReason ? (
                     <div

@@ -52,6 +52,7 @@ const RATING_OPTIONS = [
 type FilterDraft = {
   bookingType: string;
   bookingRef: string;
+  customerEmail: string;
   subjectId: string;
   subjectLabel: string;
   rating: string;
@@ -61,6 +62,7 @@ type FilterDraft = {
 const DEFAULT_FILTERS: FilterDraft = {
   bookingType: "",
   bookingRef: "",
+  customerEmail: "",
   subjectId: "",
   subjectLabel: "",
   rating: "",
@@ -70,6 +72,7 @@ const DEFAULT_FILTERS: FilterDraft = {
 type AppliedFilters = {
   bookingType?: string;
   bookingRef?: string;
+  customerEmail?: string;
   subjectId?: string;
   rating?: number;
   date?: string;
@@ -90,6 +93,7 @@ function buildAppliedFilters(draft: FilterDraft): AppliedFilters | null {
   return {
     bookingType: draft.bookingType || undefined,
     bookingRef: draft.bookingRef.trim() || undefined,
+    customerEmail: draft.customerEmail.trim() || undefined,
     subjectId: draft.subjectId.trim() || undefined,
     rating,
     date: date || undefined,
@@ -139,6 +143,7 @@ export default function ReviewModerationQueuePage() {
     let count = 0;
     if (filters.bookingType) count += 1;
     if (filters.bookingRef) count += 1;
+    if (filters.customerEmail) count += 1;
     if (filters.subjectId) count += 1;
     if (filters.rating != null) count += 1;
     if (filters.date) count += 1;
@@ -290,6 +295,7 @@ export default function ReviewModerationQueuePage() {
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-2.5 font-semibold">Booking</th>
+                  <th className="px-4 py-2.5 font-semibold">Hotel</th>
                   <th className="px-4 py-2.5 font-semibold">Rating</th>
                   <th className="px-4 py-2.5 font-semibold">Review</th>
                   <th className="px-4 py-2.5 font-semibold">Traveller</th>
@@ -305,7 +311,7 @@ export default function ReviewModerationQueuePage() {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="px-4 py-16 text-center text-slate-500"
                     >
                       <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-[#2f3d95]" />
@@ -314,7 +320,7 @@ export default function ReviewModerationQueuePage() {
                   </tr>
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <ReviewModerationEmptyState
                         title={
                           activeFilterCount > 0
@@ -342,14 +348,44 @@ export default function ReviewModerationQueuePage() {
                         <p className="mt-0.5 text-xs text-slate-500">
                           {formatStatusLabel(row.bookingType)}
                         </p>
+                        {row.customerEmail ? (
+                          <p className="mt-0.5 break-all text-[11px] text-slate-400">
+                            {row.customerEmail}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-800">
+                          {row.subjectName || "—"}
+                        </p>
+                        {row.subjectType ? (
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            {formatStatusLabel(row.subjectType)}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3">
                         <ReviewRatingStars rating={row.overallRating} />
                       </td>
                       <td className="max-w-xs px-4 py-3">
+                        {row.title ? (
+                          <p className="mb-0.5 font-medium text-slate-800">
+                            {row.title}
+                          </p>
+                        ) : null}
                         <p className="line-clamp-2 text-slate-700">
                           {row.reviewText || "—"}
                         </p>
+                        {row.media.length > 0 ? (
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            {row.media.length} media
+                          </p>
+                        ) : null}
+                        {row.reply?.replyText ? (
+                          <p className="mt-1 text-[11px] text-sky-600">
+                            Hotel replied
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3 text-slate-600">
                         {row.travellerType
@@ -490,6 +526,23 @@ export default function ReviewModerationQueuePage() {
                   Partial match, case-insensitive
                 </p>
               </div>
+              <div>
+                <label className="mb-1 block text-xs text-slate-500">
+                  Customer email
+                </label>
+                <input
+                  type="text"
+                  value={draft.customerEmail}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      customerEmail: e.target.value,
+                    }))
+                  }
+                  placeholder="guest@email.com"
+                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                />
+              </div>
               <ReviewSubjectLookupField
                 bookingType={draft.bookingType}
                 value={draft.subjectId}
@@ -558,6 +611,7 @@ function filtersToDraft(filters: AppliedFilters): FilterDraft {
   return {
     bookingType: filters.bookingType || "",
     bookingRef: filters.bookingRef || "",
+    customerEmail: filters.customerEmail || "",
     subjectId: filters.subjectId || "",
     subjectLabel: "",
     rating:

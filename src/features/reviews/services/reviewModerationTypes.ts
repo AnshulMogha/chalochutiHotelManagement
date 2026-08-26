@@ -33,22 +33,42 @@ export const TRAVELLER_TYPES = [
 export type TravellerType = (typeof TRAVELLER_TYPES)[number];
 
 export interface ReviewMediaItem {
-  id?: string | null;
+  fileName: string | null;
+  contentType: string | null;
+  storageKey: string | null;
+  fileSizeBytes: number | null;
+  displayOrder: number | null;
   url?: string | null;
+  id?: string | null;
   type?: string | null;
+}
+
+export interface ReviewReply {
+  replyText: string | null;
+  repliedByName: string | null;
+  repliedAt: string | null;
 }
 
 export interface ReviewQueueItem {
   id: string;
   bookingType: ReviewBookingType | string;
   bookingRef: string | null;
+  customerEmail: string | null;
+  subjectType: string | null;
+  subjectId: string | null;
+  subjectName: string | null;
   overallRating: number | null;
+  title: string | null;
   reviewText: string | null;
   travellerType: TravellerType | string | null;
+  wouldRecommend: boolean | null;
+  wouldReturn: string | null;
   status: ReviewStatus | string;
   autoModerated: boolean;
   moderationReason: string | null;
+  publishedAt: string | null;
   createdAt: string | null;
+  reply: ReviewReply | null;
   media: ReviewMediaItem[];
 }
 
@@ -82,6 +102,7 @@ export interface FlagQueueParams {
   size?: number;
   bookingType?: ReviewBookingType | string;
   bookingRef?: string;
+  customerEmail?: string;
   subjectId?: string;
   rating?: number;
   date?: string;

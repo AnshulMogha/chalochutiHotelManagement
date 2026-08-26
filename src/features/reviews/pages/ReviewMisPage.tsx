@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ROUTES } from "@/constants";
 import { Toast, useToast } from "@/components/ui/Toast";
@@ -846,6 +846,60 @@ function FragmentRow({
   onToggle: () => void;
   onOpenMedia: (preview: { url: string; label: string }) => void;
 }) {
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const replyRef = useRef<HTMLDivElement>(null);
+  const mediaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!replyOpen && !mediaOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (replyOpen && replyRef.current && !replyRef.current.contains(target)) {
+        setReplyOpen(false);
+      }
+      if (mediaOpen && mediaRef.current && !mediaRef.current.contains(target)) {
+        setMediaOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setReplyOpen(false);
+        setMediaOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [replyOpen, mediaOpen]);
+
+  const sortedMedia = useMemo(
+    () =>
+      [...row.media].sort(
+        (a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0),
+      ),
+    [row.media],
+  );
+
+  const openFirstMedia = () => {
+    if (sortedMedia.length === 1) {
+      const media = sortedMedia[0];
+      const href = resolveReviewMediaUrl(media);
+      if (href) {
+        onOpenMedia({
+          url: href,
+          label: media.fileName || media.storageKey || "Image",
+        });
+      }
+      return;
+    }
+    setReplyOpen(false);
+    setMediaOpen((prev) => !prev);
+  };
+
   return (
     <>
       <tr className="align-top transition-colors hover:bg-slate-50/70">
@@ -897,15 +951,92 @@ function FragmentRow({
           </p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {row.media.length > 0 ? (
-              <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-                {row.media.length} media
-              </span>
+              <div ref={mediaRef} className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openFirstMedia();
+                  }}
+                  className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 transition hover:bg-slate-200 hover:text-slate-800"
+                >
+                  {row.media.length} media
+                </button>
+                {mediaOpen ? (
+                  <div className="absolute left-0 top-full z-30 mt-1.5 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+                    <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.04em] text-slate-500">
+                      Media
+                    </p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {sortedMedia.map((media, index) => {
+                        const label =
+                          media.fileName || media.storageKey || "Image";
+                        const href = resolveReviewMediaUrl(media);
+                        if (!href) {
+                          return (
+                            <div
+                              key={`${media.storageKey || label}-${index}`}
+                              className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-3 text-center text-[10px] text-slate-400"
+                            >
+                              {label}
+                            </div>
+                          );
+                        }
+                        return (
+                          <button
+                            key={`${media.storageKey || label}-${index}`}
+                            type="button"
+                            onClick={() => {
+                              setMediaOpen(false);
+                              onOpenMedia({ url: href, label });
+                            }}
+                            className="overflow-hidden rounded-lg border border-slate-200 transition hover:border-[#2f3d95]/40"
+                          >
+                            <img
+                              src={href}
+                              alt={label}
+                              className="aspect-video w-full object-cover"
+                              loading="lazy"
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
-            {row.reply ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
-                <MessageSquare className="h-3 w-3" />
-                Reply
-              </span>
+            {row.reply?.replyText ? (
+              <div ref={replyRef} className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMediaOpen(false);
+                    setReplyOpen((prev) => !prev);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 transition hover:bg-sky-100"
+                >
+                  <MessageSquare className="h-3 w-3" />
+                  Reply
+                </button>
+                {replyOpen ? (
+                  <div className="absolute left-0 top-full z-30 mt-1.5 w-72 max-w-[min(18rem,70vw)] rounded-xl border border-sky-100 bg-white p-3 shadow-lg">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-sky-800">
+                      Hotel reply
+                    </p>
+                    <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                      {row.reply.replyText}
+                    </p>
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      {row.reply.repliedByName || "—"}
+                      {row.reply.repliedAt
+                        ? ` · ${formatReportDateTime(row.reply.repliedAt)}`
+                        : ""}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </td>
@@ -938,14 +1069,23 @@ function FragmentRow({
                 id: row.id,
                 bookingType: row.bookingType,
                 bookingRef: row.bookingRef,
+                customerEmail: null,
+                subjectType: row.subjectType,
+                subjectId: row.subjectId,
+                subjectName: row.subjectName,
                 overallRating: row.overallRating,
+                title: row.title,
                 reviewText: row.reviewText,
                 travellerType: row.travellerType,
+                wouldRecommend: row.wouldRecommend,
+                wouldReturn: row.wouldReturn,
                 status: row.status,
                 autoModerated: row.autoModerated,
                 moderationReason: row.moderationReason,
+                publishedAt: row.publishedAt,
                 createdAt: row.createdAt,
-                media: [],
+                reply: row.reply,
+                media: row.media,
               },
             }}
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
@@ -988,12 +1128,7 @@ function FragmentRow({
                       Media ({row.media.length})
                     </p>
                     <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {[...row.media]
-                        .sort(
-                          (a, b) =>
-                            (a.displayOrder ?? 0) - (b.displayOrder ?? 0),
-                        )
-                        .map((media, index) => {
+                      {sortedMedia.map((media, index) => {
                           const label =
                             media.fileName || media.storageKey || "File";
                           const href = resolveReviewMediaUrl(media);

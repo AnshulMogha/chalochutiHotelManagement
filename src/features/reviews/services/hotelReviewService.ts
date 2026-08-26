@@ -61,6 +61,7 @@ function normalizeItem(raw: Record<string, unknown>): HotelReviewItem {
     id: String(raw.id ?? ""),
     bookingType: raw.bookingType != null ? String(raw.bookingType) : null,
     bookingRef: (raw.bookingRef as string | null) ?? null,
+    customerEmail: (raw.customerEmail as string | null) ?? null,
     subjectType: raw.subjectType != null ? String(raw.subjectType) : null,
     subjectId: raw.subjectId != null ? String(raw.subjectId) : null,
     subjectName: (raw.subjectName as string | null) ?? null,
@@ -126,6 +127,8 @@ export const hotelReviewService = {
   ): Promise<HotelReviewListResponse> => {
     const page = params.page ?? 0;
     const size = params.size ?? 20;
+    const bookingRef = params.bookingRef?.trim();
+    const customerEmail = params.customerEmail?.trim();
     const response = await apiClient.get<
       ApiSuccessResponse<Record<string, unknown>>
     >(API_ENDPOINTS.HOTEL_REVIEWS.LIST, {
@@ -133,6 +136,8 @@ export const hotelReviewService = {
         hotelId: params.hotelId,
         page,
         size,
+        ...(bookingRef ? { bookingRef } : {}),
+        ...(customerEmail ? { customerEmail } : {}),
       },
     });
     const payload = unwrapPayload(response);

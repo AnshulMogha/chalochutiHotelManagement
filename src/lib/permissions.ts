@@ -421,6 +421,8 @@ function canFinanceManagerViewPath(pathOnly: string): boolean {
     pathOnly.startsWith("/profile") ||
     isSettlementPath(pathOnly) ||
     isHotelBookingFinancialMisPath(pathOnly) ||
+    pathOnly === ROUTES.BOOKINGS.LIST ||
+    pathOnly.startsWith(`${ROUTES.BOOKINGS.LIST}/`) ||
     pathOnly === ROUTES.PROPERTY_INFO.FINANCE
   );
 }

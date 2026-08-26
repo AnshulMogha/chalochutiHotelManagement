@@ -158,6 +158,12 @@ export default function SettlementDetailPage() {
             >
               <SettlementPreviewBookingsTable
                 bookings={detail.lineItems}
+                component={detail.component}
+                hotelId={
+                  String(detail.component || "").toUpperCase() === "HOTEL"
+                    ? detail.supplierId
+                    : null
+                }
                 variant="report"
               />
             </SettlementReportSection>

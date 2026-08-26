@@ -1,13 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Building2, Flag, Loader2, MessageSquare, Star, X } from "lucide-react";
+import {
+  Building2,
+  Flag,
+  Loader2,
+  MessageSquare,
+  Search,
+  Star,
+  X,
+} from "lucide-react";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
   formatReportDateTime,
   formatStatusLabel,
 } from "@/features/reports/components/reportUiHelpers";
-import { ReviewStatusBadge } from "../components/reviewModerationUi";
+import {
+  ReviewFilterField,
+  ReviewStatusBadge,
+} from "../components/reviewModerationUi";
 import { resolveReviewMediaUrl } from "../services/reviewMediaUrl";
 import { hotelReviewService } from "../services/hotelReviewService";
 import type { HotelReviewItem } from "../services/hotelReviewTypes";
@@ -16,6 +27,21 @@ import { cn } from "@/lib/utils";
 const PAGE_SIZE = 20;
 
 type DialogMode = "reply" | "report" | null;
+
+type FilterDraft = {
+  bookingRef: string;
+  customerEmail: string;
+};
+
+type AppliedFilters = {
+  bookingRef?: string;
+  customerEmail?: string;
+};
+
+const DEFAULT_FILTERS: FilterDraft = {
+  bookingRef: "",
+  customerEmail: "",
+};
 
 export default function HotelReviewsPage() {
   const [searchParams] = useSearchParams();
@@ -26,6 +52,8 @@ export default function HotelReviewsPage() {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<HotelReviewItem[]>([]);
   const [totalElements, setTotalElements] = useState(0);
+  const [draft, setDraft] = useState<FilterDraft>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<AppliedFilters>({});
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [activeReview, setActiveReview] = useState<HotelReviewItem | null>(
     null,
@@ -42,6 +70,10 @@ export default function HotelReviewsPage() {
     [totalElements],
   );
 
+  const hasActiveFilters = Boolean(
+    filters.bookingRef || filters.customerEmail,
+  );
+
   const loadReviews = useCallback(async () => {
     if (!hotelId) {
       setRows([]);
@@ -54,6 +86,8 @@ export default function HotelReviewsPage() {
         hotelId,
         page,
         size: PAGE_SIZE,
+        bookingRef: filters.bookingRef,
+        customerEmail: filters.customerEmail,
       });
       setRows(response.items);
       setTotalElements(response.totalElements);
@@ -64,15 +98,31 @@ export default function HotelReviewsPage() {
     } finally {
       setLoading(false);
     }
-  }, [hotelId, page, showToast]);
+  }, [hotelId, page, filters, showToast]);
 
   useEffect(() => {
     setPage(0);
+    setDraft(DEFAULT_FILTERS);
+    setFilters({});
   }, [hotelId]);
 
   useEffect(() => {
     void loadReviews();
   }, [loadReviews]);
+
+  const applyFilters = () => {
+    setFilters({
+      bookingRef: draft.bookingRef.trim() || undefined,
+      customerEmail: draft.customerEmail.trim() || undefined,
+    });
+    setPage(0);
+  };
+
+  const clearFilters = () => {
+    setDraft(DEFAULT_FILTERS);
+    setFilters({});
+    setPage(0);
+  };
 
   const openDialog = (mode: DialogMode, review: HotelReviewItem) => {
     setActiveReview(review);
@@ -161,19 +211,60 @@ export default function HotelReviewsPage() {
         onClose={hideToast}
       />
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Guest reviews</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Reply to guests or report reviews that need moderation
-              {totalElements > 0 ? (
-                <span className="text-slate-400">
-                  {" "}
-                  · {totalElements.toLocaleString("en-IN")} total
-                </span>
+        <div className="mb-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <form
+            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]"
+            onSubmit={(e) => {
+              e.preventDefault();
+              applyFilters();
+            }}
+          >
+            <ReviewFilterField label="Booking reference">
+              <input
+                type="text"
+                value={draft.bookingRef}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, bookingRef: e.target.value }))
+                }
+                placeholder="e.g. BRK148FA6ACC03E"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+              />
+            </ReviewFilterField>
+            <ReviewFilterField label="Customer email">
+              <input
+                type="text"
+                value={draft.customerEmail}
+                onChange={(e) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    customerEmail: e.target.value,
+                  }))
+                }
+                placeholder="guest@email.com"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+              />
+            </ReviewFilterField>
+            <div className="flex items-end gap-2">
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#2f3d95] px-4 py-2 text-sm font-semibold text-white"
+              >
+                <Search className="h-3.5 w-3.5" />
+                Search
+              </button>
+              {hasActiveFilters ||
+              draft.bookingRef ||
+              draft.customerEmail ? (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Clear
+                </button>
               ) : null}
-            </p>
-          </div>
+            </div>
+          </form>
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
@@ -183,7 +274,9 @@ export default function HotelReviewsPage() {
             </div>
           ) : rows.length === 0 ? (
             <div className="px-4 py-16 text-center text-sm text-slate-500">
-              No reviews for this hotel yet.
+              {hasActiveFilters
+                ? "No reviews match your search."
+                : "No reviews for this hotel yet."}
             </div>
           ) : (
             <ul className="divide-y divide-slate-100">
@@ -207,6 +300,11 @@ export default function HotelReviewsPage() {
                           </span>
                         ) : null}
                       </div>
+                      {row.customerEmail ? (
+                        <p className="mt-1.5 text-xs text-slate-500">
+                          {row.customerEmail}
+                        </p>
+                      ) : null}
                       {row.title ? (
                         <p className="mt-2 font-semibold text-slate-900">
                           {row.title}
@@ -239,7 +337,7 @@ export default function HotelReviewsPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
-                      {row.canReply !== false && !row.reply ? (
+                      {row.canReply !== false && !row.reply?.replyText ? (
                         <button
                           type="button"
                           onClick={() => openDialog("reply", row)}
@@ -373,7 +471,10 @@ export default function HotelReviewsPage() {
               </h3>
             </div>
             <p className="mt-1 line-clamp-2 text-sm text-slate-500">
-              {activeReview.reviewText || activeReview.bookingRef || "Review"}
+              {activeReview.customerEmail ||
+                activeReview.reviewText ||
+                activeReview.bookingRef ||
+                "Review"}
             </p>
             <textarea
               rows={4}
