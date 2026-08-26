@@ -94,6 +94,15 @@ const NAV_ICON_THEMES: Record<string, NavIconTheme> = {
     row: "bg-amber-500/28",
     rowHover: "hover:bg-amber-500/18",
   },
+  [ROUTES.PROPERTY_INFO.INCLUSIONS]: {
+    chip: "bg-teal-500/35",
+    chipActive: "bg-teal-500/52 ring-1 ring-teal-400/65",
+    icon: "text-teal-100",
+    iconActive: "text-teal-50",
+    accent: "bg-teal-400",
+    row: "bg-teal-500/28",
+    rowHover: "hover:bg-teal-500/18",
+  },
   [ROUTES.PROPERTY_INFO.FINANCE]: {
     chip: "bg-emerald-500/35",
     chipActive: "bg-emerald-500/52 ring-1 ring-emerald-400/65",

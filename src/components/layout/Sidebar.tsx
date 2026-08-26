@@ -56,6 +56,7 @@ import {
   CheckCircle2,
   ClipboardList,
   RotateCcw,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTES, hasAnyRole, ROLES } from "@/constants";
@@ -448,6 +449,11 @@ const getNavItems = (user: User | null): NavItem[] => {
         icon: FileText,
       },
       {
+        label: "Inclusions",
+        path: ROUTES.PROPERTY_INFO.INCLUSIONS,
+        icon: ListChecks,
+      },
+      {
         label: "Finance",
         path: ROUTES.PROPERTY_INFO.FINANCE,
         icon: CreditCard,
@@ -466,6 +472,7 @@ const getNavItems = (user: User | null): NavItem[] => {
           [ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS]:
             "PROPERTY_AMENITIES_RESTAURANTS",
           [ROUTES.PROPERTY_INFO.POLICY_RULES]: "PROPERTY_POLICY_RULES",
+          [ROUTES.PROPERTY_INFO.INCLUSIONS]: "PROPERTY_BASIC_INFO",
           [ROUTES.PROPERTY_INFO.FINANCE]: "PROPERTY_FINANCE",
           [ROUTES.PROPERTY_INFO.DOCUMENT]: "PROPERTY_DOCUMENT",
         };
@@ -560,6 +567,11 @@ const getNavItems = (user: User | null): NavItem[] => {
         icon: FileText,
       },
       {
+        label: "Inclusions",
+        path: ROUTES.PROPERTY_INFO.INCLUSIONS,
+        icon: ListChecks,
+      },
+      {
         label: "Document",
         path: ROUTES.PROPERTY_INFO.DOCUMENT,
         icon: FileText,
@@ -573,6 +585,7 @@ const getNavItems = (user: User | null): NavItem[] => {
           [ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS]:
             "PROPERTY_AMENITIES_RESTAURANTS",
           [ROUTES.PROPERTY_INFO.POLICY_RULES]: "PROPERTY_POLICY_RULES",
+          [ROUTES.PROPERTY_INFO.INCLUSIONS]: "PROPERTY_BASIC_INFO",
           [ROUTES.PROPERTY_INFO.DOCUMENT]: "PROPERTY_DOCUMENT",
         };
       return canViewModule(user, moduleByPath[item.path]);

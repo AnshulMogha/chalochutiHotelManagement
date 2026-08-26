@@ -19,6 +19,14 @@ export const SETTLEMENT_STATUSES = [
 
 export type SettlementStatus = (typeof SETTLEMENT_STATUSES)[number];
 
+/** Reject allowed for PENDING and APPROVED (before release-payment). */
+export function canRejectSettlementStatus(
+  status: SettlementStatus | string | null | undefined,
+): boolean {
+  const value = String(status || "").toUpperCase();
+  return value === "PENDING" || value === "APPROVED";
+}
+
 export interface MoneyAmount {
   amount: number;
   currency: string;

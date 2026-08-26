@@ -379,21 +379,32 @@ export default function SettlementQueuePage() {
                               </>
                             ) : null}
                             {mode === "approved" && canApprove ? (
-                              <button
-                                type="button"
-                                disabled={isBusy}
-                                onClick={() =>
-                                  void runAction(
-                                    id,
-                                    () => settlementService.releasePayment(id),
-                                    "Payment queued",
-                                  )
-                                }
-                                className="inline-flex items-center gap-1 rounded-lg bg-[#2f3d95] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
-                              >
-                                <Send className="h-3.5 w-3.5" />
-                                Release payment
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() =>
+                                    void runAction(
+                                      id,
+                                      () =>
+                                        settlementService.releasePayment(id),
+                                      "Payment queued",
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 rounded-lg bg-[#2f3d95] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                                >
+                                  <Send className="h-3.5 w-3.5" />
+                                  Release payment
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isBusy}
+                                  onClick={() => setRejectOpen(id)}
+                                  className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                                >
+                                  Reject
+                                </button>
+                              </>
                             ) : null}
                           </div>
                         </td>

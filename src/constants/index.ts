@@ -48,6 +48,7 @@ export const ROUTES = {
     PHOTOS_VIDEOS: "/property/information/photos-videos",
     AMENITIES_RESTAURANTS: "/property/information/amenities-restaurants",
     POLICY_RULES: "/property/information/policy-rules",
+    INCLUSIONS: "/property/information/inclusions",
     FINANCE: "/property/information/finance",
     DOCUMENT: "/property/information/document",
   },
@@ -289,6 +290,14 @@ export const API_ENDPOINTS = {
     GET_ALL_ROOMS: (hotelId: string) => `onboarding/hotels/${hotelId}/rooms`,
   },
 
+  MASTERS: {
+    INCLUSIONS: "/masters/inclusions",
+    INCLUSION_DETAIL: (inclusionCode: string) =>
+      `/masters/inclusions/${encodeURIComponent(inclusionCode)}`,
+    INCLUSION_CONFIGURATION_SCHEMA: (inclusionCode: string) =>
+      `/masters/inclusions/${encodeURIComponent(inclusionCode)}/configuration-schema`,
+  },
+
   USER: {
     GET_USER: "/users/me/profile",
     UPDATE_PROFILE: "/users/me/profile",
@@ -309,6 +318,34 @@ export const API_ENDPOINTS = {
       `/hotel/${hotelId}/rooms/${roomId}/active-status`,
     GET_ROOM_RATE_PLANS: (hotelId: string, roomId: string) =>
       `/hotel/${hotelId}/rooms/${roomId}/rate-plans`,
+    CREATE_HOTEL_INCLUSION: (hotelId: string) =>
+      `/hotel/${hotelId}/inclusions`,
+    CREATE_ROOM_RATE_PLAN_INCLUSION: (
+      hotelId: string,
+      roomKey: string,
+      ratePlanId: string | number,
+    ) =>
+      `/hotel/${hotelId}/rooms/${encodeURIComponent(roomKey)}/rate-plans/${ratePlanId}/inclusions`,
+    LIST_ROOM_RATE_PLAN_INCLUSIONS: (
+      hotelId: string,
+      roomKey: string,
+      ratePlanId: string | number,
+    ) =>
+      `/hotel/${hotelId}/rooms/${encodeURIComponent(roomKey)}/rate-plans/${ratePlanId}/inclusions`,
+    UPDATE_ROOM_RATE_PLAN_INCLUSION: (
+      hotelId: string,
+      roomKey: string,
+      ratePlanId: string | number,
+      inclusionId: string | number,
+    ) =>
+      `/hotel/${hotelId}/rooms/${encodeURIComponent(roomKey)}/rate-plans/${ratePlanId}/inclusions/${inclusionId}`,
+    UPDATE_ROOM_RATE_PLAN_INCLUSION_ACTIVE_STATUS: (
+      hotelId: string,
+      roomKey: string,
+      ratePlanId: string | number,
+      inclusionId: string | number,
+    ) =>
+      `/hotel/${hotelId}/rooms/${encodeURIComponent(roomKey)}/rate-plans/${ratePlanId}/inclusions/${inclusionId}/active-status`,
     GET_RATE_PLAN_EDIT: (hotelId: string, roomId: string, ratePlanId: number) =>
       `/hotel/${hotelId}/rooms/${roomId}/rate-plans/${ratePlanId}/edit`,
     CREATE_RATE_PLAN: (hotelId: string, roomId: string) =>

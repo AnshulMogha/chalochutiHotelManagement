@@ -47,6 +47,8 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     location.pathname === ROUTES.PROPERTY_INFO.AMENITIES_RESTAURANTS;
   const isPolicyRulesPage =
     location.pathname === ROUTES.PROPERTY_INFO.POLICY_RULES;
+  const isInclusionsPage =
+    location.pathname === ROUTES.PROPERTY_INFO.INCLUSIONS;
   const isFinancePage = location.pathname === ROUTES.PROPERTY_INFO.FINANCE;
   const isDocumentPage = location.pathname === ROUTES.PROPERTY_INFO.DOCUMENT;
   const isDocumentReviewPage =
@@ -57,6 +59,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     isPhotosVideosPage ||
     isAmenitiesRestaurantsPage ||
     isPolicyRulesPage ||
+    isInclusionsPage ||
     isFinancePage ||
     isDocumentPage;
   const isRoomInventoryPage = location.pathname === ROUTES.ROOM_INVENTORY.LIST;

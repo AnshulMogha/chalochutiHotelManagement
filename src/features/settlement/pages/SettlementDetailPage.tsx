@@ -22,7 +22,11 @@ import {
   formatStatusLabel,
 } from "@/features/reports/components/reportUiHelpers";
 import { settlementService } from "../services/settlementService";
-import type { PaymentHistoryItem, SettlementDetail } from "../services/settlementTypes";
+import type {
+  PaymentHistoryItem,
+  SettlementDetail,
+} from "../services/settlementTypes";
+import { canRejectSettlementStatus } from "../services/settlementTypes";
 import {
   ArrowLeft,
   Building2,
@@ -368,30 +372,20 @@ export default function SettlementDetailPage() {
             <SettlementReportSection title="Actions">
               <div className="space-y-2">
                 {status === "PENDING" ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() =>
-                        void runAction(
-                          () => settlementService.approve(id),
-                          "Settlement approved",
-                        )
-                      }
-                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setRejectOpen(true)}
-                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                    >
-                      Reject
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void runAction(
+                        () => settlementService.approve(id),
+                        "Settlement approved",
+                      )
+                    }
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Approve
+                  </button>
                 ) : null}
                 {status === "APPROVED" ? (
                   <button
@@ -407,6 +401,16 @@ export default function SettlementDetailPage() {
                   >
                     <Send className="h-4 w-4" />
                     Release payment
+                  </button>
+                ) : null}
+                {canRejectSettlementStatus(status) ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setRejectOpen(true)}
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    Reject
                   </button>
                 ) : null}
                 {isFailed ? (

@@ -128,6 +128,9 @@ const AmenitiesAndRestaurantsPage = lazy(
 const PolicyAndRulesPage = lazy(
   () => import("../features/properties/pages/PolicyAndRulesPage"),
 );
+const InclusionsPage = lazy(
+  () => import("../features/properties/pages/InclusionsPage"),
+);
 const FinancePage = lazy(
   () => import("../features/properties/pages/FinancePage"),
 );
@@ -431,6 +434,10 @@ export const routes: RouteObject[] = [
       {
         path: "property/information/policy-rules",
         element: <PolicyAndRulesPage />,
+      },
+      {
+        path: "property/information/inclusions",
+        element: <InclusionsPage />,
       },
       {
         path: "property/information/finance",

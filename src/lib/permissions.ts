@@ -114,6 +114,10 @@ export function getModuleFromPath(pathname: string): PermissionModule | null {
   if (pathname === "/property/information/policy-rules") {
     return "PROPERTY_POLICY_RULES";
   }
+  if (pathname === "/property/information/inclusions") {
+    // Reuse basic-info permission until a dedicated inclusions module exists.
+    return "PROPERTY_BASIC_INFO";
+  }
   if (pathname === "/property/information/finance") {
     return "PROPERTY_FINANCE";
   }
