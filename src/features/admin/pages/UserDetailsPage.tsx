@@ -150,15 +150,13 @@ export default function UserDetailsPage() {
           Back to users
         </Button>
         <div className="flex items-center gap-2">
-          {!staffExcludedFromEdit && (
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => navigate(ROUTES.ADMIN.USER_EDIT(user.userId))}
-            >
-              Edit user
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => navigate(ROUTES.ADMIN.USER_EDIT(user.userId))}
+          >
+            {staffExcludedFromEdit ? "Edit status" : "Edit user"}
+          </Button>
           {(user.roles || []).some(
             (r) => r === "HOTEL_OWNER" || r === "HOTEL_BD",
           ) && (

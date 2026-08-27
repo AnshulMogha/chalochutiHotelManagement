@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Building2, BedDouble, X, Plus } from "lucide-react";
+import { Check, Building2, BedDouble, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { propertyService } from "@/features/properties/services/propertyService";
 import { adminService, type HotelRoom } from "@/features/admin/services/adminService";
@@ -292,13 +292,8 @@ export function AmenitiesAndRestaurantsTab({ hotelId }: AmenitiesAndRestaurantsT
   const hasHotelChanges = JSON.stringify(selectedHotelAmenities) !== 
                           JSON.stringify(tempSelectedHotelAmenities);
 
-  if (loading && activeTab === "hotel") {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
+  const totalHotelSelected = Object.values(tempSelectedHotelAmenities).flat().length;
+  const hotelTabActive = activeTab === "hotel";
 
   return (
     <>
@@ -309,304 +304,356 @@ export function AmenitiesAndRestaurantsTab({ hotelId }: AmenitiesAndRestaurantsT
         onClose={hideToast}
       />
       
-      <div className="space-y-6">
-        {/* Tab Navigation */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex border-b border-gray-200">
+      <div className="overflow-hidden rounded-2xl border border-[#2f3d95]/20 bg-gradient-to-br from-white via-[#f8faff] to-[#eef2ff]/40 shadow-[0_8px_30px_rgba(47,61,149,0.1)] ring-1 ring-[#2f3d95]/10">
+        {/* Tabs + toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#2f3d95]/10 bg-gradient-to-r from-[#eef2ff] via-[#f5f3ff] to-violet-50/70 px-3 py-3 sm:px-4">
+          <div className="inline-flex rounded-lg bg-white/80 p-1 shadow-sm ring-1 ring-[#2f3d95]/15 backdrop-blur-sm">
             <button
               type="button"
               role="tab"
-              aria-selected={activeTab === "hotel"}
+              aria-selected={hotelTabActive}
               onClick={() => setActiveTab("hotel")}
               className={cn(
-                "flex-1 px-6 py-4 text-center font-semibold transition-colors relative",
-                activeTab === "hotel"
-                  ? "text-blue-600 bg-blue-50"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
+                hotelTabActive
+                  ? "bg-[#2f3d95] text-white shadow-md shadow-[#2f3d95]/30"
+                  : "text-slate-600 hover:bg-[#eef2ff] hover:text-[#2f3d95]",
               )}
             >
-              <div className="flex items-center justify-center gap-2">
-                <Building2 className="w-5 h-5" />
-                <span>Hotel Amenities</span>
-              </div>
-              {activeTab === "hotel" && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-              )}
+              <Building2 className="h-3.5 w-3.5" />
+              Hotel
             </button>
             <button
               type="button"
               role="tab"
-              aria-selected={activeTab === "rooms"}
+              aria-selected={!hotelTabActive}
               onClick={() => setActiveTab("rooms")}
               className={cn(
-                "flex-1 px-6 py-4 text-center font-semibold transition-colors relative",
-                activeTab === "rooms"
-                  ? "text-blue-600 bg-blue-50"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
+                !hotelTabActive
+                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/25"
+                  : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700",
               )}
             >
-              <div className="flex items-center justify-center gap-2">
-                <BedDouble className="w-5 h-5" />
-                <span>Room Amenities</span>
-              </div>
-              {activeTab === "rooms" && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-              )}
+              <BedDouble className="h-3.5 w-3.5" />
+              Rooms
             </button>
           </div>
+
+          {hotelTabActive ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-[#2f3d95]/10 px-2.5 py-0.5 text-xs font-semibold text-[#2f3d95]">
+                {totalHotelSelected} selected
+              </span>
+              {hasHotelChanges ? (
+                <Button
+                  onClick={handleSaveHotelAmenities}
+                  disabled={saving}
+                  size="sm"
+                  className="bg-[#2f3d95] hover:bg-[#263578]"
+                >
+                  {saving ? "Saving..." : "Save changes"}
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <span className="rounded-full bg-emerald-600/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+              {rooms.length} room{rooms.length === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
 
-        {/* Hotel Amenities Tab */}
-        {activeTab === "hotel" && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900">Hotel Amenities</h2>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      Select amenities available at your hotel
-                    </p>
-                  </div>
-                </div>
-                {hasHotelChanges && (
-                  <Button
-                    onClick={handleSaveHotelAmenities}
-                    disabled={saving}
-                    className="bg-blue-500 hover:bg-blue-600 text-white"
-                  >
-                    {saving ? "Saving..." : "Save Changes"}
-                  </Button>
-                )}
+        {/* Hotel Amenities */}
+        {hotelTabActive && (
+          <div className="flex min-h-[520px] flex-col lg:flex-row">
+            {loading ? (
+              <div className="flex flex-1 items-center justify-center gap-2 py-16 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin text-[#2f3d95]" />
+                Loading amenities...
               </div>
-            </div>
-
-            <div className="flex gap-6 min-h-[600px]">
-              {/* Category Sidebar */}
-              <div className="w-64 shrink-0 border-r border-gray-200 overflow-y-auto">
-                <div className="space-y-1 p-2">
-                  {availableHotelAmenities.map((category) => {
-                    const count = getHotelCategoryCount(category.categoryCode);
-                    const isActive = activeHotelCategory === category.categoryCode;
-                    return (
-                      <button
-                        key={category.categoryCode}
-                        type="button"
-                        data-readonly-allow="true"
-                        onClick={() => setActiveHotelCategory(category.categoryCode)}
-                        className={cn(
-                          "w-full text-left px-4 py-3 rounded-lg transition-all",
-                          "hover:bg-gray-50",
-                          isActive
-                            ? "bg-blue-50 text-blue-900 border-l-4 border-blue-600 font-medium"
-                            : "text-gray-700"
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">{category.categoryName}</span>
-                          <span className="text-xs text-gray-500">
-                            {count.selected} of {count.total}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Amenities Grid */}
-              <div className="flex-1 overflow-y-auto p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  {currentHotelCategory?.categoryName}
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {currentHotelCategory?.items.map((amenity) => {
-                    const isSelected = tempSelectedHotelAmenities[activeHotelCategory]?.includes(amenity.id);
-                    return (
-                      <button
-                        key={amenity.id}
-                        type="button"
-                        onClick={() => toggleHotelAmenity(amenity.id)}
-                        className={cn(
-                          "relative flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
-                          "hover:border-blue-400 hover:bg-blue-50",
-                          "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
-                          isSelected
-                            ? "border-blue-600 bg-blue-50"
-                            : "border-gray-200 bg-white hover:border-gray-300"
-                        )}
-                      >
-                        <div className="text-2xl">{amenity.icon}</div>
-                        <span className="text-xs text-center text-gray-700 font-medium">
-                          {amenity.label}
-                        </span>
-                        {isSelected && (
-                          <div className="absolute top-2 right-2">
-                            <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
-                              <Check className="w-3 h-3 text-white" />
-                            </div>
+            ) : (
+              <>
+                {/* Categories */}
+                <aside className="w-full shrink-0 border-b border-[#2f3d95]/10 bg-[#f8faff]/80 lg:w-60 lg:border-b-0 lg:border-r">
+                  <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    Categories
+                  </p>
+                  <div className="space-y-1 p-2 pb-3">
+                    {availableHotelAmenities.map((category) => {
+                      const count = getHotelCategoryCount(category.categoryCode);
+                      const isActive =
+                        activeHotelCategory === category.categoryCode;
+                      const complete =
+                        count.total > 0 && count.selected === count.total;
+                      return (
+                        <button
+                          key={category.categoryCode}
+                          type="button"
+                          data-readonly-allow="true"
+                          onClick={() =>
+                            setActiveHotelCategory(category.categoryCode)
+                          }
+                          className={cn(
+                            "w-full rounded-lg px-3 py-2.5 text-left transition-all",
+                            isActive
+                              ? "bg-[#2f3d95] text-white shadow-md shadow-[#2f3d95]/20"
+                              : "text-slate-700 hover:bg-white hover:shadow-sm",
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-xs font-medium">
+                              {category.categoryName}
+                            </span>
+                            <span
+                              className={cn(
+                                "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                                isActive
+                                  ? "bg-white/20 text-white"
+                                  : complete
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : count.selected > 0
+                                      ? "bg-[#eef2ff] text-[#2f3d95]"
+                                      : "bg-slate-100 text-slate-500",
+                              )}
+                            >
+                              {count.selected}/{count.total}
+                            </span>
                           </div>
-                        )}
-                      </button>
-                    );
-                  })}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </aside>
+
+                {/* Amenity grid */}
+                <div className="flex-1 overflow-y-auto bg-gradient-to-b from-white to-[#f8faff]/40 p-4 sm:p-5">
+                  <div className="mb-4 flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      {currentHotelCategory?.categoryName}
+                    </h3>
+                    <span className="text-xs text-slate-500">
+                      Tap to toggle ·{" "}
+                      {getHotelCategoryCount(activeHotelCategory).selected} of{" "}
+                      {getHotelCategoryCount(activeHotelCategory).total} in
+                      this category
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                    {currentHotelCategory?.items.map((amenity) => {
+                      const isSelected = tempSelectedHotelAmenities[
+                        activeHotelCategory
+                      ]?.includes(amenity.id);
+                      return (
+                        <button
+                          key={amenity.id}
+                          type="button"
+                          onClick={() => toggleHotelAmenity(amenity.id)}
+                          className={cn(
+                            "relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all",
+                            "focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30 focus:ring-offset-2",
+                            isSelected
+                              ? "border-[#2f3d95] bg-[#eef2ff]/70 shadow-md shadow-[#2f3d95]/10"
+                              : "border-slate-200/90 bg-white hover:border-[#2f3d95]/30 hover:bg-[#eef2ff]/30 hover:shadow-sm",
+                          )}
+                        >
+                          <div className="text-2xl leading-none">
+                            {amenity.icon}
+                          </div>
+                          <span className="line-clamp-2 text-center text-[11px] font-medium leading-tight text-slate-700">
+                            {amenity.label}
+                          </span>
+                          {isSelected ? (
+                            <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#2f3d95] shadow-sm">
+                              <Check className="h-3 w-3 text-white" />
+                            </div>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         )}
 
-
-        {/* Room Amenities Tab */}
+        {/* Room Amenities */}
         {activeTab === "rooms" && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center">
-                  <BedDouble className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">Room Amenities</h2>
-                  <p className="text-xs text-gray-600 mt-0.5">
-                    {rooms.length} room(s) available
-                  </p>
-                </div>
-              </div>
-            </div>
-
+          <div className="bg-gradient-to-b from-emerald-50/30 to-white p-3 sm:p-4">
             {rooms.length === 0 ? (
-              <div className="p-6 text-center text-gray-500">
-                <BedDouble className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="text-sm">No rooms available</p>
+              <div className="flex flex-col items-center rounded-xl border border-dashed border-emerald-300/50 bg-emerald-50/40 px-6 py-12 text-center">
+                <BedDouble className="mb-2 h-8 w-8 text-emerald-400" />
+                <p className="text-sm font-medium text-slate-700">No rooms yet</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Add rooms first, then set amenities per room type.
+                </p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-200">
+              <div className="space-y-2">
                 {rooms.map((room) => {
                   const isExpanded = expandedRooms.has(room.roomId);
-                  const activeCategory = activeRoomCategoryMap[room.roomId] || availableRoomAmenities[0]?.categoryCode;
+                  const activeCategory =
+                    activeRoomCategoryMap[room.roomId] ||
+                    availableRoomAmenities[0]?.categoryCode;
                   const roomAmenities = tempRoomAmenitiesMap[room.roomId] || {};
                   const savedRoomAmenities = roomAmenitiesMap[room.roomId] || {};
-                  const hasRoomChanges = JSON.stringify(savedRoomAmenities) !== JSON.stringify(roomAmenities);
+                  const hasRoomChanges =
+                    JSON.stringify(savedRoomAmenities) !==
+                    JSON.stringify(roomAmenities);
                   const isSaving = savingRoomId === room.roomId;
-                  const currentCategory = availableRoomAmenities.find(c => c.categoryCode === activeCategory);
+                  const currentCategory = availableRoomAmenities.find(
+                    (c) => c.categoryCode === activeCategory,
+                  );
+                  const roomSelectedCount =
+                    Object.values(roomAmenities).flat().length;
 
                   return (
-                    <div key={room.roomId} className="bg-gray-50/50">
+                    <article
+                      key={room.roomId}
+                      className={cn(
+                        "overflow-hidden rounded-xl border bg-white shadow-sm transition-shadow",
+                        isExpanded
+                          ? "border-emerald-200/80 ring-1 ring-emerald-100"
+                          : "border-slate-200/90 hover:border-emerald-200/60 hover:shadow-md",
+                      )}
+                    >
                       <button
                         type="button"
                         data-readonly-allow="true"
                         onClick={() => handleToggleRoom(room.roomId)}
-                        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-100 transition-colors"
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50/80"
                       >
-                        <div className="flex items-center gap-3">
-                          {isExpanded ? (
-                            <X className="w-5 h-5 text-gray-600" />
-                          ) : (
-                            <Plus className="w-5 h-5 text-gray-600" />
-                          )}
-                          <div className="text-left">
-                            <h3 className="text-base font-semibold text-gray-900">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+                            <BedDouble className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-900">
                               {room.roomName}
-                            </h3>
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {roomSelectedCount} selected
+                              {isExpanded
+                                ? " · expanded"
+                                : " · click to edit amenities"}
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <Check className="w-4 h-4" />
-                            {Object.values(roomAmenities).flat().length} selected
-                          </span>
-                        </div>
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+                        )}
                       </button>
 
-                      {isExpanded && (
-                        <div className="px-6 py-4 bg-white border-t border-gray-200">
-                          <div className="flex items-center justify-between mb-4">
-                            <p className="text-sm text-gray-600">
+                      {isExpanded ? (
+                        <div className="border-t border-emerald-100/80 bg-gradient-to-b from-emerald-50/40 to-white">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100/60 px-4 py-2.5">
+                            <p className="text-xs text-slate-500">
                               Select amenities for this room
                             </p>
-                            {hasRoomChanges && (
+                            {hasRoomChanges ? (
                               <Button
-                                onClick={() => handleSaveRoomAmenities(room.roomId)}
+                                onClick={() =>
+                                  handleSaveRoomAmenities(room.roomId)
+                                }
                                 disabled={isSaving}
-                                className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700"
                               >
-                                {isSaving ? "Saving..." : "Save Changes"}
+                                {isSaving ? "Saving..." : "Save changes"}
                               </Button>
-                            )}
+                            ) : null}
                           </div>
-                          
-                          <div className="flex gap-6 min-h-[400px]">
-                            {/* Category Sidebar */}
-                            <div className="w-64 shrink-0 border-r border-gray-200 overflow-y-auto">
-                              <div className="space-y-1 p-2">
+
+                          <div className="flex min-h-[360px] flex-col lg:flex-row">
+                            <aside className="w-full shrink-0 border-b border-emerald-100/80 bg-emerald-50/30 lg:w-56 lg:border-b-0 lg:border-r">
+                              <div className="space-y-1 p-2 pb-3">
                                 {availableRoomAmenities.map((category) => {
-                                  const count = getRoomCategoryCount(room.roomId, category.categoryCode);
-                                  const isActive = activeCategory === category.categoryCode;
+                                  const count = getRoomCategoryCount(
+                                    room.roomId,
+                                    category.categoryCode,
+                                  );
+                                  const isActive =
+                                    activeCategory === category.categoryCode;
                                   return (
                                     <button
                                       key={category.categoryCode}
                                       type="button"
                                       data-readonly-allow="true"
-                                      onClick={() => setActiveRoomCategoryMap(prev => ({
-                                        ...prev,
-                                        [room.roomId]: category.categoryCode,
-                                      }))}
+                                      onClick={() =>
+                                        setActiveRoomCategoryMap((prev) => ({
+                                          ...prev,
+                                          [room.roomId]: category.categoryCode,
+                                        }))
+                                      }
                                       className={cn(
-                                        "w-full text-left px-4 py-3 rounded-lg transition-all",
-                                        "hover:bg-gray-50",
+                                        "w-full rounded-lg px-3 py-2 text-left transition-all",
                                         isActive
-                                          ? "bg-emerald-50 text-emerald-900 border-l-4 border-emerald-600 font-medium"
-                                          : "text-gray-700"
+                                          ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
+                                          : "text-slate-700 hover:bg-white hover:shadow-sm",
                                       )}
                                     >
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-sm">{category.categoryName}</span>
-                                        <span className="text-xs text-gray-500">
-                                          {count.selected} of {count.total}
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="truncate text-xs font-medium">
+                                          {category.categoryName}
+                                        </span>
+                                        <span
+                                          className={cn(
+                                            "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                                            isActive
+                                              ? "bg-white/20 text-white"
+                                              : count.selected > 0
+                                                ? "bg-emerald-100 text-emerald-700"
+                                                : "bg-slate-100 text-slate-500",
+                                          )}
+                                        >
+                                          {count.selected}/{count.total}
                                         </span>
                                       </div>
                                     </button>
                                   );
                                 })}
                               </div>
-                            </div>
+                            </aside>
 
-                            {/* Amenities Grid */}
-                            <div className="flex-1 overflow-y-auto">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                            <div className="flex-1 overflow-y-auto p-4">
+                              <h3 className="mb-3 text-sm font-semibold text-slate-900">
                                 {currentCategory?.categoryName}
                               </h3>
-                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                                 {currentCategory?.items.map((amenity) => {
-                                  const isSelected = roomAmenities[activeCategory]?.includes(amenity.id);
+                                  const isSelected = roomAmenities[
+                                    activeCategory
+                                  ]?.includes(amenity.id);
                                   return (
                                     <button
                                       key={amenity.id}
                                       type="button"
-                                      onClick={() => toggleRoomAmenity(room.roomId, amenity.id)}
+                                      onClick={() =>
+                                        toggleRoomAmenity(
+                                          room.roomId,
+                                          amenity.id,
+                                        )
+                                      }
                                       className={cn(
-                                        "relative flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all",
-                                        "hover:border-emerald-400 hover:bg-emerald-50",
-                                        "focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2",
+                                        "relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all",
                                         isSelected
-                                          ? "border-emerald-600 bg-emerald-50"
-                                          : "border-gray-200 bg-white hover:border-gray-300"
+                                          ? "border-emerald-600 bg-emerald-50/80 shadow-md shadow-emerald-600/10"
+                                          : "border-slate-200/90 bg-white hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-sm",
                                       )}
                                     >
-                                      <div className="text-2xl">{amenity.icon}</div>
-                                      <span className="text-xs text-center text-gray-700 font-medium">
+                                      <div className="text-2xl leading-none">
+                                        {amenity.icon}
+                                      </div>
+                                      <span className="line-clamp-2 text-center text-[11px] font-medium leading-tight text-slate-700">
                                         {amenity.label}
                                       </span>
-                                      {isSelected && (
-                                        <div className="absolute top-2 right-2">
-                                          <div className="w-5 h-5 bg-emerald-600 rounded-full flex items-center justify-center">
-                                            <Check className="w-3 h-3 text-white" />
-                                          </div>
+                                      {isSelected ? (
+                                        <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600 shadow-sm">
+                                          <Check className="h-3 w-3 text-white" />
                                         </div>
-                                      )}
+                                      ) : null}
                                     </button>
                                   );
                                 })}
@@ -614,8 +661,8 @@ export function AmenitiesAndRestaurantsTab({ hotelId }: AmenitiesAndRestaurantsT
                             </div>
                           </div>
                         </div>
-                      )}
-                    </div>
+                      ) : null}
+                    </article>
                   );
                 })}
               </div>

@@ -80,6 +80,7 @@ function Container() {
 
   const draftId = searchParams.get("draftId");
   const isForcedReadOnly = searchParams.get("readOnly") === "true";
+  const fromMyProperty = searchParams.get("from") === "my-property";
   const reviewTabFromQuery = searchParams.get("reviewTab");
   const reviewTabFromState =
     (location.state as { reviewTab?: string } | null)?.reviewTab ?? null;
@@ -178,12 +179,13 @@ function Container() {
       if (draftId) nextParams.set("draftId", draftId);
       if (isForcedReadOnly) nextParams.set("readOnly", "true");
       if (reviewTab) nextParams.set("reviewTab", reviewTab);
+      if (fromMyProperty) nextParams.set("from", "my-property");
       navigate({
         pathname: path,
         search: nextParams.toString() ? `?${nextParams.toString()}` : "",
       });
     },
-    [draftId, isForcedReadOnly, navigate, reviewTab],
+    [draftId, fromMyProperty, isForcedReadOnly, navigate, reviewTab],
   );
 
   useEffect(() => {
@@ -498,6 +500,11 @@ function Container() {
     onboardingHotelName.trim() ||
     undefined;
 
+  const backLabel =
+    fromMyProperty || (isForcedReadOnly && !isSuperAdmin)
+      ? "Back to Property"
+      : "Back";
+
   return (
     <>
       <Toast
@@ -515,13 +522,15 @@ function Container() {
               navigate(ROUTES.REPORTS.HOTEL_BD_PIPELINE);
               return;
             }
-            navigate(
-              isForcedReadOnly ? ROUTES.PROPERTIES.MY_PROPERTY : "/",
-            );
+            if (fromMyProperty || isForcedReadOnly) {
+              navigate(ROUTES.PROPERTIES.MY_PROPERTY);
+              return;
+            }
+            navigate("/");
           }}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
+          {backLabel}
         </Button>
       </div>
       {showApproveRejectActions && !isFinalReviewStatus && (

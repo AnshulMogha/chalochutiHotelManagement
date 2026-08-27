@@ -12,32 +12,21 @@ export default function AmenitiesAndRestaurantsPage() {
 
   if (!selectedHotelId) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Amenities</h1>
-          <p className="text-gray-500 mt-2">Please select a hotel from the dropdown above to view amenities</p>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <p className="text-gray-500">No hotel selected</p>
-          </div>
+      <div className="container mx-auto px-4 py-4 sm:px-6">
+        <div className="flex min-h-60 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50">
+          <p className="text-sm text-slate-500">
+            Select a hotel from the dropdown above to manage amenities
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Amenities</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Manage hotel and room amenities for your property
-        </p>
-      </div>
+    <div className="container mx-auto px-4 py-4 sm:px-6">
       <ReadOnlySection isReadOnly={isReadOnly}>
         <AmenitiesAndRestaurantsTab hotelId={selectedHotelId} />
       </ReadOnlySection>
     </div>
   );
 }
-

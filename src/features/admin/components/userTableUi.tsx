@@ -1,5 +1,6 @@
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Search } from "lucide-react";
+import { Check, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function UserColumnHeader({
@@ -136,30 +137,137 @@ export function UserFilterSelect({
   options,
   "aria-label": ariaLabel,
   embedded = false,
+  /** Max height of the open menu (scrollable). */
+  menuMaxHeightClassName = "max-h-60",
 }: {
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   "aria-label": string;
   embedded?: boolean;
+  menuMaxHeightClassName?: string;
 }) {
+  const listId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
+  const selected =
+    options.find((opt) => opt.value === value) ?? options[0] ?? null;
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updatePosition = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = Math.max(rect.width, 220);
+      const spaceBelow = window.innerHeight - rect.bottom - 8;
+      const spaceAbove = rect.top - 8;
+      const preferBelow = spaceBelow >= 180 || spaceBelow >= spaceAbove;
+      const maxHeight = Math.min(224, preferBelow ? spaceBelow : spaceAbove);
+      setMenuStyle({
+        position: "fixed",
+        left: Math.min(rect.left, window.innerWidth - width - 8),
+        width,
+        maxHeight,
+        ...(preferBelow
+          ? { top: rect.bottom + 4 }
+          : { bottom: window.innerHeight - rect.top + 4 }),
+      });
+    };
+
+    updatePosition();
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        const menu = document.getElementById(listId);
+        if (menu?.contains(event.target as Node)) return;
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    const onReposition = () => updatePosition();
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onReposition);
+    window.addEventListener("scroll", onReposition, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onReposition);
+      window.removeEventListener("scroll", onReposition, true);
+    };
+  }, [open, listId]);
+
   return (
-    <select
-      aria-label={ariaLabel}
-      className={cn(
-        embedded
-          ? "min-w-[108px] cursor-pointer border-0 bg-transparent py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-0"
-          : cn(filterSelectClass, "min-w-[120px]"),
-      )}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      {options.map((opt) => (
-        <option key={opt.value || "all"} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
+    <div ref={rootRef} className="relative min-w-[140px]">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen((prev) => !prev)}
+        className={cn(
+          "inline-flex w-full items-center justify-between gap-1.5 text-left",
+          embedded
+            ? "min-w-[120px] cursor-pointer border-0 bg-transparent py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-0"
+            : cn(filterSelectClass, "min-w-[140px]"),
+        )}
+      >
+        <span className="truncate">{selected?.label ?? "Select"}</span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+
+      {open ? (
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label={ariaLabel}
+          style={menuStyle}
+          className={cn(
+            "z-50 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg ring-1 ring-black/5",
+            menuMaxHeightClassName,
+          )}
+        >
+          {options.map((opt) => {
+            const isSelected = opt.value === value;
+            return (
+              <li key={opt.value || "all"} role="option" aria-selected={isSelected}>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors",
+                    isSelected
+                      ? "bg-[#eef2ff] font-medium text-[#2f3d95]"
+                      : "text-slate-700 hover:bg-slate-50",
+                  )}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="truncate">{opt.label}</span>
+                  {isSelected ? (
+                    <Check className="h-3.5 w-3.5 shrink-0 text-[#2f3d95]" />
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 

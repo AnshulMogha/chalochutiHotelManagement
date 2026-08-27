@@ -2,10 +2,10 @@ import { apiClient } from "@/services/api/client";
 import type { ApiSuccessResponse } from "@/services/api/types";
 import { API_ENDPOINTS } from "@/constants";
 
-export type TeamRole = 
+export type TeamRole =
   | "HOTEL_MANAGER"
   | "FRONT_DESK_EXEC"
-  | "ACCOUNTANT";
+  | "HOTEL_ACCOUNTANT";
 
 export type PermissionModule = 
   | "BOOKINGS"
@@ -25,7 +25,13 @@ export type PermissionModule =
   | "PROPERTY_AMENITIES_RESTAURANTS"
   | "PROPERTY_POLICY_RULES"
   | "PROPERTY_FINANCE"
-  | "PROPERTY_DOCUMENT";
+  | "PROPERTY_DOCUMENT"
+  | "PAYMENTS"
+  | "REPORT_BOOKING_SUMMARY"
+  | "REPORT_PROMOTIONS"
+  | "REPORT_RATE_HEALTH"
+  | "REPORT_INVENTORY_ALLOCATION"
+  | "GUEST_REVIEWS";
 
 export interface Permission {
   module: PermissionModule;

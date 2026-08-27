@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/Button";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { Select } from "@/components/ui/Select";
 import { adminService, type Document, type DocumentType } from "@/features/admin/services/adminService";
-import { Upload, FileText, Eye, X, CheckCircle, Clock, XCircle, Maximize2, ExternalLink } from "lucide-react";
+import { Upload, FileText, Eye, X, ExternalLink, Loader2, FolderOpen } from "lucide-react";
 
 interface DocumentTabProps {
   hotelId: string;
@@ -162,18 +162,6 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
     });
   };
 
-  const formatDateTime = (dateString: string | null) => {
-    if (!dateString) return "-";
-    return new Date(dateString).toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  };
-
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -186,47 +174,9 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
     return DOCUMENT_TYPES.find((type) => type.value === docType)?.label || docType;
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      PENDING: {
-        label: "Pending",
-        className: "bg-yellow-100 text-yellow-800 border-yellow-200",
-        icon: Clock,
-      },
-      APPROVED: {
-        label: "Approved",
-        className: "bg-green-100 text-green-800 border-green-200",
-        icon: CheckCircle,
-      },
-      REJECTED: {
-        label: "Rejected",
-        className: "bg-red-100 text-red-800 border-red-200",
-        icon: XCircle,
-      },
-    };
-
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING;
-    const Icon = config.icon;
-
-    return (
-      <span
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${config.className}`}
-      >
-        <Icon className="w-3 h-3" />
-        {config.label}
-      </span>
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
   const availableDocTypes = getAvailableDocTypes();
+  const canUpload = availableDocTypes.length > 0;
+
   return (
     <>
       <Toast
@@ -235,119 +185,128 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-      <div className="space-y-6 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Documents</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Manage and upload hotel documents
-            </p>
+      <div className="mx-auto max-w-6xl overflow-hidden rounded-2xl border border-[#2f3d95]/20 bg-gradient-to-br from-white via-[#f8faff] to-[#eef2ff]/40 shadow-[0_8px_30px_rgba(47,61,149,0.1)] ring-1 ring-[#2f3d95]/10">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#2f3d95]/10 bg-gradient-to-r from-[#eef2ff] via-[#f5f3ff] to-sky-50/70 px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2f3d95] text-white shadow-sm">
+              <FolderOpen className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Documents</p>
+              <p className="text-xs text-slate-500">
+                GST, PAN, registration & other hotel files
+              </p>
+            </div>
           </div>
-          {availableDocTypes.length > 0 && (
-            <Button
-              onClick={() => setShowUploadModal(true)}
-              className="bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-2"
-            >
-              <Upload className="w-4 h-4" />
-              Upload Document
-            </Button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-[#2f3d95]/10 px-2.5 py-0.5 text-xs font-semibold text-[#2f3d95]">
+              {documents.length} uploaded
+            </span>
+            {canUpload ? (
+              <Button
+                onClick={() => setShowUploadModal(true)}
+                size="sm"
+                className="gap-1.5 bg-[#2f3d95] hover:bg-[#263578]"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Upload
+              </Button>
+            ) : null}
+          </div>
         </div>
 
-        {/* Documents List */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          {documents.length === 0 ? (
-            <div className="p-12 text-center">
-              <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No documents uploaded
-              </h3>
-              <p className="text-sm text-gray-500 mb-6">
-                Upload your first document to get started
+        <div className="p-4 sm:p-5">
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-14 text-sm text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin text-[#2f3d95]" />
+              Loading documents...
+            </div>
+          ) : documents.length === 0 ? (
+            <div className="flex flex-col items-center rounded-xl border border-dashed border-[#2f3d95]/25 bg-[#eef2ff]/30 px-6 py-12 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2f3d95] to-indigo-500 text-white shadow-lg shadow-[#2f3d95]/20">
+                <FileText className="h-6 w-6" />
+              </div>
+              <p className="font-medium text-slate-800">No documents yet</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {canUpload
+                  ? "Use Upload above to add GST certificate, PAN, and other files."
+                  : "All required document types have been uploaded."}
               </p>
-              {availableDocTypes.length > 0 && (
-                <Button
-                  onClick={() => setShowUploadModal(true)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white"
-                >
-                  Upload Document
-                </Button>
-              )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Document Type
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Uploaded Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Verified Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {documents.map((document) => (
-                    <tr key={document.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-5 h-5 text-gray-400" />
-                          <span className="text-sm font-medium text-gray-900">
-                            {getDocTypeLabel(document.docType)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-600">
-                          {formatDate(document.uploadedAt)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-600">
-                          {formatDateTime(document.verifiedAt)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleView(document)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                            title={
-                              isPdfDocument(document)
-                                ? "Open PDF in new tab"
-                                : "View"
-                            }
-                          >
-                            {isPdfDocument(document) ? (
-                              <ExternalLink className="w-4 h-4" />
-                            ) : (
-                              <Eye className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
+              <div className="hidden px-4 py-2 sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_auto] sm:items-center sm:gap-3 sm:bg-slate-50/80">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Document
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Uploaded
+                </span>
+                <span className="text-right text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Actions
+                </span>
+              </div>
+              {documents.map((document) => (
+                <div
+                  key={document.id}
+                  className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_auto] sm:items-center sm:gap-3 hover:bg-slate-50/60"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#eef2ff] text-[#2f3d95] ring-1 ring-[#2f3d95]/10">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {getDocTypeLabel(document.docType)}
+                      </p>
+                      {document.fileName ? (
+                        <p className="truncate text-xs text-slate-500">
+                          {document.fileName}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400 sm:hidden">
+                      Uploaded
+                    </p>
+                    <p className="text-sm text-slate-700">
+                      {formatDate(document.uploadedAt)}
+                    </p>
+                  </div>
+                  <div className="flex items-center sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleView(document)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-[#2f3d95] transition-colors hover:border-[#2f3d95]/30 hover:bg-[#eef2ff]"
+                      title={
+                        isPdfDocument(document)
+                          ? "Open PDF in new tab"
+                          : "View document"
+                      }
+                    >
+                      {isPdfDocument(document) ? (
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )}
+                      View
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
+      </div>
 
         {/* Upload Modal */}
         {showUploadModal && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Upload Document
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[#2f3d95]/10 bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-[#2f3d95]/10 bg-gradient-to-r from-[#eef2ff] to-white px-5 py-4">
+                <h3 className="text-base font-semibold text-slate-900">
+                  Upload document
                 </h3>
                 <button
                   onClick={() => {
@@ -359,13 +318,13 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                       fileInputRef.current.value = "";
                     }
                   }}
-                  className="p-1 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
+                  className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-4 p-5">
                 <Select
                   label="Document Type"
                   value={selectedDocType}
@@ -395,7 +354,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                     />
                     <label
                       htmlFor="file-upload"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                    className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[#2f3d95]/30 bg-[#eef2ff]/30 px-4 py-3 transition-colors hover:bg-[#eef2ff]/60"
                     >
                       <Upload className="w-4 h-4 text-gray-400" />
                       <span className="text-sm text-gray-600">
@@ -437,7 +396,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                   <Button
                     onClick={handleUpload}
                     disabled={uploading || !selectedFile || !selectedDocType}
-                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                    className="bg-[#2f3d95] hover:bg-[#263578]"
                   >
                     {uploading ? "Uploading..." : "Upload"}
                   </Button>
@@ -552,7 +511,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
 
               {/* Footer Info */}
               <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                   <div>
                     <span className="text-gray-500">File Size:</span>
                     <span className="ml-2 text-gray-900 font-medium">
@@ -566,12 +525,6 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Status:</span>
-                    <span className="ml-2">
-                      {getStatusBadge(selectedDocument.status)}
-                    </span>
-                  </div>
-                  <div>
                     <span className="text-gray-500">Uploaded:</span>
                     <span className="ml-2 text-gray-900 font-medium">
                       {formatDate(selectedDocument.uploadedAt)}
@@ -582,7 +535,6 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
             </div>
           </div>
         )}
-      </div>
     </>
   );
 }

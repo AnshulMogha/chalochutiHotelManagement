@@ -13,6 +13,7 @@ interface NavItem {
   badge?: string;
   children?: NavItem[];
   external?: boolean;
+  activePaths?: string[];
 }
 
 interface SidebarItemProps {
@@ -47,7 +48,9 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
       path === ROUTES.TEAM.LIST ||
       path === ROUTES.PROMOTIONS.LIST ||
       path === ROUTES.HOTEL_REVIEWS.LIST ||
-      path === ROUTES.ADMIN.DOCUMENT_REVIEW
+      path === ROUTES.ADMIN.DOCUMENT_REVIEW ||
+      path === ROUTES.REPORTS.NET_EARNINGS ||
+      path === ROUTES.REPORTS.HOTEL_PAYOUTS
     );
   };
 
@@ -68,25 +71,38 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
     );
   };
 
+  const itemMatchPaths = (nav: Pick<NavItem, "path" | "activePaths">) => {
+    const extras = nav.activePaths ?? [];
+    return [nav.path, ...extras.filter((p) => p !== nav.path)];
+  };
+
   /** Prefer the longest matching sibling so `/ratings-reviews` does not stay
    *  active when `/ratings-reviews/mis` is the current page. */
-  const isActive = (path: string, siblingPaths: string[] = []) => {
-    if (!pathMatches(path)) return false;
-    const longerSiblingMatches = siblingPaths.some(
-      (sibling) =>
-        sibling !== path &&
-        sibling.length > path.length &&
-        pathMatches(sibling),
+  const isActive = (
+    nav: Pick<NavItem, "path" | "activePaths">,
+    siblings: Array<Pick<NavItem, "path" | "activePaths">> = [],
+  ) => {
+    const paths = itemMatchPaths(nav);
+    if (!paths.some((path) => pathMatches(path))) return false;
+    const longestMatchLen = Math.max(
+      ...paths.filter((path) => pathMatches(path)).map((path) => path.length),
     );
+    const longerSiblingMatches = siblings.some((sibling) => {
+      if (sibling.path === nav.path) return false;
+      return itemMatchPaths(sibling).some(
+        (siblingPath) =>
+          siblingPath.length > longestMatchLen && pathMatches(siblingPath),
+      );
+    });
     return !longerSiblingMatches;
   };
 
-  const childPaths = item.children?.map((child) => child.path) ?? [];
+  const childNavs = item.children ?? [];
   const hasActiveChild =
-    hasChildren && childPaths.some((path) => isActive(path, childPaths));
+    hasChildren && childNavs.some((child) => isActive(child, childNavs));
   // Parent groups (e.g. Reports at `/reports`) must not highlight just because
   // the URL is nested under that prefix — only when a child item matches.
-  const itemActive = hasChildren ? !!hasActiveChild : isActive(item.path);
+  const itemActive = hasChildren ? !!hasActiveChild : isActive(item);
   const isHighlighted = itemActive;
 
   useEffect(() => {
@@ -198,9 +214,13 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
         {hasChildren && isExpanded && isOpen && (
           <ul className="mt-1.5 min-w-0 space-y-1 rounded-xl border border-white/10 bg-black/12 py-1.5 pl-2 pr-1.5 backdrop-blur-sm">
             {item.children?.map((child) => {
-              const childActive = isActive(child.path, childPaths);
+              const childActive = isActive(child, childNavs);
               const ChildIcon = child.icon;
-              const childTheme = getNavIconTheme(child.path);
+              const childTheme = getNavIconTheme(
+                pathMatches(child.path)
+                  ? child.path
+                  : (child.activePaths?.find((p) => pathMatches(p)) ?? child.path),
+              );
 
               return (
                 <li key={child.path} className="min-w-0">

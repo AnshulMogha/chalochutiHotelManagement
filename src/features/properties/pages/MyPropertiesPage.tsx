@@ -139,6 +139,9 @@ const formatDate = (dateString?: string) => {
 const getOnboardingReadOnlyUrl = (hotelId: string) =>
   `${ROUTES.PROPERTIES.EDIT(hotelId)}&readOnly=true`;
 
+const withMyPropertyOrigin = (url: string) =>
+  `${url}${url.includes("?") ? "&" : "?"}from=my-property`;
+
 function mapHotelToListItem(
   hotel: {
     hotelId: string;
@@ -220,6 +223,7 @@ export default function MyPropertiesPage() {
   const isScopedPropertyViewer =
     !!user?.roles?.includes("HOTEL_MANAGER") ||
     !!user?.roles?.includes("FRONT_DESK_EXEC") ||
+    !!user?.roles?.includes("HOTEL_ACCOUNTANT") ||
     !!user?.roles?.includes("ACCOUNTANT");
   const isHotelBdUser = !!user?.roles?.includes("HOTEL_BD");
 
@@ -248,7 +252,11 @@ export default function MyPropertiesPage() {
     if (!canOnboard) return;
     try {
       const response = await propertyService.generateDraftHotel();
-      navigate(`${ROUTES.PROPERTIES.CREATE}?draftId=${response.hotelId}`);
+      navigate(
+        withMyPropertyOrigin(
+          `${ROUTES.PROPERTIES.CREATE}?draftId=${response.hotelId}`,
+        ),
+      );
     } catch (error) {
       showToast(
         getApiErrorMessage(
@@ -260,16 +268,17 @@ export default function MyPropertiesPage() {
     }
   };
 
-  const hasActiveFilters = Boolean(
-    appliedFilters.hotelName ||
-      appliedFilters.hotelCode ||
-      appliedFilters.city ||
-      appliedFilters.status ||
-      appliedFilters.requestedBy ||
-      appliedFilters.submittedAt ||
-      appliedFilters.submittedAtFrom ||
-      appliedFilters.submittedAtTo,
-  );
+  const activeFilterCount =
+    (appliedFilters.hotelName.trim() ? 1 : 0) +
+    (appliedFilters.hotelCode.trim() ? 1 : 0) +
+    (appliedFilters.city.trim() ? 1 : 0) +
+    (appliedFilters.status.trim() ? 1 : 0) +
+    (appliedFilters.requestedBy.trim() ? 1 : 0) +
+    (appliedFilters.submittedAt ? 1 : 0) +
+    (!appliedFilters.submittedAt &&
+    (appliedFilters.submittedAtFrom || appliedFilters.submittedAtTo)
+      ? 1
+      : 0);
 
   const applyFilters = () => {
     const submittedAtIso = parseOptionalReportDate(draftFilters.submittedAt);
@@ -706,7 +715,9 @@ export default function MyPropertiesPage() {
                 navigate(
                   shouldOpenReadOnly
                     ? getOnboardingReadOnlyUrl(params.row.hotelId)
-                    : ROUTES.PROPERTIES.EDIT(params.row.hotelId),
+                    : withMyPropertyOrigin(
+                        ROUTES.PROPERTIES.EDIT(params.row.hotelId),
+                      ),
                 );
               }}
               className="gap-2"
@@ -911,9 +922,9 @@ export default function MyPropertiesPage() {
             >
               <Filter className="h-4 w-4" />
               Filters
-              {hasActiveFilters ? (
+              {activeFilterCount > 0 ? (
                 <span className="rounded-full bg-[#2f3d95] px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  Active
+                  {activeFilterCount}
                 </span>
               ) : null}
             </button>
@@ -967,9 +978,9 @@ export default function MyPropertiesPage() {
               >
                 <Filter className="h-4 w-4" />
                 Filters
-                {hasActiveFilters ? (
+                {activeFilterCount > 0 ? (
                   <span className="rounded-full bg-[#2f3d95] px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                    Active
+                    {activeFilterCount}
                   </span>
                 ) : null}
               </button>

@@ -47,6 +47,9 @@ export const ADMIN_MANAGED_ROLE_BADGE_STYLES: Record<
   ZONAL_MANAGER_SALES: { bg: "bg-fuchsia-100", text: "text-fuchsia-800" },
   FINANCE: { bg: "bg-amber-100", text: "text-amber-800" },
   FINANCE_MANAGER: { bg: "bg-yellow-100", text: "text-yellow-800" },
+  HOTEL_ACCOUNTANT: { bg: "bg-amber-100", text: "text-amber-800" },
+  ACCOUNTANT: { bg: "bg-amber-100", text: "text-amber-800" },
+  FRONT_DESK_EXEC: { bg: "bg-teal-100", text: "text-teal-800" },
   QC: { bg: "bg-rose-100", text: "text-rose-800" },
   HELPDESK_AGENT: { bg: "bg-teal-100", text: "text-teal-800" },
   AUDITOR: { bg: "bg-slate-100", text: "text-slate-800" },
@@ -68,6 +71,9 @@ export const ADMIN_MANAGED_ROLE_LABELS: Record<string, string> = {
   ZONAL_MANAGER_SALES: "Zonal Manager Sales",
   FINANCE: "Finance",
   FINANCE_MANAGER: "Finance Manager",
+  HOTEL_ACCOUNTANT: "Hotel Accountant",
+  ACCOUNTANT: "Hotel Accountant",
+  FRONT_DESK_EXEC: "Front Desk",
   QC: "Quality Control",
   HELPDESK_AGENT: "Helpdesk Agent",
   AUDITOR: "Auditor",
@@ -190,11 +196,22 @@ export function canFilterSalesManagerReportsByUser(
   );
 }
 
-/** Roles allowed to view Payment Report (net earnings). */
+/**
+ * Roles allowed to view Payment Report (net earnings).
+ * Same report Super Admin uses — shared with other Payments roles so they
+ * are not sent to a different report page.
+ */
 export const PAYMENT_REPORT_ROLES = [
   "SUPER_ADMIN",
   "HOTEL_OWNER",
   "HOTEL_BD",
+  "HOTEL_MANAGER",
+  "HOTEL_ACCOUNTANT",
+  "FRONT_DESK_EXEC",
+  "ZONAL_MANAGER_SALES",
+  "SALES_MANAGER",
+  "FINANCE",
+  "AUDITOR",
 ] as const;
 
 export function canViewPaymentReport(userRoles: string[] | undefined): boolean {
@@ -208,11 +225,10 @@ export function canViewPaymentReport(userRoles: string[] | undefined): boolean {
 export const HOTEL_PAYOUT_MIS_ROLES = [
   "HOTEL_OWNER",
   "HOTEL_MANAGER",
+  "HOTEL_ACCOUNTANT",
   "SUPER_ADMIN",
   "FRONT_DESK_EXEC",
-  "ACCOUNTANT",
   "HOTEL_BD",
-  "ZONAL_MANAGER_HOTEL",
   "ZONAL_MANAGER_SALES",
   "SALES_MANAGER",
   "FINANCE",
@@ -237,7 +253,7 @@ export const TRANSPORT_PAYOUT_MIS_ROLES = [
   "ZONAL_MANAGER_SALES",
   "FINANCE",
   "FINANCE_MANAGER",
-  "ACCOUNTANT",
+  "HOTEL_ACCOUNTANT",
   "AUDITOR",
 ] as const;
 
@@ -252,7 +268,6 @@ export function canViewTransportPayoutMis(
 
 /** Roles allowed to view Hotel Booking Financial MIS. */
 export const HOTEL_BOOKING_FINANCIAL_MIS_ROLES = [
-  "ACCOUNTANT",
   "FINANCE",
   "FINANCE_MANAGER",
   "AUDITOR",
@@ -292,8 +307,6 @@ export const REVIEW_MODERATION_ROLES = [
   "SUPER_ADMIN",
   "HOTEL_BD",
   "PACKAGE_BD",
-  "ZONAL_MANAGER_HOTEL",
-  "QC",
 ] as const;
 
 export function canModerateReviews(
@@ -387,7 +400,7 @@ export function isPortalAccessDenied(userRoles: string[] | undefined): boolean {
 
 export const SUPER_ADMIN_EXCLUDED_EDIT_ROLES = [
   "HOTEL_MANAGER",
-  "ACCOUNTANT",
+  "HOTEL_ACCOUNTANT",
   "FRONT_DESK_EXEC",
 ] as const;
 
@@ -453,7 +466,6 @@ export const HELPDESK_BOOKING_ROLES = [
   "HELPDESK_AGENT",
   "SUPER_ADMIN",
   "FINANCE",
-  "ACCOUNTANT",
   "AUDITOR",
 ] as const;
 
@@ -471,7 +483,6 @@ export const HELPDESK_TICKET_ROLES = [
   "HELPDESK_AGENT",
   "SUPER_ADMIN",
   "FINANCE",
-  "ACCOUNTANT",
   "AUDITOR",
 ] as const;
 
@@ -501,7 +512,6 @@ export function canAssignHelpdeskTickets(
 /** Roles allowed to view supplier settlement screens and list APIs. */
 export const SETTLEMENT_VIEW_ROLES = [
   "SUPER_ADMIN",
-  "ACCOUNTANT",
   "FINANCE_MANAGER",
   "FINANCE",
 ] as const;
@@ -533,7 +543,6 @@ export function canApproveSupplierSettlement(
 /** Roles allowed to generate settlements (maker). */
 export const SETTLEMENT_GENERATE_ROLES = [
   "SUPER_ADMIN",
-  "ACCOUNTANT",
   "FINANCE_MANAGER",
 ] as const;
 

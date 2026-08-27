@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Button, Input, LoadingSpinner, Select } from "@/components/ui";
 import { ROUTES } from "@/constants";
-import { isSuperAdminExcludedFromUserEdit } from "@/constants/roles";
+import { isSuperAdminExcludedFromUserEdit, ADMIN_MANAGED_ROLE_LABELS, ROLE_LABELS } from "@/constants/roles";
 import {
   adminService,
   type CreateUserRequest,
@@ -159,13 +159,22 @@ export default function UserFormPage() {
   );
 
   function hydrateFormForEdit(user: User) {
-    const normalizedRoles = (user.roles || user.role || []).filter(
+    const rawRoles = (user.roles || user.role || []).filter(
+      (role): role is string => typeof role === "string" && role.trim().length > 0,
+    );
+    const normalizedRoles = rawRoles.filter(
       (role): role is CreateUserRequest["roles"][number] =>
-        typeof role === "string" && ALLOWED_SUPER_ADMIN_ROLES.has(role as any),
+        ALLOWED_SUPER_ADMIN_ROLES.has(role as CreateUserRequest["roles"][number]) ||
+        role === "HOTEL_MANAGER" ||
+        role === "HOTEL_ACCOUNTANT" ||
+        role === "FRONT_DESK_EXEC" ||
+        role === "ACCOUNTANT",
     );
     setFormData({
       email: user.email || "",
-      roles: normalizedRoles,
+      roles: normalizedRoles.length
+        ? normalizedRoles
+        : (rawRoles as CreateUserRequest["roles"]),
       firstName: user.firstName || "",
       lastName: user.lastName || "",
       phoneNumber: user.phoneNumber || "",
@@ -174,8 +183,25 @@ export default function UserFormPage() {
     });
   }
 
+  const statusOnlyEdit =
+    isEdit && !!editUser && isSuperAdminExcludedFromUserEdit(editUser.roles);
+
+  const roleDisplayLabel = (role: string) =>
+    ADMIN_MANAGED_ROLE_LABELS[role] ||
+    ROLE_LABELS[role as keyof typeof ROLE_LABELS] ||
+    role.replaceAll("_", " ");
+
   const validate = (): boolean => {
     const next: Record<string, string> = {};
+
+    if (statusOnlyEdit) {
+      if (!formData.accountStatus) {
+        next.accountStatus = "Account status is required";
+      }
+      setErrors(next);
+      return Object.keys(next).length === 0;
+    }
+
     const firstName = formData.firstName.trim();
     const lastName = formData.lastName.trim();
     const email = formData.email.trim();
@@ -270,15 +296,25 @@ export default function UserFormPage() {
     setServerErrorPopup(null);
     try {
       if (isEdit) {
-        const payload: UpdateUserRequest = {
-          email: formData.email.trim(),
-          roles: formData.roles,
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          phoneNumber: formData.phoneNumber.trim(),
-          stateIds: requiresStateMapping ? formData.stateIds : [],
-          accountStatus: formData.accountStatus,
-        };
+        const payload: UpdateUserRequest = statusOnlyEdit && editUser
+          ? {
+              email: editUser.email,
+              roles: (editUser.roles || editUser.role || []) as UpdateUserRequest["roles"],
+              firstName: editUser.firstName || "",
+              lastName: editUser.lastName || "",
+              phoneNumber: editUser.phoneNumber || "",
+              stateIds: editUser.stateIds || [],
+              accountStatus: formData.accountStatus,
+            }
+          : {
+              email: formData.email.trim(),
+              roles: formData.roles,
+              firstName: formData.firstName.trim(),
+              lastName: formData.lastName.trim(),
+              phoneNumber: formData.phoneNumber.trim(),
+              stateIds: requiresStateMapping ? formData.stateIds : [],
+              accountStatus: formData.accountStatus,
+            };
         await adminService.updateUser(numericUserId, payload);
       } else {
         const payload: CreateUserRequest = {
@@ -302,6 +338,7 @@ export default function UserFormPage() {
       if (fieldErrors.phoneNumber) next.phoneNumber = fieldErrors.phoneNumber;
       if (fieldErrors.role || fieldErrors.roles) next.roles = fieldErrors.role || fieldErrors.roles;
       if (fieldErrors.stateIds) next.stateIds = fieldErrors.stateIds;
+      if (fieldErrors.accountStatus) next.accountStatus = fieldErrors.accountStatus;
       if (Object.keys(next).length) setErrors(next);
       else setServerErrorPopup(eobj?.message || "Failed to save user");
     } finally {
@@ -313,32 +350,6 @@ export default function UserFormPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (
-    isEdit &&
-    editUser &&
-    isSuperAdminExcludedFromUserEdit(editUser.roles)
-  ) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <p className="text-gray-900 font-medium mb-2">
-          This user cannot be edited from admin
-        </p>
-        <p className="text-gray-600 text-sm mb-4">
-          Hotel managers, accountants, and front desk staff are created and
-          managed under the property account&apos;s My Team. They may appear in
-          the global user list for visibility only.
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate(ROUTES.ADMIN.USER_DETAIL(editUser.userId))}
-        >
-          Back to user details
-        </Button>
       </div>
     );
   }
@@ -356,10 +367,16 @@ export default function UserFormPage() {
         </button>
         <div className="flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-            {isEdit ? "Update user" : "Create user"}
+            {statusOnlyEdit
+              ? "Update account status"
+              : isEdit
+                ? "Update user"
+                : "Create user"}
           </h1>
           <p className="text-gray-600 text-sm mt-1">
-            Manage identity, role assignment, and applicable states.
+            {statusOnlyEdit
+              ? "Hotel staff profiles are managed in My Team. You can only change account status here."
+              : "Manage identity, role assignment, and applicable states."}
           </p>
         </div>
       </div>
@@ -372,6 +389,79 @@ export default function UserFormPage() {
             </div>
           )}
 
+          {statusOnlyEdit ? (
+            <>
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <span className="inline-flex items-center justify-center rounded-md bg-slate-200 p-1.5 text-slate-700">
+                    <UserRound className="h-4 w-4" />
+                  </span>
+                  Profile (read-only)
+                </h2>
+                <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                      Name
+                    </dt>
+                    <dd className="mt-0.5 text-sm font-medium text-slate-900">
+                      {`${formData.firstName} ${formData.lastName}`.trim() || "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                      Email
+                    </dt>
+                    <dd className="mt-0.5 text-sm font-medium text-slate-900">
+                      {formData.email || "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                      Phone
+                    </dt>
+                    <dd className="mt-0.5 text-sm font-medium text-slate-900">
+                      {formData.phoneNumber || "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                      Role
+                    </dt>
+                    <dd className="mt-0.5 flex flex-wrap gap-1.5">
+                      {(formData.roles.length
+                        ? formData.roles
+                        : editUser?.roles || []
+                      ).map((role) => (
+                        <span
+                          key={role}
+                          className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-800"
+                        >
+                          {roleDisplayLabel(role)}
+                        </span>
+                      ))}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              <div className="rounded-xl border border-amber-100 bg-amber-50/30 p-4 sm:p-5">
+                <Select
+                  label="Account Status"
+                  value={formData.accountStatus}
+                  onChange={(e) =>
+                    setFormData((p) => ({
+                      ...p,
+                      accountStatus: e.target.value as UserFormState["accountStatus"],
+                    }))
+                  }
+                  options={STATUS_OPTIONS}
+                  required
+                  error={errors.accountStatus}
+                />
+              </div>
+            </>
+          ) : (
+            <>
           <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-4 sm:p-5">
             <h2 className="text-sm font-semibold text-indigo-900 mb-4 flex items-center gap-2">
               <span className="inline-flex items-center justify-center rounded-md bg-indigo-100 text-indigo-700 p-1.5">
@@ -570,6 +660,8 @@ export default function UserFormPage() {
               />
             </div>
           )}
+            </>
+          )}
 
           <div className="flex items-center justify-end gap-3 pt-5 border-t border-gray-200">
             <Button
@@ -581,7 +673,13 @@ export default function UserFormPage() {
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={isSubmitting} className="px-6">
-              {isSubmitting ? "Saving..." : isEdit ? "Update User" : "Create User"}
+              {isSubmitting
+                ? "Saving..."
+                : statusOnlyEdit
+                  ? "Update Status"
+                  : isEdit
+                    ? "Update User"
+                    : "Create User"}
             </Button>
           </div>
         </form>

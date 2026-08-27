@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,7 @@ import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
   hotelBdDashboardReportService,
+  matchesHotelBdInboxTab,
   type HotelBdActionInboxItem,
   type HotelBdDashboardDatePreset,
   type HotelBdDashboardReportResponse,
@@ -46,6 +47,7 @@ import {
 
 const DEFAULT_DATE_PRESET: HotelBdDashboardDatePreset = "THIS_MONTH";
 const DEFAULT_STUCK_THRESHOLD = 7;
+const MAX_STUCK_THRESHOLD = 90;
 
 const DATE_PRESET_OPTIONS: {
   value: HotelBdDashboardDatePreset;
@@ -92,6 +94,8 @@ type FilterDraft = {
   toDate: string;
   stuckDaysThreshold: number;
   bdUserId: string;
+  inboxSearch: string;
+  inboxCity: string;
 };
 
 const DEFAULT_DRAFT: FilterDraft = {
@@ -100,6 +104,8 @@ const DEFAULT_DRAFT: FilterDraft = {
   toDate: "",
   stuckDaysThreshold: DEFAULT_STUCK_THRESHOLD,
   bdUserId: "",
+  inboxSearch: "",
+  inboxCity: "",
 };
 
 function getHotelLink(
@@ -121,20 +127,15 @@ export default function HotelBdDashboardPage() {
   const isAdmin = isSuperAdmin(userRoles);
   const { toast, showToast, hideToast } = useToast();
 
-  const [datePreset, setDatePreset] =
-    useState<HotelBdDashboardDatePreset>(DEFAULT_DATE_PRESET);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [stuckDaysThreshold, setStuckDaysThreshold] =
-    useState(DEFAULT_STUCK_THRESHOLD);
-  const [bdUserId, setBdUserId] = useState("");
+  const [applied, setApplied] = useState<FilterDraft>(DEFAULT_DRAFT);
   const [filterOpen, setFilterOpen] = useState(false);
   const [draft, setDraft] = useState<FilterDraft>(DEFAULT_DRAFT);
+  const [stuckThresholdInput, setStuckThresholdInput] = useState(
+    String(DEFAULT_STUCK_THRESHOLD),
+  );
   const [customFromText, setCustomFromText] = useState("");
   const [customToText, setCustomToText] = useState("");
   const [inboxTab, setInboxTab] = useState<HotelBdInboxCategory | "ALL">("ALL");
-  const [inboxSearch, setInboxSearch] = useState("");
-  const [inboxCity, setInboxCity] = useState("");
 
   const [report, setReport] =
     useState<HotelBdDashboardReportResponse | null>(null);
@@ -143,18 +144,32 @@ export default function HotelBdDashboardPage() {
   const [bdUsers, setBdUsers] = useState<
     Array<{ id: string; label: string }>
   >([]);
+  const requestIdRef = useRef(0);
 
-  const customRangeInvalid =
-    datePreset === "CUSTOM" && (!fromDate || !toDate);
   const draftCustomInvalid =
     draft.datePreset === "CUSTOM" &&
     !isValidCustomDateRange(customFromText, customToText);
 
+  const stuckThresholdInvalid = useMemo(() => {
+    const trimmed = stuckThresholdInput.trim();
+    if (!trimmed) return true;
+    const value = Number(trimmed);
+    return (
+      !Number.isInteger(value) ||
+      value < 1 ||
+      value > MAX_STUCK_THRESHOLD
+    );
+  }, [stuckThresholdInput]);
+
   const activeFilterCount =
-    (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
-    (stuckDaysThreshold !== DEFAULT_STUCK_THRESHOLD ? 1 : 0) +
-    (bdUserId ? 1 : 0) +
-    (datePreset === "CUSTOM" && (fromDate || toDate) ? 1 : 0);
+    (applied.datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
+    (applied.stuckDaysThreshold !== DEFAULT_STUCK_THRESHOLD ? 1 : 0) +
+    (applied.bdUserId ? 1 : 0) +
+    (applied.datePreset === "CUSTOM" && (applied.fromDate || applied.toDate)
+      ? 1
+      : 0) +
+    (applied.inboxSearch.trim() ? 1 : 0) +
+    (applied.inboxCity.trim() ? 1 : 0);
 
   useEffect(() => {
     if (!canFilterByBd) return;
@@ -186,57 +201,57 @@ export default function HotelBdDashboardPage() {
   }, [canFilterByBd]);
 
   const loadReport = useCallback(
-    async (overrides?: Partial<FilterDraft>) => {
-      const nextPreset = overrides?.datePreset ?? datePreset;
-      const nextFrom = overrides?.fromDate ?? fromDate;
-      const nextTo = overrides?.toDate ?? toDate;
-      const nextThreshold =
-        overrides?.stuckDaysThreshold ?? stuckDaysThreshold;
-      const nextBdUserId = overrides?.bdUserId ?? bdUserId;
+    async (filters: FilterDraft) => {
+      if (
+        filters.datePreset === "CUSTOM" &&
+        (!filters.fromDate || !filters.toDate)
+      ) {
+        return;
+      }
 
-      if (nextPreset === "CUSTOM" && (!nextFrom || !nextTo)) return;
-
+      const requestId = ++requestIdRef.current;
       setLoading(true);
       setError(null);
       try {
         const data = await hotelBdDashboardReportService.getReport({
-          datePreset: nextPreset,
-          fromDate: nextPreset === "CUSTOM" ? nextFrom : undefined,
-          toDate: nextPreset === "CUSTOM" ? nextTo : undefined,
-          stuckDaysThreshold: nextThreshold,
-          bdUserId: nextBdUserId || undefined,
+          datePreset: filters.datePreset,
+          fromDate:
+            filters.datePreset === "CUSTOM" ? filters.fromDate : undefined,
+          toDate: filters.datePreset === "CUSTOM" ? filters.toDate : undefined,
+          stuckDaysThreshold: filters.stuckDaysThreshold,
+          bdUserId: filters.bdUserId || undefined,
+          search: filters.inboxSearch.trim() || undefined,
+          city: filters.inboxCity.trim() || undefined,
         });
+        if (requestId !== requestIdRef.current) return;
         setReport(data);
       } catch (err) {
+        if (requestId !== requestIdRef.current) return;
         const message = extractErrorMessage(err);
         setError(message);
         showToast(message, "error");
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
-    [
-      bdUserId,
-      datePreset,
-      fromDate,
-      showToast,
-      stuckDaysThreshold,
-      toDate,
-    ],
+    [showToast],
   );
 
   useEffect(() => {
-    if (customRangeInvalid) return;
-    void loadReport();
-  }, [customRangeInvalid, loadReport]);
+    void loadReport(DEFAULT_DRAFT);
+  }, [loadReport]);
 
   const filteredInbox = useMemo(() => {
     const items = report?.actionInbox ?? [];
-    const hotelQuery = inboxSearch.trim().toLowerCase();
-    const cityQuery = inboxCity.trim().toLowerCase();
+    const hotelQuery = applied.inboxSearch.trim().toLowerCase();
+    const cityQuery = applied.inboxCity.trim().toLowerCase();
 
     return items.filter((item) => {
-      if (inboxTab !== "ALL" && item.category !== inboxTab) return false;
+      if (inboxTab !== "ALL" && !matchesHotelBdInboxTab(item, inboxTab)) {
+        return false;
+      }
       if (hotelQuery) {
         const haystack = `${item.hotelCode} ${item.hotelName}`.toLowerCase();
         if (!haystack.includes(hotelQuery)) return false;
@@ -246,7 +261,7 @@ export default function HotelBdDashboardPage() {
       }
       return true;
     });
-  }, [inboxCity, inboxSearch, inboxTab, report?.actionInbox]);
+  }, [applied.inboxCity, applied.inboxSearch, inboxTab, report?.actionInbox]);
 
   const funnelTotal = useMemo(() => {
     if (!report?.onboardingFunnel) return 0;
@@ -255,8 +270,9 @@ export default function HotelBdDashboardPage() {
   }, [report?.onboardingFunnel]);
 
   const applyFilters = () => {
-    if (draftCustomInvalid) return;
-    let nextDraft = draft;
+    if (draftCustomInvalid || stuckThresholdInvalid) return;
+    const threshold = Number(stuckThresholdInput.trim());
+    let nextDraft = { ...draft, stuckDaysThreshold: threshold };
     if (draft.datePreset === "CUSTOM") {
       const parsed = validateCustomDateRange(customFromText, customToText);
       if (!parsed.ok) {
@@ -264,56 +280,76 @@ export default function HotelBdDashboardPage() {
         return;
       }
       nextDraft = {
-        ...draft,
+        ...nextDraft,
         fromDate: parsed.fromDate,
         toDate: parsed.toDate,
       };
     }
-    setDatePreset(nextDraft.datePreset);
-    setFromDate(nextDraft.fromDate);
-    setToDate(nextDraft.toDate);
-    setStuckDaysThreshold(nextDraft.stuckDaysThreshold);
-    setBdUserId(nextDraft.bdUserId);
+    setApplied(nextDraft);
+    setDraft(nextDraft);
+    setStuckThresholdInput(String(threshold));
     setFilterOpen(false);
     void loadReport(nextDraft);
   };
 
   const resetFilters = () => {
     setDraft(DEFAULT_DRAFT);
+    setApplied(DEFAULT_DRAFT);
+    setStuckThresholdInput(String(DEFAULT_STUCK_THRESHOLD));
     setCustomFromText("");
     setCustomToText("");
-    setDatePreset(DEFAULT_DRAFT.datePreset);
-    setFromDate("");
-    setToDate("");
-    setStuckDaysThreshold(DEFAULT_DRAFT.stuckDaysThreshold);
-    setBdUserId("");
     setFilterOpen(false);
     void loadReport(DEFAULT_DRAFT);
   };
 
   return (
     <div className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4">
-      <Toast toast={toast} onClose={hideToast} />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
 
       <ReportPageHeader
         icon={Building2}
         iconClassName="bg-gradient-to-br from-blue-500 to-indigo-600"
         title="Dashboard"
-        description="Portfolio KPIs, onboarding funnel and action inbox"
+        descriptionClassName="mt-0.5"
+        description={
+          <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-slate-800">
+            {report?.dateRange?.fromDate && report?.dateRange?.toDate ? (
+              <span>
+                Go-live period:{" "}
+                <span className="text-[#2f3d95]">
+                  {formatReportDate(report.dateRange.fromDate)} –{" "}
+                  {formatReportDate(report.dateRange.toDate)}
+                </span>
+              </span>
+            ) : (
+              <span className="text-slate-500">Go-live period: —</span>
+            )}
+            <span className="hidden text-slate-300 sm:inline" aria-hidden>
+              ·
+            </span>
+            <span>
+              Stuck threshold:{" "}
+              <span className="text-[#2f3d95]">
+                {applied.stuckDaysThreshold} day
+                {applied.stuckDaysThreshold === 1 ? "" : "s"}
+              </span>
+            </span>
+          </span>
+        }
         actions={
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => {
-                setDraft({
-                  datePreset,
-                  fromDate,
-                  toDate,
-                  stuckDaysThreshold,
-                  bdUserId,
-                });
-                setCustomFromText(isoToReportDateText(fromDate));
-                setCustomToText(isoToReportDateText(toDate));
+                setDraft(applied);
+                setStuckThresholdInput(String(applied.stuckDaysThreshold));
+                setCustomFromText(isoToReportDateText(applied.fromDate));
+                setCustomToText(isoToReportDateText(applied.toDate));
                 setFilterOpen(true);
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
@@ -328,8 +364,12 @@ export default function HotelBdDashboardPage() {
             </button>
             <button
               type="button"
-              onClick={() => void loadReport()}
-              disabled={loading || customRangeInvalid}
+              onClick={() => void loadReport(applied)}
+              disabled={
+                loading ||
+                (applied.datePreset === "CUSTOM" &&
+                  (!applied.fromDate || !applied.toDate))
+              }
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
             >
               {loading ? (
@@ -349,16 +389,6 @@ export default function HotelBdDashboardPage() {
           </div>
         }
       />
-
-      {report?.dateRange?.fromDate && report?.dateRange?.toDate ? (
-        <p className="mb-3 text-xs text-slate-500">
-          Go-live period: {formatReportDate(report.dateRange.fromDate)} –{" "}
-          {formatReportDate(report.dateRange.toDate)}
-          {report.stuckDaysThreshold
-            ? ` · Stuck threshold: ${report.stuckDaysThreshold} days`
-            : null}
-        </p>
-      ) : null}
 
       {error ? (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -454,29 +484,6 @@ export default function HotelBdDashboardPage() {
               {tab.label}
             </button>
           ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2">
-          <div className="relative min-w-56 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              value={inboxSearch}
-              onChange={(event) => setInboxSearch(event.target.value)}
-              placeholder="Search hotel code or property name"
-              className="w-full rounded-lg border border-slate-200 py-1.5 pl-9 pr-3 text-sm"
-            />
-          </div>
-          <div className="relative min-w-44 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              value={inboxCity}
-              onChange={(event) => setInboxCity(event.target.value)}
-              placeholder="Search by city"
-              className="w-full rounded-lg border border-slate-200 py-1.5 pl-9 pr-3 text-sm"
-            />
-          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -661,15 +668,57 @@ export default function HotelBdDashboardPage() {
                 <input
                   type="number"
                   min={1}
-                  value={draft.stuckDaysThreshold}
-                  onChange={(event) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      stuckDaysThreshold: Number(event.target.value) || 1,
-                    }))
-                  }
+                  max={MAX_STUCK_THRESHOLD}
+                  step={1}
+                  value={stuckThresholdInput}
+                  onChange={(event) => setStuckThresholdInput(event.target.value)}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 />
+                {stuckThresholdInvalid ? (
+                  <p className="mt-1 text-xs text-rose-600">
+                    Enter a whole number from 1 to {MAX_STUCK_THRESHOLD}
+                  </p>
+                ) : null}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  Hotel code / property name
+                </label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    value={draft.inboxSearch}
+                    onChange={(event) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        inboxSearch: event.target.value,
+                      }))
+                    }
+                    placeholder="Search hotel code or property name"
+                    className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  City
+                </label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    value={draft.inboxCity}
+                    onChange={(event) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        inboxCity: event.target.value,
+                      }))
+                    }
+                    placeholder="Search by city"
+                    className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm"
+                  />
+                </div>
               </div>
               {canFilterByBd ? (
                 <div>
@@ -707,7 +756,7 @@ export default function HotelBdDashboardPage() {
               <button
                 type="button"
                 onClick={applyFilters}
-                disabled={draftCustomInvalid}
+                disabled={draftCustomInvalid || stuckThresholdInvalid}
                 className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
               >
                 Apply

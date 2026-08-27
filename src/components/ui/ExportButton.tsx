@@ -12,6 +12,8 @@ interface ExportButtonProps {
   onExportExcel: () => void;
   disabled?: boolean;
   className?: string;
+  /** Show only the download icon (no "Export" label). */
+  iconOnly?: boolean;
 }
 
 export function ExportButton({
@@ -19,6 +21,7 @@ export function ExportButton({
   onExportExcel,
   disabled = false,
   className = "",
+  iconOnly = false,
 }: ExportButtonProps) {
   return (
     <DropdownMenu>
@@ -26,10 +29,12 @@ export function ExportButton({
         <Button
           variant="outline"
           disabled={disabled}
-          className={`gap-2 ${className}`}
+          aria-label="Export"
+          title="Export"
+          className={`${iconOnly ? "px-2.5" : "gap-2"} ${className}`}
         >
           <Download className="w-4 h-4" />
-          Export
+          {iconOnly ? null : "Export"}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/hooks/useAuth";
-import { canViewHotelPayoutMis } from "@/constants/roles";
+import { canViewHotelPayoutMis, canViewPaymentReport } from "@/constants/roles";
+import { canViewModule } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { PaymentsTabNav } from "../components/payoutMisUi";
 import {
@@ -376,7 +377,13 @@ export default function NetEarningsReportPage() {
   const hotelId = searchParams.get("hotelId");
   const { user } = useAuth();
   const { toast, showToast, hideToast } = useToast();
-  const showPayoutsTab = canViewHotelPayoutMis(user?.roles);
+  // Match Super Admin / Owner: Net Earnings tab for payment-report roles
+  // and for Hotel Manager / Accountant with PAYMENTS permission.
+  const showNetEarningsTab =
+    canViewPaymentReport(user?.roles) || canViewModule(user, "PAYMENTS");
+  const showPayoutsTab =
+    canViewHotelPayoutMis(user?.roles) || canViewModule(user, "PAYMENTS");
+  const showPaymentsTabs = showNetEarningsTab || showPayoutsTab;
 
   const [datePreset, setDatePreset] = useState<NetEarningsDatePreset>(DEFAULT_DATE_PRESET);
   const [bookingStatuses, setBookingStatuses] = useState<NetEarningsBookingStatus[]>(
@@ -614,10 +621,11 @@ export default function NetEarningsReportPage() {
             }
           />
 
-          {showPayoutsTab ? (
+          {showPaymentsTabs ? (
             <PaymentsTabNav
               active="net-earnings"
-              showNetEarnings
+              showNetEarnings={showNetEarningsTab}
+              showPayouts={showPayoutsTab}
               hotelId={hotelId}
             />
           ) : null}

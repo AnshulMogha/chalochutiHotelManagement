@@ -8,6 +8,7 @@ export interface ToggleProps {
   className?: string;
   checkedLabel?: string;
   uncheckedLabel?: string;
+  compact?: boolean;
 }
 
 export function Toggle({
@@ -18,9 +19,10 @@ export function Toggle({
   className,
   checkedLabel = "LIVE",
   uncheckedLabel = "SUSPENDED",
+  compact = false,
 }: ToggleProps) {
   return (
-    <div className={cn("flex items-center gap-3", className)}>
+    <div className={cn("flex items-center", compact ? "gap-0" : "gap-3", className)}>
       {label && (
         <label className="text-sm font-medium text-gray-700">{label}</label>
       )}
@@ -28,24 +30,32 @@ export function Toggle({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={checked ? checkedLabel : uncheckedLabel}
         disabled={disabled}
         onClick={() => !disabled && onChange(!checked)}
         className={cn(
           "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
           checked ? "bg-blue-600" : "bg-gray-300",
-          disabled && "opacity-50 cursor-not-allowed"
+          disabled && "opacity-50 cursor-not-allowed",
         )}
       >
         <span
           className={cn(
             "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-            checked ? "translate-x-6" : "translate-x-1"
+            checked ? "translate-x-6" : "translate-x-1",
           )}
         />
       </button>
-      <span className={cn("text-sm font-medium", checked ? "text-green-600" : "text-red-600")}>
-        {checked ? checkedLabel : uncheckedLabel}
-      </span>
+      {!compact ? (
+        <span
+          className={cn(
+            "text-sm font-medium",
+            checked ? "text-green-600" : "text-red-600",
+          )}
+        >
+          {checked ? checkedLabel : uncheckedLabel}
+        </span>
+      ) : null}
     </div>
   );
 }

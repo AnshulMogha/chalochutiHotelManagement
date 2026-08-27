@@ -22,7 +22,7 @@ import {
 } from "@/constants/roles";
 import { useAuth } from "@/hooks/useAuth";
 import { SidebarItem } from "./SidebarItem";
-import { canViewModule } from "@/lib/permissions";
+import { canViewModule, isHotelManagerStaffRole } from "@/lib/permissions";
 import type { User } from "@/types";
 import {
   Hotel,
@@ -68,6 +68,8 @@ export interface NavItem {
   badge?: string;
   children?: NavItem[];
   external?: boolean;
+  /** Extra pathnames that should keep this item highlighted (e.g. Payments → Payouts). */
+  activePaths?: string[];
 }
 
 function getHelpdeskNavItems(userRoles: string[] | undefined): NavItem[] {
@@ -216,22 +218,65 @@ function getReportsNavItem(
     includeSalesManagerDashboard?: boolean;
     includeSalesManagerPortfolio?: boolean;
     includeHotelFinancialMis?: boolean;
+    /** When false, skip booking-related report children. */
+    includeBookingReports?: boolean;
+    /** When true, only show Payments under Reports. */
+    paymentsOnly?: boolean;
   },
 ): NavItem | null {
-  const includeOnboardingPipeline = !!options?.includeOnboardingPipeline;
-  const includeSalesManagerDashboard = !!options?.includeSalesManagerDashboard;
-  const includeSalesManagerPortfolio = !!options?.includeSalesManagerPortfolio;
-  const includeHotelFinancialMis =
-    options?.includeHotelFinancialMis ??
-    canViewHotelBookingFinancialMis(user?.roles);
-  const includeBookingReports = canViewModule(user, "BOOKINGS");
-  const showPaymentReport = canViewPaymentReport(user?.roles);
-  const showHotelPayouts = canViewHotelPayoutMis(user?.roles);
+  const paymentsOnly = !!options?.paymentsOnly;
+  const includeOnboardingPipeline =
+    !paymentsOnly && !!options?.includeOnboardingPipeline;
+  const includeSalesManagerDashboard =
+    !paymentsOnly && !!options?.includeSalesManagerDashboard;
+  const includeSalesManagerPortfolio =
+    !paymentsOnly && !!options?.includeSalesManagerPortfolio;
+  const includeHotelFinancialMis = paymentsOnly
+    ? false
+    : (options?.includeHotelFinancialMis ??
+      canViewHotelBookingFinancialMis(user?.roles));
+  const includeBookingReports = paymentsOnly
+    ? false
+    : (options?.includeBookingReports ?? canViewModule(user, "BOOKINGS"));
+  const isManagerStaff = isHotelManagerStaffRole(user?.roles);
+  const showBookingSummary = paymentsOnly
+    ? false
+    : isManagerStaff
+      ? canViewModule(user, "REPORT_BOOKING_SUMMARY")
+      : includeBookingReports;
+  const showPromotionReport = paymentsOnly
+    ? false
+    : isManagerStaff
+      ? canViewModule(user, "REPORT_PROMOTIONS")
+      : includeBookingReports;
+  const showRateDisparity = paymentsOnly
+    ? false
+    : isManagerStaff
+      ? canViewModule(user, "REPORT_RATE_HEALTH")
+      : includeBookingReports;
+  const showInventoryAllocation = paymentsOnly
+    ? false
+    : isManagerStaff
+      ? canViewModule(user, "REPORT_INVENTORY_ALLOCATION")
+      : includeBookingReports;
+  const showPaymentReport = paymentsOnly
+    ? canViewModule(user, "PAYMENTS")
+    : isManagerStaff
+      ? canViewModule(user, "PAYMENTS")
+      : canViewPaymentReport(user?.roles);
+  const showHotelPayouts = paymentsOnly
+    ? false
+    : isManagerStaff
+      ? canViewModule(user, "PAYMENTS")
+      : canViewHotelPayoutMis(user?.roles);
   const showHotelPayments = showPaymentReport || showHotelPayouts;
 
   if (
     !includeOnboardingPipeline &&
-    !includeBookingReports &&
+    !showBookingSummary &&
+    !showPromotionReport &&
+    !showRateDisparity &&
+    !showInventoryAllocation &&
     !includeSalesManagerDashboard &&
     !includeSalesManagerPortfolio &&
     !includeHotelFinancialMis &&
@@ -245,23 +290,35 @@ function getReportsNavItem(
     ...(includeSalesManagerPortfolio ? [getSalesManagerAgentsNavItem()] : []),
     ...(includeHotelFinancialMis ? [getHotelFinancialMisNavItem()] : []),
     ...(includeOnboardingPipeline ? [getOnboardingPipelineNavItem()] : []),
-    ...(includeBookingReports
+    ...(showBookingSummary
       ? [
           {
             label: "Booking Summary",
             path: ROUTES.REPORTS.BOOKING_SUMMARY,
             icon: BookOpen,
           },
+        ]
+      : []),
+    ...(showPromotionReport
+      ? [
           {
             label: "Promotion Report",
             path: ROUTES.REPORTS.PROMOTIONS,
             icon: Percent,
           },
+        ]
+      : []),
+    ...(showRateDisparity
+      ? [
           {
             label: "Rate Disparity",
             path: ROUTES.REPORTS.RATE_HEALTH,
             icon: HeartPulse,
           },
+        ]
+      : []),
+    ...(showInventoryAllocation
+      ? [
           {
             label: "Inventory Allocation",
             path: ROUTES.REPORTS.INVENTORY_ALLOCATION,
@@ -273,9 +330,16 @@ function getReportsNavItem(
       ? [
           {
             label: "Payments",
-            path: showPaymentReport
-              ? ROUTES.REPORTS.NET_EARNINGS
-              : ROUTES.REPORTS.HOTEL_PAYOUTS,
+            // Prefer Super Admin Payment Report (net earnings) whenever the
+            // role/module can see it; other roles without it keep Payouts.
+            path:
+              showPaymentReport || canViewPaymentReport(user?.roles)
+                ? ROUTES.REPORTS.NET_EARNINGS
+                : ROUTES.REPORTS.HOTEL_PAYOUTS,
+            activePaths: [
+              ROUTES.REPORTS.NET_EARNINGS,
+              ROUTES.REPORTS.HOTEL_PAYOUTS,
+            ],
             icon: Wallet,
           },
         ]
@@ -364,6 +428,7 @@ const getNavItems = (user: User | null): NavItem[] => {
   const isScopedPropertyViewer =
     !!userRoles?.includes("HOTEL_MANAGER") ||
     !!userRoles?.includes("FRONT_DESK_EXEC") ||
+    !!userRoles?.includes("HOTEL_ACCOUNTANT") ||
     !!userRoles?.includes("ACCOUNTANT");
 
   if (isReviewer) {
@@ -509,7 +574,9 @@ const getNavItems = (user: User | null): NavItem[] => {
           ]
         : []),
       ...(canManageHotelReviews(userRoles) &&
-      hasAnyRole(userRoles, [ROLES.HOTEL_OWNER, ROLES.HOTEL_MANAGER])
+      hasAnyRole(userRoles, [ROLES.HOTEL_OWNER, ROLES.HOTEL_MANAGER]) &&
+      (hasAnyRole(userRoles, [ROLES.HOTEL_OWNER]) ||
+        canViewModule(user, "GUEST_REVIEWS"))
         ? [
             {
               label: "Guest Reviews",
@@ -655,7 +722,7 @@ const getNavItems = (user: User | null): NavItem[] => {
   // Items visible to HOTEL_OWNER / HOTEL_MANAGER based on permissions
   const isHotelOwner = hasAnyRole(userRoles, [ROLES.HOTEL_OWNER]);
   const isHotelManager = hasAnyRole(userRoles, [ROLES.HOTEL_MANAGER]);
-  if (isHotelOwner) {
+  if (isHotelOwner || isHotelManager) {
     items.push(
       ...(canViewModule(user, "OFFERS")
         ? [
@@ -666,6 +733,10 @@ const getNavItems = (user: User | null): NavItem[] => {
             },
           ]
         : []),
+    );
+  }
+  if (isHotelOwner) {
+    items.push(
       ...(canViewModule(user, "MY_TEAM")
         ? [
             {
@@ -754,7 +825,7 @@ const getNavItems = (user: User | null): NavItem[] => {
 
   // Staff roles (e.g. Front Desk / Accountant) still need permission-driven booking access.
   const isStaffRole = !!userRoles?.some((role) =>
-    ["FRONT_DESK_EXEC", "ACCOUNTANT"].includes(role),
+    ["FRONT_DESK_EXEC", "HOTEL_ACCOUNTANT", "ACCOUNTANT"].includes(role),
   );
   if (isStaffRole && canViewModule(user, "BOOKINGS")) {
     items.push({
@@ -763,13 +834,28 @@ const getNavItems = (user: User | null): NavItem[] => {
       icon: BookOpen,
     });
   }
-  const isAccountant = !!userRoles?.includes("ACCOUNTANT");
+  const isAccountant =
+    !!userRoles?.includes("HOTEL_ACCOUNTANT") ||
+    !!userRoles?.includes("ACCOUNTANT");
   if (isAccountant && canViewModule(user, "PROPERTY_FINANCE")) {
     items.push({
       label: "Finance",
       path: ROUTES.PROPERTY_INFO.FINANCE,
       icon: CreditCard,
     });
+  }
+  if (
+    isAccountant &&
+    canViewModule(user, "PAYMENTS")
+  ) {
+    const existingReports = items.find((item) => item.path === ROUTES.REPORTS.LIST);
+    if (!existingReports) {
+      const reportsNav = getReportsNavItem(user, {
+        includeHotelFinancialMis: false,
+        paymentsOnly: true,
+      });
+      if (reportsNav) items.push(reportsNav);
+    }
   }
   if (canViewHotelBookingFinancialMis(userRoles)) {
     const existingReports = items.find((item) => item.path === ROUTES.REPORTS.LIST);

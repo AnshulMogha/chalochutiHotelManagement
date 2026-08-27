@@ -77,6 +77,8 @@ export interface HotelBdDashboardReportParams {
   toDate?: string;
   stuckDaysThreshold?: number;
   bdUserId?: string | number;
+  search?: string;
+  city?: string;
 }
 
 function unwrapPayload<T>(response: ApiSuccessResponse<T> | T): T {
@@ -100,8 +102,17 @@ function toNumber(value: unknown, fallback = 0): number {
   return fallback;
 }
 
+function normalizeInboxKey(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  return raw
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[\s-]+/g, "_")
+    .toUpperCase();
+}
+
 function normalizeInboxCategory(value: unknown): HotelBdInboxCategory {
-  const normalized = String(value || "INCOMPLETE_STEPS").toUpperCase();
+  const normalized = normalizeInboxKey(value || "INCOMPLETE_STEPS");
   const allowed: HotelBdInboxCategory[] = [
     "QC_REJECTED",
     "ZONAL_REJECTED",
@@ -113,6 +124,30 @@ function normalizeInboxCategory(value: unknown): HotelBdInboxCategory {
   return allowed.includes(normalized as HotelBdInboxCategory)
     ? (normalized as HotelBdInboxCategory)
     : "INCOMPLETE_STEPS";
+}
+
+/** Match action-inbox tab — status tabs (Under QC) use hotel status, not only category. */
+export function matchesHotelBdInboxTab(
+  item: HotelBdActionInboxItem,
+  tab: HotelBdInboxCategory,
+): boolean {
+  const status = normalizeInboxKey(item.status);
+  const category = item.category;
+
+  switch (tab) {
+    case "UNDER_QC":
+      return status === "UNDER_QC" || category === "UNDER_QC";
+    case "UNDER_ZONAL_REVIEW":
+      return (
+        status === "UNDER_ZONAL_REVIEW" || category === "UNDER_ZONAL_REVIEW"
+      );
+    case "QC_REJECTED":
+      return category === "QC_REJECTED" || status === "QC_REJECTED";
+    case "ZONAL_REJECTED":
+      return category === "ZONAL_REJECTED" || status === "ZONAL_REJECTED";
+    default:
+      return category === tab;
+  }
 }
 
 function normalizeSeverity(value: unknown): HotelBdInboxSeverity | null {
@@ -220,6 +255,8 @@ function buildQuery(params: HotelBdDashboardReportParams): string {
   if (params.bdUserId != null && String(params.bdUserId).trim()) {
     search.set("bdUserId", String(params.bdUserId));
   }
+  if (params.search?.trim()) search.set("search", params.search.trim());
+  if (params.city?.trim()) search.set("city", params.city.trim());
   const query = search.toString();
   return query ? `?${query}` : "";
 }

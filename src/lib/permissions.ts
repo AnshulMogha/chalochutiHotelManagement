@@ -41,7 +41,13 @@ export type PermissionModule =
   | "PROPERTY_AMENITIES_RESTAURANTS"
   | "PROPERTY_POLICY_RULES"
   | "PROPERTY_FINANCE"
-  | "PROPERTY_DOCUMENT";
+  | "PROPERTY_DOCUMENT"
+  | "PAYMENTS"
+  | "REPORT_BOOKING_SUMMARY"
+  | "REPORT_PROMOTIONS"
+  | "REPORT_RATE_HEALTH"
+  | "REPORT_INVENTORY_ALLOCATION"
+  | "GUEST_REVIEWS";
 
 export interface UserPermission {
   module: string;
@@ -50,22 +56,58 @@ export interface UserPermission {
 }
 
 const FRONT_DESK_ALLOWED_MODULES: PermissionModule[] = ["BOOKINGS"];
-const ACCOUNTANT_ALLOWED_MODULES: PermissionModule[] = [
+const HOTEL_ACCOUNTANT_ALLOWED_MODULES: PermissionModule[] = [
   "BOOKINGS",
-  "FINANCE",
   "PROPERTY_FINANCE",
+  "FINANCE",
+  "PAYMENTS",
 ];
 const HOTEL_MANAGER_ALLOWED_MODULES: PermissionModule[] = [
-  "BOOKINGS",
-  "MY_TEAM",
-  "RATES_INVENTORY",
-  "DASHBOARD",
+  // Matches Hotel Owner sidebar tabs that an owner can grant (no Finance / Documents)
   "PROPERTY_BASIC_INFO",
   "PROPERTY_ROOMS_RATEPLANS",
   "PROPERTY_PHOTOS_VIDEOS",
   "PROPERTY_AMENITIES_RESTAURANTS",
   "PROPERTY_POLICY_RULES",
+  "RATES_INVENTORY",
+  "BOOKINGS",
+  "OFFERS",
+  "ANALYTICS",
+  "MY_TEAM",
+  "DASHBOARD",
+  // Per-report grants
+  "REPORT_BOOKING_SUMMARY",
+  "REPORT_PROMOTIONS",
+  "REPORT_RATE_HEALTH",
+  "REPORT_INVENTORY_ALLOCATION",
+  "PAYMENTS",
+  "GUEST_REVIEWS",
 ];
+
+function isHotelAccountantRole(userRoles: string[] | undefined): boolean {
+  if (!userRoles?.length) return false;
+  return (
+    userRoles.includes("HOTEL_ACCOUNTANT") || userRoles.includes("ACCOUNTANT")
+  );
+}
+
+/** Hotel Manager staff (not owner/super-admin). */
+export function isHotelManagerStaffRole(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  if (userRoles.includes("SUPER_ADMIN") || userRoles.includes("HOTEL_OWNER")) {
+    return false;
+  }
+  if (
+    userRoles.includes("FRONT_DESK_EXEC") ||
+    userRoles.includes("HOTEL_ACCOUNTANT") ||
+    userRoles.includes("ACCOUNTANT")
+  ) {
+    return false;
+  }
+  return userRoles.includes("HOTEL_MANAGER");
+}
 
 export function hasPermissionBypass(user: Pick<User, "roles"> | null): boolean {
   const roles = user?.roles || [];
@@ -148,11 +190,13 @@ function findPermission(
 
 function getConstrainedRole(
   user: Pick<User, "roles"> | null,
-): "FRONT_DESK_EXEC" | "ACCOUNTANT" | "HOTEL_MANAGER" | null {
+): "FRONT_DESK_EXEC" | "HOTEL_ACCOUNTANT" | "HOTEL_MANAGER" | null {
   const roles = user?.roles || [];
   // Most restrictive first if multiple scoped roles exist.
   if (roles.includes("FRONT_DESK_EXEC")) return "FRONT_DESK_EXEC";
-  if (roles.includes("ACCOUNTANT")) return "ACCOUNTANT";
+  if (roles.includes("HOTEL_ACCOUNTANT") || roles.includes("ACCOUNTANT")) {
+    return "HOTEL_ACCOUNTANT";
+  }
   if (roles.includes("HOTEL_MANAGER")) return "HOTEL_MANAGER";
   return null;
 }
@@ -166,8 +210,8 @@ function canRoleAccessModule(
   if (constrainedRole === "FRONT_DESK_EXEC") {
     return FRONT_DESK_ALLOWED_MODULES.includes(module);
   }
-  if (constrainedRole === "ACCOUNTANT") {
-    return ACCOUNTANT_ALLOWED_MODULES.includes(module);
+  if (constrainedRole === "HOTEL_ACCOUNTANT") {
+    return HOTEL_ACCOUNTANT_ALLOWED_MODULES.includes(module);
   }
   if (constrainedRole === "HOTEL_MANAGER") {
     return HOTEL_MANAGER_ALLOWED_MODULES.includes(module);
@@ -215,10 +259,8 @@ export function canEditModule(
   if (!canRoleAccessModule(user, module)) return false;
   // Bookings is always view-only for non-bypass roles.
   if (module === "BOOKINGS") return false;
-  // Accountant modules are view-only by policy.
-  const constrainedRole = getConstrainedRole(user);
-  if (constrainedRole === "ACCOUNTANT") return false;
   // Front desk has only bookings and bookings is already view-only above.
+  const constrainedRole = getConstrainedRole(user);
   if (constrainedRole === "FRONT_DESK_EXEC") return false;
   const permission = findPermission(user, module);
   return !!permission?.canEdit;
@@ -282,6 +324,13 @@ function isHotelReviewsPath(pathname: string): boolean {
   );
 }
 
+function canAccessHotelGuestReviews(user: User | null): boolean {
+  if (isHotelManagerStaffRole(user?.roles)) {
+    return canViewModule(user, "GUEST_REVIEWS");
+  }
+  return canManageHotelReviews(user?.roles);
+}
+
 function isAgentsPath(pathname: string): boolean {
   return pathname === ROUTES.AGENTS.LIST || pathname.startsWith("/agents/");
 }
@@ -291,6 +340,18 @@ function isAdminPath(pathname: string): boolean {
 }
 
 function canViewAnyReportPath(user: User | null): boolean {
+  if (isHotelAccountantRole(user?.roles)) {
+    return canViewModule(user, "PAYMENTS");
+  }
+  if (isHotelManagerStaffRole(user?.roles)) {
+    return (
+      canViewModule(user, "REPORT_BOOKING_SUMMARY") ||
+      canViewModule(user, "REPORT_PROMOTIONS") ||
+      canViewModule(user, "REPORT_RATE_HEALTH") ||
+      canViewModule(user, "REPORT_INVENTORY_ALLOCATION") ||
+      canViewModule(user, "PAYMENTS")
+    );
+  }
   return (
     canViewModule(user, "BOOKINGS") ||
     canViewPaymentReport(user?.roles) ||
@@ -305,6 +366,44 @@ function canViewAnyReportPath(user: User | null): boolean {
 function canViewReportsPath(user: User | null, pathOnly: string): boolean {
   if (pathOnly === ROUTES.REPORTS.LIST) {
     return canViewAnyReportPath(user);
+  }
+
+  // Hotel Accountant: Payments report only (no booking/other report pages).
+  if (isHotelAccountantRole(user?.roles)) {
+    if (
+      pathOnly === ROUTES.REPORTS.NET_EARNINGS ||
+      pathOnly.startsWith(`${ROUTES.REPORTS.NET_EARNINGS}/`) ||
+      pathOnly === ROUTES.REPORTS.HOTEL_PAYOUTS ||
+      pathOnly.startsWith(`${ROUTES.REPORTS.HOTEL_PAYOUTS}/`)
+    ) {
+      return canViewModule(user, "PAYMENTS");
+    }
+    return false;
+  }
+
+  // Hotel Manager: each report is a separate permission.
+  if (isHotelManagerStaffRole(user?.roles)) {
+    if (pathOnly === ROUTES.REPORTS.BOOKING_SUMMARY) {
+      return canViewModule(user, "REPORT_BOOKING_SUMMARY");
+    }
+    if (pathOnly === ROUTES.REPORTS.PROMOTIONS) {
+      return canViewModule(user, "REPORT_PROMOTIONS");
+    }
+    if (pathOnly === ROUTES.REPORTS.RATE_HEALTH) {
+      return canViewModule(user, "REPORT_RATE_HEALTH");
+    }
+    if (pathOnly === ROUTES.REPORTS.INVENTORY_ALLOCATION) {
+      return canViewModule(user, "REPORT_INVENTORY_ALLOCATION");
+    }
+    if (
+      pathOnly === ROUTES.REPORTS.NET_EARNINGS ||
+      pathOnly.startsWith(`${ROUTES.REPORTS.NET_EARNINGS}/`) ||
+      pathOnly === ROUTES.REPORTS.HOTEL_PAYOUTS ||
+      pathOnly.startsWith(`${ROUTES.REPORTS.HOTEL_PAYOUTS}/`)
+    ) {
+      return canViewModule(user, "PAYMENTS");
+    }
+    return false;
   }
 
   if (pathOnly === ROUTES.REPORTS.BOOKING_SUMMARY) {
@@ -482,7 +581,7 @@ function canReviewerPortalViewPath(user: User | null, pathOnly: string): boolean
     return canModerateReviews(user?.roles);
   }
   if (isHotelReviewsPath(pathOnly)) {
-    return canManageHotelReviews(user?.roles);
+    return canAccessHotelGuestReviews(user);
   }
   if (pathOnly.startsWith("/property/information/")) {
     const module = getModuleFromPath(pathOnly);
@@ -506,7 +605,7 @@ function canViewUnmappedPath(user: User | null, pathOnly: string): boolean {
       hasPermissionBypass(user) ||
       isHotelBdRole(user?.roles) ||
       !!user?.roles?.some((role) =>
-        ["HOTEL_MANAGER", "FRONT_DESK_EXEC", "ACCOUNTANT"].includes(role),
+        ["HOTEL_MANAGER", "FRONT_DESK_EXEC", "HOTEL_ACCOUNTANT", "ACCOUNTANT"].includes(role),
       )
     );
   }
@@ -528,7 +627,7 @@ function canViewUnmappedPath(user: User | null, pathOnly: string): boolean {
   }
 
   if (isHotelReviewsPath(pathOnly)) {
-    return canManageHotelReviews(user?.roles);
+    return canAccessHotelGuestReviews(user);
   }
 
   if (pathOnly === ROUTES.QC.DASHBOARD) {
@@ -604,7 +703,7 @@ export function canViewPath(user: User | null, pathname: string): boolean {
   }
 
   if (isHotelReviewsPath(pathOnly)) {
-    return canManageHotelReviews(user?.roles);
+    return canAccessHotelGuestReviews(user);
   }
 
   if (isHelpdeskPath(pathOnly)) {

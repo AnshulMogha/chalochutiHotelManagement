@@ -11,7 +11,24 @@ import {
   type RatePlanEditResponse,
   type MealPlanOption,
 } from "@/features/admin/services/adminService";
-import { Plus, Pencil, Eye, Building2, ChevronRight } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Building2,
+  BedDouble,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Tag,
+  Layers,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { formatStatusLabel } from "@/features/reports/components/reportUiHelpers";
+import {
+  ActionLink,
+  RatePlanRow,
+  StatusPill,
+} from "./roomsAndRatePlansUi";
 import { useAuth } from "@/hooks";
 import { isHotelOwner } from "@/constants/roles";
 import { AddRatePlanModal } from "./AddRatePlanModal";
@@ -19,20 +36,6 @@ import { PropertyInfoRoomsForm } from "./PropertyInfoRoomsForm";
 
 interface RoomsAndRatePlansTabProps {
   hotelId: string;
-}
-
-function getRoomRatePlanLabel(
-  ratePlan: string | { ratePlanName?: string; plan_code?: string | null },
-): string {
-  if (typeof ratePlan === "string") return ratePlan;
-  return ratePlan.ratePlanName || ratePlan.plan_code || "Rate plan";
-}
-
-function isRoomRatePlanActive(
-  ratePlan: string | { ratePlanActive?: boolean },
-): boolean {
-  if (typeof ratePlan === "string") return true;
-  return ratePlan.ratePlanActive !== false;
 }
 
 export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
@@ -489,9 +492,10 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
 
   if (isLoading && !showRoomForm) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <p className="text-gray-500">Loading rooms...</p>
+      <div className="flex min-h-60 items-center justify-center rounded-2xl border border-slate-200 bg-white">
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin text-[#2f3d95]" />
+          Loading rooms...
         </div>
       </div>
     );
@@ -507,7 +511,7 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
           isVisible={toast.isVisible}
           onClose={hideToast}
         />
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
           <PropertyInfoRoomsForm
             mode={roomFormMode}
             hotelId={hotelId}
@@ -519,6 +523,11 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
       </>
     );
   }
+
+  const totalRatePlans = rooms.reduce(
+    (sum, room) => sum + (room.ratePlans?.length ?? 0),
+    0,
+  );
 
   return (
     <>
@@ -552,280 +561,225 @@ export function RoomsAndRatePlansTab({ hotelId }: RoomsAndRatePlansTabProps) {
         onLoadData={loadRatePlanForEdit}
         mealPlans={availableMealPlans}
       />
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-900">
-              Existing Rooms ({totalRooms})
-            </h2>
-          </div>
-          <Button
-            onClick={handleCreateNewRoom}
-            className="bg-blue-500 hover:bg-blue-600 text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            CREATE NEW ROOM
-          </Button>
-        </div>
-
-        {/* Rooms Table */}
-        {rooms.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-            <div className="flex flex-col items-center justify-center min-h-[400px]">
-              <Building2 className="w-16 h-16 text-gray-400 mb-4" />
-              <p className="text-gray-500 text-lg mb-2">No rooms found</p>
-              <p className="text-gray-400 text-sm">
-                Create your first room to get started
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-[#eef2ff]/80 to-white px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2f3d95] text-white shadow-sm">
+              <Layers className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                Your rooms
+              </p>
+              <p className="text-xs text-slate-500">
+                {totalRooms} room{totalRooms === 1 ? "" : "s"}
+                {totalRatePlans > 0
+                  ? ` · ${totalRatePlans} rate plan${totalRatePlans === 1 ? "" : "s"}`
+                  : ""}
               </p>
             </div>
           </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-[#2f3d95] border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider w-1/5">
-                      Room Name
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider w-2/5">
-                      Description
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider w-1/5">
-                      Actions
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider w-1/5">
-                      Rateplans
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {rooms.map((room) => (
-                    <>
-                      <tr key={room.roomId} className="hover:bg-gray-50">
-                        {/* Room Name */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {room.roomName}
-                          </div>
-                        </td>
+          <Button
+            onClick={handleCreateNewRoom}
+            size="sm"
+            className="gap-1.5 bg-[#2f3d95] hover:bg-[#263578]"
+          >
+            <Plus className="h-4 w-4" />
+            Add room
+          </Button>
+        </div>
 
-                        {/* Description */}
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-600 max-w-md line-clamp-3">
-                            {room.description || (
-                              <span className="text-gray-400 italic">
-                                No description available
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col gap-4">
-                            <div className="flex items-center">
-                              <Toggle
-                                checked={room.active}
-                                onChange={() =>
-                                  handleToggleActive(room.roomId, room.active)
-                                }
-                                label="Active"
-                              />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                              <button
-                                onClick={() => handleEditRoom(room.roomId)}
-                                className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors w-fit"
-                              >
-                                <Pencil className="w-4 h-4" />
-                                EDIT ROOM
-                              </button>
-                              <button
-                                onClick={() => handleAddRatePlan(room.roomId)}
-                                className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors w-fit"
-                              >
-                                <Plus className="w-4 h-4" />
-                                ADD RATEPLAN
-                              </button>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Rateplans */}
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col gap-2">
-                            {room.ratePlans && room.ratePlans.length > 0 ? (
-                              <>
-                                <div className="flex flex-col gap-1.5">
-                                  {room.ratePlans.map((ratePlan, index) => {
-                                    const isActive =
-                                      isRoomRatePlanActive(ratePlan);
-                                    return (
-                                      <div
-                                        key={
-                                          typeof ratePlan === "string"
-                                            ? `${ratePlan}-${index}`
-                                            : ratePlan.ratePlanId
-                                        }
-                                        className={`text-sm font-medium ${
-                                          isActive
-                                            ? "text-gray-700"
-                                            : "text-gray-400"
-                                        }`}
-                                      >
-                                        {index + 1}.{" "}
-                                        {getRoomRatePlanLabel(ratePlan)}
-                                        {!isActive && (
-                                          <span className="ml-1 text-xs italic text-gray-400">
-                                            (Suspended)
-                                          </span>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                                <button
-                                  onClick={() =>
-                                    handleViewRatePlans(room.roomId)
-                                  }
-                                  className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors mt-1 w-fit"
-                                >
-                                  <Eye className="w-4 h-4 shrink-0" />
-                                  <span>
-                                    {expandedRatePlans.has(room.roomId)
-                                      ? "HIDE RATEPLANS"
-                                      : "CLICK TO VIEW RATEPLANS"}
-                                  </span>
-                                </button>
-                              </>
-                            ) : (
-                              <div className="text-sm text-gray-400 italic">
-                                No rate plans available
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                      {/* Expanded Rate Plans Row - Full Width */}
-                      {expandedRatePlans.has(room.roomId) && (
-                        <tr className="bg-gray-50">
-                          <td
-                            colSpan={4}
-                            className="px-6 py-4 border-t-2 border-[#2f3d95]"
-                          >
-                            {loadingRatePlans.has(room.roomId) ? (
-                              <div className="p-4 text-center text-sm text-gray-500">
-                                Loading rate plans...
-                              </div>
-                            ) : ratePlansData[room.roomId] &&
-                              ratePlansData[room.roomId].length > 0 ? (
-                              <div className="flex gap-3">
-                                <div className="flex items-start pt-4">
-                                  <ChevronRight className="w-5 h-5 text-[#2f3d95]" />
-                                </div>
-                                <div className="flex-1 bg-white rounded-lg border-l-4 border-[#2f3d95] border-r border-t border-b border-gray-200 overflow-hidden shadow-sm">
-                                  <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                      <thead className="bg-gray-50 border-b border-gray-200">
-                                        <tr>
-                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                            Rateplan Name
-                                          </th>
-                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                            Meal Plan
-                                          </th>
-                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                            Payment Mode
-                                          </th>
-                                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                            Actions
-                                          </th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="bg-white divide-y divide-gray-200">
-                                        {ratePlansData[room.roomId].map(
-                                          (ratePlan) => (
-                                            <tr
-                                              key={ratePlan.ratePlanId}
-                                              className="hover:bg-gray-50"
-                                            >
-                                              <td className="px-4 py-3 whitespace-nowrap">
-                                                <div className="text-sm font-medium text-gray-900">
-                                                  {ratePlan.ratePlanName}
-                                                </div>
-                                              </td>
-                                              <td className="px-4 py-3 whitespace-nowrap">
-                                                <div className="text-sm text-gray-600">
-                                                  {ratePlan.mealPlan}
-                                                </div>
-                                              </td>
-                                              <td className="px-4 py-3 whitespace-nowrap">
-                                                <div className="text-sm text-gray-600">
-                                                  {ratePlan.paymentMode ||
-                                                    "N/A"}
-                                                </div>
-                                              </td>
-                                              <td className="px-4 py-3">
-                                                <div className="flex flex-col gap-3">
-                                                  <div className="flex items-center">
-                                                    <Toggle
-                                                      checked={ratePlan.active}
-                                                      onChange={() =>
-                                                        handleToggleRatePlanActive(
-                                                          room.roomId,
-                                                          ratePlan.ratePlanId,
-                                                          ratePlan.active,
-                                                        )
-                                                      }
-                                                      label="Active"
-                                                    />
-                                                  </div>
-                                                  <div className="flex flex-col gap-2">
-                                                    <button
-                                                      onClick={() =>
-                                                        handleEditRatePlan(
-                                                          room.roomId,
-                                                          ratePlan.ratePlanId,
-                                                        )
-                                                      }
-                                                      className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors w-fit"
-                                                    >
-                                                      <Pencil className="w-4 h-4" />
-                                                      EDIT RATEPLAN
-                                                    </button>
-                                                  </div>
-                                                </div>
-                                              </td>
-                                            </tr>
-                                          ),
-                                        )}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex gap-3">
-                                <div className="flex items-start pt-4">
-                                  <ChevronRight className="w-5 h-5 text-[#2f3d95]" />
-                                </div>
-                                <div className="flex-1 p-4 text-center text-sm text-gray-500 bg-white rounded border border-gray-200">
-                                  No rate plans available
-                                </div>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  ))}
-                </tbody>
-              </table>
+        <div className="p-3 sm:p-4">
+          {rooms.length === 0 ? (
+            <div className="flex flex-col items-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-12 text-center">
+              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#2f3d95] shadow-sm ring-1 ring-slate-200">
+                <Building2 className="h-7 w-7" />
+              </div>
+              <p className="font-semibold text-slate-900">No rooms yet</p>
+              <p className="mt-1 max-w-xs text-sm text-slate-500">
+                Start by adding a room type, then attach rate plans for each
+                room.
+              </p>
+              <Button
+                onClick={handleCreateNewRoom}
+                size="sm"
+                className="mt-5 gap-1.5 bg-[#2f3d95] hover:bg-[#263578]"
+              >
+                <Plus className="h-4 w-4" />
+                Add first room
+              </Button>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="space-y-3">
+              {rooms.map((room) => {
+                const isOpen = expandedRatePlans.has(room.roomId);
+                const ratePlanCount = room.ratePlans?.length ?? 0;
+                const detailedPlans = ratePlansData[room.roomId];
+                const isLoadingPlans = loadingRatePlans.has(room.roomId);
+
+                return (
+                  <article
+                    key={room.roomId}
+                    className={cn(
+                      "overflow-hidden rounded-xl border transition-shadow",
+                      room.active
+                        ? "border-slate-200 bg-white shadow-sm hover:shadow-md"
+                        : "border-slate-200/80 bg-slate-50/40",
+                    )}
+                  >
+                    {/* Room header — tap to expand rate plans */}
+                    <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
+                      <button
+                        type="button"
+                        onClick={() => void handleViewRatePlans(room.roomId)}
+                        className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                      >
+                        <div
+                          className={cn(
+                            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-slate-400",
+                            isOpen && "bg-[#eef2ff] text-[#2f3d95]",
+                          )}
+                        >
+                          {isOpen ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div
+                          className={cn(
+                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                            room.active
+                              ? "bg-sky-50 text-sky-700 ring-1 ring-sky-100"
+                              : "bg-slate-100 text-slate-400 ring-1 ring-slate-200",
+                          )}
+                        >
+                          <BedDouble className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-semibold text-slate-900">
+                              {room.roomName}
+                            </h3>
+                            <StatusPill active={room.active} />
+                          </div>
+                          <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">
+                            {room.description?.trim() ||
+                              "No description added for this room"}
+                          </p>
+                          <p className="mt-1.5 text-xs font-medium text-[#2f3d95]">
+                            {isOpen
+                              ? "Click to hide rate plans"
+                              : ratePlanCount > 0
+                                ? `${ratePlanCount} rate plan${ratePlanCount === 1 ? "" : "s"} — click to view`
+                                : "No rate plans — click to expand"}
+                          </p>
+                        </div>
+                      </button>
+
+                      <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:border-l lg:border-slate-100 lg:pl-4">
+                        <Toggle
+                          checked={room.active}
+                          onChange={() =>
+                            handleToggleActive(room.roomId, room.active)
+                          }
+                          checkedLabel="Live"
+                          uncheckedLabel="Off"
+                        />
+                        <ActionLink
+                          icon={Pencil}
+                          label="Edit room"
+                          onClick={() => handleEditRoom(room.roomId)}
+                        />
+                        <ActionLink
+                          icon={Plus}
+                          label="Add rate plan"
+                          onClick={() => handleAddRatePlan(room.roomId)}
+                          variant="primary"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Expanded rate plans */}
+                    {isOpen ? (
+                      <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3">
+                        <div className="mb-3">
+                          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <Tag className="h-3.5 w-3.5 text-violet-500" />
+                            Rate plans
+                          </p>
+                        </div>
+
+                        {isLoadingPlans ? (
+                          <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-white py-8 text-sm text-slate-500">
+                            <Loader2 className="h-4 w-4 animate-spin text-[#2f3d95]" />
+                            Loading rate plans...
+                          </div>
+                        ) : detailedPlans && detailedPlans.length > 0 ? (
+                          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
+                            <div className="hidden px-3 py-2 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-3 sm:bg-slate-50/80">
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                Plan name
+                              </span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                Meal & payment
+                              </span>
+                              <span className="text-right text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                Status
+                              </span>
+                            </div>
+                            {detailedPlans.map((ratePlan) => (
+                              <RatePlanRow
+                                key={ratePlan.ratePlanId}
+                                name={ratePlan.ratePlanName}
+                                mealPlan={formatStatusLabel(ratePlan.mealPlan)}
+                                paymentMode={
+                                  ratePlan.paymentMode
+                                    ? formatStatusLabel(ratePlan.paymentMode)
+                                    : "Not set"
+                                }
+                                active={ratePlan.active}
+                                onToggle={() =>
+                                  handleToggleRatePlanActive(
+                                    room.roomId,
+                                    ratePlan.ratePlanId,
+                                    ratePlan.active,
+                                  )
+                                }
+                                onEdit={() =>
+                                  handleEditRatePlan(
+                                    room.roomId,
+                                    ratePlan.ratePlanId,
+                                  )
+                                }
+                              />
+                            ))}
+                          </div>
+                        ) : ratePlanCount > 0 ? (
+                          <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                            Rate plan names are listed above. Details could not
+                            be loaded — try again.
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center">
+                            <p className="text-sm font-medium text-slate-700">
+                              No rate plans for this room
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Use <span className="font-medium">Add rate plan</span>{" "}
+                              above to set meal options and pricing.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </>
   );

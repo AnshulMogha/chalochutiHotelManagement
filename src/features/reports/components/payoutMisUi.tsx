@@ -61,41 +61,48 @@ function hotelScopedPath(path: string, hotelId?: string | null): string {
 export function PaymentsTabNav({
   active,
   showNetEarnings,
+  showPayouts = true,
   hotelId,
 }: {
   active: "net-earnings" | "payouts";
   showNetEarnings?: boolean;
+  /** When false, hide Payouts (e.g. Hotel Accountant with Payment Report only). */
+  showPayouts?: boolean;
   hotelId?: string | null;
 }) {
-  if (!showNetEarnings) return null;
+  if (!showNetEarnings && !showPayouts) return null;
 
   const netEarningsPath = hotelScopedPath(ROUTES.REPORTS.NET_EARNINGS, hotelId);
   const payoutsPath = hotelScopedPath(ROUTES.REPORTS.HOTEL_PAYOUTS, hotelId);
 
   return (
     <div className="mb-3 flex gap-5 border-b border-slate-200">
-      <Link
-        to={netEarningsPath}
-        className={cn(
-          "border-b-2 pb-2 text-sm font-semibold transition",
-          active === "net-earnings"
-            ? "border-blue-600 text-blue-700"
-            : "border-transparent text-slate-500 hover:text-slate-800",
-        )}
-      >
-        Net Earnings
-      </Link>
-      <Link
-        to={payoutsPath}
-        className={cn(
-          "border-b-2 pb-2 text-sm font-semibold transition",
-          active === "payouts"
-            ? "border-blue-600 text-blue-700"
-            : "border-transparent text-slate-500 hover:text-slate-800",
-        )}
-      >
-        Payouts
-      </Link>
+      {showNetEarnings ? (
+        <Link
+          to={netEarningsPath}
+          className={cn(
+            "border-b-2 pb-2 text-sm font-semibold transition",
+            active === "net-earnings"
+              ? "border-blue-600 text-blue-700"
+              : "border-transparent text-slate-500 hover:text-slate-800",
+          )}
+        >
+          Net Earnings
+        </Link>
+      ) : null}
+      {showPayouts ? (
+        <Link
+          to={payoutsPath}
+          className={cn(
+            "border-b-2 pb-2 text-sm font-semibold transition",
+            active === "payouts"
+              ? "border-blue-600 text-blue-700"
+              : "border-transparent text-slate-500 hover:text-slate-800",
+          )}
+        >
+          Payouts
+        </Link>
+      ) : null}
     </div>
   );
 }

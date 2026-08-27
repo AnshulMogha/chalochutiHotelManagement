@@ -74,6 +74,31 @@ const ROLE_OPTIONS = [
   { value: "HELPDESK_AGENT", label: "Helpdesk Agent" },
   { value: "AUDITOR", label: "Auditor" },
 ];
+
+/** All filterable roles (includes staff roles created via My Team, etc.). */
+const FILTER_ROLE_OPTIONS = [
+  { value: "SUPER_ADMIN", label: "Super Admin" },
+  { value: "HOTEL_OWNER", label: "Hotel Owner" },
+  { value: "HOTEL_MANAGER", label: "Hotel Manager" },
+  { value: "HOTEL_ACCOUNTANT", label: "Hotel Accountant" },
+  { value: "FRONT_DESK_EXEC", label: "Front Desk" },
+  { value: "HOTEL_BD", label: "Hotel BD" },
+  { value: "PACKAGE_CREATOR", label: "Package Creator" },
+  { value: "PACKAGE_BD", label: "Package BD" },
+  { value: "TRANSPORT_BD", label: "Transport BD" },
+  { value: "TRAVEL_AGENT_ADMIN", label: "Travel Agent Admin" },
+  { value: "TRAVEL_AGENT_USER", label: "Travel Agent User" },
+  { value: "TRANSPORT_AGENT_ADMIN", label: "Transport Agent Admin" },
+  { value: "TRANSPORT_AGENT_USER", label: "Transport Agent User" },
+  { value: "SALES_MANAGER", label: "Sales Manager" },
+  { value: "ZONAL_MANAGER_HOTEL", label: "Zonal Manager Hotel" },
+  { value: "ZONAL_MANAGER_SALES", label: "Zonal Manager Sales" },
+  { value: "FINANCE", label: "Finance" },
+  { value: "FINANCE_MANAGER", label: "Finance Manager" },
+  { value: "QC", label: "Quality Control" },
+  { value: "HELPDESK_AGENT", label: "Helpdesk Agent" },
+  { value: "AUDITOR", label: "Auditor" },
+];
 const UPDATE_ONLY_ROLES = new Set<CreateUserRequest["roles"][number]>([
   "TRAVEL_AGENT_ADMIN",
   "TRAVEL_AGENT_USER",
@@ -889,15 +914,14 @@ export default function UsersPage() {
                   navigate(ROUTES.ADMIN.USER_EDIT(params.row.userId));
                 }}
                 className="gap-2"
-                disabled={staffExcluded}
                 title={
                   staffExcluded
-                    ? "Hotel staff are managed from the property account (My Team), not here."
+                    ? "Only account status can be updated for hotel staff"
                     : undefined
                 }
               >
                 <Edit className="w-4 h-4" />
-                Edit
+                {staffExcluded ? "Status" : "Edit"}
               </Button>
               {(params.row.roles || []).some(
                 (r: string) => r === "HOTEL_OWNER" || r === "HOTEL_BD",
@@ -1022,7 +1046,8 @@ export default function UsersPage() {
                 setRoleFilter(value);
                 setPaginationModel((prev) => ({ ...prev, page: 0 }));
               }}
-              options={[{ value: "", label: "All roles" }, ...ROLE_OPTIONS]}
+              options={[{ value: "", label: "All roles" }, ...FILTER_ROLE_OPTIONS]}
+              menuMaxHeightClassName="max-h-56"
             />
           </UserFilterGroup>
           <UserFilterGroup icon={Mail} theme="sky" className="min-w-[200px] flex-1">

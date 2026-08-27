@@ -2,14 +2,13 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import {
   adminService,
   type PromotionListItem,
 } from "@/features/admin/services/adminService";
 import { useToast } from "@/components/ui/Toast";
+import { cn } from "@/lib/utils";
 import {
   Percent,
   Clock,
@@ -20,6 +19,8 @@ import {
   Eye,
   Search,
   ArrowLeft,
+  Tag,
+  Sparkles,
 } from "lucide-react";
 
 interface PromotionType {
@@ -193,18 +194,18 @@ export default function PromotionsPage() {
     { value: "EXPIRED", label: "Expired" },
   ];
 
-  const getStatusBadgeColor = (status: string) => {
+  const getStatusSelectClass = (status: string) => {
     switch (status) {
       case "ACTIVE":
-        return "bg-green-50 text-green-700 border-green-200";
+        return "border-emerald-200 bg-emerald-50 text-emerald-800";
       case "DRAFT":
-        return "bg-gray-50 text-gray-700 border-gray-200";
+        return "border-slate-200 bg-slate-50 text-slate-700";
       case "PAUSED":
-        return "bg-amber-50 text-amber-700 border-amber-200";
+        return "border-amber-200 bg-amber-50 text-amber-800";
       case "EXPIRED":
-        return "bg-red-50 text-red-700 border-red-200";
+        return "border-rose-200 bg-rose-50 text-rose-800";
       default:
-        return "bg-gray-50 text-gray-700 border-gray-200";
+        return "border-slate-200 bg-slate-50 text-slate-700";
     }
   };
 
@@ -232,8 +233,10 @@ export default function PromotionsPage() {
         return "Early Bird";
       case "LONG_STAY":
         return "Long Stay";
+      case "SPECIAL_AUDIENCE":
+        return "Special Audience";
       default:
-        return type;
+        return type.replaceAll("_", " ");
     }
   };
 
@@ -241,38 +244,33 @@ export default function PromotionsPage() {
     switch (type) {
       case "BASIC":
         return {
-          icon: <Percent className="w-3.5 h-3.5" />,
-          bg: "bg-blue-50",
-          text: "text-blue-700",
-          border: "border-blue-100",
+          icon: <Percent className="h-3 w-3" />,
+          className: "border-sky-200 bg-sky-50 text-sky-800",
         };
       case "LAST_MINUTE":
         return {
-          icon: <Clock className="w-3.5 h-3.5" />,
-          bg: "bg-purple-50",
-          text: "text-purple-700",
-          border: "border-purple-100",
+          icon: <Clock className="h-3 w-3" />,
+          className: "border-violet-200 bg-violet-50 text-violet-800",
         };
       case "EARLY_BIRD":
         return {
-          icon: <Bird className="w-3.5 h-3.5" />,
-          bg: "bg-emerald-50",
-          text: "text-emerald-700",
-          border: "border-emerald-100",
+          icon: <Bird className="h-3 w-3" />,
+          className: "border-emerald-200 bg-emerald-50 text-emerald-800",
         };
       case "LONG_STAY":
         return {
-          icon: <Calendar className="w-3.5 h-3.5" />,
-          bg: "bg-amber-50",
-          text: "text-amber-700",
-          border: "border-amber-100",
+          icon: <Calendar className="h-3 w-3" />,
+          className: "border-orange-200 bg-orange-50 text-orange-800",
+        };
+      case "SPECIAL_AUDIENCE":
+        return {
+          icon: <Crown className="h-3 w-3" />,
+          className: "border-indigo-200 bg-indigo-50 text-indigo-800",
         };
       default:
         return {
-          icon: null,
-          bg: "bg-gray-50",
-          text: "text-gray-700",
-          border: "border-gray-100",
+          icon: <Tag className="h-3 w-3" />,
+          className: "border-slate-200 bg-slate-50 text-slate-700",
         };
     }
   };
@@ -320,8 +318,8 @@ export default function PromotionsPage() {
     myPromotionsSubTab === "all" ? totalElements : undefined;
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="min-h-screen bg-[#f7f8fb]">
+      <div className="container mx-auto max-w-7xl px-4 py-6 sm:py-8">
       <Tabs
         defaultValue="create"
         value={activeTab}
@@ -329,22 +327,29 @@ export default function PromotionsPage() {
         className="w-full"
       >
         {activeTab === "my-promotions" && (
-          <div className="mb-6 flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Promotions</h1>
-              <p className="text-gray-600 mt-2">
-                One-stop solution to offer the best promotions & coupons to
-                guests
-              </p>
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-[#2f3d95] text-white shadow-sm">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                  Promotions
+                </h1>
+                <p className="mt-1 max-w-xl text-sm text-slate-500">
+                  One-stop solution to offer the best promotions & coupons to
+                  guests.
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              {myPromotionsSubTab === "active" && totalElements > 0 && (
-                <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-semibold rounded-full">
-                  {totalElements} ACTIVE
+            <div className="flex items-center gap-2">
+              {myPromotionsSubTab === "active" && totalElements > 0 ? (
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                  {totalElements} active
                 </span>
-              )}
+              ) : null}
               <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                className="bg-[#2f3d95] hover:bg-[#263578] text-white font-medium"
                 onClick={() => setActiveTab("create")}
               >
                 Create New Promotion
@@ -357,60 +362,53 @@ export default function PromotionsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("my-promotions")}
-            className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
+            className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-[#2f3d95] transition-colors hover:text-[#263578]"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
           </button>
           <div className="mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-slate-900">
               Choose a promotion type
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="mt-1 text-sm text-slate-500">
               Select a template and configure the details on the next step.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {promotionTypes.map((promo) => (
               <button
                 key={promo.id}
                 type="button"
                 onClick={() => handleCreatePromotion(promo.id)}
-                className="group text-left rounded-2xl border border-gray-200 bg-white px-5 py-5 shadow-sm hover:border-blue-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all"
+                className="group rounded-2xl border border-slate-200 bg-white px-5 py-5 text-left shadow-sm transition-all hover:border-[#2f3d95]/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f3d95]/40"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl ${promo.iconBg || "bg-blue-50"} ${promo.iconColor || "text-blue-600"} group-hover:scale-105 transition-transform`}
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl ${promo.iconBg || "bg-blue-50"} ${promo.iconColor || "text-blue-600"} transition-transform group-hover:scale-105`}
                     >
                       {promo.icon}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p className="text-sm font-semibold text-slate-900">
                         {promo.title}
                       </p>
-                      <p className="mt-1 text-xs text-gray-500">
+                      <p className="mt-1 text-xs text-slate-500">
                         {promo.description}
                       </p>
                     </div>
                   </div>
-                  {promo.id === "basic" && (
+                  {promo.id === "basic" ? (
                     <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
                       Recommended
                     </span>
-                  )}
-                </div>
-                <div className="mt-4 flex items-center justify-between text-[11px] text-gray-500">
-                  <span className="inline-flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                    One-click setup
-                  </span>
+                  ) : null}
                 </div>
               </button>
             ))}
 
-            {/* Special Audience Promotions card in same list */}
             <button
               type="button"
               onClick={() => {
@@ -419,30 +417,25 @@ export default function PromotionsPage() {
                   : `/promotions/special-audience`;
                 navigate(url);
               }}
-              className="group text-left rounded-2xl border border-blue-100 bg-white px-5 py-5 shadow-sm hover:border-blue-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-all"
+              className="group rounded-2xl border border-indigo-100 bg-white px-5 py-5 text-left shadow-sm transition-all hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 group-hover:scale-105 transition-transform">
-                    <Crown className="w-6 h-6" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition-transform group-hover:scale-105">
+                    <Crown className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">
+                    <p className="text-sm font-semibold text-slate-900">
                       Special Audience Promotion
                     </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Create My Partner promotions with fixed audience type and B2B channel settings.
+                    <p className="mt-1 text-xs text-slate-500">
+                      Create My Partner promotions with fixed audience type and
+                      B2B channel settings.
                     </p>
                   </div>
                 </div>
-                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700">
+                <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
                   Audience
-                </span>
-              </div>
-              <div className="mt-4 flex items-center justify-between text-[11px] text-gray-500">
-                <span className="inline-flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  One-click setup
                 </span>
               </div>
             </button>
@@ -450,7 +443,7 @@ export default function PromotionsPage() {
         </TabsContent>
 
         <TabsContent value="my-promotions" className="mt-2">
-          <div className="mb-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <Tabs
               value={myPromotionsSubTab}
               onValueChange={(value) =>
@@ -460,80 +453,82 @@ export default function PromotionsPage() {
               }
               className="w-fit"
             >
-              <TabsList className="bg-white border border-gray-200">
-                <TabsTrigger value="all" className="text-sm">
-                  All{subTabCount !== undefined ? ` (${subTabCount})` : ""}
-                </TabsTrigger>
-                <TabsTrigger value="draft" className="text-sm">
-                  Draft
-                  {myPromotionsSubTab === "draft"
-                    ? ` (${totalElements})`
-                    : ""}
-                </TabsTrigger>
-                <TabsTrigger value="active" className="text-sm">
-                  Active
-                  {myPromotionsSubTab === "active"
-                    ? ` (${totalElements})`
-                    : ""}
-                </TabsTrigger>
-                <TabsTrigger value="paused" className="text-sm">
-                  Paused
-                  {myPromotionsSubTab === "paused"
-                    ? ` (${totalElements})`
-                    : ""}
-                </TabsTrigger>
-                <TabsTrigger value="expired" className="text-sm">
-                  Expired
-                  {myPromotionsSubTab === "expired"
-                    ? ` (${totalElements})`
-                    : ""}
-                </TabsTrigger>
+              <TabsList className="h-auto gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                {(
+                  [
+                    ["all", "All"],
+                    ["draft", "Draft"],
+                    ["active", "Active"],
+                    ["paused", "Paused"],
+                    ["expired", "Expired"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <TabsTrigger
+                    key={value}
+                    value={value}
+                    className="rounded-lg px-3 py-1.5 text-sm data-[state=active]:bg-[#eef2ff] data-[state=active]:text-[#2f3d95] data-[state=active]:shadow-none"
+                  >
+                    {label}
+                    {value === "all" && subTabCount !== undefined
+                      ? ` (${subTabCount})`
+                      : myPromotionsSubTab === value && value !== "all"
+                        ? ` (${totalElements})`
+                        : ""}
+                  </TabsTrigger>
+                ))}
               </TabsList>
             </Tabs>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
             {loading ? (
-              <div className="flex items-center justify-center min-h-[400px]">
-                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+              <div className="flex min-h-[360px] items-center justify-center">
+                <Loader2 className="h-7 w-7 animate-spin text-[#2f3d95]" />
               </div>
             ) : promotions.length === 0 ? (
-              <div className="text-center py-12 px-6">
-                <p className="text-gray-500 mb-4">
+              <div className="px-6 py-14 text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef2ff] text-[#2f3d95]">
+                  <Tag className="h-5 w-5" />
+                </div>
+                <p className="font-medium text-slate-800">
                   {myPromotionsSubTab === "all"
-                    ? "No promotions found"
-                    : `No ${myPromotionsSubTab} promotions found`}
+                    ? "No promotions yet"
+                    : `No ${myPromotionsSubTab} promotions`}
                 </p>
-                {myPromotionsSubTab === "all" && (
+                <p className="mt-1 text-sm text-slate-500">
+                  Create an offer to boost bookings for this property.
+                </p>
+                {myPromotionsSubTab === "all" ? (
                   <Button
                     onClick={() => setActiveTab("create")}
-                    variant="outline"
+                    className="mt-4 bg-[#2f3d95] hover:bg-[#263578]"
                   >
                     Create Your First Promotion
                   </Button>
-                )}
+                ) : null}
               </div>
             ) : (
               <>
-                <div className="px-4 pt-4 pb-2 border-b border-gray-100">
-                  <div className="relative w-full max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <div className="border-b border-slate-100 px-4 py-3">
+                  <div className="relative w-full max-w-md">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <Input
                       type="text"
                       placeholder="Search promotions..."
                       value={promotionSearch}
                       onChange={(e) => setPromotionSearch(e.target.value)}
-                      className="pl-9"
+                      className="h-9 border-slate-200 bg-slate-50/80 pl-9 focus:bg-white"
                     />
                   </div>
                 </div>
                 {filteredPromotions.length === 0 ? (
-                  <div className="text-center py-12 px-6">
-                    <p className="text-gray-500 mb-4">
+                  <div className="px-6 py-12 text-center">
+                    <p className="text-sm text-slate-500">
                       No promotions match your search.
                     </p>
                     <Button
                       variant="outline"
+                      className="mt-3"
                       onClick={() => setPromotionSearch("")}
                     >
                       Clear search
@@ -542,128 +537,119 @@ export default function PromotionsPage() {
                 ) : (
                 <>
                 <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-white border-b border-gray-200">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
-                        Promotion Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
-                        Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
-                        Apply Channel
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
-                        Discount
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
-                        Valid Until
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
-                        Last Modified
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600">
-                        Actions
-                      </th>
+                <table className="w-full min-w-[920px]">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/90">
+                      {[
+                        "Promotion Name",
+                        "Type",
+                        "Channel",
+                        "Discount",
+                        "Status",
+                        "Valid Until",
+                        "Last Modified",
+                        "Actions",
+                      ].map((label) => (
+                        <th
+                          key={label}
+                          className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-400"
+                        >
+                          {label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
-                    {filteredPromotions.map((promotion) => (
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredPromotions.map((promotion) => {
+                      const typeMeta = getPromotionTypeMeta(
+                        promotion.promotionType,
+                      );
+                      const discountText = `${
+                        promotion.offerType === "FIXED" ? "₹" : ""
+                      }${promotion.discountAllUsers}${
+                        promotion.offerType === "PERCENTAGE" ? "%" : ""
+                      }`;
+                      const extraDiscount =
+                        promotion.extraLoggedDiscount > 0
+                          ? `+${promotion.offerType === "FIXED" ? "₹" : ""}${
+                              promotion.extraLoggedDiscount
+                            }${
+                              promotion.offerType === "PERCENTAGE" ? "%" : ""
+                            }`
+                          : null;
+
+                      return (
                       <tr
                         key={promotion.id}
-                        className="hover:bg-blue-50/60 transition-colors"
+                        className="transition-colors hover:bg-slate-50/80"
                       >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm font-medium text-gray-900">
+                        <td className="px-4 py-3">
+                          <span className="text-sm font-semibold text-slate-900">
                             {promotion.promotionName}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {(() => {
-                            const meta = getPromotionTypeMeta(
-                              promotion.promotionType,
-                            );
-                            return (
-                              <span
-                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium border ${meta.bg} ${meta.text} ${meta.border}`}
-                              >
-                                {meta.icon && (
-                                  <span className="flex items-center justify-center rounded-full bg-white/70 p-[2px]">
-                                    {meta.icon}
-                                  </span>
-                                )}
-                                {getPromotionTypeLabel(promotion.promotionType)}
-                              </span>
-                            );
-                          })()}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                              typeMeta.className,
+                            )}
+                          >
+                            {typeMeta.icon}
+                            {getPromotionTypeLabel(promotion.promotionType)}
+                          </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-700 border border-slate-200">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-800">
                             {getApplyChannelLabel(promotion.applyChannel)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-700">
-                            {promotion.offerType === "FIXED" ? "₹" : ""}
-                            {promotion.discountAllUsers}
-                            {promotion.offerType === "PERCENTAGE" ? "%" : ""}
-                            {promotion.extraLoggedDiscount > 0 && (
-                              <span className="text-gray-500 ml-1">
-                                + {promotion.offerType === "FIXED" ? "₹" : ""}
-                                {promotion.extraLoggedDiscount}
-                                {promotion.offerType === "PERCENTAGE"
-                                  ? "%"
-                                  : ""}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${getStatusBadgeColor(
-                                promotion.status,
-                              )}`}
-                            >
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${
-                                  promotion.status === "ACTIVE"
-                                    ? "bg-green-500"
-                                    : promotion.status === "PAUSED"
-                                      ? "bg-amber-500"
-                                      : promotion.status === "EXPIRED"
-                                        ? "bg-red-500"
-                                        : "bg-gray-400"
-                                }`}
-                              />
-                              {promotion.status}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-sm font-semibold tabular-nums text-slate-800">
+                            {discountText}
+                          </span>
+                          {extraDiscount ? (
+                            <span className="ml-1 text-xs text-slate-400">
+                              {extraDiscount}
                             </span>
-                            <div className="w-32">
-                              <Select
-                                value={promotion.status}
-                                onChange={(e) =>
-                                  handleStatusChange(
-                                    promotion.id,
-                                    e.target.value,
-                                  )
-                                }
-                                options={statusOptions}
-                                className="text-xs py-1.5 bg-gray-50 border border-gray-200 rounded-md"
-                              />
-                            </div>
-                          </div>
+                          ) : null}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-700">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <select
+                            aria-label={`Status for ${promotion.promotionName}`}
+                            value={promotion.status}
+                            onChange={(e) =>
+                              handleStatusChange(
+                                promotion.id,
+                                e.target.value,
+                              )
+                            }
+                            className={cn(
+                              "h-8 cursor-pointer rounded-lg border px-2.5 text-xs font-semibold outline-none transition focus:ring-2 focus:ring-[#2f3d95]/25",
+                              getStatusSelectClass(promotion.status),
+                            )}
+                          >
+                            {statusOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span
+                            className={cn(
+                              "text-sm",
+                              promotion.expiringLabel
+                                ? "text-slate-700"
+                                : "text-slate-400",
+                            )}
+                          >
                             {promotion.expiringLabel || "No end date"}
-                          </div>
+                          </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-sm tabular-nums text-slate-500">
                             {new Date(
                               promotion.lastModified,
                             ).toLocaleDateString("en-GB", {
@@ -671,13 +657,12 @@ export default function PromotionsPage() {
                               month: "2-digit",
                               year: "numeric",
                             })}
-                          </div>
+                          </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="inline-flex items-center gap-1.5"
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-[#2f3d95] transition-colors hover:border-[#2f3d95]/30 hover:bg-[#eef2ff]"
                             onClick={() => {
                               const url = hotelId
                                 ? `/promotions/edit/${promotion.id}?hotelId=${hotelId}&mode=view`
@@ -685,17 +670,18 @@ export default function PromotionsPage() {
                               navigate(url);
                             }}
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="h-3.5 w-3.5" />
                             View
-                          </Button>
+                          </button>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
                 </div>
-                <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="text-sm text-gray-600">
+                <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-slate-500">
                   {promotionSearch.trim() ? (
                     <>
                       Showing {filteredPromotions.length} of {promotions.length}{" "}
@@ -703,21 +689,21 @@ export default function PromotionsPage() {
                     </>
                   ) : (
                     <>
-                      Showing page {totalPages === 0 ? 0 : page + 1} of{" "}
-                      {totalPages} ({totalElements} total)
+                      Page {totalPages === 0 ? 0 : page + 1} of {totalPages} ·{" "}
+                      {totalElements} total
                     </>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   <label
                     htmlFor="promotions-page-size"
-                    className="text-sm text-gray-600"
+                    className="text-sm text-slate-500"
                   >
-                    Rows:
+                    Rows
                   </label>
                   <select
                     id="promotions-page-size"
-                    className="h-9 rounded-md border border-gray-300 px-2 text-sm"
+                    className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700"
                     value={pageSize}
                     onChange={(e) => {
                       const nextSize = Number(e.target.value);

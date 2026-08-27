@@ -622,6 +622,7 @@ export default function HotelReviewListPage() {
               </button>
               {currentHotels.length > 0 ? (
                 <ExportButton
+                  iconOnly
                   onExportCSV={handleExportCSV}
                   onExportExcel={handleExportExcel}
                 />

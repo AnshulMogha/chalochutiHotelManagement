@@ -27,6 +27,7 @@ import {
   ArrowLeft,
   Building2,
   User as UserIcon,
+  Users,
   Mail,
   Phone,
   Shield,
@@ -37,21 +38,34 @@ import {
   Lock,
   Unlock,
   CalendarDays,
+  Search,
 } from "lucide-react";
+
+const TEAM_BRAND = {
+  primary: "#2f3d95",
+  primarySoft: "#eef2ff",
+  primaryHover: "#263578",
+} as const;
 
 const TEAM_ROLE_OPTIONS = [
   { value: "HOTEL_MANAGER", label: "Hotel Manager" },
   { value: "FRONT_DESK_EXEC", label: "Front Desk" },
-  { value: "ACCOUNTANT", label: "Accountant" },
+  { value: "HOTEL_ACCOUNTANT", label: "Hotel Accountant" },
 ];
-const HOTEL_OWNER_ASSIGNABLE_ROLES: TeamRole[] = ["HOTEL_MANAGER"];
-const HOTEL_MANAGER_ASSIGNABLE_ROLES: TeamRole[] = [
-  "FRONT_DESK_EXEC",
-  "ACCOUNTANT",
+const HOTEL_OWNER_ASSIGNABLE_ROLES: TeamRole[] = [
+  "HOTEL_MANAGER",
+  "HOTEL_ACCOUNTANT",
 ];
+const HOTEL_MANAGER_ASSIGNABLE_ROLES: TeamRole[] = ["FRONT_DESK_EXEC"];
 const ALLOWED_TEAM_ROLES = new Set(
   TEAM_ROLE_OPTIONS.map((role) => role.value as TeamRole),
 );
+
+function normalizeTeamRole(role: string | undefined | null): TeamRole | null {
+  if (!role) return null;
+  if (role === "ACCOUNTANT") return "HOTEL_ACCOUNTANT";
+  return ALLOWED_TEAM_ROLES.has(role as TeamRole) ? (role as TeamRole) : null;
+}
 
 function teamMemberRoleList(member: TeamMember): string[] {
   const fromRoles = member.roles?.length ? member.roles : [];
@@ -80,13 +94,7 @@ const STATUS_OPTIONS = [
 ];
 
 const PERMISSION_MODULES: { value: PermissionModule; label: string }[] = [
-  { value: "BOOKINGS", label: "Bookings" },
-  { value: "MY_TEAM", label: "My Team" },
-  { value: "RATES_INVENTORY", label: "Rates & Inventory" },
-  { value: "DASHBOARD", label: "Dashboard" },
-  { value: "FINANCE", label: "Finance" },
-
-  // Hotel / Property Information sections
+  // Same modules as Hotel Owner sidebar (what an owner can offer staff)
   { value: "PROPERTY_BASIC_INFO", label: "Property - Basic Information" },
   { value: "PROPERTY_ROOMS_RATEPLANS", label: "Property - Rooms & Rate Plans" },
   { value: "PROPERTY_PHOTOS_VIDEOS", label: "Property - Photos & Videos" },
@@ -94,20 +102,60 @@ const PERMISSION_MODULES: { value: PermissionModule; label: string }[] = [
   { value: "PROPERTY_POLICY_RULES", label: "Property - Policy & Rules" },
   { value: "PROPERTY_FINANCE", label: "Property - Finance" },
   { value: "PROPERTY_DOCUMENT", label: "Property - Documents" },
+  { value: "RATES_INVENTORY", label: "Rate and Inventory" },
+  { value: "BOOKINGS", label: "Bookings" },
+  { value: "OFFERS", label: "Promotions" },
+  { value: "ANALYTICS", label: "Analytics" },
+  { value: "MY_TEAM", label: "My Team" },
+  // Per-report permissions (Hotel Manager)
+  { value: "REPORT_BOOKING_SUMMARY", label: "Report - Booking Summary" },
+  { value: "REPORT_PROMOTIONS", label: "Report - Promotion Report" },
+  { value: "REPORT_RATE_HEALTH", label: "Report - Rate Disparity" },
+  {
+    value: "REPORT_INVENTORY_ALLOCATION",
+    label: "Report - Inventory Allocation",
+  },
+  { value: "PAYMENTS", label: "Report - Payments" },
+  { value: "GUEST_REVIEWS", label: "Guest Reviews" },
 ];
 
-const HOTEL_MANAGER_BLOCKED_MODULES: PermissionModule[] = [
-  "FINANCE",
-  "PROPERTY_FINANCE",
-  "PROPERTY_DOCUMENT",
-];
+/** Modules an owner can assign to Hotel Manager (no Finance / Documents). */
+const HOTEL_MANAGER_PERMISSION_MODULES: PermissionModule[] =
+  PERMISSION_MODULES.map((module) => module.value).filter(
+    (module) =>
+      module !== "PROPERTY_FINANCE" && module !== "PROPERTY_DOCUMENT",
+  );
+
 const HOTEL_MANAGER_RESTRICTED_MANAGE_ROLES = [
   "HOTEL_OWNER",
   "HOTEL_BD",
   "HOTEL_MANAGER",
 ] as const;
-const VIEW_ONLY_MODULES: PermissionModule[] = ["BOOKINGS"];
-const ACCOUNTANT_ALLOWED_MODULES: PermissionModule[] = ["BOOKINGS", "FINANCE"];
+const VIEW_ONLY_MODULES: PermissionModule[] = [
+  "BOOKINGS",
+  "PAYMENTS",
+  "REPORT_BOOKING_SUMMARY",
+  "REPORT_PROMOTIONS",
+  "REPORT_RATE_HEALTH",
+  "REPORT_INVENTORY_ALLOCATION",
+  "GUEST_REVIEWS",
+];
+const HOTEL_ACCOUNTANT_ALLOWED_MODULES: PermissionModule[] = [
+  "BOOKINGS",
+  "PROPERTY_FINANCE",
+  "FINANCE",
+  "PAYMENTS",
+];
+
+/** Hotel Accountant permission rows shown in My Team. */
+const HOTEL_ACCOUNTANT_PERMISSION_OPTIONS: {
+  value: PermissionModule;
+  label: string;
+}[] = [
+  { value: "BOOKINGS", label: "Bookings" },
+  { value: "PROPERTY_FINANCE", label: "Property - Finance" },
+  { value: "PAYMENTS", label: "Payment Report" },
+];
 
 interface TeamMemberFormModalProps {
   isOpen: boolean;
@@ -163,13 +211,18 @@ function TeamMemberFormModal({
       const normalizedRoles = (member.roles?.length
         ? member.roles
         : [member.role]
-      ).filter((role): role is TeamRole => ALLOWED_TEAM_ROLES.has(role as TeamRole));
+      )
+        .map((role) => normalizeTeamRole(role))
+        .filter((role): role is TeamRole => role != null);
       const allowedRoleValues = new Set(roleOptions.map((role) => role.value));
       const filteredRoles = normalizedRoles.filter((role) =>
         allowedRoleValues.has(role),
       );
+      const singleRole = filteredRoles[0]
+        ? [filteredRoles[0]]
+        : defaultRoles;
       setFormData({
-        roles: filteredRoles.length ? filteredRoles : defaultRoles,
+        roles: singleRole,
         firstName: member.firstName || "",
         lastName: member.lastName || "",
         phoneNumber: member.mobile || "",
@@ -219,7 +272,7 @@ function TeamMemberFormModal({
     }
 
     if (!formData.roles || formData.roles.length === 0) {
-      newErrors.roles = "At least one role is required";
+      newErrors.roles = "Role is required";
     }
 
     if (
@@ -244,14 +297,58 @@ function TeamMemberFormModal({
     try {
       await onSubmit(formData);
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error submitting form:", error);
-      const errorMessage =
-        error?.message ||
-        error?.response?.data?.message ||
-        error?.data?.message ||
-        "Failed to save team member. Please try again.";
-      setApiError(errorMessage);
+      const err = error as {
+        message?: string;
+        data?: Record<string, string> | { data?: Record<string, string> } | null;
+      };
+
+      const rawData = err?.data;
+      const fieldErrors: Record<string, string> =
+        rawData &&
+        typeof rawData === "object" &&
+        "data" in rawData &&
+        rawData.data &&
+        typeof rawData.data === "object"
+          ? (rawData.data as Record<string, string>)
+          : rawData && typeof rawData === "object"
+            ? (rawData as Record<string, string>)
+            : {};
+
+      const nextErrors: Record<string, string> = {};
+      if (typeof fieldErrors.email === "string") {
+        nextErrors.email = fieldErrors.email;
+      }
+      if (typeof fieldErrors.firstName === "string") {
+        nextErrors.firstName = fieldErrors.firstName;
+      }
+      if (typeof fieldErrors.lastName === "string") {
+        nextErrors.lastName = fieldErrors.lastName;
+      }
+      if (typeof fieldErrors.phoneNumber === "string") {
+        nextErrors.phoneNumber = fieldErrors.phoneNumber;
+      }
+      if (typeof fieldErrors.mobile === "string") {
+        nextErrors.phoneNumber = fieldErrors.mobile;
+      }
+      if (typeof fieldErrors.roles === "string") {
+        nextErrors.roles = fieldErrors.roles;
+      }
+      if (typeof fieldErrors.role === "string") {
+        nextErrors.roles = fieldErrors.role;
+      }
+      if (typeof fieldErrors.accountStatus === "string") {
+        nextErrors.accountStatus = fieldErrors.accountStatus;
+      }
+
+      if (Object.keys(nextErrors).length > 0) {
+        setErrors(nextErrors);
+      } else {
+        setApiError(
+          err?.message || "Failed to save team member. Please try again.",
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -270,15 +367,11 @@ function TeamMemberFormModal({
     }
   };
 
-  const handleRoleToggle = (role: TeamRole) => {
+  const handleRoleSelect = (role: TeamRole) => {
     if (!ALLOWED_TEAM_ROLES.has(role)) return;
     const allowedRoleValues = new Set(roleOptions.map((option) => option.value));
     if (!allowedRoleValues.has(role)) return;
-    const currentRoles = formData.roles || [];
-    const nextRoles = currentRoles.includes(role)
-      ? currentRoles.filter((item) => item !== role)
-      : [...currentRoles, role];
-    setFormData({ ...formData, roles: nextRoles });
+    setFormData({ ...formData, roles: [role] });
     if (errors.roles) {
       setErrors((prev) => {
         const newErrors = { ...prev };
@@ -292,54 +385,57 @@ function TeamMemberFormModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl m-4 max-h-[90vh] overflow-y-auto"
+        className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200/80 bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-linear-to-r from-blue-50 to-indigo-50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-              <UserIcon className="w-5 h-5 text-white" />
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
+          <div className="flex items-start gap-3">
+            <div
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm"
+              style={{ backgroundColor: TEAM_BRAND.primary }}
+            >
+              <UserIcon className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-lg font-semibold text-slate-900">
                 {mode === "create" ? "Add Team Member" : "Edit Team Member"}
               </h2>
-              <p className="text-sm text-gray-600">
+              <p className="mt-0.5 text-sm text-slate-500">
                 {mode === "create"
-                  ? "Add a new team member to your hotel"
-                  : "Update team member information"}
+                  ? "Invite someone to help run this property"
+                  : "Update this member's details and access"}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
             aria-label="Close modal"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5 px-5 py-5 sm:px-6">
           {apiError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-              <X className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-red-800">Error</p>
-                <p className="text-sm text-red-700 mt-1">{apiError}</p>
+            <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+              <X className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-rose-800">Could not save</p>
+                <p className="mt-0.5 text-sm text-rose-700">{apiError}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setApiError(null)}
-                className="text-red-600 hover:text-red-800"
+                className="rounded-md p-1 text-rose-500 hover:bg-rose-100 hover:text-rose-700"
                 aria-label="Dismiss error"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           )}
@@ -357,11 +453,11 @@ function TeamMemberFormModal({
               }
               error={errors.email}
               required
-              icon={<Mail className="w-4 h-4 text-gray-400" />}
+              icon={<Mail className="h-4 w-4 text-slate-400" />}
             />
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
               label="First Name"
               value={formData.firstName}
@@ -389,42 +485,48 @@ function TeamMemberFormModal({
             onChange={handlePhoneNumberChange}
             error={errors.phoneNumber}
             required
-            icon={<Phone className="w-4 h-4 text-gray-400" />}
+            icon={<Phone className="h-4 w-4 text-slate-400" />}
             placeholder="9876543210"
             maxLength={10}
             inputMode="numeric"
           />
 
-          <div className={cn("w-full", errors.roles ? "mb-2" : "mb-0")}>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Roles
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Role <span className="text-rose-500">*</span>
             </label>
-            <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {roleOptions.map((option) => {
-                const checked = (formData.roles || []).includes(
-                  option.value as TeamRole,
-                );
+                const selected = (formData.roles || [])[0] === option.value;
                 return (
-                  <label
+                  <button
                     key={option.value}
-                    className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                    type="button"
+                    onClick={() => handleRoleSelect(option.value as TeamRole)}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-sm transition-colors",
+                      selected
+                        ? "border-[#2f3d95]/40 bg-[#eef2ff] text-[#2f3d95] ring-1 ring-[#2f3d95]/20"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
+                    )}
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() =>
-                        handleRoleToggle(option.value as TeamRole)
-                      }
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <Shield className="w-4 h-4 text-gray-400" />
-                    <span>{option.label}</span>
-                  </label>
+                    <span
+                      className={cn(
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                        selected
+                          ? "bg-[#2f3d95] text-white"
+                          : "bg-slate-100 text-slate-500",
+                      )}
+                    >
+                      <Shield className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="font-medium">{option.label}</span>
+                  </button>
                 );
               })}
             </div>
             {errors.roles && (
-              <p className="mt-2 text-sm text-red-600" role="alert">
+              <p className="mt-2 text-sm text-rose-600" role="alert">
                 {errors.roles}
               </p>
             )}
@@ -451,16 +553,21 @@ function TeamMemberFormModal({
             />
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isSubmitting}
+              className="min-w-[120px]"
+            >
               {isSubmitting
                 ? "Saving..."
                 : mode === "create"
                   ? "Add Member"
-                  : "Update Member"}
+                  : "Save Changes"}
             </Button>
           </div>
         </form>
@@ -477,20 +584,55 @@ interface PermissionsModalProps {
 }
 
 function TeamStatusBadge({ status }: { status: string }) {
+  const label =
+    status === "ACTIVE"
+      ? "Active"
+      : status === "INACTIVE"
+        ? "Inactive"
+        : status === "SUSPENDED"
+          ? "Suspended"
+          : status;
   return (
     <span
       className={cn(
-        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1",
         status === "ACTIVE"
-          ? "bg-green-100 text-green-700"
+          ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
           : status === "INACTIVE"
-            ? "bg-gray-100 text-gray-700"
-            : "bg-red-100 text-red-700",
+            ? "bg-slate-100 text-slate-600 ring-slate-200"
+            : "bg-rose-50 text-rose-700 ring-rose-200",
       )}
     >
-      {status}
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          status === "ACTIVE"
+            ? "bg-emerald-500"
+            : status === "INACTIVE"
+              ? "bg-slate-400"
+              : "bg-rose-500",
+        )}
+      />
+      {label}
     </span>
   );
+}
+
+function memberDisplayName(member: TeamMember): string {
+  if (member.firstName && member.lastName) {
+    return `${member.firstName} ${member.lastName}`;
+  }
+  if (member.email) return member.email.split("@")[0];
+  return `User ${member.userId}`;
+}
+
+function memberInitials(member: TeamMember): string {
+  const first = member.firstName?.trim()?.[0];
+  const last = member.lastName?.trim()?.[0];
+  if (first && last) return `${first}${last}`.toUpperCase();
+  if (first) return first.toUpperCase();
+  const fromEmail = member.email?.trim()?.[0];
+  return (fromEmail || "U").toUpperCase();
 }
 
 interface TeamMemberDetailsModalProps {
@@ -517,71 +659,75 @@ function TeamMemberDetailsModal({
   if (!member) return null;
   const actionLocked = !canManageMember(member);
   const lockTitle = "You do not have permission to manage this team member.";
-  const fullName =
-    member.firstName && member.lastName
-      ? `${member.firstName} ${member.lastName}`
-      : member.email
-        ? member.email.split("@")[0]
-        : `User ${member.userId}`;
+  const fullName = memberDisplayName(member);
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200/80 bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-linear-to-r from-blue-50 to-indigo-50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-              <UserIcon className="w-5 h-5 text-white" />
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
+          <div className="flex items-start gap-3">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white shadow-sm"
+              style={{ backgroundColor: TEAM_BRAND.primary }}
+            >
+              {memberInitials(member)}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{fullName}</h2>
-              <p className="text-sm text-gray-600">User ID: {member.userId}</p>
+              <h2 className="text-lg font-semibold text-slate-900">{fullName}</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                User ID · {member.userId}
+              </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
             aria-label="Close"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 mb-3">
+        <div className="grid grid-cols-1 gap-3 px-5 py-5 sm:grid-cols-2 sm:px-6">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               Contact
             </p>
-            <div className="space-y-2 text-sm text-gray-700">
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-blue-500" />
-                <span>{member.email || "N/A"}</span>
+            <div className="space-y-2.5 text-sm text-slate-700">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200">
+                  <Mail className="h-3.5 w-3.5" />
+                </span>
+                <span className="truncate">{member.email || "N/A"}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-blue-500" />
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200">
+                  <Phone className="h-3.5 w-3.5" />
+                </span>
                 <span>{member.mobile || "N/A"}</span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-violet-100 bg-violet-50/40 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-violet-700 mb-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               Account
             </p>
-            <div className="space-y-2 text-sm text-gray-700">
-              <div>
-                <TeamStatusBadge status={member.accountStatus} />
-              </div>
-              <div className="flex items-center gap-2">
-                <CalendarDays className="w-4 h-4 text-violet-500" />
+            <div className="space-y-2.5 text-sm text-slate-700">
+              <TeamStatusBadge status={member.accountStatus} />
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                </span>
                 <span>
-                  Created:{" "}
+                  Created{" "}
                   {member.createdAt
                     ? new Date(member.createdAt).toLocaleDateString("en-GB", {
                         day: "2-digit",
@@ -594,8 +740,8 @@ function TeamMemberDetailsModal({
             </div>
           </div>
 
-          <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-4 md:col-span-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:col-span-2">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               Roles
             </p>
             <RoleBadge
@@ -610,9 +756,9 @@ function TeamMemberDetailsModal({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/80 px-5 py-4 sm:px-6">
           <Button variant="outline" onClick={onClose} className="gap-2">
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
           <Button
@@ -629,7 +775,7 @@ function TeamMemberDetailsModal({
             onClick={() => onPermissions(member)}
             title={actionLocked ? lockTitle : "Manage Permissions"}
           >
-            Manage Permissions
+            Permissions
           </Button>
           <Button
             variant="outline"
@@ -637,7 +783,7 @@ function TeamMemberDetailsModal({
             onClick={() => onManageHotel(member)}
             title={actionLocked ? lockTitle : "Manage Hotel"}
           >
-            Manage Hotel
+            Hotels
           </Button>
           <Button
             variant="danger"
@@ -667,24 +813,23 @@ function PermissionsModal({
   const memberRoles = member?.roles?.length ? member.roles : member?.role ? [member.role] : [];
   const isHotelManager = memberRoles.includes("HOTEL_MANAGER");
   const isFrontDesk = memberRoles.includes("FRONT_DESK_EXEC");
-  const isAccountant = memberRoles.includes("ACCOUNTANT");
+  const isAccountant = memberRoles.includes("HOTEL_ACCOUNTANT") || memberRoles.includes("ACCOUNTANT");
   const visiblePermissionModules = useMemo(
     () => {
       if (isFrontDesk) {
         return PERMISSION_MODULES.filter((module) => module.value === "BOOKINGS");
       }
       if (isAccountant) {
-        return PERMISSION_MODULES.filter((module) =>
-          ACCOUNTANT_ALLOWED_MODULES.includes(module.value),
+        return HOTEL_ACCOUNTANT_PERMISSION_OPTIONS.filter((module) =>
+          HOTEL_ACCOUNTANT_ALLOWED_MODULES.includes(module.value),
         );
       }
-      return PERMISSION_MODULES.filter((module) => {
-        if (!isHotelManager && module.value === "MY_TEAM") return false;
-        if (isHotelManager && HOTEL_MANAGER_BLOCKED_MODULES.includes(module.value)) {
-          return false;
-        }
-        return true;
-      });
+      if (isHotelManager) {
+        return PERMISSION_MODULES.filter((module) =>
+          HOTEL_MANAGER_PERMISSION_MODULES.includes(module.value),
+        );
+      }
+      return PERMISSION_MODULES.filter((module) => module.value !== "MY_TEAM");
     },
     [isAccountant, isFrontDesk, isHotelManager],
   );
@@ -697,8 +842,7 @@ function PermissionsModal({
       const basePermission =
         existing || { module: module.value, canView: false, canEdit: false };
       if (
-        VIEW_ONLY_MODULES.includes(module.value) ||
-        (isAccountant && ACCOUNTANT_ALLOWED_MODULES.includes(module.value))
+        VIEW_ONLY_MODULES.includes(module.value)
       ) {
         return { ...basePermission, canEdit: false };
       }
@@ -762,10 +906,7 @@ function PermissionsModal({
   };
 
   const handleToggleEdit = (module: PermissionModule) => {
-    if (
-      VIEW_ONLY_MODULES.includes(module) ||
-      (isAccountant && ACCOUNTANT_ALLOWED_MODULES.includes(module))
-    ) {
+    if (VIEW_ONLY_MODULES.includes(module)) {
       return;
     }
     setPermissions((prev) =>
@@ -791,9 +932,7 @@ function PermissionsModal({
         visiblePermissionModules.some((module) => module.value === permission.module),
       );
       const normalizedPermissions = filteredPermissions.map((permission) =>
-        VIEW_ONLY_MODULES.includes(permission.module) ||
-        (isAccountant &&
-          ACCOUNTANT_ALLOWED_MODULES.includes(permission.module as PermissionModule))
+        VIEW_ONLY_MODULES.includes(permission.module)
           ? { ...permission, canEdit: false }
           : permission,
       );
@@ -801,7 +940,7 @@ function PermissionsModal({
         ? normalizedPermissions.filter((permission) => permission.module === "BOOKINGS")
         : isAccountant
           ? normalizedPermissions.filter((permission) =>
-              ACCOUNTANT_ALLOWED_MODULES.includes(
+              HOTEL_ACCOUNTANT_ALLOWED_MODULES.includes(
                 permission.module as PermissionModule,
               ),
             )
@@ -825,60 +964,61 @@ function PermissionsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl m-4 max-h-[90vh] overflow-y-auto"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200/80 bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-linear-to-r from-blue-50 to-indigo-50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center">
-              <Settings className="w-5 h-5 text-white" />
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
+          <div className="flex items-start gap-3">
+            <div
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm"
+              style={{ backgroundColor: TEAM_BRAND.primary }}
+            >
+              <Settings className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-lg font-semibold text-slate-900">
                 Manage Permissions
               </h2>
-              <p className="text-sm text-gray-600">
-                {member
-                  ? `${member.firstName} ${member.lastName}`
-                  : "Team Member"}
+              <p className="mt-0.5 text-sm text-slate-500">
+                {member ? memberDisplayName(member) : "Team Member"}
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
             aria-label="Close modal"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="px-5 py-5 sm:px-6">
           {apiError && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 mb-6">
-              <X className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-red-800">Error</p>
-                <p className="text-sm text-red-700 mt-1">{apiError}</p>
+            <div className="mb-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+              <X className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-rose-800">Could not save</p>
+                <p className="mt-0.5 text-sm text-rose-700">{apiError}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setApiError(null)}
-                className="text-red-600 hover:text-red-800"
+                className="rounded-md p-1 text-rose-500 hover:bg-rose-100"
                 aria-label="Dismiss error"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           )}
 
           {loadWarning && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
               <p className="text-sm text-amber-800">{loadWarning}</p>
             </div>
           )}
@@ -888,44 +1028,42 @@ function PermissionsModal({
               <LoadingSpinner />
             </div>
           ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-2.5">
               {visiblePermissionModules.map((module) => {
                 const permission = permissions.find(
                   (p) => p.module === module.value,
                 );
                 const canView = permission?.canView || false;
                 const canEdit = permission?.canEdit || false;
-                const isViewOnlyModule =
-                  VIEW_ONLY_MODULES.includes(module.value) ||
-                  (isAccountant &&
-                    ACCOUNTANT_ALLOWED_MODULES.includes(module.value));
+                const isViewOnlyModule = VIEW_ONLY_MODULES.includes(
+                  module.value,
+                );
 
                 return (
                   <div
                     key={module.value}
-                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/40 px-4 py-3 transition-colors hover:bg-white"
                   >
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-medium text-slate-900">
                         {module.label}
                       </h3>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => handleToggleView(module.value)}
                         className={cn(
-                          "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                          "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors",
                           canView
-                            ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                            ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                            : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50",
                         )}
                       >
                         {canView ? (
-                          <Eye className="w-4 h-4" />
+                          <Eye className="h-3.5 w-3.5" />
                         ) : (
-                          <EyeOff className="w-4 h-4" />
+                          <EyeOff className="h-3.5 w-3.5" />
                         )}
                         View
                       </button>
@@ -934,17 +1072,18 @@ function PermissionsModal({
                         onClick={() => handleToggleEdit(module.value)}
                         disabled={!canView || isViewOnlyModule}
                         className={cn(
-                          "flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                          "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors",
                           canEdit
-                            ? "bg-green-100 text-green-700 hover:bg-green-200"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-                          (!canView || isViewOnlyModule) && "opacity-50 cursor-not-allowed",
+                            ? "bg-[#eef2ff] text-[#2f3d95] ring-1 ring-[#2f3d95]/25"
+                            : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50",
+                          (!canView || isViewOnlyModule) &&
+                            "cursor-not-allowed opacity-50",
                         )}
                       >
                         {canEdit ? (
-                          <Unlock className="w-4 h-4" />
+                          <Unlock className="h-3.5 w-3.5" />
                         ) : (
-                          <Lock className="w-4 h-4" />
+                          <Lock className="h-3.5 w-3.5" />
                         )}
                         {isViewOnlyModule ? "View Only" : "Edit"}
                       </button>
@@ -953,22 +1092,21 @@ function PermissionsModal({
                 );
               })}
             </div>
-          </div>
           )}
+        </div>
 
-          <div className="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-gray-200">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              onClick={handleSave}
-              disabled={isSubmitting || isLoadingPerms}
-            >
-              {isSubmitting ? "Saving..." : "Save Permissions"}
-            </Button>
-          </div>
+        <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/80 px-5 py-4 sm:px-6">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            onClick={handleSave}
+            disabled={isSubmitting || isLoadingPerms}
+          >
+            {isSubmitting ? "Saving..." : "Save Permissions"}
+          </Button>
         </div>
       </div>
     </div>
@@ -1024,26 +1162,34 @@ export default function MyTeamPage() {
     const normalized = incoming.filter((role): role is TeamRole =>
       ALLOWED_TEAM_ROLES.has(role as TeamRole),
     );
+    const pickOne = (allowed: TeamRole[]): TeamRole[] =>
+      allowed.length ? [allowed[0]] : fallbackRoles.slice(0, 1);
+
     if (isCurrentUserHotelOwner) {
-      const allowed = normalized.filter((role) =>
-        HOTEL_OWNER_ASSIGNABLE_ROLES.includes(role),
+      return pickOne(
+        normalized.filter((role) =>
+          HOTEL_OWNER_ASSIGNABLE_ROLES.includes(role),
+        ),
       );
-      return allowed.length ? allowed : fallbackRoles;
     }
     if (isCurrentUserHotelManager) {
-      const allowed = normalized.filter((role) =>
-        HOTEL_MANAGER_ASSIGNABLE_ROLES.includes(role),
+      return pickOne(
+        normalized.filter((role) =>
+          HOTEL_MANAGER_ASSIGNABLE_ROLES.includes(role),
+        ),
       );
-      return allowed.length ? allowed : fallbackRoles;
     }
-    return normalized.length ? normalized : fallbackRoles;
+    return pickOne(normalized);
   };
   const canHotelManagerAssignForMember = (member: TeamMember): boolean => {
     if (!isCurrentUserHotelManager) return true;
     const memberRoles = teamMemberRoleList(member);
-    return memberRoles.some((role) =>
-      HOTEL_MANAGER_ASSIGNABLE_ROLES.includes(role as TeamRole),
-    );
+    return memberRoles.some((role) => {
+      const normalized = normalizeTeamRole(role);
+      return (
+        !!normalized && HOTEL_MANAGER_ASSIGNABLE_ROLES.includes(normalized)
+      );
+    });
   };
 
   const canHotelManagerManageMemberActions = (member: TeamMember): boolean => {
@@ -1287,16 +1433,21 @@ export default function MyTeamPage() {
 
   if (!selectedHotelId) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">My Team</h1>
-          <p className="text-gray-600 mt-2">
-            Please select a hotel from the dropdown above to manage team members
+      <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
+        <div className="mb-5">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+            My Team
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Select a hotel from the dropdown above to manage team members
           </p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <p className="text-gray-500">No hotel selected</p>
+        <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70">
+          <div className="text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-400 ring-1 ring-slate-200">
+              <Building2 className="h-6 w-6" />
+            </div>
+            <p className="text-sm font-medium text-slate-600">No hotel selected</p>
           </div>
         </div>
       </div>
@@ -1304,62 +1455,82 @@ export default function MyTeamPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Team</h1>
-          <p className="text-gray-600 mt-2">
-            Manage your team members and their permissions
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm"
+              style={{ backgroundColor: TEAM_BRAND.primary }}
+            >
+              <Users className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                My Team
+              </h1>
+              <p className="text-sm text-slate-500">
+                Manage staff access and permissions for this property
+              </p>
+            </div>
+          </div>
         </div>
         <Button
           variant="primary"
           onClick={() => setShowCreateModal(true)}
-          className="gap-2"
+          className="gap-2 shadow-sm"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="h-4 w-4" />
           Add Team Member
         </Button>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
           <LoadingSpinner />
         </div>
       ) : teamMembers.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
-          <div className="text-center">
-            <UserIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-gradient-to-br from-[#eef2ff] via-white to-slate-50 px-6 py-10 text-center sm:px-10">
+            <div
+              className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-md"
+              style={{ backgroundColor: TEAM_BRAND.primary }}
+            >
+              <Users className="h-8 w-8" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900">
               No team members yet
             </h3>
-            <p className="text-gray-500 mb-6">
-              Get started by adding your first team member
+            <p className="mx-auto mt-1.5 max-w-md text-sm text-slate-500">
+              Add managers, front desk, or accountants so they can help run this
+              hotel.
             </p>
             <Button
               variant="primary"
               onClick={() => setShowCreateModal(true)}
-              className="gap-2"
+              className="mt-5 gap-2 shadow-sm"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="h-4 w-4" />
               Add Team Member
             </Button>
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
-              <Input
-                label="Search team member"
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={handleTeamSearchKeyDown}
-                placeholder="Search by name, email, or mobile"
-                icon={<Mail className="w-4 h-4 text-gray-400" />}
-              />
-              <div className="flex items-end gap-2">
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1">
+                <Input
+                  label="Search team"
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={handleTeamSearchKeyDown}
+                  placeholder="Name, email, or mobile"
+                  icon={<Search className="h-4 w-4 text-slate-400" />}
+                />
+              </div>
+              <div className="flex shrink-0 gap-2">
                 <Button type="button" variant="primary" onClick={applyTeamSearch}>
                   Search
                 </Button>
@@ -1371,221 +1542,193 @@ export default function MyTeamPage() {
           </div>
 
           {displayedTeamMembers.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-              <UserIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="font-medium text-gray-800">No matching team members</p>
-              <p className="text-sm text-gray-500 mt-1">
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-12 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-400 ring-1 ring-slate-200">
+                <Search className="h-5 w-5" />
+              </div>
+              <p className="font-medium text-slate-800">No matching team members</p>
+              <p className="mt-1 text-sm text-slate-500">
                 Try a different search term or reset filters.
               </p>
             </div>
           ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-[#2f3d95] border-b-2 border-[#1e2a7a]">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                    Mobile
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                    Roles
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                    Created At
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-white uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-5">
+                <p className="text-sm font-semibold text-slate-900">
+                  Team members
+                </p>
+                <span className="rounded-full bg-[#eef2ff] px-2.5 py-0.5 text-xs font-semibold text-[#2f3d95]">
+                  {displayedTeamMembers.length}
+                </span>
+              </div>
+              <ul className="divide-y divide-slate-100">
                 {displayedTeamMembers.map((member) => {
                   const actionLocked = !canManageMemberActions(member);
                   const actionLockTitle =
                     "You do not have permission to manage this team member.";
                   return (
-                  <tr
-                    key={member.accessId}
-                    className="hover:bg-blue-50 transition-colors even:bg-gray-50"
-                    onClick={() => setSelectedMember(member)}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                          <UserIcon className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {member.firstName && member.lastName
-                              ? `${member.firstName} ${member.lastName}`
-                              : member.email
-                                ? member.email.split("@")[0]
-                                : `User ${member.userId}`}
+                    <li key={member.accessId}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedMember(member)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSelectedMember(member);
+                          }
+                        }}
+                        className="grid gap-3 px-4 py-3.5 transition-colors hover:bg-[#f8f9ff] sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:px-5"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white"
+                            style={{ backgroundColor: TEAM_BRAND.primary }}
+                          >
+                            {memberInitials(member)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate text-sm font-semibold text-slate-900">
+                                {memberDisplayName(member)}
+                              </p>
+                              <TeamStatusBadge status={member.accountStatus} />
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                              <span className="inline-flex min-w-0 items-center gap-1 truncate">
+                                <Mail className="h-3 w-3 shrink-0" />
+                                <span className="truncate">
+                                  {member.email || "N/A"}
+                                </span>
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <Phone className="h-3 w-3 shrink-0" />
+                                {member.mobile || "N/A"}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-700">
-                        <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                        {member.email || "N/A"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-700">
-                        <Phone className="w-4 h-4 mr-2 text-gray-400" />
-                        {member.mobile || "N/A"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <RoleBadge
-                        roles={
-                          member.roles?.length
-                            ? member.roles
-                            : member.role
-                              ? [member.role]
-                              : []
-                        }
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={cn(
-                          "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold",
-                          member.accountStatus === "ACTIVE"
-                            ? "bg-green-100 text-green-700"
-                            : member.accountStatus === "INACTIVE"
-                              ? "bg-gray-100 text-gray-700"
-                              : "bg-red-100 text-red-700",
-                        )}
-                      >
-                        {member.accountStatus}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-700">
-                        {member.createdAt
-                          ? new Date(member.createdAt).toLocaleDateString(
-                              "en-GB",
-                              {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                              },
-                            )
-                          : "N/A"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          disabled={actionLocked}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            !actionLocked && setEditingMember(member);
-                          }}
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            actionLocked
-                              ? "text-gray-300 cursor-not-allowed"
-                              : "text-blue-600 hover:text-blue-900 hover:bg-blue-50",
-                          )}
-                          title={
-                            actionLocked ? actionLockTitle : "Edit"
-                          }
+
+                        <div className="min-w-0 space-y-1.5">
+                          <RoleBadge
+                            roles={
+                              member.roles?.length
+                                ? member.roles
+                                : member.role
+                                  ? [member.role]
+                                  : []
+                            }
+                          />
+                          <p className="text-[11px] text-slate-400">
+                            Joined{" "}
+                            {member.createdAt
+                              ? new Date(member.createdAt).toLocaleDateString(
+                                  "en-GB",
+                                  {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                  },
+                                )
+                              : "N/A"}
+                          </p>
+                        </div>
+
+                        <div
+                          className="flex items-center gap-1 sm:justify-end"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={actionLocked}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            !actionLocked && setPermissionsMember(member);
-                          }}
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            actionLocked
-                              ? "text-gray-300 cursor-not-allowed"
-                              : "text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50",
-                          )}
-                          title={
-                            actionLocked
-                              ? actionLockTitle
-                              : "Manage Permissions"
-                          }
-                        >
-                          <Settings className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={
-                            actionLocked ||
-                            !canHotelManagerAssignForMember(member)
-                          }
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            !actionLocked &&
-                              canHotelManagerAssignForMember(member) &&
+                          <button
+                            type="button"
+                            disabled={actionLocked}
+                            onClick={() =>
+                              !actionLocked && setEditingMember(member)
+                            }
+                            className={cn(
+                              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                              actionLocked
+                                ? "cursor-not-allowed text-slate-300"
+                                : "text-slate-500 hover:bg-[#eef2ff] hover:text-[#2f3d95]",
+                            )}
+                            title={actionLocked ? actionLockTitle : "Edit"}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={actionLocked}
+                            onClick={() =>
+                              !actionLocked && setPermissionsMember(member)
+                            }
+                            className={cn(
+                              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                              actionLocked
+                                ? "cursor-not-allowed text-slate-300"
+                                : "text-slate-500 hover:bg-[#eef2ff] hover:text-[#2f3d95]",
+                            )}
+                            title={
+                              actionLocked
+                                ? actionLockTitle
+                                : "Manage Permissions"
+                            }
+                          >
+                            <Settings className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={
+                              actionLocked ||
+                              !canHotelManagerAssignForMember(member)
+                            }
+                            onClick={() => {
+                              if (
+                                actionLocked ||
+                                !canHotelManagerAssignForMember(member)
+                              ) {
+                                return;
+                              }
                               navigate(
                                 `${ROUTES.TEAM.USER_MANAGE_HOTELS(member.userId)}?hotelId=${encodeURIComponent(selectedHotelId)}`,
                               );
-                          }}
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            actionLocked ||
-                              !canHotelManagerAssignForMember(member)
-                              ? "text-gray-300 cursor-not-allowed"
-                              : "text-purple-600 hover:text-purple-900 hover:bg-purple-50",
-                          )}
-                          title={
-                            actionLocked
-                              ? actionLockTitle
-                              : "Manage Hotel"
-                          }
-                        >
-                          <Building2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={actionLocked}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            !actionLocked && setRevokeMember(member);
-                          }}
-                          className={cn(
-                            "p-2 rounded-lg transition-colors",
-                            actionLocked
-                              ? "text-gray-300 cursor-not-allowed"
-                              : "text-red-600 hover:text-red-900 hover:bg-red-50",
-                          )}
-                          title={
-                            actionLocked
-                              ? actionLockTitle
-                              : "Revoke Access"
-                          }
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                            }}
+                            className={cn(
+                              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                              actionLocked ||
+                                !canHotelManagerAssignForMember(member)
+                                ? "cursor-not-allowed text-slate-300"
+                                : "text-slate-500 hover:bg-[#eef2ff] hover:text-[#2f3d95]",
+                            )}
+                            title={
+                              actionLocked ? actionLockTitle : "Manage Hotel"
+                            }
+                          >
+                            <Building2 className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={actionLocked}
+                            onClick={() =>
+                              !actionLocked && setRevokeMember(member)
+                            }
+                            className={cn(
+                              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                              actionLocked
+                                ? "cursor-not-allowed text-slate-300"
+                                : "text-slate-500 hover:bg-rose-50 hover:text-rose-600",
+                            )}
+                            title={
+                              actionLocked ? actionLockTitle : "Revoke Access"
+                            }
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
-                    </td>
-                  </tr>
+                    </li>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              </ul>
+            </div>
           )}
         </div>
       )}
@@ -1640,30 +1783,32 @@ export default function MyTeamPage() {
       {/* Revoke Confirmation Modal */}
       {revokeMember && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
           onClick={(e) => e.target === e.currentTarget && setRevokeMember(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md m-4 overflow-hidden"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-gray-200 bg-linear-to-r from-red-50 to-orange-50">
-              <h3 className="text-lg font-bold text-gray-900">Revoke Access</h3>
-              <p className="text-sm text-gray-600 mt-1">
+            <div className="border-b border-rose-100 bg-rose-50/80 px-5 py-4">
+              <h3 className="text-base font-semibold text-slate-900">
+                Revoke Access
+              </h3>
+              <p className="mt-0.5 text-sm text-slate-600">
                 Remove this user&apos;s access to the selected hotel.
               </p>
             </div>
-            <div className="px-6 py-5 space-y-4">
-              <p className="text-sm text-gray-700">
+            <div className="space-y-4 px-5 py-5">
+              <p className="text-sm text-slate-700">
                 Are you sure you want to revoke access for{" "}
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-slate-900">
                   {revokeMember.firstName && revokeMember.lastName
                     ? `${revokeMember.firstName} ${revokeMember.lastName}`
                     : revokeMember.email}
                 </span>
                 ?
               </p>
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-1">
                 <Button
                   type="button"
                   variant="outline"

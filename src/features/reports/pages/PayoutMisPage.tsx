@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/hooks/useAuth";
 import { canViewPaymentReport } from "@/constants/roles";
+import { canViewModule } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
@@ -75,7 +76,9 @@ export default function PayoutMisPage() {
   const hotelId = useHotelIdFromUrl();
   const [, setSearchParams] = useSearchParams();
 
-  const showNetEarningsTabs = canViewPaymentReport(user?.roles);
+  // Same Net Earnings tab as Super Admin / Owner for Manager & Accountant too.
+  const showNetEarningsTabs =
+    canViewPaymentReport(user?.roles) || canViewModule(user, "PAYMENTS");
 
   const [datePreset, setDatePreset] = useState<PayoutMisDatePreset>(DEFAULT_DATE_PRESET);
   const [fromDate, setFromDate] = useState("");
@@ -348,7 +351,12 @@ export default function PayoutMisPage() {
           />
 
           {showNetEarningsTabs ? (
-            <PaymentsTabNav active="payouts" showNetEarnings hotelId={hotelId} />
+            <PaymentsTabNav
+              active="payouts"
+              showNetEarnings
+              showPayouts
+              hotelId={hotelId}
+            />
           ) : null}
 
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">

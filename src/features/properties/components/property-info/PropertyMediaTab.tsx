@@ -1,6 +1,6 @@
 import { useState, useEffect, type DragEvent } from "react";
 import { adminService, type HotelMediaItem, type HotelRoom } from "@/features/admin/services/adminService";
-import { Building2, Image as ImageIcon, Plus, Upload, X, Check, Tag, Play, Trash2, Star, ChevronDown, ChevronRight, MoreVertical, ArrowUp, ArrowDown, CheckSquare, Square, Loader2 } from "lucide-react";
+import { Building2, Image as ImageIcon, Plus, Upload, X, Check, Tag, Play, Trash2, Star, ChevronDown, ChevronRight, MoreVertical, ArrowUp, ArrowDown, CheckSquare, Square, Loader2, BedDouble, Camera } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
@@ -524,6 +524,8 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
     return hotelMedia.filter(item => !item.roomId && !item.cover);
   };
 
+  const hotelTabActive = activeTab === "hotel";
+
   return (
     <>
       <Toast
@@ -533,127 +535,115 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
         onClose={hideToast}
       />
       
-      <div className="space-y-6">
-        {/* Tab Navigation */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex border-b border-gray-200">
+      <div className="overflow-hidden rounded-2xl border border-[#2f3d95]/20 bg-gradient-to-br from-white via-[#f8faff] to-[#eef2ff]/50 shadow-[0_8px_30px_rgba(47,61,149,0.1)] ring-1 ring-[#2f3d95]/10">
+        {/* Tabs + toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#2f3d95]/10 bg-gradient-to-r from-[#eef2ff] via-[#f5f3ff] to-cyan-50/80 px-3 py-3 sm:px-4">
+          <div className="inline-flex rounded-lg bg-white/80 p-1 shadow-sm ring-1 ring-[#2f3d95]/15 backdrop-blur-sm">
             <button
               type="button"
               role="tab"
-              aria-selected={activeTab === "hotel"}
+              aria-selected={hotelTabActive}
               onClick={() => setActiveTab("hotel")}
               className={cn(
-                "flex-1 px-6 py-4 text-center font-semibold transition-colors relative",
-                activeTab === "hotel"
-                  ? "text-blue-600 bg-blue-50"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
+                hotelTabActive
+                  ? "bg-[#2f3d95] text-white shadow-md shadow-[#2f3d95]/30"
+                  : "text-slate-600 hover:bg-[#eef2ff] hover:text-[#2f3d95]",
               )}
             >
-              <div className="flex items-center justify-center gap-2">
-                <Building2 className="w-5 h-5" />
-                <span>Hotel Media</span>
-              </div>
-              {activeTab === "hotel" && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-              )}
+              <Building2 className="h-3.5 w-3.5" />
+              Hotel
             </button>
             <button
               type="button"
               role="tab"
-              aria-selected={activeTab === "rooms"}
+              aria-selected={!hotelTabActive}
               onClick={() => setActiveTab("rooms")}
               className={cn(
-                "flex-1 px-6 py-4 text-center font-semibold transition-colors relative",
-                activeTab === "rooms"
-                  ? "text-blue-600 bg-blue-50"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
+                !hotelTabActive
+                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/25"
+                  : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700",
               )}
             >
-              <div className="flex items-center justify-center gap-2">
-                <ImageIcon className="w-5 h-5" />
-                <span>Room Media</span>
-              </div>
-              {activeTab === "rooms" && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-              )}
+              <BedDouble className="h-3.5 w-3.5" />
+              Rooms
             </button>
           </div>
-        </div>
 
-        {/* Hotel Media Tab */}
-        {activeTab === "hotel" && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900">Hotel Media</h2>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      {hotelMedia.length} media items · Drag to reorder
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => {
-                      setSelectionMode((m) => !m);
-                      if (selectionMode) setSelectedImageIds(new Set());
-                    }}
-                    variant={selectionMode ? "primary" : "outline"}
-                    className="gap-2"
-                  >
-                    {selectionMode ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                    {selectionMode ? "Cancel select" : "Select"}
-                  </Button>
-                  {selectionMode && selectedImageIds.size > 0 && (
-                    <Button
-                      onClick={() => {
-                        setSelectedMedia(null);
-                        setShowTagModal(true);
-                      }}
-                      variant="primary"
-                      className="gap-2"
-                    >
-                      <Tag className="w-4 h-4" />
-                      Assign tag ({selectedImageIds.size})
-                    </Button>
-                  )}
+          {hotelTabActive ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-[#2f3d95]/10 px-2.5 py-0.5 text-xs font-semibold text-[#2f3d95]">
+                {hotelMedia.length} item{hotelMedia.length === 1 ? "" : "s"}
+              </span>
+              <Button
+                onClick={() => {
+                  setSelectionMode((m) => !m);
+                  if (selectionMode) setSelectedImageIds(new Set());
+                }}
+                variant={selectionMode ? "primary" : "outline"}
+                size="sm"
+                className="gap-1.5"
+              >
+                {selectionMode ? (
+                  <CheckSquare className="h-3.5 w-3.5" />
+                ) : (
+                  <Square className="h-3.5 w-3.5" />
+                )}
+                {selectionMode ? "Cancel" : "Select"}
+              </Button>
+              {selectionMode && selectedImageIds.size > 0 ? (
                 <Button
                   onClick={() => {
-                    setUploadRoomKey(null);
-                    setShowUploadModal(true);
+                    setSelectedMedia(null);
+                    setShowTagModal(true);
                   }}
                   variant="primary"
-                  className="gap-2"
+                  size="sm"
+                  className="gap-1.5 bg-[#2f3d95] hover:bg-[#263578]"
                 >
-                    <Upload className="w-4 h-4" />
-                    Upload Media
-                  </Button>
-                </div>
-              </div>
+                  <Tag className="h-3.5 w-3.5" />
+                  Tag ({selectedImageIds.size})
+                </Button>
+              ) : null}
+              <Button
+                onClick={() => {
+                  setUploadRoomKey(null);
+                  setShowUploadModal(true);
+                }}
+                variant="primary"
+                size="sm"
+                className="gap-1.5 bg-[#2f3d95] hover:bg-[#263578]"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Upload
+              </Button>
             </div>
+          ) : (
+            <span className="rounded-full bg-emerald-600/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+              {rooms.length} room{rooms.length === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
 
-            <div className="p-6">
+        {/* Hotel Media */}
+        {hotelTabActive && (
+          <div className="bg-gradient-to-b from-[#f8faff]/90 to-white p-4 sm:p-5">
               {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin text-[#2f3d95]" />
+                  Loading media...
                 </div>
               ) : hotelMedia.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                  <ImageIcon className="w-16 h-16 mb-4" />
-                  <p className="text-lg font-medium">No media available</p>
-                  <p className="text-sm mb-4">Upload media to get started</p>
-                  <Button
-                    onClick={() => setShowUploadModal(true)}
-                    variant="primary"
-                    className="gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Upload Media
-                  </Button>
+                <div className="flex flex-col items-center rounded-xl border border-dashed border-[#2f3d95]/25 bg-[#eef2ff]/40 px-6 py-12 text-center">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2f3d95] to-indigo-500 text-white shadow-lg shadow-[#2f3d95]/25">
+                    <Camera className="h-6 w-6" />
+                  </div>
+                  <p className="font-medium text-slate-800">No hotel media yet</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Use <span className="font-medium">Upload</span> above to add
+                    photos or videos.
+                  </p>
                 </div>
               ) : (
                 (() => {
@@ -674,12 +664,12 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
                             onClick={selectionMode ? () => toggleSelectImage(item.imageId) : undefined}
                             role={selectionMode ? "button" : undefined}
                             className={cn(
-                              "relative rounded-lg transition-all duration-150",
-                              !selectionMode && "cursor-grab active:cursor-grabbing",
+                              "relative rounded-xl transition-all duration-150 ring-2 ring-white shadow-md shadow-[#2f3d95]/5",
+                              !selectionMode && "cursor-grab active:cursor-grabbing hover:shadow-lg hover:shadow-[#2f3d95]/15 hover:ring-[#2f3d95]/20",
                               selectionMode && "cursor-pointer",
                               draggedImageId === item.imageId && "opacity-50 scale-95",
-                              dragOverImageId === item.imageId && "ring-2 ring-blue-500 ring-offset-2",
-                              selectionMode && isSelected && "ring-2 ring-blue-500 ring-offset-2"
+                              dragOverImageId === item.imageId && "ring-2 ring-[#2f3d95] ring-offset-2",
+                              selectionMode && isSelected && "ring-2 ring-[#2f3d95] ring-offset-2",
                             )}
                           >
                             {selectionMode && (
@@ -715,108 +705,107 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
                   );
                 })()
               )}
-            </div>
           </div>
         )}
 
-        {/* Room Media Tab */}
+        {/* Room Media */}
         {activeTab === "rooms" && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center">
-                  <ImageIcon className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">Room Media</h2>
-                  <p className="text-xs text-gray-600 mt-0.5">
-                    {rooms.length} room(s) available
-                  </p>
-                </div>
-              </div>
-            </div>
-
+          <div className="bg-gradient-to-b from-emerald-50/40 to-white p-3 sm:p-4">
             {rooms.length === 0 ? (
-              <div className="p-6 text-center text-gray-500">
-                <ImageIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="text-sm">No rooms available</p>
+              <div className="flex flex-col items-center rounded-xl border border-dashed border-emerald-300/50 bg-emerald-50/50 px-6 py-10 text-center">
+                <BedDouble className="mb-2 h-8 w-8 text-emerald-400" />
+                <p className="text-sm font-medium text-slate-700">No rooms yet</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Add rooms first, then assign photos to each room.
+                </p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-200">
+              <div className="space-y-2">
                 {rooms.map((room) => {
                   const isExpanded = expandedRooms.has(room.roomId);
                   const roomMedia = roomMediaMap[room.roomId] || [];
 
                   return (
-                    <div key={room.roomId} className="bg-gray-50/50">
+                    <article
+                      key={room.roomId}
+                      className={cn(
+                        "overflow-hidden rounded-xl border bg-white shadow-sm transition-shadow",
+                        isExpanded
+                          ? "border-emerald-200/80 shadow-emerald-100/50 ring-1 ring-emerald-100"
+                          : "border-slate-200/90 hover:border-emerald-200/60 hover:shadow-md",
+                      )}
+                    >
                       <button
                         type="button"
                         data-readonly-allow="true"
                         onClick={() => handleToggleRoom(room.roomId)}
-                        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-100 transition-colors"
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50/80"
                       >
-                        <div className="flex items-center gap-3">
-                          {isExpanded ? (
-                            <ChevronDown className="w-5 h-5 text-gray-600" />
-                          ) : (
-                            <ChevronRight className="w-5 h-5 text-gray-600" />
-                          )}
-                          <div className="text-left">
-                            <h3 className="text-base font-semibold text-gray-900">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-700 ring-1 ring-sky-100">
+                            <BedDouble className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-900">
                               {room.roomName}
-                            </h3>
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {roomMedia.length} photo
+                              {roomMedia.length === 1 ? "" : "s"}
+                              {isExpanded ? " · expanded" : " · click to manage"}
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <ImageIcon className="w-4 h-4" />
-                            {roomMedia.length}
-                          </span>
-                        </div>
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+                        )}
                       </button>
 
-                      {isExpanded && (
-                        <div className="px-6 py-4 bg-white">
-                          <div className="flex items-center justify-between mb-4">
-                            <p className="text-sm text-gray-600">
-                              {roomMedia.length} media assigned
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                onClick={() => {
-                                  setUploadRoomKey(room.roomKey || room.roomId);
-                                  setShowUploadModal(true);
-                                }}
-                                variant="outline"
-                                className="gap-2"
-                              >
-                                <Upload className="w-4 h-4" />
-                                Upload
-                              </Button>
-                              <Button
-                                onClick={() => {
-                                  setSelectionMode((m) => !m);
-                                  if (selectionMode) {
-                                    setSelectedImageIds(new Set());
-                                  }
-                                }}
-                                variant={selectionMode ? "primary" : "outline"}
-                                className="gap-2"
-                              >
-                                {selectionMode ? (
-                                  <CheckSquare className="w-4 h-4" />
-                                ) : (
-                                  <Square className="w-4 h-4" />
-                                )}
-                                {selectionMode ? "Cancel select" : "Select"}
-                              </Button>
+                      {isExpanded ? (
+                        <div className="border-t border-emerald-100/80 bg-gradient-to-b from-emerald-50/50 to-white px-4 py-3">
+                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                            <Button
+                              onClick={() => {
+                                setUploadRoomKey(room.roomKey || room.roomId);
+                                setShowUploadModal(true);
+                              }}
+                              variant="primary"
+                              size="sm"
+                              className="gap-1.5 bg-[#2f3d95] hover:bg-[#263578]"
+                            >
+                              <Upload className="h-3.5 w-3.5" />
+                              Upload
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setSelectionMode((m) => !m);
+                                if (selectionMode) {
+                                  setSelectedImageIds(new Set());
+                                }
+                              }}
+                              variant={selectionMode ? "primary" : "outline"}
+                              size="sm"
+                              className="gap-1.5"
+                            >
+                              {selectionMode ? (
+                                <CheckSquare className="h-3.5 w-3.5" />
+                              ) : (
+                                <Square className="h-3.5 w-3.5" />
+                              )}
+                              {selectionMode ? "Cancel" : "Select"}
+                            </Button>
+                            {selectionMode && selectedImageIds.size > 0 ? (
                               <Button
                                 onClick={() => {
                                   const sortedRoom = [...roomMedia].sort(
-                                    (a, b) => a.sortOrder - b.sortOrder
+                                    (a, b) => a.sortOrder - b.sortOrder,
                                   );
                                   const onlyThisRoom = sortedRoom
-                                    .filter((item) => selectedImageIds.has(item.imageId))
+                                    .filter((item) =>
+                                      selectedImageIds.has(item.imageId),
+                                    )
                                     .map((item) => item.imageId);
                                   if (onlyThisRoom.length === 0) return;
                                   setSelectedMedia(null);
@@ -824,53 +813,36 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
                                   setShowTagModal(true);
                                 }}
                                 variant="primary"
-                                className="gap-2"
-                                disabled={!selectionMode}
+                                size="sm"
+                                className="gap-1.5 bg-[#2f3d95] hover:bg-[#263578]"
                               >
-                                <Tag className="w-4 h-4" />
-                                Assign tag
+                                <Tag className="h-3.5 w-3.5" />
+                                Tag
                               </Button>
-                              <Button
-                                onClick={() => {
-                                  setSelectedRoomId(room.roomKey || room.roomId);
-                                  setShowAssignModal(true);
-                                }}
-                                variant="primary"
-                                className="gap-2"
-                              >
-                                <Plus className="w-4 h-4" />
-                                Assign Media
-                              </Button>
-                            </div>
+                            ) : null}
+                            <Button
+                              onClick={() => {
+                                setSelectedRoomId(room.roomKey || room.roomId);
+                                setShowAssignModal(true);
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Assign from hotel
+                            </Button>
                           </div>
                           {roomMedia.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-8 text-gray-400">
-                              <ImageIcon className="w-12 h-12 mb-3" />
-                              <p className="text-sm mb-3">No media assigned</p>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  onClick={() => {
-                                    setUploadRoomKey(room.roomKey || room.roomId);
-                                    setShowUploadModal(true);
-                                  }}
-                                  variant="outline"
-                                  className="gap-2"
-                                >
-                                  <Upload className="w-4 h-4" />
-                                  Upload
-                                </Button>
-                                <Button
-                                  onClick={() => {
-                                    setSelectedRoomId(room.roomKey || room.roomId);
-                                    setShowAssignModal(true);
-                                  }}
-                                  variant="primary"
-                                  className="gap-2"
-                                >
-                                  <Plus className="w-4 h-4" />
-                                  Assign Media
-                                </Button>
-                              </div>
+                            <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center">
+                              <p className="text-sm font-medium text-slate-700">
+                                No photos for this room
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                Use <span className="font-medium">Upload</span> or{" "}
+                                <span className="font-medium">Assign from hotel</span>{" "}
+                                above.
+                              </p>
                             </div>
                           ) : (
                             (() => {
@@ -917,17 +889,17 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
                                         }
                                         role={selectionMode ? "button" : undefined}
                                         className={cn(
-                                          "relative rounded-lg transition-all duration-150",
+                                          "relative rounded-xl transition-all duration-150 ring-2 ring-white shadow-md shadow-emerald-900/5",
                                           !selectionMode &&
-                                            "cursor-grab active:cursor-grabbing",
+                                            "cursor-grab active:cursor-grabbing hover:shadow-lg hover:shadow-emerald-600/10 hover:ring-emerald-200/60",
                                           selectionMode && "cursor-pointer",
                                           draggedImageId === item.imageId &&
                                             "opacity-50 scale-95",
                                           dragOverImageId === item.imageId &&
-                                            "ring-2 ring-blue-500 ring-offset-2",
+                                            "ring-2 ring-emerald-500 ring-offset-2",
                                           selectionMode &&
                                             isSelected &&
-                                            "ring-2 ring-blue-500 ring-offset-2"
+                                            "ring-2 ring-emerald-500 ring-offset-2",
                                         )}
                                       >
                                         {selectionMode && (
@@ -967,8 +939,8 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
                             })()
                           )}
                         </div>
-                      )}
-                    </div>
+                      ) : null}
+                    </article>
                   );
                 })}
               </div>
@@ -1088,7 +1060,29 @@ interface MediaItemProps {
   isProcessing?: boolean;
 }
 
-function MediaItem({ 
+function getMediaTagBadgeClass(category: string | null): string {
+  const key = (category || "").toUpperCase();
+  const tones: Record<string, string> = {
+    POOL: "bg-cyan-600/95 shadow-cyan-900/20",
+    EXTERIOR: "bg-indigo-600/95 shadow-indigo-900/20",
+    LOBBY: "bg-violet-600/95 shadow-violet-900/20",
+    RECEPTION: "bg-purple-600/95 shadow-purple-900/20",
+    ROOM: "bg-[#2f3d95]/95 shadow-[#2f3d95]/30",
+    BEDROOM: "bg-blue-600/95 shadow-blue-900/20",
+    BATHROOM: "bg-teal-600/95 shadow-teal-900/20",
+    KITCHEN: "bg-amber-600/95 shadow-amber-900/20",
+    BALCONY: "bg-sky-600/95 shadow-sky-900/20",
+    RESTAURANT: "bg-orange-600/95 shadow-orange-900/20",
+    GYM: "bg-emerald-600/95 shadow-emerald-900/20",
+    SPA: "bg-rose-600/95 shadow-rose-900/20",
+    CONFERENCE: "bg-fuchsia-600/95 shadow-fuchsia-900/20",
+    VIEW: "bg-amber-500/95 shadow-amber-900/20",
+    OTHER: "bg-slate-600/95 shadow-slate-900/20",
+  };
+  return tones[key] || "bg-[#2f3d95]/95 shadow-[#2f3d95]/30";
+}
+
+function MediaItem({
   item, 
   onDetach, 
   onSetCover, 
@@ -1108,7 +1102,7 @@ function MediaItem({
   
   return (
     <>
-      <div className="relative group rounded-lg overflow-hidden border border-gray-200 bg-gray-100 shadow-sm hover:shadow-md transition-shadow">
+      <div className="relative group overflow-hidden rounded-xl border-2 border-white bg-slate-100 shadow-md shadow-[#2f3d95]/8 transition-all hover:shadow-lg hover:shadow-[#2f3d95]/15">
         <button
           type="button"
           className="w-full text-left"
@@ -1200,31 +1194,30 @@ function MediaItem({
           </>
         )}
         
-        {item.category && (
-          <div className="absolute top-2 left-2 text-white text-xs px-2 py-1 rounded capitalize font-medium flex items-center gap-1 bg-blue-600">
-            <Tag className="w-3 h-3" />
+        {item.category ? (
+          <div
+            className={cn(
+              "absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize text-white shadow-sm backdrop-blur-sm",
+              getMediaTagBadgeClass(item.category),
+            )}
+          >
+            <Tag className="h-3 w-3" />
             {item.category.replace("_", " ")}
           </div>
-        )}
-        {!item.category && (
-          <div className="absolute top-2 left-2 text-white text-xs px-2 py-1 rounded capitalize font-medium flex items-center gap-1 bg-gray-500">
-            <Tag className="w-3 h-3" />
-            No Tag
-          </div>
-        )}
-        
-        {item.cover && (
-          <div className="absolute bottom-2 left-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded font-medium flex items-center gap-1">
-            <Star className="w-3 h-3 fill-current" />
+        ) : null}
+
+        {item.cover ? (
+          <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+            <Star className="h-3 w-3 fill-current" />
             Cover
           </div>
-        )}
-        
-        {isVideo && (
-          <div className="absolute top-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+        ) : null}
+
+        {isVideo ? (
+          <div className="absolute top-2 right-10 z-10 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white">
             Video
           </div>
-        )}
+        ) : null}
       </div>
 
       {isPreviewOpen && (

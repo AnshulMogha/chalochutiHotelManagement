@@ -7,12 +7,15 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 import { Button } from "./Button";
+import { propertyService } from "@/features/properties/services/propertyService";
 import { adminService } from "@/features/admin/services/adminService";
 import type { HotelListResponse } from "@/features/properties/services/api.types";
 import type {
   ApprovedHotelItem,
   HotelLookupItem,
 } from "@/features/admin/services/adminService";
+import { useAuth } from "@/hooks";
+import { isSuperAdmin } from "@/constants/roles";
 import { useLocation } from "react-router";
 import { ROUTES } from "@/constants";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
@@ -31,6 +34,8 @@ export function HotelSelector({
   className = "",
   autoSelectFirst = true,
 }: HotelSelectorProps) {
+  const { user } = useAuth();
+  const isSuperAdminUser = isSuperAdmin(user?.roles);
   // If parent hasn't provided a hotelId yet, fall back to persisted selection.
   // This prevents auto-selecting the first hotel by default.
   const effectiveSelectedHotelId =
@@ -60,24 +65,24 @@ export function HotelSelector({
       try {
         setIsLoading(true);
 
-        // Load the full lookup list once and filter client-side so search can
-        // match hotel name, code, or city (the backend search may not cover city).
-        let data: (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[] =
-          await adminService.getSuperAdminHotelLookup("");
+        let data: (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[];
 
-        // Filter the final list to show only LIVE hotels
-        data = data.filter((hotel) => {
-          // Check if hotel has status field and it's LIVE
-          if ("status" in hotel && hotel.status) {
-            return hotel.status === "LIVE";
-          }
-          // For lookup hotels (which don't have status field but are LIVE by definition), include them
-          return true;
-        });
+        if (isSuperAdminUser) {
+          // Super Admin: global hotel lookup
+          data = await adminService.getSuperAdminHotelLookup("");
+        } else {
+          // Hotel Owner / Manager / Accountant / Front Desk: owner-scoped list
+          data = await propertyService.getAllHotelsList();
+          data = data.filter((hotel) => {
+            if ("status" in hotel && hotel.status) {
+              return hotel.status === "LIVE";
+            }
+            return true;
+          });
+        }
 
         setHotels(data);
         // Auto-select first hotel if none selected (but not on document review page)
-        // Always auto-select if no hotelId is in URL params (selectedHotelId is null)
         if (
           autoSelectFirst &&
           !effectiveSelectedHotelId &&
@@ -97,7 +102,7 @@ export function HotelSelector({
 
     fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedHotelId]);
+  }, [selectedHotelId, isSuperAdminUser]);
 
   const searchTerm = debouncedSearch.toLowerCase();
   const visibleHotels = searchTerm
@@ -161,6 +166,7 @@ export function HotelSelector({
         ) : (
           visibleHotels.map((hotel) => {
             const city = "city" in hotel ? hotel.city : undefined;
+            const code = "hotelCode" in hotel ? hotel.hotelCode : undefined;
             return (
               <DropdownMenuItem
                 key={hotel.hotelId}
@@ -177,11 +183,16 @@ export function HotelSelector({
                 <Building2 className="w-4 h-4 text-[#2f3d95]" />
                 <div className="flex-1 min-w-0">
                   <div className="truncate text-sm font-medium">
-                    {`${hotel.hotelName} (${hotel.hotelId})`}
+                    {isSuperAdminUser
+                      ? `${hotel.hotelName} (${hotel.hotelId})`
+                      : hotel.hotelName}
                   </div>
-                  {city && (
+                  {!isSuperAdminUser && code ? (
+                    <div className="truncate text-xs text-gray-500">{code}</div>
+                  ) : null}
+                  {isSuperAdminUser && city ? (
                     <div className="truncate text-xs text-gray-500">{city}</div>
-                  )}
+                  ) : null}
                 </div>
               </DropdownMenuItem>
             );

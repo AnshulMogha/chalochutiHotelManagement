@@ -255,6 +255,7 @@ export interface UserHotelAssignment {
 
 export type UserRole =
   | "HOTEL_OWNER"
+  | "HOTEL_MANAGER"
   | "HOTEL_BD"
   | "PACKAGE_CREATOR"
   | "PACKAGE_BD"
@@ -271,7 +272,9 @@ export type UserRole =
   | "FINANCE_MANAGER"
   | "QC"
   | "HELPDESK_AGENT"
-  | "AUDITOR";
+  | "AUDITOR"
+  | "HOTEL_ACCOUNTANT"
+  | "FRONT_DESK_EXEC";
 
 export interface CreateUserRequest {
   email: string;
