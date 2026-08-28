@@ -191,11 +191,13 @@ function normalizeSummary(raw: Record<string, unknown> | undefined): NetEarnings
 }
 
 function normalizeBookingRow(raw: Record<string, unknown>): NetEarningsBookingRow {
-  const bookingRef = String(raw.bookingRef ?? raw.bookingId ?? "");
+  const bookingRef = String(
+    raw.bookingRef ?? raw.bookingReference ?? raw.bookingId ?? "",
+  );
   const guestNameRaw = raw.guestName;
   return {
     bookingRef,
-    bookingId: String(raw.bookingId ?? bookingRef),
+    bookingId: String(raw.bookingId ?? ""),
     pnr: raw.pnr != null ? String(raw.pnr) : null,
     guestName:
       guestNameRaw == null || String(guestNameRaw).trim() === ""

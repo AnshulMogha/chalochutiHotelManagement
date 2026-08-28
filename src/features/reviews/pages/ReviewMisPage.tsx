@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ROUTES } from "@/constants";
+import { canModerateReviews } from "@/constants/roles";
+import { useAuth } from "@/hooks/useAuth";
+import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
@@ -187,6 +190,21 @@ const EMPTY_SUMMARY: ReviewMisSummary = {
   publishedAggregate: null,
 };
 
+function buildHotelScopedFilters(hotelId: string | null): AppliedFilters {
+  return {
+    bookingType: "HOTEL",
+    ...(hotelId ? { subjectId: hotelId } : {}),
+  };
+}
+
+function buildHotelScopedDraft(hotelId: string | null): FilterDraft {
+  return {
+    ...DEFAULT_FILTERS,
+    bookingType: "HOTEL",
+    subjectId: hotelId || "",
+  };
+}
+
 const KPI_TONES = {
   slate: {
     card: "border-slate-200/80 bg-white",
@@ -274,6 +292,13 @@ function MisKpiCard({
 }
 
 export default function ReviewMisPage() {
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const hotelId = searchParams.get("hotelId") ?? getStoredSelectedHotelId();
+  const isModeratorView = canModerateReviews(user?.roles);
+  const isHotelScopedMis = !isModeratorView;
+  const columnCount = isModeratorView ? 10 : 9;
+
   const { toast, showToast, hideToast } = useToast();
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -296,13 +321,20 @@ export default function ReviewMisPage() {
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (filters.bookingType) count += 1;
+    if (!isHotelScopedMis && filters.bookingType) count += 1;
     if (filters.status) count += 1;
     if (filters.bookingRef) count += 1;
-    if (filters.subjectId) count += 1;
+    if (!isHotelScopedMis && filters.subjectId) count += 1;
     if (filters.fromDate || filters.toDate) count += 1;
     return count;
-  }, [filters]);
+  }, [filters, isHotelScopedMis]);
+
+  useEffect(() => {
+    if (!user || isModeratorView) return;
+    setFilters(buildHotelScopedFilters(hotelId));
+    setDraft(buildHotelScopedDraft(hotelId));
+    setPage(0);
+  }, [user, isModeratorView, hotelId]);
 
   const dateRangeLabel = useMemo(() => {
     if (filters.fromDate && filters.toDate) {
@@ -314,6 +346,13 @@ export default function ReviewMisPage() {
   }, [filters.fromDate, filters.toDate]);
 
   const loadMis = useCallback(async () => {
+    if (isHotelScopedMis && !hotelId) {
+      setRows([]);
+      setSummary(EMPTY_SUMMARY);
+      setTotalElements(0);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await reviewMisService.getMis({
@@ -332,7 +371,7 @@ export default function ReviewMisPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters, page, showToast]);
+  }, [filters, page, showToast, isHotelScopedMis, hotelId]);
 
   useEffect(() => {
     void loadMis();
@@ -348,10 +387,15 @@ export default function ReviewMisPage() {
       return;
     }
     setFilters({
-      bookingType: draft.bookingType || undefined,
+      ...(isHotelScopedMis ? buildHotelScopedFilters(hotelId) : {}),
+      bookingType: isHotelScopedMis
+        ? "HOTEL"
+        : draft.bookingType || undefined,
       status: draft.status || undefined,
       bookingRef: draft.bookingRef.trim() || undefined,
-      subjectId: draft.subjectId.trim() || undefined,
+      subjectId: isHotelScopedMis
+        ? hotelId || undefined
+        : draft.subjectId.trim() || undefined,
       fromDate: range.fromDate || undefined,
       toDate: range.toDate || undefined,
     });
@@ -360,8 +404,13 @@ export default function ReviewMisPage() {
   };
 
   const resetFilters = () => {
-    setDraft(DEFAULT_FILTERS);
-    setFilters({});
+    if (isHotelScopedMis) {
+      setDraft(buildHotelScopedDraft(hotelId));
+      setFilters(buildHotelScopedFilters(hotelId));
+    } else {
+      setDraft(DEFAULT_FILTERS);
+      setFilters({});
+    }
     setPage(0);
     setFilterOpen(false);
   };
@@ -393,9 +442,13 @@ export default function ReviewMisPage() {
       <ReviewModerationPageShell
         title="Review MIS"
         subtitle={
-          dateRangeLabel
-            ? `Analytics · ${dateRangeLabel}`
-            : "Volume, ratings, and review inventory"
+          isHotelScopedMis
+            ? hotelId
+              ? "Hotel booking reviews for the selected property"
+              : "Select a hotel from the top bar to load review MIS"
+            : dateRangeLabel
+              ? `Analytics · ${dateRangeLabel}`
+              : "Volume, ratings, and review inventory"
         }
         icon={BarChart3}
         iconClassName="bg-[#2f3d95]"
@@ -639,26 +692,37 @@ export default function ReviewMisPage() {
                   <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
                     Published
                   </th>
-                  <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                    Action
-                  </th>
+                  {isModeratorView ? (
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
+                      Action
+                    </th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={columnCount}
                       className="px-4 py-20 text-center text-slate-500"
                     >
                       <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-slate-400" />
                       Loading reviews…
                     </td>
                   </tr>
+                ) : isHotelScopedMis && !hotelId ? (
+                  <tr>
+                    <td
+                      colSpan={columnCount}
+                      className="px-4 py-20 text-center text-sm text-slate-500"
+                    >
+                      Select a hotel from the top bar to view review MIS.
+                    </td>
+                  </tr>
                 ) : rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={columnCount}
                       className="px-4 py-20 text-center text-sm text-slate-500"
                     >
                       No reviews match the selected filters.
@@ -672,6 +736,8 @@ export default function ReviewMisPage() {
                         key={row.id}
                         row={row}
                         expanded={expanded}
+                        showActions={isModeratorView}
+                        columnCount={columnCount}
                         onToggle={() =>
                           setExpandedId((prev) =>
                             prev === row.id ? null : row.id,
@@ -723,25 +789,31 @@ export default function ReviewMisPage() {
         onApply={applyFilters}
       >
         <ReviewFilterField label="Booking type">
-          <select
-            value={draft.bookingType}
-            onChange={(e) =>
-              setDraft((prev) => ({
-                ...prev,
-                bookingType: e.target.value,
-                subjectId: "",
-                subjectLabel: "",
-              }))
-            }
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-          >
-            <option value="">All types</option>
-            {BOOKING_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {formatStatusLabel(type)}
-              </option>
-            ))}
-          </select>
+          {isHotelScopedMis ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              Hotel booking
+            </div>
+          ) : (
+            <select
+              value={draft.bookingType}
+              onChange={(e) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  bookingType: e.target.value,
+                  subjectId: "",
+                  subjectLabel: "",
+                }))
+              }
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
+            >
+              <option value="">All types</option>
+              {BOOKING_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {formatStatusLabel(type)}
+                </option>
+              ))}
+            </select>
+          )}
         </ReviewFilterField>
         <ReviewFilterField label="Status">
           <select
@@ -770,14 +842,16 @@ export default function ReviewMisPage() {
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
           />
         </ReviewFilterField>
-        <ReviewSubjectLookupField
-          bookingType={draft.bookingType}
-          value={draft.subjectId}
-          selectedLabel={draft.subjectLabel}
-          onChange={({ subjectId, subjectLabel }) =>
-            setDraft((prev) => ({ ...prev, subjectId, subjectLabel }))
-          }
-        />
+        {!isHotelScopedMis ? (
+          <ReviewSubjectLookupField
+            bookingType={draft.bookingType}
+            value={draft.subjectId}
+            selectedLabel={draft.subjectLabel}
+            onChange={({ subjectId, subjectLabel }) =>
+              setDraft((prev) => ({ ...prev, subjectId, subjectLabel }))
+            }
+          />
+        ) : null}
         <div>
           <p className="mb-1 text-xs font-medium text-slate-600">
             Date range (dd/mm/yyyy)
@@ -838,11 +912,15 @@ export default function ReviewMisPage() {
 function FragmentRow({
   row,
   expanded,
+  showActions,
+  columnCount,
   onToggle,
   onOpenMedia,
 }: {
   row: ReviewMisItem;
   expanded: boolean;
+  showActions: boolean;
+  columnCount: number;
   onToggle: () => void;
   onOpenMedia: (preview: { url: string; label: string }) => void;
 }) {
@@ -1061,43 +1139,45 @@ function FragmentRow({
               ? formatReportDateTime(row.createdAt)
               : "—"}
         </td>
-        <td className="px-4 py-4 text-right">
-          <Link
-            to={ROUTES.RATINGS_REVIEWS.DETAIL(row.id)}
-            state={{
-              review: {
-                id: row.id,
-                bookingType: row.bookingType,
-                bookingRef: row.bookingRef,
-                customerEmail: null,
-                subjectType: row.subjectType,
-                subjectId: row.subjectId,
-                subjectName: row.subjectName,
-                overallRating: row.overallRating,
-                title: row.title,
-                reviewText: row.reviewText,
-                travellerType: row.travellerType,
-                wouldRecommend: row.wouldRecommend,
-                wouldReturn: row.wouldReturn,
-                status: row.status,
-                autoModerated: row.autoModerated,
-                moderationReason: row.moderationReason,
-                publishedAt: row.publishedAt,
-                createdAt: row.createdAt,
-                reply: row.reply,
-                media: row.media,
-              },
-            }}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            <Eye className="h-3.5 w-3.5" />
-            Open
-          </Link>
-        </td>
+        {showActions ? (
+          <td className="px-4 py-4 text-right">
+            <Link
+              to={ROUTES.RATINGS_REVIEWS.DETAIL(row.id)}
+              state={{
+                review: {
+                  id: row.id,
+                  bookingType: row.bookingType,
+                  bookingRef: row.bookingRef,
+                  customerEmail: null,
+                  subjectType: row.subjectType,
+                  subjectId: row.subjectId,
+                  subjectName: row.subjectName,
+                  overallRating: row.overallRating,
+                  title: row.title,
+                  reviewText: row.reviewText,
+                  travellerType: row.travellerType,
+                  wouldRecommend: row.wouldRecommend,
+                  wouldReturn: row.wouldReturn,
+                  status: row.status,
+                  autoModerated: row.autoModerated,
+                  moderationReason: row.moderationReason,
+                  publishedAt: row.publishedAt,
+                  createdAt: row.createdAt,
+                  reply: row.reply,
+                  media: row.media,
+                },
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              Open
+            </Link>
+          </td>
+        ) : null}
       </tr>
       {expanded ? (
         <tr className="bg-slate-50/50">
-          <td colSpan={10} className="px-4 py-4">
+          <td colSpan={columnCount} className="px-4 py-4">
             <div className="grid gap-3 lg:grid-cols-2">
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">

@@ -684,6 +684,10 @@ export default function MyPropertiesPage() {
         align: "right",
         headerAlign: "right",
         renderCell: (params) => {
+          if (isScopedPropertyViewer) {
+            return null;
+          }
+
           if (isActiveTab) {
             return (
               <Button
@@ -737,7 +741,9 @@ export default function MyPropertiesPage() {
           );
         },
       } as GridColDef,
-    ];
+    ].filter((column) =>
+      isScopedPropertyViewer ? column.field !== "actions" : true,
+    );
 
     return (
       <Box
@@ -756,7 +762,7 @@ export default function MyPropertiesPage() {
           hideFooter
           disableColumnFilter
           onRowClick={
-            isActiveTab
+            isActiveTab && !isScopedPropertyViewer
               ? (params) => {
                   navigate(
                     `${ROUTES.PROPERTY_INFO.BASIC_INFO}?hotelId=${params.row.hotelId}`,
@@ -841,7 +847,9 @@ export default function MyPropertiesPage() {
               },
             },
             "& .MuiDataGrid-row": {
-              ...(isActiveTab ? { cursor: "pointer" } : {}),
+              ...(isActiveTab && !isScopedPropertyViewer
+                ? { cursor: "pointer" }
+                : {}),
               "&:hover": {
                 backgroundColor: "#eff6ff",
               },

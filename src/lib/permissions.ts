@@ -166,6 +166,15 @@ export function getModuleFromPath(pathname: string): PermissionModule | null {
   if (pathname === "/property/information/document") {
     return "PROPERTY_DOCUMENT";
   }
+  if (
+    pathname === ROUTES.HOTEL_REVIEWS.LIST ||
+    pathname.startsWith(`${ROUTES.HOTEL_REVIEWS.LIST}/`)
+  ) {
+    return "GUEST_REVIEWS";
+  }
+  if (pathname === ROUTES.RATINGS_REVIEWS.MIS) {
+    return "GUEST_REVIEWS";
+  }
   return null;
 }
 
@@ -311,10 +320,26 @@ function isSettlementPath(pathname: string): boolean {
 }
 
 function isReviewModerationPath(pathname: string): boolean {
+  if (isReviewMisPath(pathname)) return false;
   return (
     pathname === ROUTES.RATINGS_REVIEWS.LIST ||
     pathname.startsWith(`${ROUTES.RATINGS_REVIEWS.LIST}/`)
   );
+}
+
+function isReviewMisPath(pathname: string): boolean {
+  return pathname === ROUTES.RATINGS_REVIEWS.MIS;
+}
+
+function canAccessReviewMis(user: User | null): boolean {
+  if (canModerateReviews(user?.roles)) return true;
+  if (user?.roles?.includes("HOTEL_OWNER")) {
+    return canViewModule(user, "GUEST_REVIEWS");
+  }
+  if (isHotelManagerStaffRole(user?.roles)) {
+    return canViewModule(user, "GUEST_REVIEWS");
+  }
+  return false;
 }
 
 function isHotelReviewsPath(pathname: string): boolean {
@@ -577,6 +602,9 @@ function canReviewerPortalViewPath(user: User | null, pathOnly: string): boolean
   if (pathOnly.startsWith("/reports/")) {
     return canViewReportsPath(user, pathOnly);
   }
+  if (isReviewMisPath(pathOnly)) {
+    return canAccessReviewMis(user);
+  }
   if (isReviewModerationPath(pathOnly)) {
     return canModerateReviews(user?.roles);
   }
@@ -620,6 +648,10 @@ function canViewUnmappedPath(user: User | null, pathOnly: string): boolean {
       ROLES.HOTEL_OWNER,
       ROLES.HOTEL_MANAGER,
     ]);
+  }
+
+  if (isReviewMisPath(pathOnly)) {
+    return canAccessReviewMis(user);
   }
 
   if (isReviewModerationPath(pathOnly)) {
@@ -696,6 +728,10 @@ export function canViewPath(user: User | null, pathname: string): boolean {
 
   if (isSettlementPath(pathOnly)) {
     return canViewSupplierSettlement(user?.roles);
+  }
+
+  if (isReviewMisPath(pathOnly)) {
+    return canAccessReviewMis(user);
   }
 
   if (isReviewModerationPath(pathOnly)) {

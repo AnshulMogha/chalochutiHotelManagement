@@ -48,6 +48,7 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
       path === ROUTES.TEAM.LIST ||
       path === ROUTES.PROMOTIONS.LIST ||
       path === ROUTES.HOTEL_REVIEWS.LIST ||
+      path === ROUTES.RATINGS_REVIEWS.MIS ||
       path === ROUTES.ADMIN.DOCUMENT_REVIEW ||
       path === ROUTES.REPORTS.NET_EARNINGS ||
       path === ROUTES.REPORTS.HOTEL_PAYOUTS

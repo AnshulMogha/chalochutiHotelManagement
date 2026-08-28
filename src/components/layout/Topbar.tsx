@@ -101,6 +101,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     location.pathname.startsWith(`${ROUTES.BOOKINGS.LIST}/`);
 
   const isHotelReviewsPage = location.pathname === ROUTES.HOTEL_REVIEWS.LIST;
+  const isReviewMisPage = location.pathname === ROUTES.RATINGS_REVIEWS.MIS;
 
   // Analytics (performance dashboard) and other report pages are hotel-scoped via ?hotelId=
   const isPromotionReportPage = location.pathname === ROUTES.REPORTS.PROMOTIONS;
@@ -129,6 +130,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     isTeamPage ||
     isBookingsPage ||
     isHotelReviewsPage ||
+    isReviewMisPage ||
     isPromotionReportPage ||
     isAnalyticsPage ||
     isRateHealthReportPage ||

@@ -206,8 +206,8 @@ function BookingDetailDrawer({
                     <p className="text-sm font-semibold text-slate-900">
                       {booking.hotelName || "Hotel"}
                     </p>
-                    <p className="text-xs text-slate-500">
-                      ID {booking.bookingId}
+                    <p className="font-mono text-xs text-slate-500">
+                      {booking.bookingRef || booking.bookingId}
                       {booking.pnr ? ` · ${booking.pnr}` : ""}
                     </p>
                   </div>
@@ -760,7 +760,7 @@ export default function NetEarningsReportPage() {
                             onClick={() => openDetail(row.bookingRef)}
                             className="font-semibold text-[#2f3d95] hover:underline"
                           >
-                            {row.bookingId}
+                            {row.bookingRef || row.bookingId}
                           </button>
                         </td>
                         <td className="px-3 py-2.5">{row.guestName}</td>

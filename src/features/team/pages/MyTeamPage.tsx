@@ -116,7 +116,7 @@ const PERMISSION_MODULES: { value: PermissionModule; label: string }[] = [
     label: "Report - Inventory Allocation",
   },
   { value: "PAYMENTS", label: "Report - Payments" },
-  { value: "GUEST_REVIEWS", label: "Guest Reviews" },
+  { value: "GUEST_REVIEWS", label: "Guest Reviews & Review MIS" },
 ];
 
 /** Modules an owner can assign to Hotel Manager (no Finance / Documents). */

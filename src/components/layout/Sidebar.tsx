@@ -583,6 +583,11 @@ const getNavItems = (user: User | null): NavItem[] => {
               path: ROUTES.HOTEL_REVIEWS.LIST,
               icon: Star,
             },
+            {
+              label: "Review MIS",
+              path: ROUTES.RATINGS_REVIEWS.MIS,
+              icon: BarChart3,
+            },
           ]
         : []),
       ...(() => {
