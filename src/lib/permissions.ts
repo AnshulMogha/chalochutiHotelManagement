@@ -8,6 +8,7 @@ import {
   canViewHotelBookingFinancialMis,
   canViewHotelPayoutMis,
   canViewPaymentReport,
+  canViewTransportPayoutMis,
   canViewSalesManagerReports,
   canViewSupplierSettlement,
   canVerifyHotelBank,
@@ -17,6 +18,7 @@ import {
   isFinanceManagerRole,
   isHelpdeskAgentRole,
   isHotelBdRole,
+  isPlatformAccountantRole,
   isQcReviewerRole,
   isReviewerPortalRole,
   isSalesManagerRole,
@@ -86,10 +88,14 @@ const HOTEL_MANAGER_ALLOWED_MODULES: PermissionModule[] = [
 
 function isHotelAccountantRole(userRoles: string[] | undefined): boolean {
   if (!userRoles?.length) return false;
-  return (
-    userRoles.includes("HOTEL_ACCOUNTANT") || userRoles.includes("ACCOUNTANT")
-  );
+  return userRoles.includes("HOTEL_ACCOUNTANT");
 }
+
+const PLATFORM_ACCOUNTANT_VIEW_MODULES: PermissionModule[] = [
+  "PROPERTY_FINANCE",
+  "FINANCE",
+  "PAYMENTS",
+];
 
 /** Hotel Manager staff (not owner/super-admin). */
 export function isHotelManagerStaffRole(
@@ -101,8 +107,7 @@ export function isHotelManagerStaffRole(
   }
   if (
     userRoles.includes("FRONT_DESK_EXEC") ||
-    userRoles.includes("HOTEL_ACCOUNTANT") ||
-    userRoles.includes("ACCOUNTANT")
+    userRoles.includes("HOTEL_ACCOUNTANT")
   ) {
     return false;
   }
@@ -203,7 +208,7 @@ function getConstrainedRole(
   const roles = user?.roles || [];
   // Most restrictive first if multiple scoped roles exist.
   if (roles.includes("FRONT_DESK_EXEC")) return "FRONT_DESK_EXEC";
-  if (roles.includes("HOTEL_ACCOUNTANT") || roles.includes("ACCOUNTANT")) {
+  if (roles.includes("HOTEL_ACCOUNTANT")) {
     return "HOTEL_ACCOUNTANT";
   }
   if (roles.includes("HOTEL_MANAGER")) return "HOTEL_MANAGER";
@@ -233,6 +238,12 @@ export function canViewModule(
   module: PermissionModule,
 ): boolean {
   if (!user) return true;
+  if (
+    isPlatformAccountantRole(user.roles) &&
+    PLATFORM_ACCOUNTANT_VIEW_MODULES.includes(module)
+  ) {
+    return true;
+  }
   if (isSuperAdmin(user.roles) && module === "MY_TEAM") return false;
   if (module === "PROPERTY_FINANCE" && canVerifyHotelBank(user.roles)) {
     return true;
@@ -365,6 +376,14 @@ function isAdminPath(pathname: string): boolean {
 }
 
 function canViewAnyReportPath(user: User | null): boolean {
+  if (isPlatformAccountantRole(user?.roles)) {
+    return (
+      canViewPaymentReport(user?.roles) ||
+      canViewHotelPayoutMis(user?.roles) ||
+      canViewTransportPayoutMis(user?.roles) ||
+      canViewHotelBookingFinancialMis(user?.roles)
+    );
+  }
   if (isHotelAccountantRole(user?.roles)) {
     return canViewModule(user, "PAYMENTS");
   }
@@ -459,6 +478,20 @@ function canViewReportsPath(user: User | null, pathOnly: string): boolean {
     pathOnly.startsWith(`${ROUTES.REPORTS.HOTEL_PAYOUTS}/`)
   ) {
     return canViewHotelPayoutMis(user?.roles);
+  }
+
+  if (
+    pathOnly === ROUTES.REPORTS.HOTEL_PAYOUTS ||
+    pathOnly.startsWith(`${ROUTES.REPORTS.HOTEL_PAYOUTS}/`)
+  ) {
+    return canViewHotelPayoutMis(user?.roles);
+  }
+
+  if (
+    pathOnly === ROUTES.REPORTS.TRANSPORT_PAYOUTS ||
+    pathOnly.startsWith(`${ROUTES.REPORTS.TRANSPORT_PAYOUTS}/`)
+  ) {
+    return canViewTransportPayoutMis(user?.roles);
   }
 
   if (pathOnly === ROUTES.REPORTS.HOTEL_BD_DASHBOARD) {
@@ -681,8 +714,30 @@ function canViewUnmappedPath(user: User | null, pathOnly: string): boolean {
   return false;
 }
 
+/** Platform accountant: financial reports, settlements, and property finance only. */
+function canPlatformAccountantViewPath(pathOnly: string): boolean {
+  if (pathOnly === "/" || pathOnly === "") return true;
+  if (pathOnly.startsWith("/profile")) return true;
+  if (pathOnly === ROUTES.PROPERTIES.MY_PROPERTY) return true;
+  if (
+    pathOnly === ROUTES.PROPERTY_INFO.LIST ||
+    pathOnly === ROUTES.PROPERTY_INFO.FINANCE
+  ) {
+    return true;
+  }
+  if (pathOnly === ROUTES.REPORTS.LIST || pathOnly.startsWith("/reports/")) {
+    return true;
+  }
+  if (isSettlementPath(pathOnly)) return true;
+  return false;
+}
+
 function passesRoleScopedPathGuard(user: User | null, pathOnly: string): boolean {
   if (isSuperAdmin(user?.roles)) return true;
+
+  if (isPlatformAccountantRole(user?.roles)) {
+    return canPlatformAccountantViewPath(pathOnly);
+  }
 
   if (isZonalManagerSalesRole(user?.roles)) {
     return canZonalManagerSalesViewPath(pathOnly);

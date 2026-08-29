@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { ROUTES } from "@/constants";
-import { canModerateReviews } from "@/constants/roles";
+import {
+  canManageHotelReviews,
+  canModerateReviews,
+} from "@/constants/roles";
 import { useAuth } from "@/hooks/useAuth";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 import { Toast, useToast } from "@/components/ui/Toast";
@@ -18,6 +21,7 @@ import { reviewMisService } from "../services/reviewMisService";
 import { resolveReviewMediaUrl } from "../services/reviewMediaUrl";
 import type {
   ReviewMisItem,
+  ReviewMisParams,
   ReviewMisSummary,
 } from "../services/reviewMisTypes";
 import {
@@ -205,6 +209,56 @@ function buildHotelScopedDraft(hotelId: string | null): FilterDraft {
   };
 }
 
+function shouldApplyTopBarHotelSubject(
+  bookingType: string | undefined,
+): boolean {
+  return !bookingType || bookingType === "HOTEL";
+}
+
+function resolveMisSubjectId(options: {
+  isHotelScopedMis: boolean;
+  hotelId: string | null;
+  bookingType?: string;
+  filterSubjectId?: string;
+}): string | undefined {
+  const { isHotelScopedMis, hotelId, bookingType, filterSubjectId } = options;
+  if (isHotelScopedMis && hotelId) return hotelId;
+  if (bookingType === "HOTEL" && hotelId) return hotelId;
+  if (hotelId && shouldApplyTopBarHotelSubject(bookingType)) return hotelId;
+  return filterSubjectId?.trim() || undefined;
+}
+
+function buildMisRequestParams(options: {
+  isHotelScopedMis: boolean;
+  hotelId: string | null;
+  page: number;
+  filters: AppliedFilters;
+}): ReviewMisParams | null {
+  const { isHotelScopedMis, hotelId, page, filters } = options;
+
+  if (isHotelScopedMis && !hotelId) return null;
+
+  const bookingType = isHotelScopedMis
+    ? "HOTEL"
+    : filters.bookingType || undefined;
+
+  return {
+    page,
+    size: PAGE_SIZE,
+    bookingType,
+    status: filters.status,
+    bookingRef: filters.bookingRef,
+    subjectId: resolveMisSubjectId({
+      isHotelScopedMis,
+      hotelId,
+      bookingType,
+      filterSubjectId: filters.subjectId,
+    }),
+    fromDate: filters.fromDate,
+    toDate: filters.toDate,
+  };
+}
+
 const KPI_TONES = {
   slate: {
     card: "border-slate-200/80 bg-white",
@@ -296,7 +350,7 @@ export default function ReviewMisPage() {
   const [searchParams] = useSearchParams();
   const hotelId = searchParams.get("hotelId") ?? getStoredSelectedHotelId();
   const isModeratorView = canModerateReviews(user?.roles);
-  const isHotelScopedMis = !isModeratorView;
+  const isHotelScopedMis = canManageHotelReviews(user?.roles) && !isModeratorView;
   const columnCount = isModeratorView ? 10 : 9;
 
   const { toast, showToast, hideToast } = useToast();
@@ -321,20 +375,40 @@ export default function ReviewMisPage() {
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (!isHotelScopedMis && filters.bookingType) count += 1;
+    if (filters.bookingType) count += 1;
     if (filters.status) count += 1;
     if (filters.bookingRef) count += 1;
-    if (!isHotelScopedMis && filters.subjectId) count += 1;
+    const topBarSubjectApplied =
+      !isHotelScopedMis &&
+      !!hotelId &&
+      shouldApplyTopBarHotelSubject(filters.bookingType);
+    if (filters.subjectId && !topBarSubjectApplied) count += 1;
     if (filters.fromDate || filters.toDate) count += 1;
     return count;
-  }, [filters, isHotelScopedMis]);
+  }, [filters, isHotelScopedMis, hotelId]);
 
   useEffect(() => {
-    if (!user || isModeratorView) return;
-    setFilters(buildHotelScopedFilters(hotelId));
-    setDraft(buildHotelScopedDraft(hotelId));
-    setPage(0);
-  }, [user, isModeratorView, hotelId]);
+    if (!user) return;
+    if (isHotelScopedMis) {
+      setFilters(buildHotelScopedFilters(hotelId));
+      setDraft(buildHotelScopedDraft(hotelId));
+      setPage(0);
+      return;
+    }
+    if (hotelId) {
+      setPage(0);
+      setFilters((prev) =>
+        shouldApplyTopBarHotelSubject(prev.bookingType)
+          ? { ...prev, subjectId: hotelId }
+          : prev,
+      );
+      setDraft((prev) =>
+        shouldApplyTopBarHotelSubject(prev.bookingType)
+          ? { ...prev, subjectId: hotelId }
+          : prev,
+      );
+    }
+  }, [user, isHotelScopedMis, hotelId]);
 
   const dateRangeLabel = useMemo(() => {
     if (filters.fromDate && filters.toDate) {
@@ -346,20 +420,26 @@ export default function ReviewMisPage() {
   }, [filters.fromDate, filters.toDate]);
 
   const loadMis = useCallback(async () => {
-    if (isHotelScopedMis && !hotelId) {
+    if (isHotelScopedMis && !user) return;
+
+    const requestParams = buildMisRequestParams({
+      isHotelScopedMis,
+      hotelId,
+      page,
+      filters,
+    });
+
+    if (!requestParams) {
       setRows([]);
       setSummary(EMPTY_SUMMARY);
       setTotalElements(0);
       setLoading(false);
       return;
     }
+
     setLoading(true);
     try {
-      const data = await reviewMisService.getMis({
-        page,
-        size: PAGE_SIZE,
-        ...filters,
-      });
+      const data = await reviewMisService.getMis(requestParams);
       setRows(data.items);
       setSummary(data.summary);
       setTotalElements(data.totalElements);
@@ -371,7 +451,7 @@ export default function ReviewMisPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters, page, showToast, isHotelScopedMis, hotelId]);
+  }, [filters, page, showToast, isHotelScopedMis, hotelId, user]);
 
   useEffect(() => {
     void loadMis();
@@ -386,16 +466,17 @@ export default function ReviewMisPage() {
       showToast(range.message, "error");
       return;
     }
+    const bookingType = isHotelScopedMis ? "HOTEL" : draft.bookingType || undefined;
     setFilters({
-      ...(isHotelScopedMis ? buildHotelScopedFilters(hotelId) : {}),
-      bookingType: isHotelScopedMis
-        ? "HOTEL"
-        : draft.bookingType || undefined,
+      bookingType,
       status: draft.status || undefined,
       bookingRef: draft.bookingRef.trim() || undefined,
-      subjectId: isHotelScopedMis
-        ? hotelId || undefined
-        : draft.subjectId.trim() || undefined,
+      subjectId: resolveMisSubjectId({
+        isHotelScopedMis,
+        hotelId,
+        bookingType,
+        filterSubjectId: draft.subjectId,
+      }),
       fromDate: range.fromDate || undefined,
       toDate: range.toDate || undefined,
     });
@@ -413,6 +494,27 @@ export default function ReviewMisPage() {
     }
     setPage(0);
     setFilterOpen(false);
+  };
+
+  const handleBookingTypeChange = (nextBookingType: string) => {
+    const applyTopBarHotel =
+      !!hotelId && shouldApplyTopBarHotelSubject(nextBookingType);
+
+    setDraft((prev) => ({
+      ...prev,
+      bookingType: nextBookingType,
+      subjectId: applyTopBarHotel ? hotelId! : "",
+      subjectLabel: applyTopBarHotel ? prev.subjectLabel : "",
+    }));
+
+    if (isHotelScopedMis) return;
+
+    setFilters((prev) => ({
+      ...prev,
+      bookingType: nextBookingType || undefined,
+      subjectId: applyTopBarHotel ? hotelId! : undefined,
+    }));
+    setPage(0);
   };
 
   const aggregate = summary.publishedAggregate;
@@ -446,9 +548,11 @@ export default function ReviewMisPage() {
             ? hotelId
               ? "Hotel booking reviews for the selected property"
               : "Select a hotel from the top bar to load review MIS"
-            : dateRangeLabel
-              ? `Analytics · ${dateRangeLabel}`
-              : "Volume, ratings, and review inventory"
+            : hotelId && shouldApplyTopBarHotelSubject(filters.bookingType)
+              ? "Hotel booking reviews for the selected property"
+              : dateRangeLabel
+                ? `Analytics · ${dateRangeLabel}`
+                : "Volume, ratings, and review inventory"
         }
         icon={BarChart3}
         iconClassName="bg-[#2f3d95]"
@@ -796,14 +900,7 @@ export default function ReviewMisPage() {
           ) : (
             <select
               value={draft.bookingType}
-              onChange={(e) =>
-                setDraft((prev) => ({
-                  ...prev,
-                  bookingType: e.target.value,
-                  subjectId: "",
-                  subjectLabel: "",
-                }))
-              }
+              onChange={(e) => handleBookingTypeChange(e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
             >
               <option value="">All types</option>
@@ -842,7 +939,8 @@ export default function ReviewMisPage() {
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
           />
         </ReviewFilterField>
-        {!isHotelScopedMis ? (
+        {!isHotelScopedMis &&
+        !(hotelId && shouldApplyTopBarHotelSubject(draft.bookingType)) ? (
           <ReviewSubjectLookupField
             bookingType={draft.bookingType}
             value={draft.subjectId}
@@ -851,6 +949,14 @@ export default function ReviewMisPage() {
               setDraft((prev) => ({ ...prev, subjectId, subjectLabel }))
             }
           />
+        ) : !isHotelScopedMis &&
+          hotelId &&
+          shouldApplyTopBarHotelSubject(draft.bookingType) ? (
+          <ReviewFilterField label="Hotel">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              Using the hotel selected in the top bar
+            </div>
+          </ReviewFilterField>
         ) : null}
         <div>
           <p className="mb-1 text-xs font-medium text-slate-600">

@@ -15,7 +15,7 @@ import type {
   HotelLookupItem,
 } from "@/features/admin/services/adminService";
 import { useAuth } from "@/hooks";
-import { isSuperAdmin } from "@/constants/roles";
+import { isPlatformAccountantRole, isSuperAdmin } from "@/constants/roles";
 import { useLocation } from "react-router";
 import { ROUTES } from "@/constants";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
@@ -35,7 +35,8 @@ export function HotelSelector({
   autoSelectFirst = true,
 }: HotelSelectorProps) {
   const { user } = useAuth();
-  const isSuperAdminUser = isSuperAdmin(user?.roles);
+  const useGlobalHotelLookup =
+    isSuperAdmin(user?.roles) || isPlatformAccountantRole(user?.roles);
   // If parent hasn't provided a hotelId yet, fall back to persisted selection.
   // This prevents auto-selecting the first hotel by default.
   const effectiveSelectedHotelId =
@@ -67,11 +68,11 @@ export function HotelSelector({
 
         let data: (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[];
 
-        if (isSuperAdminUser) {
-          // Super Admin: global hotel lookup
-          data = await adminService.getSuperAdminHotelLookup("");
+        if (useGlobalHotelLookup) {
+          // Super Admin / platform Accountant: global lookup (all hotels)
+          data = await adminService.getSuperAdminHotelLookup(debouncedSearch);
         } else {
-          // Hotel Owner / Manager / Accountant / Front Desk: owner-scoped list
+          // Hotel Owner / Manager / Hotel Accountant / Front Desk: owner-scoped list
           data = await propertyService.getAllHotelsList();
           data = data.filter((hotel) => {
             if ("status" in hotel && hotel.status) {
@@ -102,18 +103,20 @@ export function HotelSelector({
 
     fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedHotelId, isSuperAdminUser]);
+  }, [selectedHotelId, useGlobalHotelLookup, debouncedSearch]);
 
   const searchTerm = debouncedSearch.toLowerCase();
-  const visibleHotels = searchTerm
-    ? hotels.filter((hotel) => {
-        const city = "city" in hotel ? hotel.city : undefined;
-        const code = "hotelCode" in hotel ? hotel.hotelCode : undefined;
-        return [hotel.hotelName, code, city]
-          .filter((field): field is string => Boolean(field))
-          .some((field) => field.toLowerCase().includes(searchTerm));
-      })
-    : hotels;
+  const visibleHotels = useGlobalHotelLookup
+    ? hotels
+    : searchTerm
+      ? hotels.filter((hotel) => {
+          const city = "city" in hotel ? hotel.city : undefined;
+          const code = "hotelCode" in hotel ? hotel.hotelCode : undefined;
+          return [hotel.hotelName, code, city]
+            .filter((field): field is string => Boolean(field))
+            .some((field) => field.toLowerCase().includes(searchTerm));
+        })
+      : hotels;
 
   // Reset auto-select ref when selectedHotelId is cleared (allows re-auto-selection)
   useEffect(() => {
@@ -183,14 +186,14 @@ export function HotelSelector({
                 <Building2 className="w-4 h-4 text-[#2f3d95]" />
                 <div className="flex-1 min-w-0">
                   <div className="truncate text-sm font-medium">
-                    {isSuperAdminUser
+                    {useGlobalHotelLookup
                       ? `${hotel.hotelName} (${hotel.hotelId})`
                       : hotel.hotelName}
                   </div>
-                  {!isSuperAdminUser && code ? (
+                  {!useGlobalHotelLookup && code ? (
                     <div className="truncate text-xs text-gray-500">{code}</div>
                   ) : null}
-                  {isSuperAdminUser && city ? (
+                  {useGlobalHotelLookup && city ? (
                     <div className="truncate text-xs text-gray-500">{city}</div>
                   ) : null}
                 </div>

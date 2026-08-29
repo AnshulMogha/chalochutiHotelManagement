@@ -72,7 +72,7 @@ export const ADMIN_MANAGED_ROLE_LABELS: Record<string, string> = {
   FINANCE: "Finance",
   FINANCE_MANAGER: "Finance Manager",
   HOTEL_ACCOUNTANT: "Hotel Accountant",
-  ACCOUNTANT: "Hotel Accountant",
+  ACCOUNTANT: "Accountant",
   FRONT_DESK_EXEC: "Front Desk",
   QC: "Quality Control",
   HELPDESK_AGENT: "Helpdesk Agent",
@@ -207,6 +207,7 @@ export const PAYMENT_REPORT_ROLES = [
   "HOTEL_BD",
   "HOTEL_MANAGER",
   "HOTEL_ACCOUNTANT",
+  "ACCOUNTANT",
   "FRONT_DESK_EXEC",
   "ZONAL_MANAGER_SALES",
   "SALES_MANAGER",
@@ -226,6 +227,7 @@ export const HOTEL_PAYOUT_MIS_ROLES = [
   "HOTEL_OWNER",
   "HOTEL_MANAGER",
   "HOTEL_ACCOUNTANT",
+  "ACCOUNTANT",
   "SUPER_ADMIN",
   "FRONT_DESK_EXEC",
   "HOTEL_BD",
@@ -254,6 +256,7 @@ export const TRANSPORT_PAYOUT_MIS_ROLES = [
   "FINANCE",
   "FINANCE_MANAGER",
   "HOTEL_ACCOUNTANT",
+  "ACCOUNTANT",
   "AUDITOR",
 ] as const;
 
@@ -270,6 +273,7 @@ export function canViewTransportPayoutMis(
 export const HOTEL_BOOKING_FINANCIAL_MIS_ROLES = [
   "FINANCE",
   "FINANCE_MANAGER",
+  "ACCOUNTANT",
   "AUDITOR",
   "SUPER_ADMIN",
   "SALES_MANAGER",
@@ -450,6 +454,15 @@ export function isAuditorRole(userRoles: string[] | undefined): boolean {
   return !!userRoles?.includes("AUDITOR");
 }
 
+/** Platform accountant (Super Admin–created): financial reports + property finance. */
+export function isPlatformAccountantRole(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  if (userRoles.includes("SUPER_ADMIN")) return false;
+  return userRoles.includes("ACCOUNTANT");
+}
+
 /** Finance Manager portal: settlements + hotel MIS (no property/helpdesk home). */
 export function isFinanceManagerRole(
   userRoles: string[] | undefined,
@@ -514,6 +527,7 @@ export const SETTLEMENT_VIEW_ROLES = [
   "SUPER_ADMIN",
   "FINANCE_MANAGER",
   "FINANCE",
+  "ACCOUNTANT",
 ] as const;
 
 export function canViewSupplierSettlement(

@@ -38,6 +38,7 @@ const ROLE_OPTIONS: { value: CreateUserRequest["roles"][number]; label: string }
   { value: "ZONAL_MANAGER_SALES", label: "Zonal Manager Sales" },
   { value: "FINANCE", label: "Finance" },
   { value: "FINANCE_MANAGER", label: "Finance Manager" },
+  { value: "ACCOUNTANT", label: "Accountant" },
   { value: "QC", label: "Quality Control" },
   { value: "HELPDESK_AGENT", label: "Helpdesk Agent" },
   { value: "AUDITOR", label: "Auditor" },

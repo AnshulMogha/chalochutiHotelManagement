@@ -16,6 +16,7 @@ import {
   isFinanceManagerRole,
   isHelpdeskAgentRole,
   isHotelBdRole,
+  isPlatformAccountantRole,
   isReviewerPortalRole,
   isSalesManagerRole,
   isZonalManagerSalesRole,
@@ -124,6 +125,43 @@ function getSettlementNavItem(): NavItem {
       },
     ],
   };
+}
+
+/** Platform accountant: property finance + all financial reports/settlements. */
+function getPlatformAccountantNavItems(user: User | null): NavItem[] {
+  const userRoles = user?.roles;
+  const items: NavItem[] = [
+    {
+      label: "Dashboard",
+      path: ROUTES.PROPERTIES.MY_PROPERTY,
+      icon: LayoutDashboard,
+    },
+    {
+      label: "Property Information",
+      path: ROUTES.PROPERTY_INFO.LIST,
+      icon: Info,
+      children: [
+        {
+          label: "Finance",
+          path: ROUTES.PROPERTY_INFO.FINANCE,
+          icon: CreditCard,
+        },
+      ],
+    },
+  ];
+
+  const reportsNav = getReportsNavItem(user, {
+    includeOnboardingPipeline: false,
+    includeHotelFinancialMis: canViewHotelBookingFinancialMis(userRoles),
+    includeBookingReports: false,
+  });
+  if (reportsNav) items.push(reportsNav);
+
+  if (canViewSupplierSettlement(userRoles)) {
+    items.push(getSettlementNavItem());
+  }
+
+  return items;
 }
 
 /** Auditor sidebar: Tickets, Order Lookup, and a single Reports group. */
@@ -380,6 +418,10 @@ const getNavItems = (user: User | null): NavItem[] => {
 
   if (isFinanceManagerRole(userRoles)) {
     return getFinanceManagerNavItems(userRoles);
+  }
+
+  if (isPlatformAccountantRole(userRoles)) {
+    return getPlatformAccountantNavItems(user);
   }
 
   const dashboardPath = isHotelBd
@@ -830,7 +872,7 @@ const getNavItems = (user: User | null): NavItem[] => {
 
   // Staff roles (e.g. Front Desk / Accountant) still need permission-driven booking access.
   const isStaffRole = !!userRoles?.some((role) =>
-    ["FRONT_DESK_EXEC", "HOTEL_ACCOUNTANT", "ACCOUNTANT"].includes(role),
+    ["FRONT_DESK_EXEC", "HOTEL_ACCOUNTANT"].includes(role),
   );
   if (isStaffRole && canViewModule(user, "BOOKINGS")) {
     items.push({
@@ -839,10 +881,8 @@ const getNavItems = (user: User | null): NavItem[] => {
       icon: BookOpen,
     });
   }
-  const isAccountant =
-    !!userRoles?.includes("HOTEL_ACCOUNTANT") ||
-    !!userRoles?.includes("ACCOUNTANT");
-  if (isAccountant && canViewModule(user, "PROPERTY_FINANCE")) {
+  const isHotelStaffAccountant = !!userRoles?.includes("HOTEL_ACCOUNTANT");
+  if (isHotelStaffAccountant && canViewModule(user, "PROPERTY_FINANCE")) {
     items.push({
       label: "Finance",
       path: ROUTES.PROPERTY_INFO.FINANCE,
@@ -850,7 +890,7 @@ const getNavItems = (user: User | null): NavItem[] => {
     });
   }
   if (
-    isAccountant &&
+    isHotelStaffAccountant &&
     canViewModule(user, "PAYMENTS")
   ) {
     const existingReports = items.find((item) => item.path === ROUTES.REPORTS.LIST);

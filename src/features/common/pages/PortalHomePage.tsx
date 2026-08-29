@@ -7,6 +7,7 @@ import {
   isFinanceManagerRole,
   isHelpdeskAgentRole,
   isHotelBdRole,
+  isPlatformAccountantRole,
   isSalesManagerRole,
 } from "@/constants/roles";
 import { ROUTES } from "@/constants";
@@ -27,6 +28,10 @@ export default function PortalHomePage() {
   }
 
   if (isAuditorRole(user?.roles)) {
+    return <Navigate to={ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS} replace />;
+  }
+
+  if (isPlatformAccountantRole(user?.roles)) {
     return <Navigate to={ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS} replace />;
   }
 

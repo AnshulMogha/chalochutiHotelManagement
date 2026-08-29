@@ -274,6 +274,7 @@ export type UserRole =
   | "HELPDESK_AGENT"
   | "AUDITOR"
   | "HOTEL_ACCOUNTANT"
+  | "ACCOUNTANT"
   | "FRONT_DESK_EXEC";
 
 export interface CreateUserRequest {
