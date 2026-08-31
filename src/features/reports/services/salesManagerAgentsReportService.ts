@@ -150,11 +150,13 @@ function normalizeMoney(
 
 function normalizeAgentRow(raw: unknown): SalesManagerAgentPortfolioRow {
   const record = (raw ?? {}) as Record<string, unknown>;
-  const agencyRaw = (record.agency as Record<string, unknown> | undefined) ?? {};
+  const agencyRaw =
+    (record.agency as Record<string, unknown> | undefined) ?? {};
   const locationRaw =
     (record.location as Record<string, unknown> | undefined) ?? {};
   const tierRaw = (record.tier as Record<string, unknown> | undefined) ?? {};
-  const statusRaw = (record.status as Record<string, unknown> | undefined) ?? {};
+  const statusRaw =
+    (record.status as Record<string, unknown> | undefined) ?? {};
   const activityRaw =
     (record.activity as Record<string, unknown> | undefined) ?? {};
   const bookingsRaw =
@@ -194,7 +196,8 @@ function normalizeAgentRow(raw: unknown): SalesManagerAgentPortfolioRow {
       assignedAt: (activityRaw.assignedAt as string | null | undefined) ?? null,
       activatedAt:
         (activityRaw.activatedAt as string | null | undefined) ?? null,
-      lastLoginAt: (activityRaw.lastLoginAt as string | null | undefined) ?? null,
+      lastLoginAt:
+        (activityRaw.lastLoginAt as string | null | undefined) ?? null,
       lastBookingAt:
         (activityRaw.lastBookingAt as string | null | undefined) ?? null,
       daysSinceLastBooking: toNullableNumber(activityRaw.daysSinceLastBooking),
@@ -225,10 +228,12 @@ function normalizeAgentRow(raw: unknown): SalesManagerAgentPortfolioRow {
 function normalizeAgentsResponse(
   payload: Record<string, unknown>,
 ): SalesManagerAgentsReportResponse {
-  const summaryRaw = (payload.summary as Record<string, unknown> | undefined) ?? {};
+  const summaryRaw =
+    (payload.summary as Record<string, unknown> | undefined) ?? {};
   const tierRaw =
     (summaryRaw.tierDistribution as Record<string, unknown> | undefined) ?? {};
-  const agentsRaw = (payload.agents as Record<string, unknown> | undefined) ?? {};
+  const agentsRaw =
+    (payload.agents as Record<string, unknown> | undefined) ?? {};
   const pageRaw = (agentsRaw.page as Record<string, unknown> | undefined) ?? {};
   const dateRangeRaw =
     (payload.dateRange as Record<string, unknown> | undefined) ?? {};

@@ -4,7 +4,6 @@ import { LoadingSpinner } from "@/components/ui";
 import SuperAdminDashboardPage from "@/features/admin/pages/SuperAdminDashboardPage";
 import {
   isAuditorRole,
-  isFinanceManagerRole,
   isHelpdeskAgentRole,
   isHotelBdRole,
   isPlatformAccountantRole,
@@ -33,10 +32,6 @@ export default function PortalHomePage() {
 
   if (isPlatformAccountantRole(user?.roles)) {
     return <Navigate to={ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS} replace />;
-  }
-
-  if (isFinanceManagerRole(user?.roles)) {
-    return <Navigate to={ROUTES.SETTLEMENT.WORKBENCH} replace />;
   }
 
   if (isHotelBdRole(user?.roles)) {

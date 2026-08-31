@@ -39,7 +39,11 @@ export const ROUTES = {
     DOCUMENT_REVIEW: "/admin/document-review",
     TRAVEL_PARTNERS: "/admin/travel-partners",
     TRANSPORT: "/transferManagement/",
+    TRANSPORT_NET_EARNINGS: "/transferManagement/reports/net-earnings",
+    TRANSPORT_BOOKING_MIS: "/transferManagement/reports/booking-mis",
     PACKAGES: "/packageManagement/",
+    PACKAGE_BOOKING_FINANCIAL_MIS:
+      "/packageManagement/reports/package-booking-financial-mis",
   },
   PROPERTY_INFO: {
     LIST: "/property/information",
@@ -106,7 +110,8 @@ export const ROUTES = {
   RATINGS_REVIEWS: {
     LIST: "/ratings-reviews",
     MIS: "/ratings-reviews/mis",
-    DETAIL: (reviewId: string) => `/ratings-reviews/${encodeURIComponent(reviewId)}`,
+    DETAIL: (reviewId: string) =>
+      `/ratings-reviews/${encodeURIComponent(reviewId)}`,
   },
   HOTEL_REVIEWS: {
     LIST: "/hotel-reviews",
@@ -318,8 +323,7 @@ export const API_ENDPOINTS = {
       `/hotel/${hotelId}/rooms/${roomId}/active-status`,
     GET_ROOM_RATE_PLANS: (hotelId: string, roomId: string) =>
       `/hotel/${hotelId}/rooms/${roomId}/rate-plans`,
-    CREATE_HOTEL_INCLUSION: (hotelId: string) =>
-      `/hotel/${hotelId}/inclusions`,
+    CREATE_HOTEL_INCLUSION: (hotelId: string) => `/hotel/${hotelId}/inclusions`,
     CREATE_ROOM_RATE_PLAN_INCLUSION: (
       hotelId: string,
       roomKey: string,

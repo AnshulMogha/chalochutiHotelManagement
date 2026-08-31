@@ -6,7 +6,6 @@ import { extractErrorMessage } from "@/features/reports/components/ReportJsonPan
 import {
   formatFinanceMoney,
   formatReportDate,
-  formatStatusLabel,
 } from "@/features/reports/components/reportUiHelpers";
 import {
   StatusBadge,
@@ -73,13 +72,13 @@ function SearchResultRow({
           </p>
           {item.bookingStatus ? (
             <StatusBadge
-              label={formatStatusLabel(item.bookingStatus)}
+              status={item.bookingStatus}
               tone={bookingStatusTone(item.bookingStatus)}
             />
           ) : null}
           {item.paymentStatus ? (
             <StatusBadge
-              label={formatStatusLabel(item.paymentStatus)}
+              status={item.paymentStatus}
               tone={paymentStatusTone(item.paymentStatus)}
             />
           ) : null}

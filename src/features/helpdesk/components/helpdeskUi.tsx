@@ -208,16 +208,16 @@ export function HelpdeskStatusGroup({
   return (
     <div className="flex flex-wrap gap-2">
       <StatusBadge
-        label={formatStatusLabel(bookingStatus)}
+        status={bookingStatus}
         tone={bookingStatusTone(bookingStatus)}
       />
       <StatusBadge
-        label={`Payment · ${formatStatusLabel(paymentStatus)}`}
+        status={paymentStatus}
         tone={paymentStatusTone(paymentStatus)}
       />
       {refundStatus && refundStatus !== "NOT_APPLICABLE" ? (
         <StatusBadge
-          label={`Refund · ${formatStatusLabel(refundStatus)}`}
+          status={refundStatus}
           tone={refundStatusTone(refundStatus)}
         />
       ) : null}

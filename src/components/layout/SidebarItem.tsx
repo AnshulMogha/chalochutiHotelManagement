@@ -225,42 +225,74 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
 
               return (
                 <li key={child.path} className="min-w-0">
-                  <Link
-                    to={buildUrl(child.path)}
-                    onClick={() => {
-                      if (window.innerWidth < 1024) {
-                        onToggle();
-                      }
-                    }}
-                    className={cn(
-                      "flex min-w-0 w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-all duration-200",
-                      childActive
-                        ? cn(
-                            childTheme.row,
-                            "font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]",
-                          )
-                        : cn("text-white/88 hover:text-white", childTheme.rowHover),
-                    )}
-                    aria-current={childActive ? "page" : undefined}
-                  >
-                    <span
+                  {child.external ? (
+                    <a
+                      href={child.path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        if (window.innerWidth < 1024) {
+                          onToggle();
+                        }
+                      }}
                       className={cn(
-                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
-                        childActive ? childTheme.chipActive : childTheme.chip,
+                        "flex min-w-0 w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-all duration-200",
+                        cn("text-white/88 hover:text-white", childTheme.rowHover),
                       )}
                     >
-                      <ChildIcon
+                      <span
                         className={cn(
-                          "h-3.5 w-3.5",
-                          childActive ? childTheme.iconActive : childTheme.icon,
+                          "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
+                          childTheme.chip,
                         )}
-                        strokeWidth={2.25}
-                      />
-                    </span>
-                    <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-                      {child.label}
-                    </span>
-                  </Link>
+                      >
+                        <ChildIcon
+                          className={cn("h-3.5 w-3.5", childTheme.icon)}
+                          strokeWidth={2.25}
+                        />
+                      </span>
+                      <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                        {child.label}
+                      </span>
+                    </a>
+                  ) : (
+                    <Link
+                      to={buildUrl(child.path)}
+                      onClick={() => {
+                        if (window.innerWidth < 1024) {
+                          onToggle();
+                        }
+                      }}
+                      className={cn(
+                        "flex min-w-0 w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-all duration-200",
+                        childActive
+                          ? cn(
+                              childTheme.row,
+                              "font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]",
+                            )
+                          : cn("text-white/88 hover:text-white", childTheme.rowHover),
+                      )}
+                      aria-current={childActive ? "page" : undefined}
+                    >
+                      <span
+                        className={cn(
+                          "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
+                          childActive ? childTheme.chipActive : childTheme.chip,
+                        )}
+                      >
+                        <ChildIcon
+                          className={cn(
+                            "h-3.5 w-3.5",
+                            childActive ? childTheme.iconActive : childTheme.icon,
+                          )}
+                          strokeWidth={2.25}
+                        />
+                      </span>
+                      <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                        {child.label}
+                      </span>
+                    </Link>
+                  )}
                 </li>
               );
             })}

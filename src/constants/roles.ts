@@ -208,6 +208,7 @@ export const PAYMENT_REPORT_ROLES = [
   "HOTEL_MANAGER",
   "HOTEL_ACCOUNTANT",
   "ACCOUNTANT",
+  "FINANCE_MANAGER",
   "FRONT_DESK_EXEC",
   "FINANCE",
   "AUDITOR",
@@ -226,6 +227,7 @@ export const HOTEL_PAYOUT_MIS_ROLES = [
   "HOTEL_MANAGER",
   "HOTEL_ACCOUNTANT",
   "ACCOUNTANT",
+  "FINANCE_MANAGER",
   "SUPER_ADMIN",
   "FRONT_DESK_EXEC",
   "HOTEL_BD",
@@ -262,6 +264,35 @@ export function canViewTransportPayoutMis(
   if (!userRoles?.length) return false;
   return userRoles.some((role) =>
     (TRANSPORT_PAYOUT_MIS_ROLES as readonly string[]).includes(role),
+  );
+}
+
+/** Roles allowed to view Transport Booking MIS (external report). */
+export const TRANSPORT_BOOKING_MIS_ROLES = TRANSPORT_PAYOUT_MIS_ROLES;
+
+export function canViewTransportBookingMis(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (TRANSPORT_BOOKING_MIS_ROLES as readonly string[]).includes(role),
+  );
+}
+
+/** Roles allowed to view Package Booking Financial MIS (external report). */
+export const PACKAGE_BOOKING_FINANCIAL_MIS_ROLES = [
+  "SUPER_ADMIN",
+  "FINANCE_MANAGER",
+  "ACCOUNTANT",
+  "AUDITOR",
+] as const;
+
+export function canViewPackageBookingFinancialMis(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (PACKAGE_BOOKING_FINANCIAL_MIS_ROLES as readonly string[]).includes(role),
   );
 }
 
@@ -450,13 +481,15 @@ export function isAuditorRole(userRoles: string[] | undefined): boolean {
   return !!userRoles?.includes("AUDITOR");
 }
 
-/** Platform accountant (Super Admin–created): financial reports + property finance. */
+/** Platform accountant / finance manager (Super Admin–created): financial reports + property finance. */
 export function isPlatformAccountantRole(
   userRoles: string[] | undefined,
 ): boolean {
   if (!userRoles?.length) return false;
   if (userRoles.includes("SUPER_ADMIN")) return false;
-  return userRoles.includes("ACCOUNTANT");
+  return (
+    userRoles.includes("ACCOUNTANT") || userRoles.includes("FINANCE_MANAGER")
+  );
 }
 
 /** Finance Manager portal: settlements + hotel MIS (no property/helpdesk home). */
@@ -492,7 +525,6 @@ export const HELPDESK_TICKET_ROLES = [
   "HELPDESK_AGENT",
   "SUPER_ADMIN",
   "FINANCE",
-  "AUDITOR",
 ] as const;
 
 export function canViewHelpdeskTickets(

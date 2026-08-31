@@ -8,12 +8,15 @@ import {
   canViewHotelBookingFinancialMis,
   canViewHotelPayoutMis,
   canViewPaymentReport,
+  canViewTransportPayoutMis,
+  canViewTransportBookingMis,
+  canViewPackageBookingFinancialMis,
+  canViewHotelBdReports,
   canViewSalesManagerReports,
   canViewSupplierSettlement,
   canModerateReviews,
   canManageHotelReviews,
   isAuditorRole,
-  isFinanceManagerRole,
   isHelpdeskAgentRole,
   isHotelBdRole,
   isPlatformAccountantRole,
@@ -127,7 +130,7 @@ function getSettlementNavItem(): NavItem {
   };
 }
 
-/** Platform accountant: property finance + all financial reports/settlements. */
+/** Platform accountant / finance manager: bookings, property finance + all financial reports/settlements. */
 function getPlatformAccountantNavItems(user: User | null): NavItem[] {
   const userRoles = user?.roles;
   const items: NavItem[] = [
@@ -148,6 +151,11 @@ function getPlatformAccountantNavItems(user: User | null): NavItem[] {
         },
       ],
     },
+    {
+      label: "Bookings",
+      path: ROUTES.BOOKINGS.LIST,
+      icon: BookOpen,
+    },
   ];
 
   const reportsNav = getReportsNavItem(user, {
@@ -164,15 +172,27 @@ function getPlatformAccountantNavItems(user: User | null): NavItem[] {
   return items;
 }
 
-/** Auditor sidebar: Tickets, Order Lookup, and a single Reports group. */
+/** Auditor sidebar: Order Lookup and full financial/operational reports (no Tickets). */
 function getAuditorNavItems(user: User | null): NavItem[] {
   const userRoles = user?.roles;
-  const items = getHelpdeskNavItems(userRoles);
+  const items: NavItem[] = [];
+
+  if (canViewHelpdeskBookings(userRoles)) {
+    items.push({
+      label: "Order Lookup",
+      path: ROUTES.HELPDESK.LOOKUP,
+      icon: Headphones,
+    });
+  }
+
   const reportsNav = getReportsNavItem(user, {
     includeOnboardingPipeline: false,
-    includeHotelFinancialMis: canViewHotelBookingFinancialMis(userRoles),
+    includeHotelFinancialMis: true,
+    includeBookingReports: true,
+    includeHotelBdDashboard: true,
   });
   if (reportsNav) items.push(reportsNav);
+
   return items;
 }
 
@@ -196,25 +216,12 @@ function getReviewModerationNavItem(): NavItem {
   };
 }
 
-/** Finance Manager sidebar: settlements + hotel MIS only. */
-function getFinanceManagerNavItems(userRoles: string[] | undefined): NavItem[] {
-  const items: NavItem[] = [];
-  if (canViewSupplierSettlement(userRoles)) {
-    items.push(getSettlementNavItem());
-  }
-  items.push(
-    {
-      label: "Hotel MIS",
-      path: ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS,
-      icon: Wallet,
-    },
-    {
-      label: "Finance",
-      path: ROUTES.PROPERTY_INFO.FINANCE,
-      icon: CreditCard,
-    },
-  );
-  return items;
+function getHotelBdDashboardNavItem(): NavItem {
+  return {
+    label: "Hotel BD Dashboard",
+    path: ROUTES.REPORTS.HOTEL_BD_DASHBOARD,
+    icon: BarChart3,
+  };
 }
 
 function getOnboardingPipelineNavItem(): NavItem {
@@ -256,6 +263,8 @@ function getReportsNavItem(
     includeSalesManagerDashboard?: boolean;
     includeSalesManagerPortfolio?: boolean;
     includeHotelFinancialMis?: boolean;
+    /** When true, show Hotel BD portfolio dashboard under Reports. */
+    includeHotelBdDashboard?: boolean;
     /** When false, skip booking-related report children. */
     includeBookingReports?: boolean;
     /** When true, only show Payments under Reports. */
@@ -273,9 +282,16 @@ function getReportsNavItem(
     ? false
     : (options?.includeHotelFinancialMis ??
       canViewHotelBookingFinancialMis(user?.roles));
+  const includeHotelBdDashboard =
+    !paymentsOnly &&
+    !!options?.includeHotelBdDashboard &&
+    canViewHotelBdReports(user?.roles);
+  const isAuditor = isAuditorRole(user?.roles);
   const includeBookingReports = paymentsOnly
     ? false
-    : (options?.includeBookingReports ?? canViewModule(user, "BOOKINGS"));
+    : isAuditor
+      ? !!options?.includeBookingReports
+      : (options?.includeBookingReports ?? canViewModule(user, "BOOKINGS"));
   const isManagerStaff = isHotelManagerStaffRole(user?.roles);
   const showBookingSummary = paymentsOnly
     ? false
@@ -307,10 +323,17 @@ function getReportsNavItem(
     : isManagerStaff
       ? canViewModule(user, "PAYMENTS")
       : canViewHotelPayoutMis(user?.roles);
+  const showTransportPayouts =
+    !paymentsOnly && canViewTransportPayoutMis(user?.roles);
+  const showTransportBookingMis =
+    !paymentsOnly && canViewTransportBookingMis(user?.roles);
+  const showPackageMis =
+    !paymentsOnly && canViewPackageBookingFinancialMis(user?.roles);
   const showHotelPayments = showPaymentReport || showHotelPayouts;
 
   if (
     !includeOnboardingPipeline &&
+    !includeHotelBdDashboard &&
     !showBookingSummary &&
     !showPromotionReport &&
     !showRateDisparity &&
@@ -318,7 +341,10 @@ function getReportsNavItem(
     !includeSalesManagerDashboard &&
     !includeSalesManagerPortfolio &&
     !includeHotelFinancialMis &&
-    !showHotelPayments
+    !showHotelPayments &&
+    !showTransportPayouts &&
+    !showTransportBookingMis &&
+    !showPackageMis
   ) {
     return null;
   }
@@ -327,6 +353,7 @@ function getReportsNavItem(
     ...(includeSalesManagerDashboard ? [getSalesManagerDashboardNavItem()] : []),
     ...(includeSalesManagerPortfolio ? [getSalesManagerAgentsNavItem()] : []),
     ...(includeHotelFinancialMis ? [getHotelFinancialMisNavItem()] : []),
+    ...(includeHotelBdDashboard ? [getHotelBdDashboardNavItem()] : []),
     ...(includeOnboardingPipeline ? [getOnboardingPipelineNavItem()] : []),
     ...(showBookingSummary
       ? [
@@ -382,6 +409,36 @@ function getReportsNavItem(
           },
         ]
       : []),
+    ...(showTransportPayouts
+      ? [
+          {
+            label: "Transport Payouts",
+            path: ROUTES.ADMIN.TRANSPORT_NET_EARNINGS,
+            icon: Wallet,
+            external: true,
+          },
+        ]
+      : []),
+    ...(showTransportBookingMis
+      ? [
+          {
+            label: "Transport Booking MIS",
+            path: ROUTES.ADMIN.TRANSPORT_BOOKING_MIS,
+            icon: BookOpen,
+            external: true,
+          },
+        ]
+      : []),
+    ...(showPackageMis
+      ? [
+          {
+            label: "Package MIS",
+            path: ROUTES.ADMIN.PACKAGE_BOOKING_FINANCIAL_MIS,
+            icon: Package,
+            external: true,
+          },
+        ]
+      : []),
   ];
 
   return {
@@ -414,10 +471,6 @@ const getNavItems = (user: User | null): NavItem[] => {
 
   if (isAuditor && !isSuperAdmin) {
     return getAuditorNavItems(user);
-  }
-
-  if (isFinanceManagerRole(userRoles)) {
-    return getFinanceManagerNavItems(userRoles);
   }
 
   if (isPlatformAccountantRole(userRoles)) {

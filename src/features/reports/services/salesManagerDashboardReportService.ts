@@ -317,8 +317,7 @@ function normalizeInboxItem(raw: unknown): SalesManagerActionInboxItem {
     agencyName: String(record.agencyName ?? "—"),
     state: (record.state as string | null | undefined) ?? null,
     tier: (record.tier as string | null | undefined) ?? null,
-    amount:
-      record.amount != null ? normalizeMoney(record.amount) : null,
+    amount: record.amount != null ? normalizeMoney(record.amount) : null,
     title: String(record.title ?? "Action required"),
     description: String(record.description ?? ""),
     actionUrl: (record.actionUrl as string | null | undefined) ?? null,
@@ -340,7 +339,8 @@ function normalizeDashboardResponse(
     (payload.agentFunnel as Record<string, unknown> | undefined) ?? {};
   const healthRaw =
     (payload.agentHealth as Record<string, unknown> | undefined) ?? {};
-  const chartsRaw = (payload.charts as Record<string, unknown> | undefined) ?? {};
+  const chartsRaw =
+    (payload.charts as Record<string, unknown> | undefined) ?? {};
   const productMixRaw =
     (payload.productMix as Record<string, unknown> | undefined) ?? {};
   const paymentMixRaw =

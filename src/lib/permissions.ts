@@ -92,6 +92,7 @@ function isHotelAccountantRole(userRoles: string[] | undefined): boolean {
 }
 
 const PLATFORM_ACCOUNTANT_VIEW_MODULES: PermissionModule[] = [
+  "BOOKINGS",
   "PROPERTY_FINANCE",
   "FINANCE",
   "PAYMENTS",
@@ -384,6 +385,15 @@ function canViewAnyReportPath(user: User | null): boolean {
       canViewHotelBookingFinancialMis(user?.roles)
     );
   }
+  if (isAuditorRole(user?.roles)) {
+    return (
+      canViewPaymentReport(user?.roles) ||
+      canViewHotelPayoutMis(user?.roles) ||
+      canViewTransportPayoutMis(user?.roles) ||
+      canViewHotelBookingFinancialMis(user?.roles) ||
+      canViewHotelBdReports(user?.roles)
+    );
+  }
   if (isHotelAccountantRole(user?.roles)) {
     return canViewModule(user, "PAYMENTS");
   }
@@ -410,6 +420,45 @@ function canViewAnyReportPath(user: User | null): boolean {
 function canViewReportsPath(user: User | null, pathOnly: string): boolean {
   if (pathOnly === ROUTES.REPORTS.LIST) {
     return canViewAnyReportPath(user);
+  }
+
+  if (isAuditorRole(user?.roles)) {
+    if (pathOnly === ROUTES.REPORTS.BOOKING_SUMMARY) return true;
+    if (pathOnly === ROUTES.REPORTS.PROMOTIONS) return true;
+    if (pathOnly === ROUTES.REPORTS.RATE_HEALTH) return true;
+    if (pathOnly === ROUTES.REPORTS.INVENTORY_ALLOCATION) return true;
+    if (
+      pathOnly === ROUTES.REPORTS.NET_EARNINGS ||
+      pathOnly.startsWith(`${ROUTES.REPORTS.NET_EARNINGS}/`)
+    ) {
+      return canViewPaymentReport(user?.roles);
+    }
+    if (
+      pathOnly === ROUTES.REPORTS.HOTEL_PAYOUTS ||
+      pathOnly.startsWith(`${ROUTES.REPORTS.HOTEL_PAYOUTS}/`)
+    ) {
+      return canViewHotelPayoutMis(user?.roles);
+    }
+    if (
+      pathOnly === ROUTES.REPORTS.TRANSPORT_PAYOUTS ||
+      pathOnly.startsWith(`${ROUTES.REPORTS.TRANSPORT_PAYOUTS}/`)
+    ) {
+      return canViewTransportPayoutMis(user?.roles);
+    }
+    if (pathOnly === ROUTES.REPORTS.HOTEL_BD_DASHBOARD) {
+      return canViewHotelBdReports(user?.roles);
+    }
+    if (pathOnly === ROUTES.REPORTS.HOTEL_BD_PIPELINE) {
+      return canViewHotelBdPipeline(user?.roles);
+    }
+    if (isSalesManagerReportPath(pathOnly)) {
+      return canViewSalesManagerReports(user?.roles);
+    }
+    if (isHotelBookingFinancialMisPath(pathOnly)) {
+      return canViewHotelBookingFinancialMis(user?.roles);
+    }
+    if (pathOnly === "/reports/performance") return true;
+    return false;
   }
 
   // Hotel Accountant: Payments report only (no booking/other report pages).
@@ -561,33 +610,19 @@ function canHelpdeskAgentViewPath(pathOnly: string): boolean {
   );
 }
 
-/** Auditor: helpdesk + financial MIS / BD reports only (no Dashboard / My Properties). */
+/** Auditor: order lookup + all report screens (no Tickets). */
 function canAuditorViewPath(pathOnly: string): boolean {
   return (
     pathOnly === "/" ||
     pathOnly === "" ||
     pathOnly.startsWith("/profile") ||
-    isHelpdeskTicketsPath(pathOnly) ||
     isHelpdeskOrdersPath(pathOnly) ||
     pathOnly === ROUTES.REPORTS.LIST ||
     pathOnly.startsWith("/reports/")
   );
 }
 
-/** Finance Manager: settlements + hotel MIS only. */
-function canFinanceManagerViewPath(pathOnly: string): boolean {
-  return (
-    pathOnly === "/" ||
-    pathOnly === "" ||
-    pathOnly.startsWith("/profile") ||
-    isSettlementPath(pathOnly) ||
-    isHotelBookingFinancialMisPath(pathOnly) ||
-    pathOnly === ROUTES.BOOKINGS.LIST ||
-    pathOnly.startsWith(`${ROUTES.BOOKINGS.LIST}/`) ||
-    pathOnly === ROUTES.PROPERTY_INFO.FINANCE
-  );
-}
-
+/** Sales Manager: agent portfolio + sales reports. */
 function canSalesManagerViewPath(pathOnly: string): boolean {
   return (
     pathOnly === "/" ||
@@ -714,7 +749,7 @@ function canViewUnmappedPath(user: User | null, pathOnly: string): boolean {
   return false;
 }
 
-/** Platform accountant: financial reports, settlements, and property finance only. */
+/** Platform accountant / finance manager: bookings, financial reports, settlements, and property finance. */
 function canPlatformAccountantViewPath(pathOnly: string): boolean {
   if (pathOnly === "/" || pathOnly === "") return true;
   if (pathOnly.startsWith("/profile")) return true;
@@ -722,6 +757,12 @@ function canPlatformAccountantViewPath(pathOnly: string): boolean {
   if (
     pathOnly === ROUTES.PROPERTY_INFO.LIST ||
     pathOnly === ROUTES.PROPERTY_INFO.FINANCE
+  ) {
+    return true;
+  }
+  if (
+    pathOnly === ROUTES.BOOKINGS.LIST ||
+    pathOnly.startsWith(`${ROUTES.BOOKINGS.LIST}/`)
   ) {
     return true;
   }
@@ -749,10 +790,6 @@ function passesRoleScopedPathGuard(user: User | null, pathOnly: string): boolean
 
   if (isAuditorRole(user?.roles)) {
     return canAuditorViewPath(pathOnly);
-  }
-
-  if (isFinanceManagerRole(user?.roles)) {
-    return canFinanceManagerViewPath(pathOnly);
   }
 
   if (isSalesManagerRole(user?.roles)) {
