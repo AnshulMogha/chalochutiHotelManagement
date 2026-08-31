@@ -61,6 +61,28 @@ export function getHotelFinancialMisAgentPrice(
   };
 }
 
+/** End-customer price set by the agent (B2B); falls back to payment breakup selling price. */
+export function getHotelFinancialMisAgentCustomerSellingPrice(
+  booking: Pick<
+    HotelFinancialMisBookingRow,
+    "agentCustomerSellingPrice" | "agentPaymentBreakup"
+  >,
+): HotelFinancialMisMoney | null {
+  if (
+    booking.agentCustomerSellingPrice &&
+    booking.agentCustomerSellingPrice.amount > 0
+  ) {
+    return booking.agentCustomerSellingPrice;
+  }
+  if (
+    booking.agentPaymentBreakup?.sellingPrice &&
+    booking.agentPaymentBreakup.sellingPrice.amount > 0
+  ) {
+    return booking.agentPaymentBreakup.sellingPrice;
+  }
+  return null;
+}
+
 export function getHotelFinancialMisDisplaySellingPrice(
   booking: Pick<
     HotelFinancialMisBookingRow,

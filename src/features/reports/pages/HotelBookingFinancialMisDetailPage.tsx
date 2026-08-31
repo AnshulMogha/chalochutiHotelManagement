@@ -11,6 +11,7 @@ import {
   BookedByOwnerDisplay,
   formatBookedByLabel,
   getHotelFinancialMisAgentPrice,
+  getHotelFinancialMisAgentCustomerSellingPrice,
   getHotelFinancialMisDisplaySellingPrice,
   isHotelFinancialMisB2b,
   paymentStatusTone,
@@ -109,6 +110,8 @@ function CustomerOrAgentPriceBreakup({
 }) {
   const isB2b = isHotelFinancialMisB2b(booking);
   const agentPrice = getHotelFinancialMisAgentPrice(booking);
+  const agentCustomerSellingPrice =
+    getHotelFinancialMisAgentCustomerSellingPrice(booking);
   const paymentBreakup = booking.agentPaymentBreakup;
   const incentive = booking.agencyIncentive;
 
@@ -143,11 +146,17 @@ function CustomerOrAgentPriceBreakup({
       {isB2b ? (
         <>
           <BreakupRow
-            label="Customer selling price"
+            label="Agent customer selling price"
             amount={
-              paymentBreakup?.sellingPrice ??
+              agentCustomerSellingPrice ??
               booking.customerSellingPriceBreakup.finalCustomerPrice
             }
+            bold
+            highlight
+          />
+          <BreakupRow
+            label="Platform customer price"
+            amount={booking.customerSellingPrice}
           />
           <BreakupRow
             label="Agent net commission"
@@ -187,7 +196,10 @@ function CustomerOrAgentPriceBreakup({
             <div className="space-y-1 p-4">
               <InfoLine
                 label="Selling price"
-                value={formatFinanceMoney(paymentBreakup.sellingPrice)}
+                highlight
+                value={formatFinanceMoney(
+                  agentCustomerSellingPrice ?? paymentBreakup.sellingPrice,
+                )}
               />
               <InfoLine
                 label="Gross agent commission"
@@ -334,6 +346,8 @@ export default function HotelBookingFinancialMisDetailPage() {
 
   const isB2b = isHotelFinancialMisB2b(booking);
   const displaySellingPrice = getHotelFinancialMisDisplaySellingPrice(booking);
+  const agentCustomerSellingPrice =
+    getHotelFinancialMisAgentCustomerSellingPrice(booking);
   const detailTabs = TABS.map((item) =>
     item.value === "customer"
       ? { ...item, label: isB2b ? "Agent Price" : "Customer Price" }
@@ -858,10 +872,19 @@ export default function HotelBookingFinancialMisDetailPage() {
                   value={formatFinanceMoney(booking.amountCollected)}
                 />
                 {isB2b ? (
-                  <InfoLine
-                    label="Customer selling price"
-                    value={formatFinanceMoney(booking.customerSellingPrice)}
-                  />
+                  <>
+                    {agentCustomerSellingPrice ? (
+                      <InfoLine
+                        label="Agent customer selling price"
+                        highlight
+                        value={formatFinanceMoney(agentCustomerSellingPrice)}
+                      />
+                    ) : null}
+                    <InfoLine
+                      label="Platform customer price"
+                      value={formatFinanceMoney(booking.customerSellingPrice)}
+                    />
+                  </>
                 ) : null}
                 <InfoLine
                   label="Agent commission"
@@ -1456,11 +1479,38 @@ function Panel({
   );
 }
 
-function InfoLine({ label, value }: { label: string; value: ReactNode }) {
+function InfoLine({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: ReactNode;
+  highlight?: boolean;
+}) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-slate-100 py-2 last:border-b-0">
-      <span className="text-sm text-slate-500">{label}</span>
-      <span className="text-right text-sm font-medium text-slate-900">
+    <div
+      className={cn(
+        "flex items-start justify-between gap-3 border-b border-slate-100 py-2 last:border-b-0",
+        highlight && "rounded-lg bg-violet-50 px-2 -mx-2",
+      )}
+    >
+      <span
+        className={cn(
+          "text-sm",
+          highlight ? "font-medium text-violet-900" : "text-slate-500",
+        )}
+      >
+        {label}
+      </span>
+      <span
+        className={cn(
+          "text-right text-sm tabular-nums",
+          highlight
+            ? "font-semibold text-violet-800"
+            : "font-medium text-slate-900",
+        )}
+      >
         {value}
       </span>
     </div>

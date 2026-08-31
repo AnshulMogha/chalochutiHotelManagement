@@ -27,6 +27,7 @@ import {
   cacheFinancialMisRow,
   clearCachedFinancialMisFilters,
   getHotelFinancialMisDisplaySellingPrice,
+  getHotelFinancialMisAgentCustomerSellingPrice,
   isHotelFinancialMisB2b,
   paymentStatusTone,
   readCachedFinancialMisFilters,
@@ -704,6 +705,7 @@ export default function HotelBookingFinancialMisPage() {
         "Owner email",
         "Agency",
         "Customer / Agent price",
+        "Agent customer selling price",
         "Hotel payout",
         "TDS",
         "TCS",
@@ -732,6 +734,7 @@ export default function HotelBookingFinancialMisPage() {
         row.bookingOwner?.email,
         row.bookingOwner?.agencyName,
         formatFinanceMoney(getHotelFinancialMisDisplaySellingPrice(row)),
+        formatFinanceMoney(getHotelFinancialMisAgentCustomerSellingPrice(row)),
         formatFinanceMoney(row.hotelPayout),
         formatFinanceMoney(row.tds),
         formatFinanceMoney(row.tcs),
@@ -1196,10 +1199,20 @@ export default function HotelBookingFinancialMisPage() {
                         )}
                       </button>
                       {isHotelFinancialMisB2b(row) ? (
-                        <p className="text-xs text-slate-500">
-                          Agent · sell{" "}
-                          {formatFinanceMoney(row.customerSellingPrice)}
-                        </p>
+                        <>
+                          {getHotelFinancialMisAgentCustomerSellingPrice(row) ? (
+                            <p className="mt-1 inline-flex items-center rounded-md bg-violet-50 px-1.5 py-0.5 text-xs font-medium tabular-nums text-violet-800 ring-1 ring-inset ring-violet-200">
+                              Agent sell{" "}
+                              {formatFinanceMoney(
+                                getHotelFinancialMisAgentCustomerSellingPrice(row)!,
+                              )}
+                            </p>
+                          ) : null}
+                          <p className="text-xs text-slate-500">
+                            Platform{" "}
+                            {formatFinanceMoney(row.customerSellingPrice)}
+                          </p>
+                        </>
                       ) : null}
                     </td>
                     <td className="px-4 py-3">

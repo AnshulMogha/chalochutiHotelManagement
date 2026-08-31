@@ -170,6 +170,7 @@ export interface HotelFinancialMisBookingRow {
   bookingStatus: string;
   bookingStatusRaw?: string | null;
   customerSellingPrice: HotelFinancialMisMoney;
+  agentCustomerSellingPrice: HotelFinancialMisMoney | null;
   originalHotelBaseRate: HotelFinancialMisMoney;
   originalHotelGst: HotelFinancialMisMoney;
   hotelBaseCost: HotelFinancialMisMoney;
@@ -531,6 +532,10 @@ function normalizeRow(raw: unknown): HotelFinancialMisBookingRow {
     bookingStatusRaw:
       (record.bookingStatusRaw as string | null | undefined) ?? null,
     customerSellingPrice: money(record.customerSellingPrice),
+    agentCustomerSellingPrice:
+      record.agentCustomerSellingPrice != null
+        ? money(record.agentCustomerSellingPrice)
+        : null,
     originalHotelBaseRate: money(record.originalHotelBaseRate),
     originalHotelGst: money(record.originalHotelGst),
     hotelBaseCost: hotelBaseRate,
