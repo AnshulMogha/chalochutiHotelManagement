@@ -15,7 +15,7 @@ import type {
   HotelLookupItem,
 } from "@/features/admin/services/adminService";
 import { useAuth } from "@/hooks";
-import { isPlatformAccountantRole, isSuperAdmin } from "@/constants/roles";
+import { usesGlobalHotelLookup } from "@/constants/roles";
 import { useLocation } from "react-router";
 import { ROUTES } from "@/constants";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
@@ -35,8 +35,7 @@ export function HotelSelector({
   autoSelectFirst = true,
 }: HotelSelectorProps) {
   const { user } = useAuth();
-  const useGlobalHotelLookup =
-    isSuperAdmin(user?.roles) || isPlatformAccountantRole(user?.roles);
+  const useGlobalHotelLookup = usesGlobalHotelLookup(user?.roles);
   // If parent hasn't provided a hotelId yet, fall back to persisted selection.
   // This prevents auto-selecting the first hotel by default.
   const effectiveSelectedHotelId =
@@ -69,7 +68,7 @@ export function HotelSelector({
         let data: (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[];
 
         if (useGlobalHotelLookup) {
-          // Super Admin / platform Accountant: global lookup (all hotels)
+          // Super Admin / platform finance roles / Auditor: global lookup (all hotels)
           data = await adminService.getSuperAdminHotelLookup(debouncedSearch);
         } else {
           // Hotel Owner / Manager / Hotel Accountant / Front Desk: owner-scoped list

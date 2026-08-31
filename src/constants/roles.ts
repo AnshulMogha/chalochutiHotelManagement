@@ -492,6 +492,17 @@ export function isPlatformAccountantRole(
   );
 }
 
+/** Roles that use the global hotel lookup API in the top-bar selector. */
+export function usesGlobalHotelLookup(
+  userRoles: string[] | undefined,
+): boolean {
+  return (
+    isSuperAdmin(userRoles) ||
+    isPlatformAccountantRole(userRoles) ||
+    isAuditorRole(userRoles)
+  );
+}
+
 /** Finance Manager portal: settlements + hotel MIS (no property/helpdesk home). */
 export function isFinanceManagerRole(
   userRoles: string[] | undefined,
