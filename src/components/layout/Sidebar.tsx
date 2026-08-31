@@ -135,11 +135,6 @@ function getPlatformAccountantNavItems(user: User | null): NavItem[] {
   const userRoles = user?.roles;
   const items: NavItem[] = [
     {
-      label: "Dashboard",
-      path: ROUTES.PROPERTIES.MY_PROPERTY,
-      icon: LayoutDashboard,
-    },
-    {
       label: "Property Information",
       path: ROUTES.PROPERTY_INFO.LIST,
       icon: Info,
@@ -172,7 +167,7 @@ function getPlatformAccountantNavItems(user: User | null): NavItem[] {
   return items;
 }
 
-/** Auditor sidebar: Order Lookup and full financial/operational reports (no Tickets). */
+/** Auditor sidebar: Order Lookup, Bookings, and full financial/operational reports (no Tickets). */
 function getAuditorNavItems(user: User | null): NavItem[] {
   const userRoles = user?.roles;
   const items: NavItem[] = [];
@@ -184,6 +179,12 @@ function getAuditorNavItems(user: User | null): NavItem[] {
       icon: Headphones,
     });
   }
+
+  items.push({
+    label: "Bookings",
+    path: ROUTES.BOOKINGS.LIST,
+    icon: BookOpen,
+  });
 
   const reportsNav = getReportsNavItem(user, {
     includeOnboardingPipeline: false,

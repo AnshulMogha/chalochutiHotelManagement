@@ -18,6 +18,7 @@ import {
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import { reviewMisService } from "../services/reviewMisService";
+import { hotelReviewService } from "../services/hotelReviewService";
 import { resolveReviewMediaUrl } from "../services/reviewMediaUrl";
 import type {
   ReviewMisItem,
@@ -34,6 +35,7 @@ import {
   ReviewModerationPageShell,
   ReviewStatusBadge,
   ReviewSubjectLookupField,
+  OwnerScopedHotelSelect,
 } from "../components/reviewModerationUi";
 import {
   BarChart3,
@@ -67,6 +69,8 @@ import {
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
+
+type OwnerReviewDialogMode = "reply" | "report" | null;
 
 const RATING_MIX_TONES: Record<
   1 | 2 | 3 | 4 | 5,
@@ -347,11 +351,12 @@ function MisKpiCard({
 
 export default function ReviewMisPage() {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const hotelId = searchParams.get("hotelId") ?? getStoredSelectedHotelId();
   const isModeratorView = canModerateReviews(user?.roles);
   const isHotelScopedMis = canManageHotelReviews(user?.roles) && !isModeratorView;
-  const columnCount = isModeratorView ? 10 : 9;
+  const showOwnerActions = isHotelScopedMis && !!hotelId;
+  const columnCount = isModeratorView || showOwnerActions ? 10 : 9;
 
   const { toast, showToast, hideToast } = useToast();
   const [page, setPage] = useState(0);
@@ -363,6 +368,12 @@ export default function ReviewMisPage() {
   const [draft, setDraft] = useState<FilterDraft>(DEFAULT_FILTERS);
   const [filterOpen, setFilterOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [ownerDialogMode, setOwnerDialogMode] =
+    useState<OwnerReviewDialogMode>(null);
+  const [ownerActiveReview, setOwnerActiveReview] =
+    useState<ReviewMisItem | null>(null);
+  const [ownerDialogText, setOwnerDialogText] = useState("");
+  const [ownerSubmitting, setOwnerSubmitting] = useState(false);
   const [mediaPreview, setMediaPreview] = useState<{
     url: string;
     label: string;
@@ -494,6 +505,83 @@ export default function ReviewMisPage() {
     }
     setPage(0);
     setFilterOpen(false);
+  };
+
+  const openOwnerDialog = (mode: Exclude<OwnerReviewDialogMode, null>, row: ReviewMisItem) => {
+    setOwnerActiveReview(row);
+    setOwnerDialogMode(mode);
+    setOwnerDialogText("");
+  };
+
+  const closeOwnerDialog = () => {
+    if (ownerSubmitting) return;
+    setOwnerDialogMode(null);
+    setOwnerActiveReview(null);
+    setOwnerDialogText("");
+  };
+
+  const submitOwnerDialog = async () => {
+    if (!hotelId || !ownerActiveReview || !ownerDialogMode) return;
+    const text = ownerDialogText.trim();
+    if (!text) {
+      showToast(
+        ownerDialogMode === "reply"
+          ? "Please enter a reply"
+          : "Please enter a report reason",
+        "error",
+      );
+      return;
+    }
+    setOwnerSubmitting(true);
+    try {
+      if (ownerDialogMode === "reply") {
+        const updated = await hotelReviewService.reply(
+          ownerActiveReview.id,
+          hotelId,
+          { replyText: text },
+        );
+        setRows((prev) =>
+          prev.map((row) =>
+            row.id === updated.id
+              ? {
+                  ...row,
+                  reply: updated.reply,
+                }
+              : row,
+          ),
+        );
+        showToast("Reply posted", "success");
+      } else {
+        await hotelReviewService.report(ownerActiveReview.id, hotelId, {
+          reason: text,
+        });
+        showToast("Review reported", "success");
+        await loadMis();
+      }
+      setOwnerDialogMode(null);
+      setOwnerActiveReview(null);
+      setOwnerDialogText("");
+    } catch (error) {
+      showToast(extractErrorMessage(error), "error");
+    } finally {
+      setOwnerSubmitting(false);
+    }
+  };
+
+  const handleOwnerHotelChange = (nextHotelId: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (nextHotelId) next.set("hotelId", nextHotelId);
+      else next.delete("hotelId");
+      return next;
+    });
+    setDraft((prev) => ({ ...prev, subjectId: nextHotelId }));
+    setFilters((prev) => ({
+      ...prev,
+      bookingType: "HOTEL",
+      subjectId: nextHotelId || undefined,
+    }));
+    setPage(0);
   };
 
   const handleBookingTypeChange = (nextBookingType: string) => {
@@ -796,7 +884,7 @@ export default function ReviewMisPage() {
                   <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
                     Published
                   </th>
-                  {isModeratorView ? (
+                  {isModeratorView || showOwnerActions ? (
                     <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
                       Action
                     </th>
@@ -841,6 +929,9 @@ export default function ReviewMisPage() {
                         row={row}
                         expanded={expanded}
                         showActions={isModeratorView}
+                        showOwnerActions={showOwnerActions}
+                        onOwnerReply={() => openOwnerDialog("reply", row)}
+                        onOwnerReport={() => openOwnerDialog("report", row)}
                         columnCount={columnCount}
                         onToggle={() =>
                           setExpandedId((prev) =>
@@ -894,9 +985,13 @@ export default function ReviewMisPage() {
       >
         <ReviewFilterField label="Booking type">
           {isHotelScopedMis ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-              Hotel booking
-            </div>
+            <select
+              value="HOTEL"
+              disabled
+              className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+            >
+              <option value="HOTEL">Hotel booking</option>
+            </select>
           ) : (
             <select
               value={draft.bookingType}
@@ -912,6 +1007,14 @@ export default function ReviewMisPage() {
             </select>
           )}
         </ReviewFilterField>
+        {isHotelScopedMis ? (
+          <ReviewFilterField label="Hotel">
+            <OwnerScopedHotelSelect
+              value={hotelId || draft.subjectId || ""}
+              onChange={handleOwnerHotelChange}
+            />
+          </ReviewFilterField>
+        ) : null}
         <ReviewFilterField label="Status">
           <select
             value={draft.status}
@@ -976,6 +1079,80 @@ export default function ReviewMisPage() {
         </div>
       </ReviewFilterDrawer>
 
+      {ownerDialogMode && ownerActiveReview ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close dialog"
+            className="fixed inset-0 z-40 bg-slate-900/40"
+            onClick={closeOwnerDialog}
+          />
+          <div className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,28rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <div className="mb-1 flex items-center gap-2">
+              <div
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-lg",
+                  ownerDialogMode === "reply"
+                    ? "bg-sky-100 text-sky-700"
+                    : "bg-rose-100 text-rose-700",
+                )}
+              >
+                {ownerDialogMode === "reply" ? (
+                  <MessageSquare className="h-4 w-4" />
+                ) : (
+                  <Flag className="h-4 w-4" />
+                )}
+              </div>
+              <h3 className="text-sm font-semibold text-slate-900">
+                {ownerDialogMode === "reply"
+                  ? "Reply to review"
+                  : "Report review"}
+              </h3>
+            </div>
+            <p className="mb-3 text-xs text-slate-500">
+              {ownerActiveReview.bookingRef || ownerActiveReview.id}
+            </p>
+            <textarea
+              value={ownerDialogText}
+              onChange={(e) => setOwnerDialogText(e.target.value)}
+              rows={4}
+              placeholder={
+                ownerDialogMode === "reply"
+                  ? "Write your public reply…"
+                  : "Reason for reporting…"
+              }
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={ownerSubmitting}
+                onClick={closeOwnerDialog}
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={ownerSubmitting || !ownerDialogText.trim()}
+                onClick={() => void submitOwnerDialog()}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-50",
+                  ownerDialogMode === "reply"
+                    ? "bg-sky-600 hover:bg-sky-700"
+                    : "bg-rose-600 hover:bg-rose-700",
+                )}
+              >
+                {ownerSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                {ownerDialogMode === "reply" ? "Post reply" : "Submit report"}
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
+
       {mediaPreview ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
@@ -1019,6 +1196,9 @@ function FragmentRow({
   row,
   expanded,
   showActions,
+  showOwnerActions,
+  onOwnerReply,
+  onOwnerReport,
   columnCount,
   onToggle,
   onOpenMedia,
@@ -1026,6 +1206,9 @@ function FragmentRow({
   row: ReviewMisItem;
   expanded: boolean;
   showActions: boolean;
+  showOwnerActions: boolean;
+  onOwnerReply: () => void;
+  onOwnerReport: () => void;
   columnCount: number;
   onToggle: () => void;
   onOpenMedia: (preview: { url: string; label: string }) => void;
@@ -1245,7 +1428,30 @@ function FragmentRow({
               ? formatReportDateTime(row.createdAt)
               : "—"}
         </td>
-        {showActions ? (
+        {showOwnerActions ? (
+          <td className="px-4 py-4 text-right">
+            <div className="flex flex-wrap justify-end gap-1.5">
+              {!row.reply?.replyText ? (
+                <button
+                  type="button"
+                  onClick={onOwnerReply}
+                  className="inline-flex items-center gap-1 rounded-xl border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800 transition hover:bg-sky-100"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Reply
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={onOwnerReport}
+                className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-800 transition hover:bg-rose-100"
+              >
+                <Flag className="h-3.5 w-3.5" />
+                Report
+              </button>
+            </div>
+          </td>
+        ) : showActions ? (
           <td className="px-4 py-4 text-right">
             <Link
               to={ROUTES.RATINGS_REVIEWS.DETAIL(row.id)}

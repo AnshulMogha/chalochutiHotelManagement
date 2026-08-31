@@ -377,10 +377,7 @@ export default function SettlementPreviewPage() {
                       approve it (maker-checker).
                     </p>
                   ) : (
-                    <p>
-                      View-only access. Ask Accountant / Finance Manager to
-                      generate.
-                    </p>
+                    <p>View-only access for this settlement preview.</p>
                   )}
                   {existingDraft ? (
                     <Link

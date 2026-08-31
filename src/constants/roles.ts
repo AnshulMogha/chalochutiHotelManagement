@@ -328,8 +328,7 @@ export function hasRole(userRoles: string[] | undefined, role: Role): boolean {
 export function canVerifyHotelBank(userRoles: string[] | undefined): boolean {
   if (!userRoles?.length) return false;
   return (
-    userRoles.includes("SUPER_ADMIN") ||
-    userRoles.includes("FINANCE_MANAGER")
+    userRoles.includes("SUPER_ADMIN") || userRoles.includes("FINANCE_MANAGER")
   );
 }
 
@@ -340,9 +339,7 @@ export const REVIEW_MODERATION_ROLES = [
   "PACKAGE_BD",
 ] as const;
 
-export function canModerateReviews(
-  userRoles: string[] | undefined,
-): boolean {
+export function canModerateReviews(userRoles: string[] | undefined): boolean {
   if (!userRoles?.length) return false;
   return userRoles.some((role) =>
     (REVIEW_MODERATION_ROLES as readonly string[]).includes(role),
@@ -470,9 +467,7 @@ export function isSalesManagerRole(userRoles: string[] | undefined): boolean {
 }
 
 /** Helpdesk agent: customer order lookup and support view. */
-export function isHelpdeskAgentRole(
-  userRoles: string[] | undefined,
-): boolean {
+export function isHelpdeskAgentRole(userRoles: string[] | undefined): boolean {
   return !!userRoles?.includes("HELPDESK_AGENT");
 }
 
@@ -503,10 +498,19 @@ export function usesGlobalHotelLookup(
   );
 }
 
-/** Finance Manager portal: settlements + hotel MIS (no property/helpdesk home). */
-export function isFinanceManagerRole(
+/** Super Admin, platform finance, and auditor: admin booking full-details on /bookings/:id. */
+export function usesAdminBookingFullDetail(
   userRoles: string[] | undefined,
 ): boolean {
+  return (
+    isSuperAdmin(userRoles) ||
+    isPlatformAccountantRole(userRoles) ||
+    isAuditorRole(userRoles)
+  );
+}
+
+/** Finance Manager portal: settlements + hotel MIS (no property/helpdesk home). */
+export function isFinanceManagerRole(userRoles: string[] | undefined): boolean {
   if (!userRoles?.includes("FINANCE_MANAGER")) return false;
   if (isSuperAdmin(userRoles)) return false;
   if (isAuditorRole(userRoles)) return false;
@@ -548,9 +552,7 @@ export function canViewHelpdeskTickets(
 }
 
 /** Roles allowed to assign helpdesk tickets. */
-export const HELPDESK_TICKET_ASSIGN_ROLES = [
-  "SUPER_ADMIN",
-] as const;
+export const HELPDESK_TICKET_ASSIGN_ROLES = ["SUPER_ADMIN"] as const;
 
 export function canAssignHelpdeskTickets(
   userRoles: string[] | undefined,
@@ -582,12 +584,16 @@ export function canViewSupplierSettlement(
 export const SETTLEMENT_APPROVE_ROLES = [
   "SUPER_ADMIN",
   "FINANCE_MANAGER",
+  "FINANCE",
+  "ACCOUNTANT",
 ] as const;
 
 export function canApproveSupplierSettlement(
   userRoles: string[] | undefined,
 ): boolean {
   if (!userRoles?.length) return false;
+  if (isSuperAdmin(userRoles)) return true;
+  if (isPlatformAccountantRole(userRoles)) return true;
   return userRoles.some((role) =>
     (SETTLEMENT_APPROVE_ROLES as readonly string[]).includes(role),
   );
@@ -597,12 +603,16 @@ export function canApproveSupplierSettlement(
 export const SETTLEMENT_GENERATE_ROLES = [
   "SUPER_ADMIN",
   "FINANCE_MANAGER",
+  "FINANCE",
+  "ACCOUNTANT",
 ] as const;
 
 export function canGenerateSupplierSettlement(
   userRoles: string[] | undefined,
 ): boolean {
   if (!userRoles?.length) return false;
+  if (isSuperAdmin(userRoles)) return true;
+  if (isPlatformAccountantRole(userRoles)) return true;
   return userRoles.some((role) =>
     (SETTLEMENT_GENERATE_ROLES as readonly string[]).includes(role),
   );

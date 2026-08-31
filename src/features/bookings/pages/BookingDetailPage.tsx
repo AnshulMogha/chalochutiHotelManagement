@@ -7,7 +7,7 @@ import {
 } from "../services/bookingService";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
-import { ROLES, hasAnyRole } from "@/constants/roles";
+import { usesAdminBookingFullDetail } from "@/constants/roles";
 import { useAuth } from "@/hooks";
 import { cn } from "@/lib/utils";
 import {
@@ -138,9 +138,8 @@ function formatCancellationBracketLabel(
   label: string | null | undefined,
 ): string {
   if (!label) return "";
-  const converted = label.replace(
-    /(\d+(?:\.\d+)?)\s*h\b/gi,
-    (_, raw: string) => hoursToDaysLabel(Number(raw)),
+  const converted = label.replace(/(\d+(?:\.\d+)?)\s*h\b/gi, (_, raw: string) =>
+    hoursToDaysLabel(Number(raw)),
   );
   return converted
     .replace(
@@ -304,7 +303,9 @@ function CalcSubtotal({
       <span>
         ({letter}) {label}
       </span>
-      <span className="shrink-0 tabular-nums">{formatCurrency(amount, currency)}</span>
+      <span className="shrink-0 tabular-nums">
+        {formatCurrency(amount, currency)}
+      </span>
     </div>
   );
 }
@@ -322,7 +323,7 @@ export default function BookingDetailPage() {
   const [searchParams] = useSearchParams();
   const hotelId = searchParams.get("hotelId");
   const { isUserProfileLoading, user } = useAuth();
-  const isSuperAdmin = hasAnyRole(user?.roles, [ROLES.SUPER_ADMIN]);
+  const useAdminDetail = usesAdminBookingFullDetail(user?.roles);
 
   if (isUserProfileLoading) {
     return (
@@ -335,7 +336,7 @@ export default function BookingDetailPage() {
     );
   }
 
-  if (isSuperAdmin) {
+  if (useAdminDetail) {
     return <AdminBookingDetailPage listItemId={id} backHotelId={hotelId} />;
   }
 
@@ -469,9 +470,10 @@ function HotelBookingDetailPage({
   const showPropertyTaxLine =
     !isPackageBooking || (rateBreakup?.propertyTaxes ?? 0) > 0;
   const bookingStatus = booking.status || booking.paymentStatus;
-  const isCancelledBooking = `${booking.status || ""} ${booking.paymentStatus || ""}`
-    .toUpperCase()
-    .includes("CANCEL");
+  const isCancelledBooking =
+    `${booking.status || ""} ${booking.paymentStatus || ""}`
+      .toUpperCase()
+      .includes("CANCEL");
   const originalReservationValue =
     moneyAmount(booking.originalReservationValue) ?? booking.totalAmount;
   const cancellationChargeAmount =
@@ -485,7 +487,9 @@ function HotelBookingDetailPage({
   const promotionDiscount = rateBreakup?.promotionDiscount ?? 0;
   const extraCharges = rateBreakup?.extraAdultChildCharges ?? 0;
   const serviceFeeAmount =
-    rateBreakup?.serviceFeeIncludingGst ?? rateBreakup?.serviceChargeAmount ?? 0;
+    rateBreakup?.serviceFeeIncludingGst ??
+    rateBreakup?.serviceChargeAmount ??
+    0;
   const chargeBase =
     rateBreakup?.netAccommodationAfterPromotion ??
     rateBreakup?.roomCharges ??
@@ -895,7 +899,11 @@ function HotelBookingDetailPage({
                   <SummaryField
                     label="Address"
                     value={
-                      [booking.hotelAddress, booking.hotelLocality, booking.hotelCity]
+                      [
+                        booking.hotelAddress,
+                        booking.hotelLocality,
+                        booking.hotelCity,
+                      ]
                         .filter(Boolean)
                         .join(", ") || "—"
                     }
@@ -954,7 +962,10 @@ function HotelBookingDetailPage({
                       />
                     ) : null}
                     {booking.internalNote ? (
-                      <DetailRow label="Internal note" value={booking.internalNote} />
+                      <DetailRow
+                        label="Internal note"
+                        value={booking.internalNote}
+                      />
                     ) : null}
                   </dl>
                 </SectionCard>
@@ -964,67 +975,69 @@ function HotelBookingDetailPage({
 
           {tab === "roomPricing" ? (
             <div className="mb-3 space-y-3">
-            <SectionCard
-              icon={BedDouble}
-              iconBg="bg-violet-50"
-              iconColor="bg-violet-100 text-violet-600"
-              title="Rooms"
-            >
-              {booking.roomTypes?.length ? (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {booking.roomTypes.map((room, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2"
-                    >
-                      <p className="text-sm font-medium text-slate-900">
-                        {room.roomName}
-                      </p>
-                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600">
-                        <span className="inline-flex items-center gap-1">
-                          <Utensils className="h-3 w-3 text-amber-500" />
-                          {room.mealPlan || "—"}
-                        </span>
-                        <span>{room.occupancyDisplay || "—"}</span>
-                        {room.quantity ? <span>Qty {room.quantity}</span> : null}
+              <SectionCard
+                icon={BedDouble}
+                iconBg="bg-violet-50"
+                iconColor="bg-violet-100 text-violet-600"
+                title="Rooms"
+              >
+                {booking.roomTypes?.length ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {booking.roomTypes.map((room, idx) => (
+                      <div
+                        key={idx}
+                        className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2"
+                      >
+                        <p className="text-sm font-medium text-slate-900">
+                          {room.roomName}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600">
+                          <span className="inline-flex items-center gap-1">
+                            <Utensils className="h-3 w-3 text-amber-500" />
+                            {room.mealPlan || "—"}
+                          </span>
+                          <span>{room.occupancyDisplay || "—"}</span>
+                          {room.quantity ? (
+                            <span>Qty {room.quantity}</span>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">—</p>
+                )}
+                <p className="mt-2 text-[11px] text-slate-500">
+                  Total rooms: {booking.totalRooms ?? "—"}
+                </p>
+              </SectionCard>
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-3 py-2">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Final calculation
+                  </h3>
+                  {isCancelledBooking ? (
+                    <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-700 ring-1 ring-inset ring-rose-200">
+                      After cancellation
+                    </span>
+                  ) : null}
                 </div>
-              ) : (
-                <p className="text-xs text-gray-500">—</p>
-              )}
-              <p className="mt-2 text-[11px] text-slate-500">
-                Total rooms: {booking.totalRooms ?? "—"}
-              </p>
-            </SectionCard>
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-3 py-2">
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Final calculation
-                </h3>
-                {isCancelledBooking ? (
-                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-700 ring-1 ring-inset ring-rose-200">
-                    After cancellation
-                  </span>
-                ) : null}
-              </div>
-              <CalcSectionHeader title="Property charges" />
-              <CalcLine
-                index="1"
-                label={
-                  promotionDiscount > 0 || appliedPromotions.length
-                    ? "Room charges (before promotion)"
-                    : "Room charges"
-                }
-                amount={
-                  rateBreakup?.roomChargesBeforePromotion ??
-                  rateBreakup?.roomCharges
-                }
-                currency={currency}
-              />
-              {appliedPromotions.length
-                ? appliedPromotions.map((promo, idx) => (
+                <CalcSectionHeader title="Property charges" />
+                <CalcLine
+                  index="1"
+                  label={
+                    promotionDiscount > 0 || appliedPromotions.length
+                      ? "Room charges (before promotion)"
+                      : "Room charges"
+                  }
+                  amount={
+                    rateBreakup?.roomChargesBeforePromotion ??
+                    rateBreakup?.roomCharges
+                  }
+                  currency={currency}
+                />
+                {appliedPromotions.length ? (
+                  appliedPromotions.map((promo, idx) => (
                     <CalcLine
                       key={`${promo.promotionName}-${idx}`}
                       label={
@@ -1038,117 +1051,122 @@ function HotelBookingDetailPage({
                       negative
                     />
                   ))
-                : promotionDiscount > 0 ? (
+                ) : promotionDiscount > 0 ? (
+                  <CalcLine
+                    label="Promotion discount"
+                    amount={promotionDiscount}
+                    currency={currency}
+                    negative
+                  />
+                ) : null}
+                {promotionDiscount > 0 || appliedPromotions.length ? (
+                  <CalcLine
+                    label="Net accommodation (after promotion)"
+                    amount={
+                      rateBreakup?.netAccommodationAfterPromotion ??
+                      rateBreakup?.roomCharges
+                    }
+                    currency={currency}
+                  />
+                ) : null}
+                {extraCharges > 0 ? (
+                  <CalcLine
+                    index="2"
+                    label="Extra adult / child charges"
+                    amount={extraCharges}
+                    currency={currency}
+                  />
+                ) : null}
+                {showPropertyTaxLine ? (
+                  <CalcLine
+                    index={extraCharges > 0 ? "3" : "2"}
+                    label={withRate("Property taxes", gstPercent)}
+                    amount={rateBreakup?.propertyTaxes}
+                    currency={currency}
+                  />
+                ) : null}
+                <CalcSubtotal
+                  letter="A"
+                  label="Total property charges"
+                  amount={rateBreakup?.hotelGrossCharges}
+                  currency={currency}
+                />
+                {serviceFeeAmount > 0 ? (
+                  <CalcLine
+                    label={
+                      rateBreakup?.serviceChargePercent
+                        ? `Service fee @ ${rateBreakup.serviceChargePercent}%`
+                        : "Service fee"
+                    }
+                    amount={serviceFeeAmount}
+                    currency={currency}
+                  />
+                ) : null}
+
+                {showCommissionBreakup ? (
+                  <>
+                    <CalcSectionHeader title="Commission" />
                     <CalcLine
-                      label="Promotion discount"
-                      amount={promotionDiscount}
+                      index="3"
+                      label={withRate("Commission", commissionPercent)}
+                      amount={rateBreakup?.commissionAmount}
                       currency={currency}
-                      negative
                     />
-                  ) : null}
-              {promotionDiscount > 0 || appliedPromotions.length ? (
-                <CalcLine
-                  label="Net accommodation (after promotion)"
-                  amount={
-                    rateBreakup?.netAccommodationAfterPromotion ??
-                    rateBreakup?.roomCharges
-                  }
-                  currency={currency}
-                />
-              ) : null}
-              {extraCharges > 0 ? (
-                <CalcLine
-                  index="2"
-                  label="Extra adult / child charges"
-                  amount={extraCharges}
-                  currency={currency}
-                />
-              ) : null}
-              {showPropertyTaxLine ? (
-                <CalcLine
-                  index={extraCharges > 0 ? "3" : "2"}
-                  label={withRate("Property taxes", gstPercent)}
-                  amount={rateBreakup?.propertyTaxes}
-                  currency={currency}
-                />
-              ) : null}
-              <CalcSubtotal
-                letter="A"
-                label="Total property charges"
-                amount={rateBreakup?.hotelGrossCharges}
-                currency={currency}
-              />
-              {serviceFeeAmount > 0 ? (
-                <CalcLine
-                  label={
-                    rateBreakup?.serviceChargePercent
-                      ? `Service fee @ ${rateBreakup.serviceChargePercent}%`
-                      : "Service fee"
-                  }
-                  amount={serviceFeeAmount}
-                  currency={currency}
-                />
-              ) : null}
+                    <CalcLine
+                      index="4"
+                      label={withRate(
+                        "GST on commission",
+                        commissionGstPercent,
+                      )}
+                      amount={rateBreakup?.commissionGst}
+                      currency={currency}
+                    />
+                    <CalcSubtotal
+                      letter="B"
+                      label="Commission inclusive of GST (3 + 4)"
+                      amount={rateBreakup?.commissionTotal}
+                      currency={currency}
+                    />
+                  </>
+                ) : null}
 
-              {showCommissionBreakup ? (
-                <>
-                  <CalcSectionHeader title="Commission" />
-                  <CalcLine
-                    index="3"
-                    label={withRate("Commission", commissionPercent)}
-                    amount={rateBreakup?.commissionAmount}
-                    currency={currency}
-                  />
-                  <CalcLine
-                    index="4"
-                    label={withRate("GST on commission", commissionGstPercent)}
-                    amount={rateBreakup?.commissionGst}
-                    currency={currency}
-                  />
-                  <CalcSubtotal
-                    letter="B"
-                    label="Commission inclusive of GST (3 + 4)"
-                    amount={rateBreakup?.commissionTotal}
-                    currency={currency}
-                  />
-                </>
-              ) : null}
+                {showTaxDeductionBreakup ? (
+                  <>
+                    <CalcSectionHeader title="Tax deduction" />
+                    <CalcLine
+                      index="5"
+                      label={withRate("TCS", tcsPercent)}
+                      amount={rateBreakup?.tcsAmount}
+                      currency={currency}
+                    />
+                    <CalcLine
+                      index="6"
+                      label={withRate("TDS", tdsPercent)}
+                      amount={rateBreakup?.tdsAmount}
+                      currency={currency}
+                    />
+                    <CalcSubtotal
+                      letter="C"
+                      label="Tax deduction (5 + 6)"
+                      amount={rateBreakup?.taxDeductions}
+                      currency={currency}
+                    />
+                  </>
+                ) : null}
 
-              {showTaxDeductionBreakup ? (
-                <>
-                  <CalcSectionHeader title="Tax deduction" />
-                  <CalcLine
-                    index="5"
-                    label={withRate("TCS", tcsPercent)}
-                    amount={rateBreakup?.tcsAmount}
-                    currency={currency}
-                  />
-                  <CalcLine
-                    index="6"
-                    label={withRate("TDS", tdsPercent)}
-                    amount={rateBreakup?.tdsAmount}
-                    currency={currency}
-                  />
-                  <CalcSubtotal
-                    letter="C"
-                    label="Tax deduction (5 + 6)"
-                    amount={rateBreakup?.taxDeductions}
-                    currency={currency}
-                  />
-                </>
-              ) : null}
-
-              <div className="flex items-center justify-between gap-4 border-t border-sky-100 bg-sky-50 px-3 py-2.5 text-xs font-semibold text-sky-900">
-                <span>
-                  {isPackageBooking && !showCommissionBreakup && !showTaxDeductionBreakup
-                    ? "Payable to property"
-                    : "Payable to property (A − B − C)"}
-                </span>
-                <span className="text-sm tabular-nums">
-                  {formatCurrency(payableToProperty, currency)}
-                </span>
+                <div className="flex items-center justify-between gap-4 border-t border-sky-100 bg-sky-50 px-3 py-2.5 text-xs font-semibold text-sky-900">
+                  <span>
+                    {isPackageBooking &&
+                    !showCommissionBreakup &&
+                    !showTaxDeductionBreakup
+                      ? "Payable to property"
+                      : "Payable to property (A − B − C)"}
+                  </span>
+                  <span className="text-sm tabular-nums">
+                    {formatCurrency(payableToProperty, currency)}
+                  </span>
+                </div>
               </div>
-            </div>
             </div>
           ) : null}
 
@@ -1171,7 +1189,9 @@ function HotelBookingDetailPage({
                   }
                 />
                 <DetailRow
-                  label={isCancelledBooking ? "Original value" : "Booking amount"}
+                  label={
+                    isCancelledBooking ? "Original value" : "Booking amount"
+                  }
                   value={formatCurrency(
                     isCancelledBooking
                       ? originalReservationValue
@@ -1257,7 +1277,9 @@ function HotelBookingDetailPage({
                     {cancellationPolicyLines.map((line, idx) => {
                       const matched =
                         matchedBracket?.penaltyPercent != null &&
-                        line.includes(`${Number(matchedBracket.penaltyPercent)}%`);
+                        line.includes(
+                          `${Number(matchedBracket.penaltyPercent)}%`,
+                        );
                       return (
                         <li
                           key={idx}
@@ -1286,7 +1308,9 @@ function HotelBookingDetailPage({
                 iconBg="bg-rose-50"
                 iconColor="bg-rose-100 text-rose-600"
                 title={
-                  isCancelledBooking ? "Cancellation details" : "If cancelled now"
+                  isCancelledBooking
+                    ? "Cancellation details"
+                    : "If cancelled now"
                 }
               >
                 <dl>
@@ -1320,7 +1344,9 @@ function HotelBookingDetailPage({
                   {matchedBracket?.label ? (
                     <DetailRow
                       label="Applied bracket"
-                      value={formatCancellationBracketLabel(matchedBracket.label)}
+                      value={formatCancellationBracketLabel(
+                        matchedBracket.label,
+                      )}
                     />
                   ) : null}
                   {isCancelledBooking && booking.cancellationDatetime ? (

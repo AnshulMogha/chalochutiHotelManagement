@@ -24,6 +24,13 @@ function toNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function toBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === 1) return true;
+  if (value === "false" || value === 0) return false;
+  return undefined;
+}
+
 function normalizeMedia(raw: Record<string, unknown>): HotelReviewMediaItem {
   return {
     fileName: (raw.fileName as string | null) ?? null,
@@ -87,10 +94,18 @@ function normalizeItem(raw: Record<string, unknown>): HotelReviewItem {
       ),
     ),
     reported: typeof raw.reported === "boolean" ? raw.reported : undefined,
-    canReply:
-      typeof raw.canReply === "boolean" ? raw.canReply : !hasReply,
-    canReport:
-      typeof raw.canReport === "boolean" ? raw.canReport : true,
+    canReply: (() => {
+      const parsed = toBoolean(
+        raw.canReply ?? raw.ownerCanReply ?? raw.canOwnerReply,
+      );
+      if (parsed !== undefined) return parsed;
+      return !hasReply;
+    })(),
+    canReport: (() => {
+      const parsed = toBoolean(raw.canReport ?? raw.canOwnerReport);
+      if (parsed !== undefined) return parsed;
+      return true;
+    })(),
   };
 }
 

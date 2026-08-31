@@ -346,7 +346,7 @@ function isReviewMisPath(pathname: string): boolean {
 function canAccessReviewMis(user: User | null): boolean {
   if (canModerateReviews(user?.roles)) return true;
   if (user?.roles?.includes("HOTEL_OWNER")) {
-    return canViewModule(user, "GUEST_REVIEWS");
+    return canManageHotelReviews(user?.roles);
   }
   if (isHotelManagerStaffRole(user?.roles)) {
     return canViewModule(user, "GUEST_REVIEWS");
@@ -610,13 +610,15 @@ function canHelpdeskAgentViewPath(pathOnly: string): boolean {
   );
 }
 
-/** Auditor: order lookup + all report screens (no Tickets). */
+/** Auditor: order lookup, bookings, and all report screens (no Tickets). */
 function canAuditorViewPath(pathOnly: string): boolean {
   return (
     pathOnly === "/" ||
     pathOnly === "" ||
     pathOnly.startsWith("/profile") ||
     isHelpdeskOrdersPath(pathOnly) ||
+    pathOnly === ROUTES.BOOKINGS.LIST ||
+    pathOnly.startsWith(`${ROUTES.BOOKINGS.LIST}/`) ||
     pathOnly === ROUTES.REPORTS.LIST ||
     pathOnly.startsWith("/reports/")
   );

@@ -24,6 +24,8 @@ import {
   type HotelLookupItem,
   type PackageLookupItem,
 } from "@/features/admin/services/adminService";
+import { propertyService } from "@/features/properties/services/propertyService";
+import type { HotelListResponse } from "@/features/properties/services/api.types";
 import type { ReviewStatus } from "../services/reviewModerationTypes";
 
 const STAT_TONE: Record<
@@ -137,6 +139,74 @@ type SubjectOption = {
   label: string;
   sub?: string;
 };
+
+/** Owner/manager hotel picker for review MIS filters (owner-scoped property list). */
+export function OwnerScopedHotelSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (hotelId: string) => void;
+}) {
+  const [hotels, setHotels] = useState<HotelListResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    propertyService
+      .getAllHotelsList()
+      .then((data) => {
+        if (cancelled) return;
+        setHotels(
+          data.filter((hotel) => !hotel.status || hotel.status === "LIVE"),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setHotels([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-500">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading hotels…
+      </div>
+    );
+  }
+
+  if (hotels.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+        No live hotels found on your account.
+      </div>
+    );
+  }
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+    >
+      <option value="">Select hotel</option>
+      {hotels.map((hotel) => (
+        <option key={hotel.hotelId} value={hotel.hotelId}>
+          {[hotel.hotelName, hotel.hotelCode, hotel.city]
+            .filter(Boolean)
+            .join(" · ")}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 /**
  * Hotel or package searchable dropdown for review filters.

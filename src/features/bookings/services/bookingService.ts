@@ -485,10 +485,7 @@ export interface BookingListParams {
   size?: number;
 }
 
-export type BookingListExportParams = Omit<
-  BookingListParams,
-  "page" | "size"
->;
+export type BookingListExportParams = Omit<BookingListParams, "page" | "size">;
 
 function buildBookingListQuery(
   params: BookingListParams,
@@ -603,7 +600,7 @@ export const bookingService = {
     return bookingService.normalizeBookingDetail(response.data);
   },
 
-  /** Super Admin — GET /reports/admin/booking-list/:id/full-details (list item id) */
+  /** Super Admin / platform finance / auditor — GET /reports/admin/booking-list/:id/full-details (list item id) */
   getAdminBookingFullDetail: async (
     id: string,
   ): Promise<AdminBookingFullDetail> => {
