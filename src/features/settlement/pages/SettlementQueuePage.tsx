@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { ROUTES } from "@/constants";
-import { useAuth } from "@/hooks/useAuth";
-import { canApproveSupplierSettlement } from "@/constants/roles";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
@@ -34,8 +32,6 @@ import {
   Filter,
   Loader2,
   RotateCcw,
-  Send,
-  X,
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -67,8 +63,6 @@ function getMode(pathname: string): QueueMode {
 export default function SettlementQueuePage() {
   const location = useLocation();
   const mode = getMode(location.pathname);
-  const { user } = useAuth();
-  const canApprove = canApproveSupplierSettlement(user?.roles);
   const { toast, showToast, hideToast } = useToast();
 
   const [applied, setApplied] = useState<QueueFilterDraft>(DEFAULT_QUEUE_FILTERS);
@@ -79,9 +73,6 @@ export default function SettlementQueuePage() {
   const [rows, setRows] = useState<SettlementSummary[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [rejectOpen, setRejectOpen] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
 
   const meta = useMemo(() => {
     if (mode === "approved") {
@@ -198,37 +189,6 @@ export default function SettlementQueuePage() {
     void load();
   }, [load]);
 
-  const runAction = async (
-    settlementId: string,
-    action: () => Promise<{ raw: unknown }>,
-    successMsg: string,
-  ) => {
-    setBusyId(settlementId);
-    try {
-      await action();
-      showToast(successMsg, "success");
-      void load();
-    } catch (error) {
-      showToast(extractErrorMessage(error), "error");
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const submitReject = async () => {
-    if (!rejectOpen || !rejectReason.trim()) {
-      showToast("Rejection reason is required", "error");
-      return;
-    }
-    await runAction(
-      rejectOpen,
-      () => settlementService.reject(rejectOpen, rejectReason.trim()),
-      "Settlement rejected",
-    );
-    setRejectOpen(null);
-    setRejectReason("");
-  };
-
   return (
     <>
       <SettlementPageShell
@@ -294,7 +254,6 @@ export default function SettlementQueuePage() {
                 ) : (
                   rows.map((row) => {
                     const id = row.settlementId || row.settlementNo || "";
-                    const isBusy = busyId === id;
                     return (
                       <tr key={id} className="hover:bg-slate-50/80">
                         <td className="px-4 py-3">
@@ -344,69 +303,13 @@ export default function SettlementQueuePage() {
                           </td>
                         ) : null}
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1.5">
-                            <Link
-                              to={ROUTES.SETTLEMENT.DETAIL(id)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              View
-                            </Link>
-                            {mode === "pending" && canApprove ? (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  onClick={() =>
-                                    void runAction(
-                                      id,
-                                      () => settlementService.approve(id),
-                                      "Settlement approved",
-                                    )
-                                  }
-                                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  onClick={() => setRejectOpen(id)}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
-                                >
-                                  Reject
-                                </button>
-                              </>
-                            ) : null}
-                            {mode === "approved" && canApprove ? (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  onClick={() =>
-                                    void runAction(
-                                      id,
-                                      () =>
-                                        settlementService.releasePayment(id),
-                                      "Payment queued",
-                                    )
-                                  }
-                                  className="inline-flex items-center gap-1 rounded-lg bg-[#2f3d95] px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
-                                >
-                                  <Send className="h-3.5 w-3.5" />
-                                  Release payment
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  onClick={() => setRejectOpen(id)}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
-                                >
-                                  Reject
-                                </button>
-                              </>
-                            ) : null}
-                          </div>
+                          <Link
+                            to={ROUTES.SETTLEMENT.DETAIL(id)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View
+                          </Link>
                         </td>
                       </tr>
                     );
@@ -499,54 +402,6 @@ export default function SettlementQueuePage() {
           }
         />
       </SettlementFilterDrawer>
-
-      {rejectOpen ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close reject dialog"
-            className="fixed inset-0 z-40 bg-slate-900/50"
-            onClick={() => setRejectOpen(null)}
-          />
-          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">
-                Reject settlement
-              </h3>
-              <button type="button" onClick={() => setRejectOpen(null)}>
-                <X className="h-4 w-4 text-slate-400" />
-              </button>
-            </div>
-            <p className="mb-3 text-xs text-rose-700">
-              You are about to reject {rejectOpen}. Supplier will become
-              eligible again in workbench.
-            </p>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              rows={3}
-              placeholder="Rejection reason (required)"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setRejectOpen(null)}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void submitReject()}
-                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white"
-              >
-                Reject
-              </button>
-            </div>
-          </div>
-        </>
-      ) : null}
 
       <Toast
         message={toast.message}

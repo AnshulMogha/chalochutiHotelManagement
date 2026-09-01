@@ -1410,11 +1410,13 @@ export default function BookingListPage() {
                 exportFileName={`bookings-${selectedHotelId ?? "export"}`}
                 disableRowSelectionOnClick
                 onRowClick={(params) => {
-                  const query = selectedHotelId
-                    ? `?hotelId=${selectedHotelId}`
-                    : "";
+                  const query = new URLSearchParams();
+                  if (selectedHotelId) query.set("hotelId", selectedHotelId);
+                  const returnTo = searchParams.get("returnTo");
+                  if (returnTo) query.set("returnTo", returnTo);
+                  const qs = query.toString();
                   navigate(
-                    `${ROUTES.BOOKINGS.DETAIL(String(params.row.id))}${query}`,
+                    `${ROUTES.BOOKINGS.DETAIL(String(params.row.id))}${qs ? `?${qs}` : ""}`,
                   );
                 }}
                 sx={bookingTableGridSx}

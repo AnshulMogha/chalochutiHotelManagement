@@ -9,6 +9,7 @@ import { Toast, useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
 import { usesAdminBookingFullDetail } from "@/constants/roles";
 import { useAuth } from "@/hooks";
+import { sanitizeReturnTo } from "@/lib/navigationReturn";
 import { cn } from "@/lib/utils";
 import {
   FINANCE_KPI_TONES,
@@ -322,6 +323,7 @@ export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const hotelId = searchParams.get("hotelId");
+  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"));
   const { isUserProfileLoading, user } = useAuth();
   const useAdminDetail = usesAdminBookingFullDetail(user?.roles);
 
@@ -337,18 +339,32 @@ export default function BookingDetailPage() {
   }
 
   if (useAdminDetail) {
-    return <AdminBookingDetailPage listItemId={id} backHotelId={hotelId} />;
+    return (
+      <AdminBookingDetailPage
+        listItemId={id}
+        backHotelId={hotelId}
+        returnTo={returnTo}
+      />
+    );
   }
 
-  return <HotelBookingDetailPage bookingId={id} hotelId={hotelId} />;
+  return (
+    <HotelBookingDetailPage
+      bookingId={id}
+      hotelId={hotelId}
+      returnTo={returnTo}
+    />
+  );
 }
 
 function HotelBookingDetailPage({
   bookingId: id,
   hotelId,
+  returnTo,
 }: {
   bookingId: string | undefined;
   hotelId: string | null;
+  returnTo: string | null;
 }) {
   const navigate = useNavigate();
   const { toast, showToast, hideToast } = useToast();
@@ -397,6 +413,10 @@ function HotelBookingDetailPage({
   }, [id, hotelId, showToast]);
 
   const backToBookings = () => {
+    if (returnTo) {
+      navigate(returnTo);
+      return;
+    }
     const to = hotelId
       ? `${ROUTES.BOOKINGS.LIST}?hotelId=${hotelId}`
       : ROUTES.BOOKINGS.LIST;

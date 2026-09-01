@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useLocation, useParams } from "react-router";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { canApproveSupplierSettlement } from "@/constants/roles";
@@ -14,6 +14,9 @@ import {
   SettlementRefreshButton,
   SettlementReportSection,
   SettlementStatusBadge,
+  SettlementActionConfirmDialog,
+  SettlementRejectDialog,
+  type SettlementConfirmAction,
   formatSettlementPeriod,
 } from "../components/settlementUi";
 import {
@@ -26,7 +29,7 @@ import type {
   PaymentHistoryItem,
   SettlementDetail,
 } from "../services/settlementTypes";
-import { canRejectSettlementStatus } from "../services/settlementTypes";
+import { canRejectSettlementStatus, canCheckerApproveOrRejectSettlement } from "../services/settlementTypes";
 import {
   ArrowLeft,
   Building2,
@@ -55,6 +58,8 @@ function formatPaymentEventTime(item: PaymentHistoryItem): string {
 
 export default function SettlementDetailPage() {
   const { settlementNo } = useParams<{ settlementNo: string }>();
+  const location = useLocation();
+  const bookingReturnTo = `${location.pathname}${location.search}`;
   const { user } = useAuth();
   const canApprove = canApproveSupplierSettlement(user?.roles);
   const { toast, showToast, hideToast } = useToast();
@@ -63,7 +68,8 @@ export default function SettlementDetailPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
+  const [confirmAction, setConfirmAction] =
+    useState<SettlementConfirmAction | null>(null);
 
   const load = useCallback(async () => {
     if (!settlementNo) return;
@@ -129,6 +135,12 @@ export default function SettlementDetailPage() {
     );
   }
 
+  const canCheckerAct = canCheckerApproveOrRejectSettlement(
+    detail,
+    user?.userId,
+    canApprove,
+  );
+
   const timeline = [...(detail.statusHistory || [])].sort((a, b) =>
     String(b.changedAt).localeCompare(String(a.changedAt)),
   );
@@ -147,12 +159,7 @@ export default function SettlementDetailPage() {
             <button
               type="button"
               disabled={busy}
-              onClick={() =>
-                void runAction(
-                  () => settlementService.retryPayment(id),
-                  "Payment retry queued",
-                )
-              }
+              onClick={() => setConfirmAction("retry")}
               className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-700 disabled:opacity-50"
             >
               <RotateCcw className="h-4 w-4" />
@@ -189,6 +196,7 @@ export default function SettlementDetailPage() {
                     : null
                 }
                 variant="report"
+                returnTo={bookingReturnTo}
               />
             </SettlementReportSection>
           ) : null}
@@ -371,16 +379,11 @@ export default function SettlementDetailPage() {
           {canApprove ? (
             <SettlementReportSection title="Actions">
               <div className="space-y-2">
-                {status === "PENDING" ? (
+                {status === "PENDING" && canCheckerAct ? (
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() =>
-                      void runAction(
-                        () => settlementService.approve(id),
-                        "Settlement approved",
-                      )
-                    }
+                    onClick={() => setConfirmAction("approve")}
                     className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
                   >
                     <CheckCircle2 className="h-4 w-4" />
@@ -391,19 +394,14 @@ export default function SettlementDetailPage() {
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() =>
-                      void runAction(
-                        () => settlementService.releasePayment(id),
-                        "Payment queued",
-                      )
-                    }
+                    onClick={() => setConfirmAction("release")}
                     className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#2f3d95] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
                   >
                     <Send className="h-4 w-4" />
                     Release payment
                   </button>
                 ) : null}
-                {canRejectSettlementStatus(status) ? (
+                {canRejectSettlementStatus(status) && canCheckerAct ? (
                   <button
                     type="button"
                     disabled={busy}
@@ -417,12 +415,7 @@ export default function SettlementDetailPage() {
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() =>
-                      void runAction(
-                        () => settlementService.retryPayment(id),
-                        "Payment retry queued",
-                      )
-                    }
+                    onClick={() => setConfirmAction("retry")}
                     className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
                   >
                     <RotateCcw className="h-4 w-4" />
@@ -437,59 +430,66 @@ export default function SettlementDetailPage() {
                     Generate new via workbench
                   </Link>
                 ) : null}
+                {!canCheckerAct && (status === "PENDING" || canRejectSettlementStatus(status)) ? (
+                  <p className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    You created this settlement and cannot approve or reject it.
+                    Another user must complete the checker step.
+                  </p>
+                ) : null}
               </div>
             </SettlementReportSection>
           ) : null}
         </div>
       </div>
 
-      {rejectOpen ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close"
-            className="fixed inset-0 z-40 bg-slate-900/50"
-            onClick={() => setRejectOpen(false)}
-          />
-          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Reject settlement</h3>
-              <button type="button" onClick={() => setRejectOpen(false)}>
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              rows={3}
-              placeholder="Reason (required)"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setRejectOpen(false)}
-                className="rounded-lg border px-3 py-2 text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!rejectReason.trim() || busy}
-                onClick={() =>
-                  void runAction(
-                    () => settlementService.reject(id, rejectReason.trim()),
-                    "Settlement rejected",
-                  ).then(() => setRejectOpen(false))
-                }
-                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                Reject
-              </button>
-            </div>
-          </div>
-        </>
-      ) : null}
+      <SettlementActionConfirmDialog
+        open={confirmAction != null}
+        action={confirmAction ?? "approve"}
+        settlementNo={id}
+        busy={busy}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={() => {
+          if (!confirmAction) return;
+          const actionMap: Record<
+            SettlementConfirmAction,
+            { run: () => Promise<unknown>; successMsg: string }
+          > = {
+            approve: {
+              run: () => settlementService.approve(id),
+              successMsg: "Settlement approved",
+            },
+            release: {
+              run: () => settlementService.releasePayment(id),
+              successMsg: "Payment queued",
+            },
+            retry: {
+              run: () => settlementService.retryPayment(id),
+              successMsg: "Payment retry queued",
+            },
+            generate: {
+              run: async () => undefined,
+              successMsg: "",
+            },
+          };
+          const selected = actionMap[confirmAction];
+          void runAction(selected.run, selected.successMsg).then(() =>
+            setConfirmAction(null),
+          );
+        }}
+      />
+
+      <SettlementRejectDialog
+        open={rejectOpen}
+        settlementNo={id}
+        busy={busy}
+        onClose={() => setRejectOpen(false)}
+        onConfirm={(reason) =>
+          void runAction(
+            () => settlementService.reject(id, reason),
+            "Settlement rejected",
+          ).then(() => setRejectOpen(false))
+        }
+      />
 
       <Toast
         message={toast.message}

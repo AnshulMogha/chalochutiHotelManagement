@@ -26,6 +26,7 @@ import {
   SettlementReportSection,
   SettlementReportStatCard,
   SettlementStatusBadge,
+  SettlementActionConfirmDialog,
   formatSettlementPeriod,
 } from "../components/settlementUi";
 import {
@@ -83,6 +84,7 @@ export default function SettlementMisPage() {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [retryingNo, setRetryingNo] = useState<string | null>(null);
+  const [retryConfirmNo, setRetryConfirmNo] = useState<string | null>(null);
   const [rows, setRows] = useState<SettlementMisRow[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
@@ -387,7 +389,7 @@ export default function SettlementMisPage() {
                                 type="button"
                                 disabled={retryingNo === row.settlementNo}
                                 onClick={() =>
-                                  void retryPayment(row.settlementNo)
+                                  setRetryConfirmNo(row.settlementNo)
                                 }
                                 className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
                               >
@@ -510,6 +512,20 @@ export default function SettlementMisPage() {
           />
         </SettlementFilterField>
       </SettlementFilterDrawer>
+
+      <SettlementActionConfirmDialog
+        open={!!retryConfirmNo}
+        action="retry"
+        settlementNo={retryConfirmNo}
+        busy={!!retryConfirmNo && retryingNo === retryConfirmNo}
+        onClose={() => setRetryConfirmNo(null)}
+        onConfirm={() => {
+          if (!retryConfirmNo) return;
+          void retryPayment(retryConfirmNo).finally(() =>
+            setRetryConfirmNo(null),
+          );
+        }}
+      />
 
       <Toast
         message={toast.message}

@@ -25,20 +25,32 @@ import {
   X,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { ROUTES } from "@/constants";
 import { setStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
+import { appendReturnToQuery } from "@/lib/navigationReturn";
 
-function settlementBookingListUrl(
+function settlementBookingUrl(
   bookingId?: string | number | null,
   bookingRef?: string | null,
   hotelId?: string | null,
+  returnTo?: string | null,
 ): string | null {
-  const searchBooking = String(bookingRef ?? bookingId ?? "").trim();
-  if (!searchBooking) return null;
   const params = new URLSearchParams();
   const hotel = hotelId?.trim();
   if (hotel) params.set("hotelId", hotel);
+  appendReturnToQuery(params, returnTo);
+
+  const numericId =
+    bookingId != null && bookingId !== "" ? String(bookingId).trim() : "";
+  if (/^\d+$/.test(numericId)) {
+    const query = params.toString();
+    return `${ROUTES.BOOKINGS.DETAIL(numericId)}${query ? `?${query}` : ""}`;
+  }
+
+  const searchBooking = String(bookingRef ?? bookingId ?? "").trim();
+  if (!searchBooking) return null;
   params.set("bookingId", searchBooking);
   return `${ROUTES.BOOKINGS.LIST}?${params.toString()}`;
 }
@@ -660,6 +672,7 @@ export function SettlementPreviewBookingsTable({
   component,
   limit,
   variant = "default",
+  returnTo,
 }: {
   bookings: PreviewBookingLine[];
   /** Hotel supplier id — required so Bookings top-bar selector has a hotel. */
@@ -667,6 +680,8 @@ export function SettlementPreviewBookingsTable({
   component?: string | null;
   limit?: number;
   variant?: "default" | "report";
+  /** Where booking detail/list should return on Back (e.g. settlement detail URL). */
+  returnTo?: string | null;
 }) {
   const visible = limit ? bookings.slice(0, limit) : bookings;
   const isReport = variant === "report";
@@ -762,10 +777,11 @@ export function SettlementPreviewBookingsTable({
               const bookingLabel = line.bookingRef || line.bookingId || "—";
               const bookingHref = isTransport
                 ? transportBookingMisUrl(line.bookingId, line.bookingRef)
-                : settlementBookingListUrl(
+                : settlementBookingUrl(
                     line.bookingId,
                     line.bookingRef,
                     resolvedHotelId,
+                    returnTo,
                   );
               const linkClassName = cn(
                 "font-mono font-semibold text-[#2f3d95] hover:text-[#263578] hover:underline",
@@ -974,6 +990,269 @@ export function SettlementFilterDrawer({
           </button>
         </div>
       </aside>
+    </>
+  );
+}
+
+export type SettlementConfirmAction =
+  | "generate"
+  | "approve"
+  | "release"
+  | "retry";
+
+const SETTLEMENT_CONFIRM_META: Record<
+  SettlementConfirmAction,
+  {
+    title: string;
+    description: string;
+    confirmLabel: string;
+    confirmClassName: string;
+  }
+> = {
+  generate: {
+    title: "Generate settlement?",
+    description:
+      "This creates a PENDING settlement. A different user must approve it before payout can be released.",
+    confirmLabel: "Yes, generate settlement",
+    confirmClassName: "bg-[#2f3d95] hover:bg-[#263578]",
+  },
+  approve: {
+    title: "Approve settlement?",
+    description:
+      "You are approving this settlement for payout. Verify amounts and bookings before continuing.",
+    confirmLabel: "Yes, approve settlement",
+    confirmClassName: "bg-emerald-600 hover:bg-emerald-700",
+  },
+  release: {
+    title: "Release payment?",
+    description:
+      "This queues payout to the supplier. This action cannot be undone from this screen.",
+    confirmLabel: "Yes, release payment",
+    confirmClassName: "bg-[#2f3d95] hover:bg-[#263578]",
+  },
+  retry: {
+    title: "Retry payment?",
+    description:
+      "This re-queues a failed payout attempt. Confirm only if the underlying issue is resolved.",
+    confirmLabel: "Yes, retry payment",
+    confirmClassName: "bg-amber-600 hover:bg-amber-700",
+  },
+};
+
+export function SettlementActionConfirmDialog({
+  open,
+  action,
+  settlementNo,
+  contextLines,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  action: SettlementConfirmAction;
+  settlementNo?: string | null;
+  contextLines?: string[];
+  busy?: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+
+  const meta = SETTLEMENT_CONFIRM_META[action];
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close confirmation"
+        className="fixed inset-0 z-40 bg-slate-900/50"
+        onClick={onClose}
+      />
+      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-900">{meta.title}</h3>
+          <button type="button" onClick={onClose} disabled={busy}>
+            <X className="h-4 w-4 text-slate-400" />
+          </button>
+        </div>
+        <p className="text-sm text-slate-600">{meta.description}</p>
+        {settlementNo ? (
+          <p className="mt-2 font-mono text-xs font-semibold text-slate-800">
+            {settlementNo}
+          </p>
+        ) : null}
+        {contextLines?.length ? (
+          <ul className="mt-2 space-y-1 text-xs text-slate-500">
+            {contextLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : null}
+        <p className="mt-3 text-xs font-medium text-slate-500">
+          Please confirm — this action will be submitted immediately.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onConfirm}
+            className={cn(
+              "rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-50",
+              meta.confirmClassName,
+            )}
+          >
+            {busy ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Processing…
+              </span>
+            ) : (
+              meta.confirmLabel
+            )}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function SettlementRejectDialog({
+  open,
+  settlementNo,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  settlementNo: string;
+  busy?: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [step, setStep] = useState<"reason" | "confirm">("reason");
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      setStep("reason");
+      setReason("");
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const trimmedReason = reason.trim();
+
+  const handleClose = () => {
+    if (busy) return;
+    onClose();
+  };
+
+  const proceedToConfirm = () => {
+    if (!trimmedReason) return;
+    setStep("confirm");
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close reject dialog"
+        className="fixed inset-0 z-40 bg-slate-900/50"
+        onClick={handleClose}
+      />
+      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-900">
+            {step === "reason" ? "Reject settlement" : "Confirm rejection"}
+          </h3>
+          <button type="button" onClick={handleClose} disabled={busy}>
+            <X className="h-4 w-4 text-slate-400" />
+          </button>
+        </div>
+
+        {step === "reason" ? (
+          <>
+            <p className="mb-3 text-xs text-rose-700">
+              You are about to reject {settlementNo}. The supplier will become
+              eligible again in the workbench.
+            </p>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              placeholder="Rejection reason (required)"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!trimmedReason}
+                onClick={proceedToConfirm}
+                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                Continue
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-slate-600">
+              Please confirm rejection of settlement{" "}
+              <span className="font-mono font-semibold text-slate-900">
+                {settlementNo}
+              </span>
+              .
+            </p>
+            <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50/80 px-3 py-2 text-sm text-rose-800">
+              {trimmedReason}
+            </div>
+            <p className="mt-3 text-xs font-medium text-slate-500">
+              This cannot be undone from this screen.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setStep("reason")}
+                disabled={busy}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onConfirm(trimmedReason)}
+                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {busy ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Rejecting…
+                  </span>
+                ) : (
+                  "Yes, reject settlement"
+                )}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </>
   );
 }

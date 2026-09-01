@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { canGenerateSupplierSettlement } from "@/constants/roles";
@@ -19,6 +19,7 @@ import {
   SettlementRefreshButton,
   SettlementReportSection,
   SettlementReportStatCard,
+  SettlementActionConfirmDialog,
   formatSettlementPeriod,
 } from "../components/settlementUi";
 import {
@@ -48,6 +49,8 @@ function isPreviewStaleError(error: unknown): boolean {
 
 export default function SettlementPreviewPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const bookingReturnTo = `${location.pathname}${location.search}`;
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const canGenerate = canGenerateSupplierSettlement(user?.roles);
@@ -65,6 +68,7 @@ export default function SettlementPreviewPage() {
   const [preview, setPreview] = useState<SettlementPreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generateConfirmOpen, setGenerateConfirmOpen] = useState(false);
 
   const period = useMemo(
     () =>
@@ -360,6 +364,7 @@ export default function SettlementPreviewPage() {
                     : null
                 }
                 variant="report"
+                returnTo={bookingReturnTo}
               />
             </SettlementReportSection>
 
@@ -398,7 +403,7 @@ export default function SettlementPreviewPage() {
                   <button
                     type="button"
                     disabled={generating || !canGenerateNow || loading}
-                    onClick={() => void handleGenerate()}
+                    onClick={() => setGenerateConfirmOpen(true)}
                     className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#2f3d95] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#263578] disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     {generating ? (
@@ -414,6 +419,25 @@ export default function SettlementPreviewPage() {
           </div>
         )}
       </SettlementPageShell>
+
+      <SettlementActionConfirmDialog
+        open={generateConfirmOpen}
+        action="generate"
+        contextLines={[
+          preview?.supplierName
+            ? `Supplier: ${preview.supplierName}`
+            : `Supplier ID: ${supplierId}`,
+          preview?.payableAmount
+            ? `Payable: ${formatFinanceMoney(preview.payableAmount)}`
+            : "",
+          period ? `Period: ${formatSettlementPeriod(period)}` : "",
+        ].filter(Boolean)}
+        busy={generating}
+        onClose={() => setGenerateConfirmOpen(false)}
+        onConfirm={() => {
+          void handleGenerate().finally(() => setGenerateConfirmOpen(false));
+        }}
+      />
 
       <Toast
         message={toast.message}

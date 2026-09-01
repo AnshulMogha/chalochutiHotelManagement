@@ -45,7 +45,6 @@ export const ADMIN_MANAGED_ROLE_BADGE_STYLES: Record<
   ZONAL_MANAGER_HOTEL: { bg: "bg-indigo-100", text: "text-indigo-800" },
   ZontalHotelManager: { bg: "bg-indigo-100", text: "text-indigo-800" },
   ZONAL_MANAGER_SALES: { bg: "bg-fuchsia-100", text: "text-fuchsia-800" },
-  FINANCE: { bg: "bg-amber-100", text: "text-amber-800" },
   FINANCE_MANAGER: { bg: "bg-yellow-100", text: "text-yellow-800" },
   HOTEL_ACCOUNTANT: { bg: "bg-amber-100", text: "text-amber-800" },
   ACCOUNTANT: { bg: "bg-amber-100", text: "text-amber-800" },
@@ -69,7 +68,6 @@ export const ADMIN_MANAGED_ROLE_LABELS: Record<string, string> = {
   ZONAL_MANAGER_HOTEL: "Zonal Manager Hotel",
   ZontalHotelManager: "Zonal Hotel Manager",
   ZONAL_MANAGER_SALES: "Zonal Manager Sales",
-  FINANCE: "Finance",
   FINANCE_MANAGER: "Finance Manager",
   HOTEL_ACCOUNTANT: "Hotel Accountant",
   ACCOUNTANT: "Accountant",
@@ -125,7 +123,6 @@ export const HOTEL_BD_REPORT_ROLES = [
   "SUPER_ADMIN",
   "ZONAL_MANAGER_HOTEL",
   "ZontalHotelManager",
-  "FINANCE",
   "AUDITOR",
 ] as const;
 
@@ -163,7 +160,6 @@ export function canFilterHotelBdReportsByUser(
       "SUPER_ADMIN",
       "ZONAL_MANAGER_HOTEL",
       "ZontalHotelManager",
-      "FINANCE",
       "AUDITOR",
       "ZONAL_MANAGER_SALES",
     ].includes(role),
@@ -210,7 +206,6 @@ export const PAYMENT_REPORT_ROLES = [
   "ACCOUNTANT",
   "FINANCE_MANAGER",
   "FRONT_DESK_EXEC",
-  "FINANCE",
   "AUDITOR",
 ] as const;
 
@@ -231,7 +226,6 @@ export const HOTEL_PAYOUT_MIS_ROLES = [
   "SUPER_ADMIN",
   "FRONT_DESK_EXEC",
   "HOTEL_BD",
-  "FINANCE",
   "AUDITOR",
 ] as const;
 
@@ -251,7 +245,6 @@ export const TRANSPORT_PAYOUT_MIS_ROLES = [
   "TRANSPORT_BD",
   "SUPER_ADMIN",
   "ZONAL_MANAGER_SALES",
-  "FINANCE",
   "FINANCE_MANAGER",
   "HOTEL_ACCOUNTANT",
   "ACCOUNTANT",
@@ -298,7 +291,6 @@ export function canViewPackageBookingFinancialMis(
 
 /** Roles allowed to view Hotel Booking Financial MIS. */
 export const HOTEL_BOOKING_FINANCIAL_MIS_ROLES = [
-  "FINANCE",
   "FINANCE_MANAGER",
   "ACCOUNTANT",
   "AUDITOR",
@@ -522,7 +514,6 @@ export function isFinanceManagerRole(userRoles: string[] | undefined): boolean {
 export const HELPDESK_BOOKING_ROLES = [
   "HELPDESK_AGENT",
   "SUPER_ADMIN",
-  "FINANCE",
   "AUDITOR",
 ] as const;
 
@@ -539,7 +530,6 @@ export function canViewHelpdeskBookings(
 export const HELPDESK_TICKET_ROLES = [
   "HELPDESK_AGENT",
   "SUPER_ADMIN",
-  "FINANCE",
 ] as const;
 
 export function canViewHelpdeskTickets(
@@ -567,7 +557,6 @@ export function canAssignHelpdeskTickets(
 export const SETTLEMENT_VIEW_ROLES = [
   "SUPER_ADMIN",
   "FINANCE_MANAGER",
-  "FINANCE",
   "ACCOUNTANT",
 ] as const;
 
@@ -584,7 +573,6 @@ export function canViewSupplierSettlement(
 export const SETTLEMENT_APPROVE_ROLES = [
   "SUPER_ADMIN",
   "FINANCE_MANAGER",
-  "FINANCE",
   "ACCOUNTANT",
 ] as const;
 
@@ -603,7 +591,6 @@ export function canApproveSupplierSettlement(
 export const SETTLEMENT_GENERATE_ROLES = [
   "SUPER_ADMIN",
   "FINANCE_MANAGER",
-  "FINANCE",
   "ACCOUNTANT",
 ] as const;
 

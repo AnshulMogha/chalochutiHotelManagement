@@ -27,6 +27,25 @@ export function canRejectSettlementStatus(
   return value === "PENDING" || value === "APPROVED";
 }
 
+/** Maker-checker: creator cannot approve or reject their own settlement. */
+export function isSettlementMaker(
+  settlement: Pick<SettlementSummary, "createdBy"> | null | undefined,
+  viewerUserId: number | undefined | null,
+): boolean {
+  if (!settlement || viewerUserId == null || settlement.createdBy == null) {
+    return false;
+  }
+  return String(settlement.createdBy) === String(viewerUserId);
+}
+
+export function canCheckerApproveOrRejectSettlement(
+  settlement: Pick<SettlementSummary, "createdBy"> | null | undefined,
+  viewerUserId: number | undefined | null,
+  hasCheckerPermission: boolean,
+): boolean {
+  return hasCheckerPermission && !isSettlementMaker(settlement, viewerUserId);
+}
+
 export interface MoneyAmount {
   amount: number;
   currency: string;

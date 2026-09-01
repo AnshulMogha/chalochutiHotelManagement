@@ -489,11 +489,13 @@ function RuleCard({
 type Props = {
   listItemId: string | undefined;
   backHotelId: string | null;
+  returnTo?: string | null;
 };
 
 export default function AdminBookingDetailPage({
   listItemId,
   backHotelId,
+  returnTo = null,
 }: Props) {
   const navigate = useNavigate();
   const { toast, showToast, hideToast } = useToast();
@@ -545,6 +547,10 @@ export default function AdminBookingDetailPage({
   }, [listItemId]);
 
   const backToBookings = () => {
+    if (returnTo) {
+      navigate(returnTo);
+      return;
+    }
     const to = backHotelId
       ? `${ROUTES.BOOKINGS.LIST}?hotelId=${backHotelId}`
       : ROUTES.BOOKINGS.LIST;

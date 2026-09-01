@@ -813,7 +813,9 @@ function PermissionsModal({
   const memberRoles = member?.roles?.length ? member.roles : member?.role ? [member.role] : [];
   const isHotelManager = memberRoles.includes("HOTEL_MANAGER");
   const isFrontDesk = memberRoles.includes("FRONT_DESK_EXEC");
-  const isAccountant = memberRoles.includes("HOTEL_ACCOUNTANT") || memberRoles.includes("ACCOUNTANT");
+  const isAccountant =
+    memberRoles.includes("HOTEL_ACCOUNTANT") ||
+    memberRoles.includes("ACCOUNTANT");
   const visiblePermissionModules = useMemo(
     () => {
       if (isFrontDesk) {

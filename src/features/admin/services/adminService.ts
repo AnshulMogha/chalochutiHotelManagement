@@ -268,7 +268,6 @@ export type UserRole =
   | "ZONAL_MANAGER_HOTEL"
   | "ZontalHotelManager"
   | "ZONAL_MANAGER_SALES"
-  | "FINANCE"
   | "FINANCE_MANAGER"
   | "QC"
   | "HELPDESK_AGENT"
