@@ -1037,9 +1037,11 @@ export default function UsersPage() {
               options={[{ value: "", label: "All statuses" }, ...STATUS_OPTIONS]}
             />
           </UserFilterGroup>
-          <UserFilterGroup icon={Shield} theme="indigo">
+          <UserFilterGroup icon={Shield} theme="indigo" className="min-w-[160px]">
             <UserFilterSelect
               embedded
+              searchable
+              searchPlaceholder="Search roles..."
               aria-label="Filter by role"
               value={roleFilter}
               onChange={(value) => {
@@ -1047,10 +1049,10 @@ export default function UsersPage() {
                 setPaginationModel((prev) => ({ ...prev, page: 0 }));
               }}
               options={[{ value: "", label: "All roles" }, ...FILTER_ROLE_OPTIONS]}
-              menuMaxHeightClassName="max-h-56"
+              menuMaxHeightClassName="max-h-72"
             />
           </UserFilterGroup>
-          <UserFilterGroup icon={Mail} theme="sky" className="min-w-[200px] flex-1">
+          <UserFilterGroup icon={Mail} theme="sky" className="min-w-[220px] flex-1">
             <UserSearchInput
               embedded
               value={emailFilterInput}

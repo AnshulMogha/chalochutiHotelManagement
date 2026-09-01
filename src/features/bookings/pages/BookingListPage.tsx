@@ -1079,16 +1079,18 @@ export default function BookingListPage() {
                       ? exportStatusLabel(exportStatus) || "Exporting…"
                       : "Download bookings"
                   }
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#2f3d95]/20 bg-[#2f3d95]/10 px-3 py-1.5 text-sm font-medium text-[#2f3d95] shadow-sm transition-colors hover:border-[#2f3d95]/35 hover:bg-[#2f3d95]/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label={
+                    exporting
+                      ? exportStatusLabel(exportStatus) || "Exporting bookings"
+                      : "Download bookings"
+                  }
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#2f3d95]/20 bg-[#2f3d95]/10 text-[#2f3d95] shadow-sm transition-colors hover:border-[#2f3d95]/35 hover:bg-[#2f3d95]/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {exporting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Download className="h-4 w-4" />
                   )}
-                  {exporting
-                    ? exportStatusLabel(exportStatus) || "Exporting"
-                    : "Download"}
                 </button>
                 {downloadOpen && !exporting ? (
                   <div className="absolute right-0 z-30 mt-1 w-52 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
@@ -1117,14 +1119,16 @@ export default function BookingListPage() {
                 ) : null}
               </div>
               <button
+                type="button"
                 onClick={fetchBookings}
                 disabled={loading}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Refresh"
+                aria-label="Refresh bookings"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <RefreshCw
                   className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
                 />
-                Refresh
               </button>
             </div>
           </div>

@@ -20,7 +20,7 @@ export function UserColumnHeader({
 
 export function UserFilterBar({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-gray-200/80 bg-white px-2.5 py-2 shadow-sm">
+    <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-gray-200/80 bg-white px-2.5 py-2 shadow-sm [&>*]:shrink-0">
       {children}
     </div>
   );
@@ -73,7 +73,7 @@ export function UserFilterGroup({
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 rounded-lg border px-2 py-0.5",
+        "flex h-8 items-center gap-1.5 rounded-lg border px-2",
         styles.wrap,
         className,
       )}
@@ -108,7 +108,7 @@ export function UserSearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
-        className="min-w-[140px] flex-1 border-0 bg-transparent py-1.5 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-0"
+        className="h-8 min-w-[140px] flex-1 border-0 bg-transparent text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-0"
       />
     );
   }
@@ -137,35 +137,53 @@ export function UserFilterSelect({
   options,
   "aria-label": ariaLabel,
   embedded = false,
+  searchable = false,
+  searchPlaceholder = "Search...",
   /** Max height of the open menu (scrollable). */
   menuMaxHeightClassName = "max-h-60",
 }: {
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
-  "aria-label": string;
+  "aria-label": ariaLabel;
   embedded?: boolean;
+  searchable?: boolean;
+  searchPlaceholder?: string;
   menuMaxHeightClassName?: string;
 }) {
   const listId = useId();
+  const searchId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const selected =
     options.find((opt) => opt.value === value) ?? options[0] ?? null;
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const visibleOptions = searchable && normalizedQuery
+    ? options.filter(
+        (opt) =>
+          opt.label.toLowerCase().includes(normalizedQuery) ||
+          opt.value.toLowerCase().includes(normalizedQuery),
+      )
+    : options;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setSearchQuery("");
+      return;
+    }
 
     const updatePosition = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const width = Math.max(rect.width, 220);
+      const width = Math.max(rect.width, searchable ? 260 : 220);
       const spaceBelow = window.innerHeight - rect.bottom - 8;
       const spaceAbove = rect.top - 8;
       const preferBelow = spaceBelow >= 180 || spaceBelow >= spaceAbove;
-      const maxHeight = Math.min(224, preferBelow ? spaceBelow : spaceAbove);
+      const maxHeight = Math.min(320, preferBelow ? spaceBelow : spaceAbove);
       setMenuStyle({
         position: "fixed",
         left: Math.min(rect.left, window.innerWidth - width - 8),
@@ -178,6 +196,9 @@ export function UserFilterSelect({
     };
 
     updatePosition();
+    if (searchable) {
+      window.requestAnimationFrame(() => searchRef.current?.focus());
+    }
 
     const onPointerDown = (event: MouseEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) {
@@ -201,7 +222,7 @@ export function UserFilterSelect({
       window.removeEventListener("resize", onReposition);
       window.removeEventListener("scroll", onReposition, true);
     };
-  }, [open, listId]);
+  }, [open, listId, searchable]);
 
   return (
     <div ref={rootRef} className="relative min-w-[140px]">
@@ -214,9 +235,9 @@ export function UserFilterSelect({
         aria-controls={listId}
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "inline-flex w-full items-center justify-between gap-1.5 text-left",
+          "inline-flex h-8 w-full items-center justify-between gap-1.5 text-left",
           embedded
-            ? "min-w-[120px] cursor-pointer border-0 bg-transparent py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-0"
+            ? "min-w-[120px] cursor-pointer border-0 bg-transparent text-sm text-gray-700 focus:outline-none focus:ring-0"
             : cn(filterSelectClass, "min-w-[140px]"),
         )}
       >
@@ -230,42 +251,74 @@ export function UserFilterSelect({
       </button>
 
       {open ? (
-        <ul
+        <div
           id={listId}
-          role="listbox"
-          aria-label={ariaLabel}
           style={menuStyle}
           className={cn(
-            "z-50 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg ring-1 ring-black/5",
+            "z-50 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5",
             menuMaxHeightClassName,
           )}
         >
-          {options.map((opt) => {
-            const isSelected = opt.value === value;
-            return (
-              <li key={opt.value || "all"} role="option" aria-selected={isSelected}>
-                <button
-                  type="button"
-                  className={cn(
-                    "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors",
-                    isSelected
-                      ? "bg-[#eef2ff] font-medium text-[#2f3d95]"
-                      : "text-slate-700 hover:bg-slate-50",
-                  )}
-                  onClick={() => {
-                    onChange(opt.value);
-                    setOpen(false);
-                  }}
-                >
-                  <span className="truncate">{opt.label}</span>
-                  {isSelected ? (
-                    <Check className="h-3.5 w-3.5 shrink-0 text-[#2f3d95]" />
-                  ) : null}
-                </button>
+          {searchable ? (
+            <div className="sticky top-0 z-10 border-b border-slate-100 bg-white px-2 py-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  ref={searchRef}
+                  id={searchId}
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  placeholder={searchPlaceholder}
+                  aria-label={`${ariaLabel} search`}
+                  className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50/80 py-0 pr-2 pl-7 text-sm text-slate-700 placeholder:text-slate-400 focus:border-[#2f3d95] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/20"
+                />
+              </div>
+            </div>
+          ) : null}
+          <ul
+            role="listbox"
+            aria-label={ariaLabel}
+            className="min-h-0 flex-1 overflow-y-auto py-1"
+          >
+            {visibleOptions.length ? (
+              visibleOptions.map((opt) => {
+                const isSelected = opt.value === value;
+                return (
+                  <li
+                    key={opt.value || "all"}
+                    role="option"
+                    aria-selected={isSelected}
+                  >
+                    <button
+                      type="button"
+                      className={cn(
+                        "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors",
+                        isSelected
+                          ? "bg-[#eef2ff] font-medium text-[#2f3d95]"
+                          : "text-slate-700 hover:bg-slate-50",
+                      )}
+                      onClick={() => {
+                        onChange(opt.value);
+                        setOpen(false);
+                      }}
+                    >
+                      <span className="truncate">{opt.label}</span>
+                      {isSelected ? (
+                        <Check className="h-3.5 w-3.5 shrink-0 text-[#2f3d95]" />
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })
+            ) : (
+              <li className="px-3 py-4 text-center text-sm text-slate-500">
+                No results found
               </li>
-            );
-          })}
-        </ul>
+            )}
+          </ul>
+        </div>
       ) : null}
     </div>
   );
