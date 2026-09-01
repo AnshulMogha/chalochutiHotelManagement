@@ -145,7 +145,7 @@ export function UserFilterSelect({
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
-  "aria-label": ariaLabel;
+  "aria-label": string;
   embedded?: boolean;
   searchable?: boolean;
   searchPlaceholder?: string;
