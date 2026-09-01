@@ -320,7 +320,7 @@ export function hasRole(userRoles: string[] | undefined, role: Role): boolean {
 export function canVerifyHotelBank(userRoles: string[] | undefined): boolean {
   if (!userRoles?.length) return false;
   return (
-    userRoles.includes("SUPER_ADMIN") || userRoles.includes("FINANCE_MANAGER")
+    userRoles.includes("SUPER_ADMIN") || isPlatformAccountantRole(userRoles)
   );
 }
 

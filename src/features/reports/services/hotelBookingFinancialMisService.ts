@@ -94,6 +94,7 @@ export interface HotelFinancialMisAgentPaymentBreakup {
   agentTds: HotelFinancialMisMoney;
   netAgentCommission: HotelFinancialMisMoney;
   amountPayableByAgent: HotelFinancialMisMoney;
+  formula?: string | null;
 }
 
 export interface HotelFinancialMisMatchedBracket {
@@ -408,6 +409,7 @@ function normalizeAgentPaymentBreakup(
     agentTds: asMoney(record.agentTds),
     netAgentCommission: asMoney(record.netAgentCommission),
     amountPayableByAgent: asMoney(record.amountPayableByAgent),
+    formula: (record.formula as string | null | undefined) ?? null,
   };
 }
 

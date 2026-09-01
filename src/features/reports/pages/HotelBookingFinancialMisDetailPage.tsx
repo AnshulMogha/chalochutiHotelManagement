@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { ROUTES } from "@/constants";
 import { cn } from "@/lib/utils";
 import {
+  AgentPaymentBreakupLedger,
   BreakupRow,
   FINANCE_KPI_TONES,
   FinanceKpiCard,
@@ -193,31 +194,10 @@ function CustomerOrAgentPriceBreakup({
       <div className="space-y-4">
         {paymentBreakup ? (
           <Panel title="Agent payment breakup">
-            <div className="space-y-1 p-4">
-              <InfoLine
-                label="Selling price"
-                highlight
-                value={formatFinanceMoney(
-                  agentCustomerSellingPrice ?? paymentBreakup.sellingPrice,
-                )}
-              />
-              <InfoLine
-                label="Gross agent commission"
-                value={formatFinanceMoney(paymentBreakup.grossAgentCommission)}
-              />
-              <InfoLine
-                label="Agent TDS"
-                value={formatFinanceMoney(paymentBreakup.agentTds)}
-              />
-              <InfoLine
-                label="Net agent commission"
-                value={formatFinanceMoney(paymentBreakup.netAgentCommission)}
-              />
-              <InfoLine
-                label="Amount payable by agent"
-                value={formatFinanceMoney(paymentBreakup.amountPayableByAgent)}
-              />
-            </div>
+            <AgentPaymentBreakupLedger
+              breakup={paymentBreakup}
+              agentCustomerSellingPrice={agentCustomerSellingPrice}
+            />
           </Panel>
         ) : null}
         {incentive ? (
@@ -1063,38 +1043,10 @@ export default function HotelBookingFinancialMisDetailPage() {
                 ) : null}
                 {booking.agentPaymentBreakup ? (
                   <Panel title="Agent payment breakup">
-                    <div className="space-y-1 p-3">
-                      <InfoLine
-                        label="Selling price"
-                        value={formatFinanceMoney(
-                          booking.agentPaymentBreakup.sellingPrice,
-                        )}
-                      />
-                      <InfoLine
-                        label="Gross commission"
-                        value={formatFinanceMoney(
-                          booking.agentPaymentBreakup.grossAgentCommission,
-                        )}
-                      />
-                      <InfoLine
-                        label="Agent TDS"
-                        value={formatFinanceMoney(
-                          booking.agentPaymentBreakup.agentTds,
-                        )}
-                      />
-                      <InfoLine
-                        label="Net commission"
-                        value={formatFinanceMoney(
-                          booking.agentPaymentBreakup.netAgentCommission,
-                        )}
-                      />
-                      <InfoLine
-                        label="Payable by agent"
-                        value={formatFinanceMoney(
-                          booking.agentPaymentBreakup.amountPayableByAgent,
-                        )}
-                      />
-                    </div>
+                    <AgentPaymentBreakupLedger
+                      breakup={booking.agentPaymentBreakup}
+                      agentCustomerSellingPrice={agentCustomerSellingPrice}
+                    />
                   </Panel>
                 ) : null}
               </div>
@@ -1249,38 +1201,10 @@ export default function HotelBookingFinancialMisDetailPage() {
               <div className="space-y-4">
                 {booking.agentPaymentBreakup ? (
                   <Panel title="Agent payment breakup">
-                    <div className="space-y-1 p-4">
-                      <InfoLine
-                        label="Selling price"
-                        value={formatFinanceMoney(
-                          booking.agentPaymentBreakup.sellingPrice,
-                        )}
-                      />
-                      <InfoLine
-                        label="Gross agent commission"
-                        value={formatFinanceMoney(
-                          booking.agentPaymentBreakup.grossAgentCommission,
-                        )}
-                      />
-                      <InfoLine
-                        label="Agent TDS"
-                        value={formatFinanceMoney(
-                          booking.agentPaymentBreakup.agentTds,
-                        )}
-                      />
-                      <InfoLine
-                        label="Net agent commission"
-                        value={formatFinanceMoney(
-                          booking.agentPaymentBreakup.netAgentCommission,
-                        )}
-                      />
-                      <InfoLine
-                        label="Amount payable by agent"
-                        value={formatFinanceMoney(
-                          booking.agentPaymentBreakup.amountPayableByAgent,
-                        )}
-                      />
-                    </div>
+                    <AgentPaymentBreakupLedger
+                      breakup={booking.agentPaymentBreakup}
+                      agentCustomerSellingPrice={agentCustomerSellingPrice}
+                    />
                   </Panel>
                 ) : null}
                 {booking.cancellationPolicyLines.length > 0 ||
@@ -1359,94 +1283,108 @@ export default function HotelBookingFinancialMisDetailPage() {
         ) : null}
 
         {tab === "payment" ? (
-          <div
-            className={cn(
-              "grid gap-4",
-              (booking.payment?.payments?.length ?? 0) > 0 && "lg:grid-cols-2",
-            )}
-          >
-            <Panel
-              title="Payment summary"
-              className={
-                (booking.payment?.payments?.length ?? 0) > 0
-                  ? undefined
-                  : "w-full"
-              }
+          <div className="space-y-4">
+            <div
+              className={cn(
+                "grid gap-4",
+                (booking.payment?.payments?.length ?? 0) > 0 && "lg:grid-cols-2",
+              )}
             >
-              <div className="space-y-3 p-4">
-                <InfoLine
-                  label={isB2b ? "Agent price" : "Customer payable"}
-                  value={formatFinanceMoney(displaySellingPrice)}
-                />
-                <InfoLine
-                  label="Collected"
-                  value={formatFinanceMoney(booking.amountCollected)}
-                />
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-sm text-slate-600">Payment status</span>
-                  <StatusBadge
-                    status={booking.paymentStatus}
-                    tone={paymentStatusTone(booking.paymentStatus)}
+              <Panel
+                title="Payment summary"
+                className={
+                  (booking.payment?.payments?.length ?? 0) > 0
+                    ? undefined
+                    : "w-full"
+                }
+              >
+                <div className="space-y-3 p-4">
+                  <InfoLine
+                    label={isB2b ? "Agent price" : "Customer payable"}
+                    value={formatFinanceMoney(displaySellingPrice)}
                   />
+                  <InfoLine
+                    label="Collected"
+                    value={formatFinanceMoney(booking.amountCollected)}
+                  />
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-sm text-slate-600">
+                      Payment status
+                    </span>
+                    <StatusBadge
+                      status={booking.paymentStatus}
+                      tone={paymentStatusTone(booking.paymentStatus)}
+                    />
+                  </div>
+                  <InfoLine
+                    label="Gateway status"
+                    value={formatStatusLabel(booking.payment?.status || "—")}
+                  />
+                  {(booking.payment?.payments?.length ?? 0) === 0 ? (
+                    <>
+                      <InfoLine
+                        label="Payment method"
+                        value={formatStatusLabel(
+                          booking.payment?.paymentMethod || "—",
+                        )}
+                      />
+                      <InfoLine
+                        label="Transaction ID"
+                        value={booking.payment?.paymentTransactionId || "—"}
+                      />
+                      <InfoLine
+                        label="Payment time"
+                        value={formatReportDateTime(booking.payment?.paymentTime)}
+                      />
+                    </>
+                  ) : null}
                 </div>
-                <InfoLine
-                  label="Gateway status"
-                  value={formatStatusLabel(booking.payment?.status || "—")}
-                />
-                {(booking.payment?.payments?.length ?? 0) === 0 ? (
-                  <>
-                    <InfoLine
-                      label="Payment method"
-                      value={formatStatusLabel(
-                        booking.payment?.paymentMethod || "—",
-                      )}
-                    />
-                    <InfoLine
-                      label="Transaction ID"
-                      value={booking.payment?.paymentTransactionId || "—"}
-                    />
-                    <InfoLine
-                      label="Payment time"
-                      value={formatReportDateTime(booking.payment?.paymentTime)}
-                    />
-                  </>
-                ) : null}
-              </div>
-            </Panel>
-            {(booking.payment?.payments?.length ?? 0) > 0 ? (
-              <Panel title="Payment transactions">
-                <div className="divide-y divide-slate-100">
-                  {booking.payment!.payments.map((entry, index) => (
-                    <div
-                      key={`${entry.paymentTransactionId}-${index}`}
-                      className="space-y-2 p-4"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium text-slate-800">
-                          {formatFinanceMoney(entry.amount)}
-                        </span>
-                        <StatusBadge
-                          status={entry.status}
-                          tone={paymentStatusTone(
-                            entry.status === "SUCCESS" ? "PAID" : entry.status,
-                          )}
+              </Panel>
+              {(booking.payment?.payments?.length ?? 0) > 0 ? (
+                <Panel title="Payment transactions">
+                  <div className="divide-y divide-slate-100">
+                    {booking.payment!.payments.map((entry, index) => (
+                      <div
+                        key={`${entry.paymentTransactionId}-${index}`}
+                        className="space-y-2 p-4"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-slate-800">
+                            {formatFinanceMoney(entry.amount)}
+                          </span>
+                          <StatusBadge
+                            status={entry.status}
+                            tone={paymentStatusTone(
+                              entry.status === "SUCCESS"
+                                ? "PAID"
+                                : entry.status,
+                            )}
+                          />
+                        </div>
+                        <InfoLine
+                          label="Method"
+                          value={formatStatusLabel(entry.paymentMethod || "—")}
+                        />
+                        <InfoLine
+                          label="Txn ID"
+                          value={entry.paymentTransactionId || "—"}
+                        />
+                        <InfoLine
+                          label="Time"
+                          value={formatReportDateTime(entry.paymentTime)}
                         />
                       </div>
-                      <InfoLine
-                        label="Method"
-                        value={formatStatusLabel(entry.paymentMethod || "—")}
-                      />
-                      <InfoLine
-                        label="Txn ID"
-                        value={entry.paymentTransactionId || "—"}
-                      />
-                      <InfoLine
-                        label="Time"
-                        value={formatReportDateTime(entry.paymentTime)}
-                      />
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </Panel>
+              ) : null}
+            </div>
+            {booking.agentPaymentBreakup ? (
+              <Panel title="Agent payment breakup">
+                <AgentPaymentBreakupLedger
+                  breakup={booking.agentPaymentBreakup}
+                  agentCustomerSellingPrice={agentCustomerSellingPrice}
+                />
               </Panel>
             ) : null}
           </div>

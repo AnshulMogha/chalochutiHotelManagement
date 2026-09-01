@@ -27,7 +27,7 @@ export default function PortalHomePage() {
   }
 
   if (isAuditorRole(user?.roles)) {
-    return <Navigate to={ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS} replace />;
+    return <Navigate to={ROUTES.BOOKINGS.LIST} replace />;
   }
 
   if (isPlatformAccountantRole(user?.roles)) {

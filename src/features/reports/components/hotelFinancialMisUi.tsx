@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { formatFinanceMoney, formatStatusLabel } from "./reportUiHelpers";
 import type {
+  HotelFinancialMisAgentPaymentBreakup,
   HotelFinancialMisBookingRow,
   HotelFinancialMisBookingOwner,
   HotelFinancialMisMoney,
@@ -288,6 +289,65 @@ export function BreakupRow({
           : formatFinanceMoney(displayAmount)}
       </span>
     </div>
+  );
+}
+
+export function AgentPaymentBreakupFormula({
+  formula,
+}: {
+  formula?: string | null;
+}) {
+  const text =
+    formula?.trim() ||
+    "sellingPrice - netAgentCommission = amountPayableByAgent";
+  return (
+    <p className="border-t border-slate-100 px-3 py-2.5 font-mono text-[11px] leading-relaxed text-slate-500">
+      {text}
+    </p>
+  );
+}
+
+/** Ledger-style agent payment calculation (API amounts only). */
+export function AgentPaymentBreakupLedger({
+  breakup,
+  agentCustomerSellingPrice,
+}: {
+  breakup: HotelFinancialMisAgentPaymentBreakup;
+  agentCustomerSellingPrice?: HotelFinancialMisMoney | null;
+}) {
+  const showAgentCustomerPrice =
+    agentCustomerSellingPrice != null &&
+    Math.abs(
+      agentCustomerSellingPrice.amount - breakup.sellingPrice.amount,
+    ) > 0.009;
+
+  return (
+    <>
+      {showAgentCustomerPrice ? (
+        <BreakupRow
+          label="Agent customer selling price"
+          amount={agentCustomerSellingPrice}
+        />
+      ) : null}
+      <BreakupRow label="Platform selling price" amount={breakup.sellingPrice} />
+      <BreakupRow
+        label="Gross agent commission"
+        amount={breakup.grossAgentCommission}
+      />
+      <BreakupRow label="Agent TDS" amount={breakup.agentTds} />
+      <BreakupRow
+        label="Net agent commission"
+        amount={breakup.netAgentCommission}
+        negative
+      />
+      <BreakupRow
+        label="Amount payable by agent"
+        amount={breakup.amountPayableByAgent}
+        bold
+        highlight
+      />
+      <AgentPaymentBreakupFormula formula={breakup.formula} />
+    </>
   );
 }
 

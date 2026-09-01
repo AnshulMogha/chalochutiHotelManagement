@@ -559,7 +559,7 @@ export function FinanceTab({ hotelId }: FinanceTabProps) {
                       : canEditFinance && isDirty
                         ? "Save your bank details first. Verify will save changes and then verify the saved account."
                         : canEditFinance
-                          ? "Ask Super Admin or Finance Manager to verify after you save bank details."
+                          ? "Ask Super Admin, Finance Manager, or Accountant to verify after you save bank details."
                           : "Verify the bank details saved by the hotel owner."}
                   </p>
                   {isBankVerified && (bankVerifiedName || bankVerifiedAt) ? (

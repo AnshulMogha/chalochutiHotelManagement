@@ -267,7 +267,7 @@ export function canEditModule(
   if (isSuperAdmin(user.roles) && module === "MY_TEAM") return false;
   if (
     module === "PROPERTY_FINANCE" &&
-    (isSuperAdmin(user.roles) || user.roles?.includes("FINANCE_MANAGER"))
+    (isSuperAdmin(user.roles) || isPlatformAccountantRole(user.roles))
   ) {
     return false;
   }
@@ -287,7 +287,7 @@ export function canEditModule(
   return !!permission?.canEdit;
 }
 
-/** Hotel Owner / staff may edit finance details; Super Admin & Finance Manager verify only. */
+/** Hotel Owner / staff may edit finance details; Super Admin & platform finance roles verify only. */
 export function canEditHotelFinanceDetails(user: User | null): boolean {
   return canEditModule(user, "PROPERTY_FINANCE");
 }
@@ -872,6 +872,11 @@ export function canViewPath(user: User | null, pathname: string): boolean {
 
   if (!passesRoleScopedPathGuard(user, pathOnly)) {
     return false;
+  }
+
+  // Auditor routes are role-scoped only — no hotel-access module rows required.
+  if (isAuditorRole(user?.roles) && !isSuperAdmin(user?.roles)) {
+    return true;
   }
 
   const module = getModuleFromPath(pathOnly);

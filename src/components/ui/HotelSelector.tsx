@@ -7,15 +7,10 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 import { Button } from "./Button";
-import { propertyService } from "@/features/properties/services/propertyService";
-import { adminService } from "@/features/admin/services/adminService";
-import type { HotelListResponse } from "@/features/properties/services/api.types";
-import type {
-  ApprovedHotelItem,
-  HotelLookupItem,
+import {
+  adminService,
+  type HotelLookupItem,
 } from "@/features/admin/services/adminService";
-import { useAuth } from "@/hooks";
-import { usesGlobalHotelLookup } from "@/constants/roles";
 import { useLocation } from "react-router";
 import { ROUTES } from "@/constants";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
@@ -34,15 +29,9 @@ export function HotelSelector({
   className = "",
   autoSelectFirst = true,
 }: HotelSelectorProps) {
-  const { user } = useAuth();
-  const useGlobalHotelLookup = usesGlobalHotelLookup(user?.roles);
-  // If parent hasn't provided a hotelId yet, fall back to persisted selection.
-  // This prevents auto-selecting the first hotel by default.
   const effectiveSelectedHotelId =
     selectedHotelId ?? getStoredSelectedHotelId();
-  const [hotels, setHotels] = useState<
-    (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[]
-  >([]);
+  const [hotels, setHotels] = useState<HotelLookupItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -64,25 +53,9 @@ export function HotelSelector({
     const fetchHotels = async () => {
       try {
         setIsLoading(true);
-
-        let data: (HotelListResponse | ApprovedHotelItem | HotelLookupItem)[];
-
-        if (useGlobalHotelLookup) {
-          // Super Admin / platform finance roles / Auditor: global lookup (all hotels)
-          data = await adminService.getSuperAdminHotelLookup(debouncedSearch);
-        } else {
-          // Hotel Owner / Manager / Hotel Accountant / Front Desk: owner-scoped list
-          data = await propertyService.getAllHotelsList();
-          data = data.filter((hotel) => {
-            if ("status" in hotel && hotel.status) {
-              return hotel.status === "LIVE";
-            }
-            return true;
-          });
-        }
-
+        const data = await adminService.getSuperAdminHotelLookup(debouncedSearch);
         setHotels(data);
-        // Auto-select first hotel if none selected (but not on document review page)
+
         if (
           autoSelectFirst &&
           !effectiveSelectedHotelId &&
@@ -95,29 +68,16 @@ export function HotelSelector({
         }
       } catch (error) {
         console.error("Error fetching hotels:", error);
+        setHotels([]);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchHotels();
+    void fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedHotelId, useGlobalHotelLookup, debouncedSearch]);
+  }, [selectedHotelId, debouncedSearch]);
 
-  const searchTerm = debouncedSearch.toLowerCase();
-  const visibleHotels = useGlobalHotelLookup
-    ? hotels
-    : searchTerm
-      ? hotels.filter((hotel) => {
-          const city = "city" in hotel ? hotel.city : undefined;
-          const code = "hotelCode" in hotel ? hotel.hotelCode : undefined;
-          return [hotel.hotelName, code, city]
-            .filter((field): field is string => Boolean(field))
-            .some((field) => field.toLowerCase().includes(searchTerm));
-        })
-      : hotels;
-
-  // Reset auto-select ref when selectedHotelId is cleared (allows re-auto-selection)
   useEffect(() => {
     if (!selectedHotelId) {
       hasAutoSelectedRef.current = false;
@@ -134,7 +94,9 @@ export function HotelSelector({
         <Button variant="outline" className={`gap-2 ${className}`}>
           <Building2 className="w-4 h-4" />
           <span className="max-w-[200px] truncate">
-            {selectedHotel?.hotelName || "Select Hotel"}
+            {selectedHotel
+              ? `${selectedHotel.hotelName} (${selectedHotel.hotelId})`
+              : "Select Hotel"}
           </span>
           <ChevronDown className="w-4 h-4" />
         </Button>
@@ -159,46 +121,39 @@ export function HotelSelector({
           <div className="px-3 py-2 text-sm text-gray-500">
             Loading hotels...
           </div>
-        ) : visibleHotels.length === 0 ? (
+        ) : hotels.length === 0 ? (
           <div className="px-3 py-2 text-sm text-gray-500">
             {debouncedSearch
               ? "No hotels found. Try another search."
               : "No hotels available"}
           </div>
         ) : (
-          visibleHotels.map((hotel) => {
-            const city = "city" in hotel ? hotel.city : undefined;
-            const code = "hotelCode" in hotel ? hotel.hotelCode : undefined;
-            return (
-              <DropdownMenuItem
-                key={hotel.hotelId}
-                onClick={() => {
-                  onHotelChange(hotel.hotelId);
-                  setIsOpen(false);
-                }}
-                className={cn(
-                  "flex items-center gap-2 cursor-pointer",
-                  effectiveSelectedHotelId === hotel.hotelId &&
-                    "bg-[#2f3d95]/10",
-                )}
-              >
-                <Building2 className="w-4 h-4 text-[#2f3d95]" />
-                <div className="flex-1 min-w-0">
-                  <div className="truncate text-sm font-medium">
-                    {useGlobalHotelLookup
-                      ? `${hotel.hotelName} (${hotel.hotelId})`
-                      : hotel.hotelName}
-                  </div>
-                  {!useGlobalHotelLookup && code ? (
-                    <div className="truncate text-xs text-gray-500">{code}</div>
-                  ) : null}
-                  {useGlobalHotelLookup && city ? (
-                    <div className="truncate text-xs text-gray-500">{city}</div>
-                  ) : null}
+          hotels.map((hotel) => (
+            <DropdownMenuItem
+              key={hotel.hotelId}
+              onClick={() => {
+                onHotelChange(hotel.hotelId);
+                setIsOpen(false);
+              }}
+              className={cn(
+                "flex items-center gap-2 cursor-pointer",
+                effectiveSelectedHotelId === hotel.hotelId &&
+                  "bg-[#2f3d95]/10",
+              )}
+            >
+              <Building2 className="w-4 h-4 text-[#2f3d95]" />
+              <div className="flex-1 min-w-0">
+                <div className="truncate text-sm font-medium">
+                  {hotel.hotelName} ({hotel.hotelId})
                 </div>
-              </DropdownMenuItem>
-            );
-          })
+                {hotel.city ? (
+                  <div className="truncate text-xs text-gray-500">
+                    {hotel.city}
+                  </div>
+                ) : null}
+              </div>
+            </DropdownMenuItem>
+          ))
         )}
       </DropdownMenuContent>
     </DropdownMenu>
