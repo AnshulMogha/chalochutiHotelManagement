@@ -479,28 +479,6 @@ export function isPlatformAccountantRole(
   );
 }
 
-/** Roles that use the global hotel lookup API in the top-bar selector. */
-export function usesGlobalHotelLookup(
-  userRoles: string[] | undefined,
-): boolean {
-  return (
-    isSuperAdmin(userRoles) ||
-    isPlatformAccountantRole(userRoles) ||
-    isAuditorRole(userRoles)
-  );
-}
-
-/** Top-bar hotel selector: lookup API with server search (not owner hotel list). */
-export function usesHotelLookupInTopbarSelector(
-  userRoles: string[] | undefined,
-): boolean {
-  if (!userRoles?.length) return false;
-  return (
-    usesGlobalHotelLookup(userRoles) ||
-    userRoles.includes("FRONT_DESK_EXEC")
-  );
-}
-
 /** Super Admin, platform finance, and auditor: admin booking full-details on /bookings/:id. */
 export function usesAdminBookingFullDetail(
   userRoles: string[] | undefined,

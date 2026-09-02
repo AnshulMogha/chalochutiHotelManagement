@@ -7,19 +7,13 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu";
 import { Button } from "./Button";
-import { propertyService } from "@/features/properties/services/propertyService";
 import {
   adminService,
   type HotelLookupItem,
 } from "@/features/admin/services/adminService";
-import type { HotelListResponse } from "@/features/properties/services/api.types";
-import { useAuth } from "@/hooks";
-import { usesHotelLookupInTopbarSelector } from "@/constants/roles";
 import { useLocation } from "react-router";
 import { ROUTES } from "@/constants";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
-
-type HotelSelectorItem = HotelListResponse | HotelLookupItem;
 
 interface HotelSelectorProps {
   selectedHotelId: string | null;
@@ -35,11 +29,9 @@ export function HotelSelector({
   className = "",
   autoSelectFirst = true,
 }: HotelSelectorProps) {
-  const { user } = useAuth();
-  const useLookupApi = usesHotelLookupInTopbarSelector(user?.roles);
   const effectiveSelectedHotelId =
     selectedHotelId ?? getStoredSelectedHotelId();
-  const [hotels, setHotels] = useState<HotelSelectorItem[]>([]);
+  const [hotels, setHotels] = useState<HotelLookupItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -61,21 +53,8 @@ export function HotelSelector({
     const fetchHotels = async () => {
       try {
         setIsLoading(true);
-
-        let data: HotelSelectorItem[];
-
-        if (useLookupApi) {
-          data = await adminService.getSuperAdminHotelLookup(debouncedSearch);
-        } else {
-          data = await propertyService.getAllHotelsList();
-          data = data.filter((hotel) => {
-            if (hotel.status) {
-              return hotel.status === "LIVE";
-            }
-            return true;
-          });
-        }
-
+        const data =
+          await adminService.getSuperAdminHotelLookup(debouncedSearch);
         setHotels(data);
 
         if (
@@ -98,26 +77,13 @@ export function HotelSelector({
 
     void fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedHotelId, useLookupApi, debouncedSearch]);
+  }, [selectedHotelId, debouncedSearch]);
 
   useEffect(() => {
     if (!selectedHotelId) {
       hasAutoSelectedRef.current = false;
     }
   }, [selectedHotelId]);
-
-  const searchTerm = debouncedSearch.toLowerCase();
-  const visibleHotels = useLookupApi
-    ? hotels
-    : searchTerm
-      ? hotels.filter((hotel) => {
-          const city = "city" in hotel ? hotel.city : undefined;
-          const code = "hotelCode" in hotel ? hotel.hotelCode : undefined;
-          return [hotel.hotelName, code, city]
-            .filter((field): field is string => Boolean(field))
-            .some((field) => field.toLowerCase().includes(searchTerm));
-        })
-      : hotels;
 
   const selectedHotel = hotels.find(
     (h) => h.hotelId === effectiveSelectedHotelId,
@@ -130,9 +96,7 @@ export function HotelSelector({
           <Building2 className="w-4 h-4" />
           <span className="max-w-[200px] truncate">
             {selectedHotel
-              ? useLookupApi
-                ? `${selectedHotel.hotelName} (${selectedHotel.hotelId})`
-                : selectedHotel.hotelName
+              ? `${selectedHotel.hotelName} (${selectedHotel.hotelId})`
               : "Select Hotel"}
           </span>
           <ChevronDown className="w-4 h-4" />
@@ -158,46 +122,38 @@ export function HotelSelector({
           <div className="px-3 py-2 text-sm text-gray-500">
             Loading hotels...
           </div>
-        ) : visibleHotels.length === 0 ? (
+        ) : hotels.length === 0 ? (
           <div className="px-3 py-2 text-sm text-gray-500">
             {debouncedSearch
               ? "No hotels found. Try another search."
               : "No hotels available"}
           </div>
         ) : (
-          visibleHotels.map((hotel) => {
-            const city = "city" in hotel ? hotel.city : undefined;
-            const code = "hotelCode" in hotel ? hotel.hotelCode : undefined;
-            return (
-              <DropdownMenuItem
-                key={hotel.hotelId}
-                onClick={() => {
-                  onHotelChange(hotel.hotelId);
-                  setIsOpen(false);
-                }}
-                className={cn(
-                  "flex items-center gap-2 cursor-pointer",
-                  effectiveSelectedHotelId === hotel.hotelId &&
-                    "bg-[#2f3d95]/10",
-                )}
-              >
-                <Building2 className="w-4 h-4 text-[#2f3d95]" />
-                <div className="flex-1 min-w-0">
-                  <div className="truncate text-sm font-medium">
-                    {useLookupApi
-                      ? `${hotel.hotelName} (${hotel.hotelId})`
-                      : hotel.hotelName}
-                  </div>
-                  {!useLookupApi && code ? (
-                    <div className="truncate text-xs text-gray-500">{code}</div>
-                  ) : null}
-                  {useLookupApi && city ? (
-                    <div className="truncate text-xs text-gray-500">{city}</div>
-                  ) : null}
+          hotels.map((hotel) => (
+            <DropdownMenuItem
+              key={hotel.hotelId}
+              onClick={() => {
+                onHotelChange(hotel.hotelId);
+                setIsOpen(false);
+              }}
+              className={cn(
+                "flex items-center gap-2 cursor-pointer",
+                effectiveSelectedHotelId === hotel.hotelId && "bg-[#2f3d95]/10",
+              )}
+            >
+              <Building2 className="w-4 h-4 text-[#2f3d95]" />
+              <div className="flex-1 min-w-0">
+                <div className="truncate text-sm font-medium">
+                  {hotel.hotelName} ({hotel.hotelId})
                 </div>
-              </DropdownMenuItem>
-            );
-          })
+                {hotel.city ? (
+                  <div className="truncate text-xs text-gray-500">
+                    {hotel.city}
+                  </div>
+                ) : null}
+              </div>
+            </DropdownMenuItem>
+          ))
         )}
       </DropdownMenuContent>
     </DropdownMenu>
