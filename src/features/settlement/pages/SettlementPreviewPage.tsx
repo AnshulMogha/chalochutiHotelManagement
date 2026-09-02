@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { ROUTES } from "@/constants";
+import {
+  getReturnBackLabel,
+  readReturnToFromLocation,
+} from "@/lib/navigationReturn";
 import { useAuth } from "@/hooks/useAuth";
 import { canGenerateSupplierSettlement } from "@/constants/roles";
 import { Toast, useToast } from "@/components/ui/Toast";
@@ -50,8 +54,11 @@ function isPreviewStaleError(error: unknown): boolean {
 export default function SettlementPreviewPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const bookingReturnTo = `${location.pathname}${location.search}`;
   const [searchParams] = useSearchParams();
+  const bookingReturnTo = `${location.pathname}${location.search}`;
+  const listReturnTo = readReturnToFromLocation(searchParams, location.state);
+  const listBackHref = listReturnTo ?? ROUTES.SETTLEMENT.WORKBENCH;
+  const listBackLabel = getReturnBackLabel(listBackHref);
   const { user } = useAuth();
   const canGenerate = canGenerateSupplierSettlement(user?.roles);
   const { toast, showToast, hideToast } = useToast();
@@ -168,10 +175,10 @@ export default function SettlementPreviewPage() {
           Missing supplier or component. Open preview from the workbench.
         </p>
         <Link
-          to={ROUTES.SETTLEMENT.WORKBENCH}
+          to={listBackHref}
           className="mt-4 inline-flex text-sm font-medium text-[#2f3d95]"
         >
-          Back to workbench
+          {listBackLabel}
         </Link>
       </div>
     );
@@ -203,11 +210,11 @@ export default function SettlementPreviewPage() {
         actions={
           <div className="flex items-center gap-2">
             <Link
-              to={ROUTES.SETTLEMENT.WORKBENCH}
+              to={listBackHref}
               className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
             >
               <ArrowLeft className="h-4 w-4" />
-              Workbench
+              {listBackLabel}
             </Link>
             <SettlementRefreshButton
               loading={loading}

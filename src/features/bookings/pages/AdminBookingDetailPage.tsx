@@ -9,6 +9,7 @@ import {
 } from "../services/bookingService";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
+import { getReturnBackLabel } from "@/lib/navigationReturn";
 import { cn } from "@/lib/utils";
 import {
   FINANCE_KPI_TONES,
@@ -557,6 +558,8 @@ export default function AdminBookingDetailPage({
     navigate(to);
   };
 
+  const backLabel = getReturnBackLabel(returnTo);
+
   if (!listItemId) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -589,7 +592,7 @@ export default function AdminBookingDetailPage({
             className="mt-4 inline-flex items-center gap-2 text-[#2f3d95] font-medium hover:underline"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Bookings
+            {backLabel}
           </button>
         </div>
       </div>
@@ -817,7 +820,7 @@ export default function AdminBookingDetailPage({
                   className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
-                  Back
+                  {backLabel}
                 </button>
                 <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">

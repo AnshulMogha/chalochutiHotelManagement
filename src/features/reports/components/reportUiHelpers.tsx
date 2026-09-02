@@ -66,14 +66,28 @@ export function validateCustomDateRange(
     return { ok: false, message: "Enter dates as dd/mm/yyyy" };
   }
   if (fromDate > toDate) {
-    return { ok: false, message: "From date must be before to date" };
+    return { ok: false, message: "From date cannot be greater than to date" };
   }
   return { ok: true, fromDate, toDate };
 }
 
+/** Local calendar date as YYYY-MM-DD (for max/min on date inputs). */
+export function getTodayIsoDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+type ValidateOptionalDateRangeOptions = {
+  disallowFuture?: boolean;
+};
+
 export function validateOptionalDateRange(
   fromText: string,
   toText: string,
+  options?: ValidateOptionalDateRangeOptions,
 ):
   | { ok: true; fromDate: string | null; toDate: string | null }
   | { ok: false; message: string } {
@@ -85,8 +99,20 @@ export function validateOptionalDateRange(
   if (toText.trim() && !toDate) {
     return { ok: false, message: "Enter to date as dd/mm/yyyy" };
   }
+  if (options?.disallowFuture) {
+    const today = getTodayIsoDate();
+    if (fromDate && fromDate > today) {
+      return { ok: false, message: "From date cannot be in the future" };
+    }
+    if (toDate && toDate > today) {
+      return { ok: false, message: "To date cannot be in the future" };
+    }
+  }
   if (fromDate && toDate && fromDate > toDate) {
-    return { ok: false, message: "From date must be before to date" };
+    return {
+      ok: false,
+      message: "From date cannot be greater than to date",
+    };
   }
   return { ok: true, fromDate, toDate };
 }

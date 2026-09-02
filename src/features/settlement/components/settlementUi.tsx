@@ -49,9 +49,14 @@ function settlementBookingUrl(
     return `${ROUTES.BOOKINGS.DETAIL(numericId)}${query ? `?${query}` : ""}`;
   }
 
-  const searchBooking = String(bookingRef ?? bookingId ?? "").trim();
-  if (!searchBooking) return null;
-  params.set("bookingId", searchBooking);
+  const ref = String(bookingRef ?? "").trim();
+  if (ref) {
+    params.set("bookingId", ref);
+    return `${ROUTES.BOOKINGS.LIST}?${params.toString()}`;
+  }
+
+  if (!numericId) return null;
+  params.set("bookingId", numericId);
   return `${ROUTES.BOOKINGS.LIST}?${params.toString()}`;
 }
 
@@ -808,6 +813,7 @@ export function SettlementPreviewBookingsTable({
                     ) : bookingHref ? (
                       <Link
                         to={bookingHref}
+                        state={{ returnTo: returnTo ?? undefined }}
                         onClick={() => {
                           if (resolvedHotelId) {
                             setStoredSelectedHotelId(resolvedHotelId);

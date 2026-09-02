@@ -17,6 +17,8 @@ type ReportCustomDateFieldsProps = {
   singleLabel?: string;
   className?: string;
   inputClassName?: string;
+  labelClassName?: string;
+  maxDate?: string;
   /** Stack from/to vertically (better in narrow filter drawers). */
   stacked?: boolean;
 };
@@ -83,11 +85,15 @@ function ReportDateField({
   value,
   onChange,
   inputClassName,
+  labelClassName,
+  maxDate,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   inputClassName?: string;
+  labelClassName?: string;
+  maxDate?: string;
 }) {
   const fieldRef = useRef<HTMLDivElement | null>(null);
   const dateInputRef = useRef<HTMLInputElement | null>(null);
@@ -95,7 +101,14 @@ function ReportDateField({
 
   return (
     <div>
-      <label className="mb-1 block text-xs text-slate-500">{label}</label>
+      <label
+        className={cn(
+          "mb-1 block text-xs text-slate-500",
+          labelClassName,
+        )}
+      >
+        {label}
+      </label>
       <div ref={fieldRef} className="relative">
         <input
           type="text"
@@ -122,6 +135,7 @@ function ReportDateField({
           ref={dateInputRef}
           type="date"
           value={isoValue}
+          max={maxDate}
           onChange={(event) => {
             const nextIso = event.target.value;
             onChange(nextIso ? isoToReportDateText(nextIso) : "");
@@ -148,6 +162,8 @@ export function ReportCustomDateFields({
   singleLabel = "Date",
   className,
   inputClassName,
+  labelClassName,
+  maxDate,
   stacked = false,
 }: ReportCustomDateFieldsProps) {
   if (singleDate) {
@@ -158,6 +174,8 @@ export function ReportCustomDateFields({
           value={fromText}
           onChange={onFromTextChange}
           inputClassName={inputClassName}
+          labelClassName={labelClassName}
+          maxDate={maxDate}
         />
       </div>
     );
@@ -175,12 +193,16 @@ export function ReportCustomDateFields({
         value={fromText}
         onChange={onFromTextChange}
         inputClassName={inputClassName}
+        labelClassName={labelClassName}
+        maxDate={maxDate}
       />
       <ReportDateField
         label={toLabel}
         value={toText}
         onChange={(value) => onToTextChange?.(value)}
         inputClassName={inputClassName}
+        labelClassName={labelClassName}
+        maxDate={maxDate}
       />
     </div>
   );

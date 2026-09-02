@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ROUTES } from "@/constants";
+import { appendReturnToQuery } from "@/lib/navigationReturn";
 import { cn } from "@/lib/utils";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
   formatFinanceMoney,
+  formatReportDate,
   formatStatusLabel,
+  getTodayIsoDate,
+  validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
+import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import { settlementService } from "../services/settlementService";
 import {
   SETTLEMENT_COMPONENTS,
@@ -43,11 +48,14 @@ import {
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
+const WORKBENCH_DATE_OPTIONS = { disallowFuture: true } as const;
 
 type WorkbenchQuery = {
   component: SettlementComponent;
   cycle: SettlementCycle | "";
   search: string;
+  fromDateText: string;
+  toDateText: string;
   eligibleOnly: boolean;
 };
 
@@ -55,34 +63,86 @@ const DEFAULT_QUERY: WorkbenchQuery = {
   component: "HOTEL",
   cycle: "MONTHLY",
   search: "",
+  fromDateText: "",
+  toDateText: "",
   eligibleOnly: true,
 };
 
-function buildPreviewHref(row: WorkbenchRow, fallbackCycle?: string): string {
+function workbenchQueryFromParams(
+  params: URLSearchParams,
+): WorkbenchQuery | null {
+  const component = params.get("component")?.trim();
+  if (
+    !component ||
+    !(SETTLEMENT_COMPONENTS as readonly string[]).includes(component)
+  ) {
+    return null;
+  }
+  const cycle = params.get("cycle")?.trim() || "";
+  return {
+    component: component as SettlementComponent,
+    cycle: cycle as SettlementCycle | "",
+    search: params.get("search")?.trim() || "",
+    fromDateText: params.get("fromDate")?.trim() || "",
+    toDateText: params.get("toDate")?.trim() || "",
+    eligibleOnly: params.get("eligibleOnly") !== "0",
+  };
+}
+
+function buildWorkbenchSearchHref(query: WorkbenchQuery, page = 0): string {
+  const params = new URLSearchParams();
+  params.set("component", query.component);
+  if (query.cycle) params.set("cycle", query.cycle);
+  if (query.search) params.set("search", query.search);
+  if (query.fromDateText) params.set("fromDate", query.fromDateText);
+  if (query.toDateText) params.set("toDate", query.toDateText);
+  if (!query.eligibleOnly) params.set("eligibleOnly", "0");
+  if (page > 0) params.set("page", String(page));
+  return `${ROUTES.SETTLEMENT.WORKBENCH}?${params.toString()}`;
+}
+
+function buildPreviewHref(
+  row: WorkbenchRow,
+  fallbackCycle?: string,
+  returnTo?: string,
+  fallbackFromDate?: string | null,
+  fallbackToDate?: string | null,
+): string {
   const params = new URLSearchParams();
   params.set("supplierId", row.supplierId);
   params.set("component", String(row.component));
   const cycle = row.cycle || fallbackCycle || "";
   if (cycle) params.set("cycle", cycle);
-  if (row.settlementPeriod?.from) {
-    params.set("fromDate", row.settlementPeriod.from);
+  const fromDate = row.settlementPeriod?.from || fallbackFromDate;
+  const toDate = row.settlementPeriod?.to || fallbackToDate;
+  if (fromDate) {
+    params.set("fromDate", fromDate);
   }
-  if (row.settlementPeriod?.to) {
-    params.set("toDate", row.settlementPeriod.to);
+  if (toDate) {
+    params.set("toDate", toDate);
   }
   if (row.existingDraft) params.set("existingDraft", "1");
   if (!row.settlementReady) params.set("settlementReady", "0");
   if (row.blockedReason) params.set("blockedReason", row.blockedReason);
+  appendReturnToQuery(params, returnTo);
   return `${ROUTES.SETTLEMENT.PREVIEW}?${params.toString()}`;
 }
 
 export default function SettlementWorkbenchPage() {
   const { toast, showToast, hideToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [form, setForm] = useState<WorkbenchQuery>(DEFAULT_QUERY);
-  const [applied, setApplied] = useState<WorkbenchQuery | null>(null);
+  const [form, setForm] = useState<WorkbenchQuery>(() => {
+    return workbenchQueryFromParams(searchParams) ?? DEFAULT_QUERY;
+  });
+  const [applied, setApplied] = useState<WorkbenchQuery | null>(() => {
+    return workbenchQueryFromParams(searchParams);
+  });
 
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(() => {
+    const pageParam = Number(searchParams.get("page") || "0");
+    return Number.isFinite(pageParam) && pageParam >= 0 ? pageParam : 0;
+  });
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<WorkbenchRow[]>([]);
   const [totalPages, setTotalPages] = useState(0);
@@ -92,12 +152,23 @@ export default function SettlementWorkbenchPage() {
 
   const loadWorkbench = useCallback(async () => {
     if (!applied) return;
+    const range = validateOptionalDateRange(
+      applied.fromDateText,
+      applied.toDateText,
+      WORKBENCH_DATE_OPTIONS,
+    );
+    if (!range.ok) {
+      showToast(range.message, "error");
+      return;
+    }
     setLoading(true);
     try {
       const response = await settlementService.getWorkbench({
         component: applied.component,
         cycle: applied.cycle || undefined,
         search: applied.search.trim() || undefined,
+        fromDate: range.fromDate || undefined,
+        toDate: range.toDate || undefined,
         eligibleOnly: applied.eligibleOnly,
         page,
         size: PAGE_SIZE,
@@ -141,12 +212,27 @@ export default function SettlementWorkbenchPage() {
       showToast("Component is required", "error");
       return;
     }
-    setPage(0);
-    setApplied({
+    const range = validateOptionalDateRange(
+      form.fromDateText,
+      form.toDateText,
+      WORKBENCH_DATE_OPTIONS,
+    );
+    if (!range.ok) {
+      showToast(range.message, "error");
+      return;
+    }
+    const query: WorkbenchQuery = {
       component: form.component,
       cycle: form.cycle,
       search: form.search.trim(),
+      fromDateText: form.fromDateText.trim(),
+      toDateText: form.toDateText.trim(),
       eligibleOnly: form.eligibleOnly,
+    };
+    setPage(0);
+    setApplied(query);
+    setSearchParams(new URL(buildWorkbenchSearchHref(query)).searchParams, {
+      replace: true,
     });
   };
 
@@ -156,7 +242,29 @@ export default function SettlementWorkbenchPage() {
     setTotalPages(0);
     setTotalElements(0);
     setPage(0);
+    setSearchParams({}, { replace: true });
   };
+
+  const goToPage = (nextPage: number) => {
+    setPage(nextPage);
+    if (applied) {
+      setSearchParams(
+        new URL(buildWorkbenchSearchHref(applied, nextPage)).searchParams,
+        { replace: true },
+      );
+    }
+  };
+
+  const appliedDateRange = useMemo(() => {
+    if (!applied) return null;
+    return validateOptionalDateRange(
+      applied.fromDateText,
+      applied.toDateText,
+      WORKBENCH_DATE_OPTIONS,
+    );
+  }, [applied]);
+
+  const todayIso = getTodayIsoDate();
 
   return (
     <>
@@ -196,7 +304,8 @@ export default function SettlementWorkbenchPage() {
                   Search suppliers
                 </h2>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Required: component. Optional: cycle and supplier name.
+                  Required: component. Optional: cycle, date range, and supplier
+                  name.
                 </p>
               </div>
               <span className="rounded-md bg-white px-2 py-1 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200">
@@ -252,7 +361,33 @@ export default function SettlementWorkbenchPage() {
                   </select>
                 </div>
 
-                <div className="sm:col-span-2 lg:col-span-6">
+                <ReportCustomDateFields
+                  singleDate
+                  singleLabel="From date"
+                  fromText={form.fromDateText}
+                  onFromTextChange={(value) =>
+                    setForm((prev) => ({ ...prev, fromDateText: value }))
+                  }
+                  className="lg:col-span-3"
+                  labelClassName="font-medium text-slate-600"
+                  maxDate={todayIso}
+                  inputClassName="h-10 bg-white px-3 text-slate-900 outline-none transition focus:border-[#2f3d95] focus:ring-2 focus:ring-[#2f3d95]/15"
+                />
+
+                <ReportCustomDateFields
+                  singleDate
+                  singleLabel="To date"
+                  fromText={form.toDateText}
+                  onFromTextChange={(value) =>
+                    setForm((prev) => ({ ...prev, toDateText: value }))
+                  }
+                  className="lg:col-span-3"
+                  labelClassName="font-medium text-slate-600"
+                  maxDate={todayIso}
+                  inputClassName="h-10 bg-white px-3 text-slate-900 outline-none transition focus:border-[#2f3d95] focus:ring-2 focus:ring-[#2f3d95]/15"
+                />
+
+                <div className="sm:col-span-2 lg:col-span-12">
                   <label className="mb-1 block text-xs font-medium text-slate-600">
                     Supplier name
                   </label>
@@ -324,6 +459,18 @@ export default function SettlementWorkbenchPage() {
               {applied.search ? (
                 <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
                   “{applied.search}”
+                </span>
+              ) : null}
+              {appliedDateRange?.ok &&
+              (appliedDateRange.fromDate || appliedDateRange.toDate) ? (
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                  {appliedDateRange.fromDate
+                    ? formatReportDate(appliedDateRange.fromDate)
+                    : "…"}{" "}
+                  –{" "}
+                  {appliedDateRange.toDate
+                    ? formatReportDate(appliedDateRange.toDate)
+                    : "…"}
                 </span>
               ) : null}
               <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
@@ -503,6 +650,13 @@ export default function SettlementWorkbenchPage() {
                                 to={buildPreviewHref(
                                   row,
                                   applied.cycle || undefined,
+                                  buildWorkbenchSearchHref(applied, page),
+                                  appliedDateRange?.ok
+                                    ? appliedDateRange.fromDate
+                                    : null,
+                                  appliedDateRange?.ok
+                                    ? appliedDateRange.toDate
+                                    : null,
                                 )}
                                 className={cn(
                                   "inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-[#2f3d95] hover:bg-slate-50",
@@ -538,7 +692,7 @@ export default function SettlementWorkbenchPage() {
                   <button
                     type="button"
                     disabled={page <= 0 || loading}
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    onClick={() => goToPage(Math.max(0, page - 1))}
                     className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium disabled:opacity-40"
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
@@ -547,7 +701,7 @@ export default function SettlementWorkbenchPage() {
                   <button
                     type="button"
                     disabled={page + 1 >= totalPages || loading}
-                    onClick={() => setPage((p) => p + 1)}
+                    onClick={() => goToPage(page + 1)}
                     className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium disabled:opacity-40"
                   >
                     Next

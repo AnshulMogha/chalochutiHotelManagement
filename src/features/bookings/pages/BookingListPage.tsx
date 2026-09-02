@@ -1,6 +1,11 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, type KeyboardEvent, type RefObject } from "react";
-import { useSearchParams, useNavigate } from "react-router";
+import { useSearchParams, useNavigate, useLocation } from "react-router";
 import { ROUTES } from "@/constants";
+import {
+  getReturnBackLabel,
+  readReturnToFromLocation,
+  appendReturnToQuery,
+} from "@/lib/navigationReturn";
 import {
   bookingService,
   type BookingListItem,
@@ -22,6 +27,7 @@ import {
   formatReportDate,
 } from "@/features/reports/components/reportUiHelpers";
 import {
+  ArrowLeft,
   ArrowUpDown,
   BookOpen,
   Building2,
@@ -347,8 +353,14 @@ function getBookingModeStyle(mode: string | undefined | null): string {
 export default function BookingListPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const selectedHotelId = searchParams.get("hotelId");
   const bookingIdFromUrl = searchParams.get("bookingId")?.trim() || "";
+  const returnTo = readReturnToFromLocation(searchParams, location.state);
+  const backLabel = getReturnBackLabel(returnTo);
+  const autoNavigatedRef = useRef(false);
+  const isSettlementDeepLink = Boolean(returnTo && bookingIdFromUrl);
+  const [deepLinkExhausted, setDeepLinkExhausted] = useState(false);
   const { toast, showToast, hideToast } = useToast();
   const [listData, setListData] = useState<BookingListResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1018,6 +1030,51 @@ export default function BookingListPage() {
     paginationModel.pageSize,
   ]);
 
+  const openBookingDetail = (rowId: number) => {
+    const query = new URLSearchParams();
+    if (selectedHotelId) query.set("hotelId", selectedHotelId);
+    appendReturnToQuery(query, returnTo);
+    const qs = query.toString();
+    navigate(`${ROUTES.BOOKINGS.DETAIL(String(rowId))}${qs ? `?${qs}` : ""}`, {
+      state: returnTo ? { returnTo } : undefined,
+    });
+  };
+
+  useEffect(() => {
+    autoNavigatedRef.current = false;
+    setDeepLinkExhausted(false);
+  }, [bookingIdFromUrl, returnTo]);
+
+  useEffect(() => {
+    if (
+      autoNavigatedRef.current ||
+      !isSettlementDeepLink ||
+      loading ||
+      !selectedHotelId
+    ) {
+      return;
+    }
+    if (!listData) return;
+    if (listData.data.length === 1 && paginationModel.page === 0) {
+      autoNavigatedRef.current = true;
+      openBookingDetail(listData.data[0].id);
+      return;
+    }
+    setDeepLinkExhausted(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isSettlementDeepLink,
+    loading,
+    listData,
+    paginationModel.page,
+    selectedHotelId,
+  ]);
+
+  const showDeepLinkLoader =
+    isSettlementDeepLink &&
+    !deepLinkExhausted &&
+    (loading || !listData || listData.data.length === 1);
+
   if (!selectedHotelId) {
     return (
       <div className="container mx-auto px-4 py-4">
@@ -1042,6 +1099,23 @@ export default function BookingListPage() {
     );
   }
 
+  if (showDeepLinkLoader) {
+    return (
+      <>
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          isVisible={toast.isVisible}
+          onClose={hideToast}
+        />
+        <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 py-16 text-center">
+          <Loader2 className="mb-3 h-9 w-9 animate-spin text-[#2f3d95]" />
+          <p className="text-sm font-medium text-gray-600">Opening booking…</p>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Toast
@@ -1052,6 +1126,16 @@ export default function BookingListPage() {
       />
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div className="container mx-auto flex h-full min-h-0 flex-1 flex-col px-4 py-4">
+          {returnTo ? (
+            <button
+              type="button"
+              onClick={() => navigate(returnTo)}
+              className="mb-2 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {backLabel}
+            </button>
+          ) : null}
           <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <h1 className="text-xl font-bold tracking-tight text-gray-900">
@@ -1414,14 +1498,7 @@ export default function BookingListPage() {
                 exportFileName={`bookings-${selectedHotelId ?? "export"}`}
                 disableRowSelectionOnClick
                 onRowClick={(params) => {
-                  const query = new URLSearchParams();
-                  if (selectedHotelId) query.set("hotelId", selectedHotelId);
-                  const returnTo = searchParams.get("returnTo");
-                  if (returnTo) query.set("returnTo", returnTo);
-                  const qs = query.toString();
-                  navigate(
-                    `${ROUTES.BOOKINGS.DETAIL(String(params.row.id))}${qs ? `?${qs}` : ""}`,
-                  );
+                  openBookingDetail(params.row.id);
                 }}
                 sx={bookingTableGridSx}
                 className="h-full rounded-none border-0 shadow-none"

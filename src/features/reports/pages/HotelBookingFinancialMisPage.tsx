@@ -12,6 +12,7 @@ import { toPng } from "html-to-image";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
 import { cn } from "@/lib/utils";
+import { sanitizeReturnTo } from "@/lib/navigationReturn";
 import {
   adminService,
   type HotelLookupItem,
@@ -58,6 +59,7 @@ import {
 } from "../services/hotelBookingFinancialMisService";
 import {
   AlertCircle,
+  ArrowLeft,
   Building2,
   CalendarDays,
   ChevronLeft,
@@ -791,6 +793,12 @@ export default function HotelBookingFinancialMisPage() {
   const summary = report?.summary;
   const totalPages = report?.page.totalPages ?? 0;
   const totalElements = report?.page.totalElements ?? 0;
+  const returnTo =
+    sanitizeReturnTo(searchParams.get("returnTo")) ??
+    (filters.agencyId ? ROUTES.REPORTS.SALES_MANAGER_AGENTS : null);
+  const returnLabel = returnTo?.includes("sales-manager-agents")
+    ? "Back to Agent Portfolio"
+    : "Back";
 
   return (
     <div className="min-h-full bg-gradient-to-b from-slate-50 via-white to-slate-50">
@@ -799,6 +807,17 @@ export default function HotelBookingFinancialMisPage() {
         className="mx-auto w-full max-w-[1400px] px-3 py-3 sm:px-4"
       >
         <Toast toast={toast} onClose={hideToast} />
+
+        {returnTo ? (
+          <button
+            type="button"
+            onClick={() => navigate(returnTo)}
+            className="mb-2 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            {returnLabel}
+          </button>
+        ) : null}
 
         <div className="space-y-2">
           <ReportPageHeader

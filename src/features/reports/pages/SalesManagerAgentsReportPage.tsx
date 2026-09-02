@@ -9,6 +9,7 @@ import { Link } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants";
+import { appendReturnToQuery } from "@/lib/navigationReturn";
 import { useAuth } from "@/hooks/useAuth";
 import { canFilterSalesManagerReportsByUser } from "@/constants/roles";
 import { adminService } from "@/features/admin/services/adminService";
@@ -1030,6 +1031,12 @@ function FilterField({
   );
 }
 
+function agentHotelMisUrl(agentId: string): string {
+  const params = new URLSearchParams({ agencyId: String(agentId) });
+  appendReturnToQuery(params, ROUTES.REPORTS.SALES_MANAGER_AGENTS);
+  return `${ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS}?${params.toString()}`;
+}
+
 function AgentRow({ row }: { row: SalesManagerAgentPortfolioRow }) {
   return (
     <tr className="border-t border-slate-100 align-top hover:bg-slate-50/80">
@@ -1066,7 +1073,7 @@ function AgentRow({ row }: { row: SalesManagerAgentPortfolioRow }) {
         <p className="font-semibold">{row.bookings.total} bookings</p>
         <div className="mt-1 flex items-center gap-2">
           <Link
-            to={`${ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS}?agencyId=${row.agentId}`}
+            to={agentHotelMisUrl(row.agentId)}
             className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
           >
             🏨 Hotel {row.bookings.hotel}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router";
+import { useParams, useNavigate, useSearchParams, useLocation } from "react-router";
 import {
   bookingService,
   moneyAmount,
@@ -9,7 +9,10 @@ import { Toast, useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
 import { usesAdminBookingFullDetail } from "@/constants/roles";
 import { useAuth } from "@/hooks";
-import { sanitizeReturnTo } from "@/lib/navigationReturn";
+import {
+  getReturnBackLabel,
+  readReturnToFromLocation,
+} from "@/lib/navigationReturn";
 import { cn } from "@/lib/utils";
 import {
   FINANCE_KPI_TONES,
@@ -322,8 +325,9 @@ function CalcSectionHeader({ title }: { title: string }) {
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const hotelId = searchParams.get("hotelId");
-  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"));
+  const returnTo = readReturnToFromLocation(searchParams, location.state);
   const { isUserProfileLoading, user } = useAuth();
   const useAdminDetail = usesAdminBookingFullDetail(user?.roles);
 
@@ -423,6 +427,8 @@ function HotelBookingDetailPage({
     navigate(to);
   };
 
+  const backLabel = getReturnBackLabel(returnTo);
+
   if (!hotelId) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -432,10 +438,11 @@ function HotelBookingDetailPage({
           </p>
           <button
             type="button"
-            onClick={() => navigate(ROUTES.BOOKINGS.LIST)}
-            className="mt-4 text-[#2f3d95] font-medium hover:underline"
+            onClick={backToBookings}
+            className="mt-4 inline-flex items-center gap-2 text-[#2f3d95] font-medium hover:underline"
           >
-            Back to Bookings
+            <ArrowLeft className="w-4 h-4" />
+            {backLabel}
           </button>
         </div>
       </div>
@@ -467,7 +474,7 @@ function HotelBookingDetailPage({
             className="mt-4 inline-flex items-center gap-2 text-[#2f3d95] font-medium hover:underline"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Bookings
+            {backLabel}
           </button>
         </div>
       </div>
@@ -566,13 +573,13 @@ function HotelBookingDetailPage({
                     onClick={backToBookings}
                     className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                   >
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                    Back
-                  </button>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">
-                      Booking view
-                    </p>
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  {backLabel}
+                </button>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">
+                    Booking view
+                  </p>
                     <h1 className="truncate text-base font-bold text-slate-900 sm:text-lg">
                       {booking.bookingId}
                     </h1>

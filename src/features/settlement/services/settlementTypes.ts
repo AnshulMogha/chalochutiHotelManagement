@@ -92,6 +92,8 @@ export interface WorkbenchParams {
   cycle?: string;
   supplierId?: string;
   search?: string;
+  fromDate?: string;
+  toDate?: string;
   eligibleOnly?: boolean;
   page?: number;
   size?: number;
