@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
-import { ImageIcon, Loader2 } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 import { adminService, type HotelRoom } from "@/features/admin/services/adminService";
 import { PropertyMediaTab } from "../components/property-info/PropertyMediaTab";
 import { useAuth } from "@/hooks";
@@ -79,18 +79,13 @@ export default function PhotosAndVideosPage() {
           </p>
         </div>
       </div>
-      {isLoadingRooms ? (
-        <div className="flex min-h-60 items-center justify-center rounded-2xl border border-slate-200 bg-white">
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin text-[#2f3d95]" />
-            Loading...
-          </div>
-        </div>
-      ) : (
-        <ReadOnlySection isReadOnly={isReadOnly}>
-          <PropertyMediaTab hotelId={selectedHotelId} rooms={rooms} />
-        </ReadOnlySection>
-      )}
+      <ReadOnlySection isReadOnly={isReadOnly}>
+        <PropertyMediaTab
+          hotelId={selectedHotelId}
+          rooms={rooms}
+          isLoadingRooms={isLoadingRooms}
+        />
+      </ReadOnlySection>
     </div>
   );
 }

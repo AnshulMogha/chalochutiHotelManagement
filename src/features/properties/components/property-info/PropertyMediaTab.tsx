@@ -1,4 +1,4 @@
-import { useState, useEffect, type DragEvent } from "react";
+import { useState, useEffect, useCallback, useRef, type DragEvent } from "react";
 import { adminService, type HotelMediaItem, type HotelRoom } from "@/features/admin/services/adminService";
 import { Building2, Image as ImageIcon, Plus, Upload, X, Check, Tag, Play, Trash2, Star, ChevronDown, ChevronRight, MoreVertical, ArrowUp, ArrowDown, CheckSquare, Square, Loader2, BedDouble, Camera } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +17,7 @@ import {
 interface PropertyMediaTabProps {
   hotelId: string;
   rooms: HotelRoom[];
+  isLoadingRooms?: boolean;
 }
 
 type ActiveTab = "hotel" | "rooms";
@@ -33,8 +34,45 @@ interface MediaFile {
   cover: boolean;
 }
 
-export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
+function mapHotelMediaItem(item: HotelMediaItem): MediaFile {
+  return {
+    imageId: item.imageId,
+    imageUrl: item.imageUrl,
+    thumbnailUrl: item.thumbnailUrl,
+    category: item.category,
+    sortOrder: item.sortOrder,
+    roomId: item.roomId,
+    roomKey: item.roomKey,
+    roomName: item.roomName,
+    cover: item.cover,
+  };
+}
+
+function buildRoomMediaMapFromItems(items: MediaFile[]): Record<string, MediaFile[]> {
+  const map: Record<string, MediaFile[]> = {};
+  for (const item of items) {
+    if (!item.roomId) continue;
+    if (!map[item.roomId]) map[item.roomId] = [];
+    map[item.roomId].push(item);
+  }
+  return map;
+}
+
+export function PropertyMediaTab({
+  hotelId,
+  rooms,
+  isLoadingRooms = false,
+}: PropertyMediaTabProps) {
   const { toast, showToast, hideToast } = useToast();
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
+  const hotelMediaRequestRef = useRef<{
+    key: string;
+    promise: Promise<HotelMediaItem[]>;
+  } | null>(null);
+  const roomMediaRequestRef = useRef<
+    Map<string, Promise<HotelMediaItem[]>>
+  >(new Map());
   const [activeTab, setActiveTab] = useState<ActiveTab>("hotel");
   const [hotelMedia, setHotelMedia] = useState<MediaFile[]>([]);
   const [roomMediaMap, setRoomMediaMap] = useState<Record<string, MediaFile[]>>({});
@@ -57,70 +95,92 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedImageIds, setSelectedImageIds] = useState<Set<number>>(new Set());
 
-  // Fetch hotel media
-  const fetchHotelMedia = async () => {
-    try {
-      setIsLoading(true);
-      const data = await adminService.getHotelMedia(hotelId);
-      setHotelMedia(data.map(item => ({
-        imageId: item.imageId,
-        imageUrl: item.imageUrl,
-        thumbnailUrl: item.thumbnailUrl,
-        category: item.category,
-        sortOrder: item.sortOrder,
-        roomId: item.roomId,
-        roomKey: item.roomKey,
-        roomName: item.roomName,
-        cover: item.cover,
-      })));
-    } catch (error) {
-      console.error("Error fetching hotel media:", error);
-      showToast("Failed to load hotel media", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const applyHotelMedia = useCallback((data: HotelMediaItem[]) => {
+    const mapped = data.map(mapHotelMediaItem);
+    setHotelMedia(mapped);
+    setRoomMediaMap((prev) => ({
+      ...prev,
+      ...buildRoomMediaMapFromItems(mapped),
+    }));
+  }, []);
 
-  // Fetch room media
-  const fetchRoomMedia = async (roomId: string) => {
-    try {
-      const data = await adminService.getRoomMedia(hotelId, roomId);
-      setRoomMediaMap(prev => ({
-        ...prev,
-        [roomId]: data.map(item => ({
-          imageId: item.imageId,
-          imageUrl: item.imageUrl,
-          thumbnailUrl: item.thumbnailUrl,
-          category: item.category,
-          sortOrder: item.sortOrder,
-          roomId: item.roomId,
-          roomKey: item.roomKey,
-          roomName: item.roomName,
-          cover: item.cover,
-        })),
-      }));
-    } catch (error) {
-      console.error("Error fetching room media:", error);
-      showToast("Failed to load room media", "error");
-    }
-  };
+  const loadHotelMedia = useCallback(
+    async (options?: { refresh?: boolean }) => {
+      if (!hotelId) return;
+      if (options?.refresh) {
+        hotelMediaRequestRef.current = null;
+      }
+
+      const key = hotelId;
+      if (hotelMediaRequestRef.current?.key !== key) {
+        hotelMediaRequestRef.current = {
+          key,
+          promise: adminService.getHotelMedia(hotelId),
+        };
+      }
+
+      const { promise } = hotelMediaRequestRef.current;
+      setIsLoading(true);
+      try {
+        const data = await promise;
+        applyHotelMedia(data);
+      } catch (error) {
+        if (hotelMediaRequestRef.current?.key === key) {
+          hotelMediaRequestRef.current = null;
+        }
+        console.error("Error fetching hotel media:", error);
+        showToastRef.current("Failed to load hotel media", "error");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [applyHotelMedia, hotelId],
+  );
+
+  const fetchRoomMedia = useCallback(
+    async (roomId: string, options?: { refresh?: boolean }) => {
+      if (!hotelId || !roomId) return;
+      if (options?.refresh) {
+        roomMediaRequestRef.current.delete(roomId);
+      }
+
+      let promise = roomMediaRequestRef.current.get(roomId);
+      if (!promise) {
+        promise = adminService.getRoomMedia(hotelId, roomId);
+        roomMediaRequestRef.current.set(roomId, promise);
+      }
+
+      try {
+        const data = await promise;
+        setRoomMediaMap((prev) => ({
+          ...prev,
+          [roomId]: data.map(mapHotelMediaItem),
+        }));
+      } catch (error) {
+        roomMediaRequestRef.current.delete(roomId);
+        console.error("Error fetching room media:", error);
+        showToastRef.current("Failed to load room media", "error");
+      }
+    },
+    [hotelId],
+  );
 
   const resolveRoomByIdentifier = (identifier: string) =>
     rooms.find((r) => r.roomKey === identifier || r.roomId === identifier);
 
-  const refreshRoomMediaByIdentifier = async (identifier: string) => {
-    const room = resolveRoomByIdentifier(identifier);
-    if (room) {
-      await fetchRoomMedia(room.roomId);
-    }
-    return room;
-  };
+  const loadedHotelIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (hotelId) {
-      fetchHotelMedia();
+    if (!hotelId) return;
+    if (loadedHotelIdRef.current !== hotelId) {
+      hotelMediaRequestRef.current = null;
+      roomMediaRequestRef.current.clear();
+      setHotelMedia([]);
+      setRoomMediaMap({});
+      loadedHotelIdRef.current = hotelId;
     }
-  }, [hotelId]);
+    void loadHotelMedia();
+  }, [hotelId, loadHotelMedia]);
 
   const handleToggleRoom = (roomId: string) => {
     const isExpanded = expandedRooms.has(roomId);
@@ -132,8 +192,8 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
       });
     } else {
       setExpandedRooms(prev => new Set(prev).add(roomId));
-      if (!roomMediaMap[roomId]) {
-        fetchRoomMedia(roomId);
+      if (roomMediaMap[roomId] === undefined) {
+        void fetchRoomMedia(roomId);
       }
     }
   };
@@ -270,8 +330,7 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
 
       // Always refresh server state after upload so room section updates without page refresh.
       if (successfulUploads.length > 0) {
-        await fetchHotelMedia();
-        if (uploadRoomKey) await refreshRoomMediaByIdentifier(uploadRoomKey);
+        await loadHotelMedia({ refresh: true });
       }
     } catch (error: any) {
       console.error("Error uploading media:", error);
@@ -295,10 +354,7 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
       showToast("Tag assigned successfully", "success");
       setShowTagModal(false);
       setSelectedMedia(null);
-      await fetchHotelMedia();
-      if (selectedMedia?.roomId) {
-        await fetchRoomMedia(selectedMedia.roomId);
-      }
+      await loadHotelMedia({ refresh: true });
     } catch (error) {
       console.error("Error assigning tag:", error);
       showToast("Failed to assign tag", "error");
@@ -318,7 +374,7 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
       showToast(`Tag assigned to ${imageIds.length} item(s)`, "success");
       setShowTagModal(false);
       setSelectedImageIds(new Set());
-      await fetchHotelMedia();
+      await loadHotelMedia({ refresh: true });
     } catch (error) {
       console.error("Error assigning tag in bulk:", error);
       showToast("Failed to assign tag", "error");
@@ -342,7 +398,7 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
       // PUT /hotel/{hotelId}/media/{imageId}/assign-hotel
       await adminService.assignMediaToHotel(hotelId, imageId);
       showToast("Media assigned to hotel successfully", "success");
-      await fetchHotelMedia();
+      await loadHotelMedia({ refresh: true });
     } catch (error) {
       console.error("Error assigning media to hotel:", error);
       showToast("Failed to assign media to hotel", "error");
@@ -380,9 +436,8 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
             };
           });
         }
-        await refreshRoomMediaByIdentifier(roomIdentifier);
       }
-      await fetchHotelMedia();
+      await loadHotelMedia({ refresh: true });
     } catch (error) {
       console.error("Error assigning media to room:", error);
       showToast("Failed to assign media to room", "error");
@@ -397,10 +452,7 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
       // PUT /hotel/{hotelId}/media/{imageId}/detach
       await adminService.detachMedia(hotelId, imageId);
       showToast("Media detached successfully", "success");
-      if (roomId) {
-        await fetchRoomMedia(roomId);
-      }
-      await fetchHotelMedia();
+      await loadHotelMedia({ refresh: true });
     } catch (error) {
       console.error("Error detaching media:", error);
       showToast("Failed to detach media", "error");
@@ -415,7 +467,7 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
       // PUT /hotel/{hotelId}/media/{imageId}/cover
       await adminService.setMediaCover(hotelId, imageId);
       showToast("Cover image set successfully", "success");
-      await fetchHotelMedia();
+      await loadHotelMedia({ refresh: true });
     } catch (error) {
       console.error("Error setting cover:", error);
       showToast("Failed to set cover image", "error");
@@ -440,7 +492,7 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
       const items = reordered.map((m, i) => ({ imageId: m.imageId, sortOrder: i + 1 }));
       await adminService.reorderMedia(hotelId, { items });
 
-      await fetchHotelMedia();
+      await loadHotelMedia({ refresh: true });
     } catch (error) {
       console.error("Error reordering media:", error);
       showToast("Failed to reorder media", "error");
@@ -504,8 +556,7 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
       const items = reordered.map((m, i) => ({ imageId: m.imageId, sortOrder: i + 1 }));
       await adminService.reorderMedia(hotelId, { items });
       showToast("Order updated", "success");
-      await fetchHotelMedia();
-      if (roomId) await fetchRoomMedia(roomId);
+      await loadHotelMedia({ refresh: true });
     } catch (error) {
       console.error("Error reordering media:", error);
       showToast("Failed to reorder media", "error");
@@ -711,7 +762,12 @@ export function PropertyMediaTab({ hotelId, rooms }: PropertyMediaTabProps) {
         {/* Room Media */}
         {activeTab === "rooms" && (
           <div className="bg-gradient-to-b from-emerald-50/40 to-white p-3 sm:p-4">
-            {rooms.length === 0 ? (
+            {isLoadingRooms ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+                Loading rooms...
+              </div>
+            ) : rooms.length === 0 ? (
               <div className="flex flex-col items-center rounded-xl border border-dashed border-emerald-300/50 bg-emerald-50/50 px-6 py-10 text-center">
                 <BedDouble className="mb-2 h-8 w-8 text-emerald-400" />
                 <p className="text-sm font-medium text-slate-700">No rooms yet</p>

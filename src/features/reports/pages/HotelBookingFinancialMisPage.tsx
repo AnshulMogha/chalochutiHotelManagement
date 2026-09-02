@@ -13,10 +13,6 @@ import { Toast, useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
 import { cn } from "@/lib/utils";
 import { sanitizeReturnTo } from "@/lib/navigationReturn";
-import {
-  adminService,
-  type HotelLookupItem,
-} from "@/features/admin/services/adminService";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
   FINANCE_KPI_TONES,
@@ -46,6 +42,7 @@ import {
   validateOptionalDateRange,
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import { HotelLookupFilterField } from "../components/HotelLookupFilterField";
 import type { ExportJobStatus } from "../services/reportExportService";
 import {
   hotelBookingFinancialMisService,
@@ -347,8 +344,7 @@ export default function HotelBookingFinancialMisPage() {
   const [checkInToText, setCheckInToText] = useState("");
   const [checkOutFromText, setCheckOutFromText] = useState("");
   const [checkOutToText, setCheckOutToText] = useState("");
-  const [hotelOptions, setHotelOptions] = useState<HotelLookupItem[]>([]);
-  const [hotelQuery, setHotelQuery] = useState("");
+  const [hotelFilterLabel, setHotelFilterLabel] = useState("");
 
   const [report, setReport] = useState<HotelFinancialMisReportResponse | null>(
     null,
@@ -385,33 +381,6 @@ export default function HotelBookingFinancialMisPage() {
     if (filters.sort !== "BOOKING_DATE" || filters.sortDir !== "desc") count += 1;
     return count;
   }, [filters]);
-
-  useEffect(() => {
-    let cancelled = false;
-    adminService
-      .getSuperAdminHotelLookup("")
-      .then((hotels) => {
-        if (!cancelled) setHotelOptions(hotels);
-      })
-      .catch(() => {
-        if (!cancelled) setHotelOptions([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const filteredHotels = useMemo(() => {
-    const query = hotelQuery.trim().toLowerCase();
-    if (!query) return hotelOptions.slice(0, 80);
-    return hotelOptions
-      .filter((hotel) => {
-        const haystack =
-          `${hotel.hotelName} ${hotel.hotelCode ?? ""} ${hotel.city ?? ""}`.toLowerCase();
-        return haystack.includes(query);
-      })
-      .slice(0, 80);
-  }, [hotelOptions, hotelQuery]);
 
   const loadReport = useCallback(
     async (
@@ -583,6 +552,7 @@ export default function HotelBookingFinancialMisPage() {
   const resetFilters = () => {
     setDraft(DEFAULT_DRAFT);
     setFilters(DEFAULT_DRAFT);
+    setHotelFilterLabel("");
     syncFilterDateTexts(DEFAULT_DRAFT);
     setPage(0);
     setFilterOpen(false);
@@ -1517,33 +1487,15 @@ export default function HotelBookingFinancialMisPage() {
                     ))}
                   </select>
                 </FilterField>
-                <FilterField label="Hotel">
-                  <input
-                    type="text"
-                    value={hotelQuery}
-                    onChange={(event) => setHotelQuery(event.target.value)}
-                    placeholder="Search hotels…"
-                    className={cn(fieldClass, "mb-2")}
-                  />
-                  <select
-                    value={draft.hotelId}
-                    onChange={(event) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        hotelId: event.target.value,
-                      }))
-                    }
-                    className={fieldClass}
-                  >
-                    <option value="">All hotels</option>
-                    {filteredHotels.map((hotel) => (
-                      <option key={hotel.hotelId} value={hotel.hotelId}>
-                        {hotel.hotelName}
-                        {hotel.hotelCode ? ` (${hotel.hotelCode})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </FilterField>
+                <HotelLookupFilterField
+                  value={draft.hotelId}
+                  selectedLabel={hotelFilterLabel}
+                  onChange={({ hotelId, hotelLabel }) => {
+                    setDraft((prev) => ({ ...prev, hotelId }));
+                    setHotelFilterLabel(hotelLabel);
+                  }}
+                  triggerClassName={fieldClass}
+                />
                 <FilterField label="Search">
                   <input
                     type="text"
