@@ -490,6 +490,17 @@ export function usesGlobalHotelLookup(
   );
 }
 
+/** Top-bar hotel selector: lookup API with server search (not owner hotel list). */
+export function usesHotelLookupInTopbarSelector(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return (
+    usesGlobalHotelLookup(userRoles) ||
+    userRoles.includes("FRONT_DESK_EXEC")
+  );
+}
+
 /** Super Admin, platform finance, and auditor: admin booking full-details on /bookings/:id. */
 export function usesAdminBookingFullDetail(
   userRoles: string[] | undefined,

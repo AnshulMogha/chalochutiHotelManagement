@@ -14,7 +14,7 @@ import {
 } from "@/features/admin/services/adminService";
 import type { HotelListResponse } from "@/features/properties/services/api.types";
 import { useAuth } from "@/hooks";
-import { usesGlobalHotelLookup } from "@/constants/roles";
+import { usesHotelLookupInTopbarSelector } from "@/constants/roles";
 import { useLocation } from "react-router";
 import { ROUTES } from "@/constants";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
@@ -36,7 +36,7 @@ export function HotelSelector({
   autoSelectFirst = true,
 }: HotelSelectorProps) {
   const { user } = useAuth();
-  const useGlobalHotelLookup = usesGlobalHotelLookup(user?.roles);
+  const useLookupApi = usesHotelLookupInTopbarSelector(user?.roles);
   const effectiveSelectedHotelId =
     selectedHotelId ?? getStoredSelectedHotelId();
   const [hotels, setHotels] = useState<HotelSelectorItem[]>([]);
@@ -64,7 +64,7 @@ export function HotelSelector({
 
         let data: HotelSelectorItem[];
 
-        if (useGlobalHotelLookup) {
+        if (useLookupApi) {
           data = await adminService.getSuperAdminHotelLookup(debouncedSearch);
         } else {
           data = await propertyService.getAllHotelsList();
@@ -98,7 +98,7 @@ export function HotelSelector({
 
     void fetchHotels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedHotelId, useGlobalHotelLookup, debouncedSearch]);
+  }, [selectedHotelId, useLookupApi, debouncedSearch]);
 
   useEffect(() => {
     if (!selectedHotelId) {
@@ -107,7 +107,7 @@ export function HotelSelector({
   }, [selectedHotelId]);
 
   const searchTerm = debouncedSearch.toLowerCase();
-  const visibleHotels = useGlobalHotelLookup
+  const visibleHotels = useLookupApi
     ? hotels
     : searchTerm
       ? hotels.filter((hotel) => {
@@ -130,7 +130,7 @@ export function HotelSelector({
           <Building2 className="w-4 h-4" />
           <span className="max-w-[200px] truncate">
             {selectedHotel
-              ? useGlobalHotelLookup
+              ? useLookupApi
                 ? `${selectedHotel.hotelName} (${selectedHotel.hotelId})`
                 : selectedHotel.hotelName
               : "Select Hotel"}
@@ -184,14 +184,14 @@ export function HotelSelector({
                 <Building2 className="w-4 h-4 text-[#2f3d95]" />
                 <div className="flex-1 min-w-0">
                   <div className="truncate text-sm font-medium">
-                    {useGlobalHotelLookup
+                    {useLookupApi
                       ? `${hotel.hotelName} (${hotel.hotelId})`
                       : hotel.hotelName}
                   </div>
-                  {!useGlobalHotelLookup && code ? (
+                  {!useLookupApi && code ? (
                     <div className="truncate text-xs text-gray-500">{code}</div>
                   ) : null}
-                  {useGlobalHotelLookup && city ? (
+                  {useLookupApi && city ? (
                     <div className="truncate text-xs text-gray-500">{city}</div>
                   ) : null}
                 </div>
