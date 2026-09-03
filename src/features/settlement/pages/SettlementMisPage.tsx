@@ -9,9 +9,11 @@ import {
   formatFinanceMoney,
   formatReportDate,
   formatStatusLabel,
+  exportStatusLabel,
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import type { ExportJobStatus } from "@/features/reports/services/reportExportService";
 import { settlementService } from "../services/settlementService";
 import {
   SETTLEMENT_COMPONENTS,
@@ -35,6 +37,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Download,
   Filter,
   IndianRupee,
   Loader2,
@@ -89,6 +92,10 @@ export default function SettlementMisPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [dateRangeLabel, setDateRangeLabel] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
+    null,
+  );
   const [summary, setSummary] = useState({
     totalPayable: null as { amount: number; currency: string } | null,
     totalSettlements: 0,
@@ -205,6 +212,40 @@ export default function SettlementMisPage() {
     setFilterOpen(false);
   };
 
+  const downloadMis = async () => {
+    const range = validateOptionalDateRange(
+      applied.fromDateText,
+      applied.toDateText,
+    );
+    if (!range.ok) {
+      showToast(range.message, "error");
+      return;
+    }
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await settlementService.exportMis({
+        params: {
+          fromDate: range.fromDate || undefined,
+          toDate: range.toDate || undefined,
+          component: applied.component || undefined,
+          supplierName: applied.supplierName.trim() || undefined,
+          settlementNo: applied.settlementNo.trim() || undefined,
+          payoutStatus: applied.payoutStatus || undefined,
+        },
+        format: "EXCEL",
+        defaultFileName: "settlement-mis",
+        onStatus: setExportStatus,
+      });
+      showToast("Settlement MIS downloaded", "success");
+    } catch (error) {
+      showToast(extractErrorMessage(error), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
+  };
+
   return (
     <>
       <SettlementPageShell
@@ -230,6 +271,28 @@ export default function SettlementMisPage() {
                   {activeFilterCount}
                 </span>
               ) : null}
+            </button>
+            <button
+              type="button"
+              onClick={() => void downloadMis()}
+              disabled={exporting || loading}
+              aria-label={
+                exportStatus
+                  ? exportStatusLabel(exportStatus)
+                  : "Download Settlement MIS"
+              }
+              title={
+                exportStatus
+                  ? exportStatusLabel(exportStatus)
+                  : "Download Excel"
+              }
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
             </button>
             <SettlementRefreshButton loading={loading} onClick={() => void load()} />
           </div>

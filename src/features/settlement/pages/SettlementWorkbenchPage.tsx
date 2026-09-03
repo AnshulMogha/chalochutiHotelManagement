@@ -9,10 +9,12 @@ import {
   formatFinanceMoney,
   formatReportDate,
   formatStatusLabel,
+  exportStatusLabel,
   getTodayIsoDate,
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import type { ExportJobStatus } from "@/features/reports/services/reportExportService";
 import { settlementService } from "../services/settlementService";
 import {
   SETTLEMENT_COMPONENTS,
@@ -38,6 +40,7 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  Download,
   Eye,
   IndianRupee,
   Landmark,
@@ -147,6 +150,10 @@ export default function SettlementWorkbenchPage() {
   const [rows, setRows] = useState<WorkbenchRow[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
+    null,
+  );
 
   const resultsOpen = applied != null;
 
@@ -266,6 +273,43 @@ export default function SettlementWorkbenchPage() {
 
   const todayIso = getTodayIsoDate();
 
+  const downloadWorkbench = async () => {
+    if (!applied) return;
+    const range = validateOptionalDateRange(
+      applied.fromDateText,
+      applied.toDateText,
+      WORKBENCH_DATE_OPTIONS,
+    );
+    if (!range.ok) {
+      showToast(range.message, "error");
+      return;
+    }
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await settlementService.exportWorkbench({
+        params: {
+          component: applied.component,
+          cycle: applied.cycle || undefined,
+          search: applied.search.trim() || undefined,
+          fromDate: range.fromDate || undefined,
+          toDate: range.toDate || undefined,
+          eligibleOnly: applied.eligibleOnly,
+          sort: "supplierName,asc",
+        },
+        format: "EXCEL",
+        defaultFileName: "settlement-workbench",
+        onStatus: setExportStatus,
+      });
+      showToast("Workbench export downloaded", "success");
+    } catch (error) {
+      showToast(extractErrorMessage(error), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
+  };
+
   return (
     <>
       <SettlementPageShell
@@ -287,6 +331,28 @@ export default function SettlementWorkbenchPage() {
               >
                 <ArrowLeft className="h-4 w-4" />
                 Change search
+              </button>
+              <button
+                type="button"
+                onClick={() => void downloadWorkbench()}
+                disabled={exporting || loading}
+                aria-label={
+                  exportStatus
+                    ? exportStatusLabel(exportStatus)
+                    : "Download workbench"
+                }
+                title={
+                  exportStatus
+                    ? exportStatusLabel(exportStatus)
+                    : "Download Excel"
+                }
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              >
+                {exporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
               </button>
               <SettlementRefreshButton
                 loading={loading}

@@ -561,12 +561,22 @@ export const API_ENDPOINTS = {
   },
   SETTLEMENT: {
     WORKBENCH: "/admin/settlements/workbench",
+    WORKBENCH_EXPORT: "/admin/settlements/workbench/export",
+    WORKBENCH_EXPORT_JOB: (jobId: string) =>
+      `/admin/settlements/workbench/export/${jobId}`,
+    WORKBENCH_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/admin/settlements/workbench/export/${jobId}/download`,
     PREVIEW: "/admin/settlements/preview",
     GENERATE: "/admin/settlements",
     PENDING: "/admin/settlements/pending",
     APPROVED: "/admin/settlements/approved",
     REJECTED: "/admin/settlements/rejected",
     MIS: "/admin/reports/settlement-mis",
+    MIS_EXPORT: "/admin/reports/settlement-mis/export",
+    MIS_EXPORT_JOB: (jobId: string) =>
+      `/admin/reports/settlement-mis/export/${jobId}`,
+    MIS_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/admin/reports/settlement-mis/export/${jobId}/download`,
     BY_ID: (settlementNo: string) =>
       `/admin/settlements/${encodeURIComponent(settlementNo)}`,
     APPROVE: (settlementNo: string) =>
