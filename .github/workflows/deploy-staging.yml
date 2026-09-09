@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   build-and-deploy:
-    runs-on: self-hosted
+    runs-on: [self-hosted, staging]
     environment: staging
 
     steps:
