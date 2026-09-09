@@ -63,9 +63,10 @@ jobs:
             echo "Build folder 'dist' not found"
             exit 1
           fi
-          # App base is `/` — copy build contents into the production folder
+          # App base is `/` — copy build contents (do not use -a; runner
+          # cannot preserve timestamps on www-owned deploy dirs).
           rm -rf "${DEPLOY_DIR}/assets"
           rm -f "${DEPLOY_DIR}/index.html"
-          cp -a dist/. "${DEPLOY_DIR}/"
+          cp -r dist/. "${DEPLOY_DIR}/"
         env:
           DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
