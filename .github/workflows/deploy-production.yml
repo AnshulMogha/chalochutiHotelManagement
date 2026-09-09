@@ -1,0 +1,78 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production app
+        run: |
+          export VITE_APP_BASE="/"
+          if [ -z "${VITE_API_BASE_URL}" ]; then
+            echo "Set Environment variable VITE_API_BASE_URL on GitHub Environment 'production'"
+            exit 1
+          fi
+          case "${VITE_API_BASE_URL}" in
+            *REPLACE_WITH_PRODUCTION_API*|thedemonstrate.com*)
+              echo "Production VITE_API_BASE_URL must be the real prod API (not placeholder/staging)."
+              echo "Got: ${VITE_API_BASE_URL}"
+              exit 1
+              ;;
+          esac
+          echo "Building production with VITE_APP_BASE=${VITE_APP_BASE}"
+          echo "Building production with VITE_API_BASE_URL=${VITE_API_BASE_URL}"
+          npm run build:production
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+
+      - name: Deploy production build
+        run: |
+          if [ -z "${DEPLOY_DIR}" ]; then
+            echo "Set Environment variable DEPLOY_DIR on GitHub Environment 'production'"
+            echo "Example: /var/www/html  (domain root — not /var/www/html/chalochutti)"
+            exit 1
+          fi
+          case "${DEPLOY_DIR}" in
+            */) DEPLOY_DIR="${DEPLOY_DIR%/}" ;;
+          esac
+          case "${DEPLOY_DIR}" in
+            */chalochutti)
+              echo "Production DEPLOY_DIR must not be the staging path: ${DEPLOY_DIR}"
+              exit 1
+              ;;
+          esac
+          echo "Deploying production to ${DEPLOY_DIR}"
+          mkdir -p "${DEPLOY_DIR}"
+          if [ ! -d dist ]; then
+            echo "Build folder 'dist' not found"
+            exit 1
+          fi
+          # Root deploy: copy build output contents into DEPLOY_DIR
+          rm -rf "${DEPLOY_DIR}/assets"
+          rm -f "${DEPLOY_DIR}/index.html"
+          cp -a dist/. "${DEPLOY_DIR}/"
+        env:
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}

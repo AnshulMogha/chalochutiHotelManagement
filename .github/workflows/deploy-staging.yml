@@ -1,0 +1,59 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - staging
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build staging app
+        run: |
+          export VITE_APP_BASE="/chalochutti/"
+          export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://thedemonstrate.com/staycore/api/v1}"
+          echo "Building staging with VITE_APP_BASE=${VITE_APP_BASE}"
+          echo "Building staging with VITE_API_BASE_URL=${VITE_API_BASE_URL}"
+          test "${VITE_APP_BASE}" = "/chalochutti/"
+          npm run build:staging
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+
+      - name: Deploy staging dist
+        run: |
+          DEPLOY_DIR="${DEPLOY_DIR:-/var/www/html/chalochutti}"
+          echo "Deploying staging to ${DEPLOY_DIR}"
+          case "${DEPLOY_DIR}" in
+            */) DEPLOY_DIR="${DEPLOY_DIR%/}" ;;
+          esac
+          mkdir -p "${DEPLOY_DIR}"
+          if [ -d "${DEPLOY_DIR}/dist" ]; then
+            rm -rf "${DEPLOY_DIR}/dist"
+          fi
+          if [ ! -d dist ]; then
+            echo "Build folder 'dist' not found"
+            exit 1
+          fi
+          cp -r dist "${DEPLOY_DIR}/"
+        env:
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
