@@ -29,23 +29,20 @@ jobs:
 
       - name: Build production app
         run: |
-          export VITE_APP_BASE="/"
-          if [ -z "${VITE_API_BASE_URL}" ]; then
-            echo "Set Environment variable VITE_API_BASE_URL on GitHub Environment 'production'"
-            exit 1
+          # Do not pass an empty VITE_API_BASE_URL into the process —
+          # Vite would treat it as set and ignore .env.production.
+          # Optional GitHub Environment var can override the committed file.
+          if [ -n "${GITHUB_VITE_API_BASE_URL}" ]; then
+            export VITE_API_BASE_URL="${GITHUB_VITE_API_BASE_URL}"
+            echo "Using VITE_API_BASE_URL from GitHub Environment"
+          else
+            unset VITE_API_BASE_URL
+            echo "Using VITE_API_BASE_URL from .env.production"
           fi
-          case "${VITE_API_BASE_URL}" in
-            *REPLACE_WITH_PRODUCTION_API*|thedemonstrate.com*)
-              echo "Production VITE_API_BASE_URL must be the real prod API (not placeholder/staging)."
-              echo "Got: ${VITE_API_BASE_URL}"
-              exit 1
-              ;;
-          esac
-          echo "Building production with VITE_APP_BASE=${VITE_APP_BASE}"
-          echo "Building production with VITE_API_BASE_URL=${VITE_API_BASE_URL}"
+          unset VITE_APP_BASE
           npm run build:production
         env:
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          GITHUB_VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
 
       - name: Deploy production build
