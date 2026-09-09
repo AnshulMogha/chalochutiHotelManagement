@@ -50,11 +50,7 @@ jobs:
 
       - name: Deploy production build
         run: |
-          if [ -z "${DEPLOY_DIR}" ]; then
-            echo "Set Environment variable DEPLOY_DIR on GitHub Environment 'production'"
-            echo "Example: /var/www/html  (domain root — not /var/www/html/chalochutti)"
-            exit 1
-          fi
+          DEPLOY_DIR="${DEPLOY_DIR:-/var/www/html/chalochuttihotel}"
           case "${DEPLOY_DIR}" in
             */) DEPLOY_DIR="${DEPLOY_DIR%/}" ;;
           esac
@@ -70,7 +66,7 @@ jobs:
             echo "Build folder 'dist' not found"
             exit 1
           fi
-          # Root deploy: copy build output contents into DEPLOY_DIR
+          # App base is `/` — copy build contents into the production folder
           rm -rf "${DEPLOY_DIR}/assets"
           rm -f "${DEPLOY_DIR}/index.html"
           cp -a dist/. "${DEPLOY_DIR}/"
