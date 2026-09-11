@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { adminService, type Document } from "../services/adminService";
 import {
+  getDocumentId,
   getStoredDocumentUrl,
   usesSignedDocumentDownloadUrls,
 } from "../services/documentDownloadUrl";
@@ -82,9 +83,14 @@ export default function DocumentReviewPage() {
 
   const handleApprove = async (remarks: string) => {
     if (!selectedDocument) return;
+    const docId = getDocumentId(selectedDocument);
+    if (docId == null) {
+      showToast("Document id missing", "error");
+      return;
+    }
     setIsProcessing(true);
     try {
-      await adminService.approveDocument(selectedDocument.id, remarks);
+      await adminService.approveDocument(docId, remarks);
       showToast("Document approved successfully", "success");
       setShowApproveModal(false);
       setSelectedDocument(null);
@@ -102,9 +108,14 @@ export default function DocumentReviewPage() {
 
   const handleReject = async (remarks: string) => {
     if (!selectedDocument) return;
+    const docId = getDocumentId(selectedDocument);
+    if (docId == null) {
+      showToast("Document id missing", "error");
+      return;
+    }
     setIsProcessing(true);
     try {
-      await adminService.rejectDocument(selectedDocument.id, remarks);
+      await adminService.rejectDocument(docId, remarks);
       showToast("Document rejected successfully", "success");
       setShowRejectModal(false);
       setSelectedDocument(null);
@@ -127,11 +138,16 @@ export default function DocumentReviewPage() {
   };
 
   const handleView = async (document: Document) => {
-    setViewingDocId(document.id);
+    const docId = getDocumentId(document);
+    setViewingDocId(docId);
     try {
       let url = "";
       if (usesSignedDocumentDownloadUrls()) {
-        const data = await adminService.getAdminDocumentDownloadUrl(document.id);
+        if (docId == null) {
+          showToast("Document id missing", "error");
+          return;
+        }
+        const data = await adminService.getAdminDocumentDownloadUrl(docId);
         url = String(data.downloadUrl || "").trim();
       } else {
         url = getStoredDocumentUrl(document);
@@ -264,8 +280,10 @@ export default function DocumentReviewPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {documentsToShow.map((document) => (
-                    <tr key={document.id} className="hover:bg-gray-50">
+                  {documentsToShow.map((document) => {
+                    const docId = getDocumentId(document);
+                    return (
+                    <tr key={docId ?? `${document.docType}-${document.uploadedAt}`} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <FileText className="w-5 h-5 text-gray-400" />
@@ -294,11 +312,11 @@ export default function DocumentReviewPage() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleView(document)}
-                            disabled={viewingDocId === document.id}
+                            disabled={docId != null && viewingDocId === docId}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors disabled:cursor-wait disabled:opacity-60"
                             title="View"
                           >
-                            {viewingDocId === document.id ? (
+                            {docId != null && viewingDocId === docId ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
                               <Eye className="w-4 h-4" />
@@ -321,7 +339,8 @@ export default function DocumentReviewPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

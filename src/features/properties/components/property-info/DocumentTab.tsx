@@ -4,6 +4,7 @@ import { Toast, useToast } from "@/components/ui/Toast";
 import { Select } from "@/components/ui/Select";
 import { adminService, type Document, type DocumentType } from "@/features/admin/services/adminService";
 import {
+  getDocumentId,
   getStoredDocumentUrl,
   usesSignedDocumentDownloadUrls,
 } from "@/features/admin/services/documentDownloadUrl";
@@ -85,9 +86,13 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
 
   const resolveViewUrl = async (document: Document): Promise<string> => {
     if (usesSignedDocumentDownloadUrls()) {
+      const docId = getDocumentId(document);
+      if (docId == null) {
+        throw new Error("Document id missing");
+      }
       const data = await adminService.getHotelDocumentDownloadUrl(
         hotelId,
-        document.id,
+        docId,
       );
       return String(data.downloadUrl || "").trim();
     }
@@ -154,7 +159,8 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
   };
 
   const handleView = async (document: Document) => {
-    setViewingDocId(document.id);
+    const docId = getDocumentId(document);
+    setViewingDocId(docId);
     try {
       const url = await resolveViewUrl(document);
       if (!url) {
@@ -274,9 +280,11 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                   Actions
                 </span>
               </div>
-              {documents.map((document) => (
+              {documents.map((document) => {
+                const docId = getDocumentId(document);
+                return (
                 <div
-                  key={document.id}
+                  key={docId ?? `${document.docType}-${document.uploadedAt}`}
                   className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_auto] sm:items-center sm:gap-3 hover:bg-slate-50/60"
                 >
                   <div className="flex min-w-0 items-center gap-3">
@@ -306,7 +314,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                     <button
                       type="button"
                       onClick={() => handleView(document)}
-                      disabled={viewingDocId === document.id}
+                      disabled={docId != null && viewingDocId === docId}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-[#2f3d95] transition-colors hover:border-[#2f3d95]/30 hover:bg-[#eef2ff] disabled:cursor-wait disabled:opacity-60"
                       title={
                         isPdfDocument(document)
@@ -314,7 +322,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                           : "View document"
                       }
                     >
-                      {viewingDocId === document.id ? (
+                      {docId != null && viewingDocId === docId ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : isPdfDocument(document) ? (
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -325,7 +333,8 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

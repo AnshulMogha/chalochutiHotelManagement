@@ -908,7 +908,9 @@ export type DocumentType =
   | "OTHER";
 
 export interface Document {
-  id: number;
+  /** Prefer `documentId` from list APIs; `id` kept for older payloads. */
+  id?: number;
+  documentId?: number;
   hotelId?: string;
   docType: DocumentType;
   fileUrl?: string;
