@@ -1,8 +1,21 @@
 import { Suspense } from "react";
-import { Outlet } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import { LoadingSpinner } from "@/components/ui";
 
 export default function AuthLayout() {
+  const { pathname } = useLocation();
+  const isLoginPage = pathname.endsWith("/login");
+
+  if (isLoginPage) {
+    return (
+      <div className="min-h-screen bg-[#f4f6fb]">
+        <Suspense fallback={<LoadingSpinner />}>
+          <Outlet />
+        </Suspense>
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
       {/* Animated background elements */}
