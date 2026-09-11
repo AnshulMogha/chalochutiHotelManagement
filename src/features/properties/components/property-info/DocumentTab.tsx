@@ -3,6 +3,10 @@ import { Button } from "@/components/ui/Button";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { Select } from "@/components/ui/Select";
 import { adminService, type Document, type DocumentType } from "@/features/admin/services/adminService";
+import {
+  getStoredDocumentUrl,
+  usesSignedDocumentDownloadUrls,
+} from "@/features/admin/services/documentDownloadUrl";
 import { Upload, FileText, Eye, X, ExternalLink, Loader2, FolderOpen } from "lucide-react";
 
 interface DocumentTabProps {
@@ -33,12 +37,8 @@ function isAllowedDocumentFile(file: File) {
   return ALLOWED_DOCUMENT_MIME_TYPES.has(file.type) || hasAllowedExt;
 }
 
-function getDocumentUrl(document: Document) {
-  return document.documentUrl || document.fileUrl || "";
-}
-
-function isPdfDocument(document: Document) {
-  const url = getDocumentUrl(document).toLowerCase();
+function isPdfDocument(document: Document, viewUrl = "") {
+  const url = (viewUrl || getStoredDocumentUrl(document)).toLowerCase();
   const fileName = (document.fileName || "").toLowerCase();
   return (
     document.contentType === "application/pdf" ||
@@ -57,6 +57,8 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showViewerModal, setShowViewerModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [viewerUrl, setViewerUrl] = useState("");
+  const [viewingDocId, setViewingDocId] = useState<number | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedDocType, setSelectedDocType] = useState<DocumentType | "">("");
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -79,6 +81,17 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const resolveViewUrl = async (document: Document): Promise<string> => {
+    if (usesSignedDocumentDownloadUrls()) {
+      const data = await adminService.getHotelDocumentDownloadUrl(
+        hotelId,
+        document.id,
+      );
+      return String(data.downloadUrl || "").trim();
+    }
+    return getStoredDocumentUrl(document);
   };
 
   const getAvailableDocTypes = (): Array<{ value: DocumentType; label: string }> => {
@@ -134,20 +147,35 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
     }
   };
 
-  const handleView = (document: Document) => {
-    const url = getDocumentUrl(document);
-    if (!url) {
-      showToast("Document URL not available", "error");
-      return;
-    }
+  const closeViewer = () => {
+    setShowViewerModal(false);
+    setSelectedDocument(null);
+    setViewerUrl("");
+  };
 
-    if (isPdfDocument(document)) {
-      window.open(url, "_blank", "noopener,noreferrer");
-      return;
-    }
+  const handleView = async (document: Document) => {
+    setViewingDocId(document.id);
+    try {
+      const url = await resolveViewUrl(document);
+      if (!url) {
+        showToast("Document URL not available", "error");
+        return;
+      }
 
-    setSelectedDocument(document);
-    setShowViewerModal(true);
+      if (isPdfDocument(document, url)) {
+        window.open(url, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      setSelectedDocument(document);
+      setViewerUrl(url);
+      setShowViewerModal(true);
+    } catch (error) {
+      console.error("Error opening document:", error);
+      showToast("Failed to open document", "error");
+    } finally {
+      setViewingDocId(null);
+    }
   };
 
   const isImage = (contentType: string) => {
@@ -278,14 +306,17 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                     <button
                       type="button"
                       onClick={() => handleView(document)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-[#2f3d95] transition-colors hover:border-[#2f3d95]/30 hover:bg-[#eef2ff]"
+                      disabled={viewingDocId === document.id}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-[#2f3d95] transition-colors hover:border-[#2f3d95]/30 hover:bg-[#eef2ff] disabled:cursor-wait disabled:opacity-60"
                       title={
                         isPdfDocument(document)
                           ? "Open PDF in new tab"
                           : "View document"
                       }
                     >
-                      {isPdfDocument(document) ? (
+                      {viewingDocId === document.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : isPdfDocument(document) ? (
                         <ExternalLink className="h-3.5 w-3.5" />
                       ) : (
                         <Eye className="h-3.5 w-3.5" />
@@ -410,10 +441,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
         {showViewerModal && selectedDocument && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-            onClick={() => {
-              setShowViewerModal(false);
-              setSelectedDocument(null);
-            }}
+            onClick={closeViewer}
           >
             <div
               className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden"
@@ -432,7 +460,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <a
-                    href={getDocumentUrl(selectedDocument)}
+                    href={viewerUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
@@ -441,10 +469,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                     <ExternalLink className="w-5 h-5" />
                   </a>
                   <button
-                    onClick={() => {
-                      setShowViewerModal(false);
-                      setSelectedDocument(null);
-                    }}
+                    onClick={closeViewer}
                     className="p-2 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
                   >
                     <X className="w-5 h-5" />
@@ -455,8 +480,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
               {/* Document Content */}
               <div className="flex-1 overflow-auto p-6 bg-gray-100 flex items-center justify-center">
                 {(() => {
-                  const documentUrl = getDocumentUrl(selectedDocument);
-                  if (!documentUrl) {
+                  if (!viewerUrl) {
                     return (
                       <div className="text-center p-12">
                         <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -471,7 +495,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                     return (
                       <div className="max-w-full max-h-[calc(90vh-120px)] flex items-center justify-center">
                         <img
-                          src={documentUrl}
+                          src={viewerUrl}
                           alt={selectedDocument.fileName}
                           className="max-w-full max-h-full object-contain rounded-2xl shadow-lg"
                         />
@@ -491,7 +515,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
                       </p>
                       <div className="flex items-center justify-center gap-3">
                         <a
-                          href={documentUrl}
+                          href={viewerUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                         >

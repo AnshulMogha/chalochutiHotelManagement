@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { adminService, type Document } from "../services/adminService";
+import {
+  getStoredDocumentUrl,
+  usesSignedDocumentDownloadUrls,
+} from "../services/documentDownloadUrl";
 import { Button } from "@/components/ui/Button";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ApproveRejectModal } from "../components/ApproveRejectModal";
-import { FileText, Eye, CheckCircle, XCircle, Building2, ExternalLink, X, Clock } from "lucide-react";
+import { FileText, Eye, CheckCircle, XCircle, Building2, ExternalLink, X, Clock, Loader2 } from "lucide-react";
 
 interface DocumentWithHotel extends Document {
   hotelId?: string;
@@ -34,6 +38,8 @@ export default function DocumentReviewPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showViewerModal, setShowViewerModal] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
+  const [viewerUrl, setViewerUrl] = useState("");
+  const [viewingDocId, setViewingDocId] = useState<number | null>(null);
 
   useEffect(() => {
     if (selectedHotelId) {
@@ -114,9 +120,37 @@ export default function DocumentReviewPage() {
     }
   };
 
-  const handleView = (document: Document) => {
-    setViewingDocument(document);
-    setShowViewerModal(true);
+  const closeViewer = () => {
+    setShowViewerModal(false);
+    setViewingDocument(null);
+    setViewerUrl("");
+  };
+
+  const handleView = async (document: Document) => {
+    setViewingDocId(document.id);
+    try {
+      let url = "";
+      if (usesSignedDocumentDownloadUrls()) {
+        const data = await adminService.getAdminDocumentDownloadUrl(document.id);
+        url = String(data.downloadUrl || "").trim();
+      } else {
+        url = getStoredDocumentUrl(document);
+      }
+
+      if (!url) {
+        showToast("Document URL not available", "error");
+        return;
+      }
+
+      setViewingDocument(document);
+      setViewerUrl(url);
+      setShowViewerModal(true);
+    } catch (error) {
+      console.error("Error opening document:", error);
+      showToast("Failed to open document", "error");
+    } finally {
+      setViewingDocId(null);
+    }
   };
 
   const openApproveModal = (document: Document) => {
@@ -260,10 +294,15 @@ export default function DocumentReviewPage() {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleView(document)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                            disabled={viewingDocId === document.id}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors disabled:cursor-wait disabled:opacity-60"
                             title="View"
                           >
-                            <Eye className="w-4 h-4" />
+                            {viewingDocId === document.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
                           </button>
                           <button
                             onClick={() => openApproveModal(document)}
@@ -317,10 +356,7 @@ export default function DocumentReviewPage() {
         {showViewerModal && viewingDocument && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-            onClick={() => {
-              setShowViewerModal(false);
-              setViewingDocument(null);
-            }}
+            onClick={closeViewer}
           >
             <div
               className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden"
@@ -339,7 +375,7 @@ export default function DocumentReviewPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <a
-                    href={viewingDocument.fileUrl}
+                    href={viewerUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
@@ -348,10 +384,7 @@ export default function DocumentReviewPage() {
                     <ExternalLink className="w-5 h-5" />
                   </a>
                   <button
-                    onClick={() => {
-                      setShowViewerModal(false);
-                      setViewingDocument(null);
-                    }}
+                    onClick={closeViewer}
                     className="p-2 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
                   >
                     <X className="w-5 h-5" />
@@ -364,7 +397,7 @@ export default function DocumentReviewPage() {
                 {isImage(viewingDocument.contentType) ? (
                   <div className="max-w-full max-h-[calc(90vh-120px)] flex items-center justify-center">
                     <img
-                      src={viewingDocument.fileUrl}
+                      src={viewerUrl}
                       alt={viewingDocument.fileName}
                       className="max-w-full max-h-full object-contain rounded-2xl shadow-lg"
                     />
@@ -372,7 +405,7 @@ export default function DocumentReviewPage() {
                 ) : isPDF(viewingDocument.contentType) ? (
                   <div className="w-full h-full min-h-[500px]">
                     <iframe
-                      src={viewingDocument.fileUrl}
+                      src={viewerUrl}
                       className="w-full h-full min-h-[500px] rounded-2xl border border-gray-300"
                       title={viewingDocument.fileName}
                     />
@@ -387,7 +420,7 @@ export default function DocumentReviewPage() {
                       This file type ({viewingDocument.contentType}) cannot be previewed in the browser.
                     </p>
                     <a
-                      href={viewingDocument.fileUrl}
+                      href={viewerUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

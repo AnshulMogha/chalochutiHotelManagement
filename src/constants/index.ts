@@ -271,6 +271,9 @@ export const API_ENDPOINTS = {
       `/admin/hotel/finance/documents/${docId}/approve`,
     REJECT_DOCUMENT: (docId: string | number) =>
       `/admin/hotel/finance/documents/${docId}/reject`,
+    /** Production: signed S3 URL for admin document preview. */
+    GET_DOCUMENT_DOWNLOAD_URL: (docId: string | number) =>
+      `/admin/documents/${docId}/download-url`,
     // Admin-only agent onboarding review (separate from GET/POST/PUT on TRAVEL_AGENT_ONBOARDING.*)
     TRAVEL_AGENT_ONBOARDING_APPROVE: (id: string | number) =>
       `admin/travel-agent/onboarding/${id}/approve`,
@@ -447,6 +450,11 @@ export const API_ENDPOINTS = {
     UPLOAD_DOCUMENT: (hotelId: string) => `/hotel/${hotelId}/document/upload`,
     UPDATE_DOCUMENT: (hotelId: string, documentId: string | number) =>
       `/hotel/${hotelId}/document/${documentId}`,
+    /** Production: signed S3 URL for hotel/owner document preview. */
+    GET_DOCUMENT_DOWNLOAD_URL: (
+      hotelId: string,
+      documentId: string | number,
+    ) => `/hotel/${hotelId}/documents/${documentId}/download-url`,
     GET_TEAM_MEMBERS: (hotelId: string) => `/hotel/${hotelId}/users`,
     CREATE_TEAM_MEMBER: (hotelId: string) => `/hotel/${hotelId}/users`,
     ASSIGN_HOTEL_TO_USER: (hotelId: string, userId: string | number) =>

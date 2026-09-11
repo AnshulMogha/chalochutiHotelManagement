@@ -924,6 +924,11 @@ export interface Document {
   verifiedBy?: number | null;
 }
 
+export interface DocumentDownloadUrlData {
+  downloadUrl: string;
+  expiresInSeconds: number;
+}
+
 export interface FinanceData {
   gstin: string;
   pan: string;
@@ -2159,6 +2164,16 @@ export const adminService = {
     );
     return response.data;
   },
+  /** Production signed URL for hotel/owner (and admin via hotel context) document view. */
+  getHotelDocumentDownloadUrl: async (
+    hotelId: string,
+    documentId: string | number,
+  ): Promise<DocumentDownloadUrlData> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<DocumentDownloadUrlData>
+    >(API_ENDPOINTS.HOTEL_ADMIN.GET_DOCUMENT_DOWNLOAD_URL(hotelId, documentId));
+    return response.data;
+  },
   uploadDocument: async (
     hotelId: string,
     file: File,
@@ -2209,6 +2224,15 @@ export const adminService = {
     const response = await apiClient.get<ApiSuccessResponse<Document[]>>(
       API_ENDPOINTS.ADMIN.GET_HOTEL_DOCUMENTS(hotelId),
     );
+    return response.data;
+  },
+  /** Production signed URL for admin document review preview. */
+  getAdminDocumentDownloadUrl: async (
+    documentId: string | number,
+  ): Promise<DocumentDownloadUrlData> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<DocumentDownloadUrlData>
+    >(API_ENDPOINTS.ADMIN.GET_DOCUMENT_DOWNLOAD_URL(documentId));
     return response.data;
   },
   approveDocument: async (
