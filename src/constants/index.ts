@@ -1,6 +1,30 @@
 // App-wide constants
 export const APP_NAME = "Hotel Onboard";
 
+/**
+ * Sibling portal origins (staging: same-host path prefixes; production: subdomains).
+ * Override via VITE_PACKAGE_PORTAL_URL / VITE_TRANSPORT_PORTAL_URL.
+ */
+function siblingPortalUrl(
+  envBase: string | undefined,
+  fallbackBase: string,
+  ...segments: string[]
+): string {
+  const root = String(envBase || fallbackBase)
+    .trim()
+    .replace(/\/+$/, "");
+  const path = segments
+    .map((part) => String(part || "").replace(/^\/+|\/+$/g, ""))
+    .filter(Boolean)
+    .join("/");
+  return path ? `${root}/${path}` : `${root}/`;
+}
+
+const PACKAGE_PORTAL_BASE =
+  import.meta.env.VITE_PACKAGE_PORTAL_URL || "/packageManagement";
+const TRANSPORT_PORTAL_BASE =
+  import.meta.env.VITE_TRANSPORT_PORTAL_URL || "/transferManagement";
+
 export const ROUTES = {
   PROPERTIES: {
     LIST: "/",
@@ -38,12 +62,23 @@ export const ROUTES = {
     COMMISSION_AND_TAX: "/admin/commission-tax",
     DOCUMENT_REVIEW: "/admin/document-review",
     TRAVEL_PARTNERS: "/admin/travel-partners",
-    TRANSPORT: "/transferManagement/",
-    TRANSPORT_NET_EARNINGS: "/transferManagement/reports/net-earnings",
-    TRANSPORT_BOOKING_MIS: "/transferManagement/reports/booking-mis",
-    PACKAGES: "/packageManagement/",
-    PACKAGE_BOOKING_FINANCIAL_MIS:
-      "/packageManagement/reports/package-booking-financial-mis",
+    TRANSPORT: siblingPortalUrl(TRANSPORT_PORTAL_BASE, "/transferManagement"),
+    TRANSPORT_NET_EARNINGS: siblingPortalUrl(
+      TRANSPORT_PORTAL_BASE,
+      "/transferManagement",
+      "reports/net-earnings",
+    ),
+    TRANSPORT_BOOKING_MIS: siblingPortalUrl(
+      TRANSPORT_PORTAL_BASE,
+      "/transferManagement",
+      "reports/booking-mis",
+    ),
+    PACKAGES: siblingPortalUrl(PACKAGE_PORTAL_BASE, "/packageManagement"),
+    PACKAGE_BOOKING_FINANCIAL_MIS: siblingPortalUrl(
+      PACKAGE_PORTAL_BASE,
+      "/packageManagement",
+      "reports/package-booking-financial-mis",
+    ),
   },
   PROPERTY_INFO: {
     LIST: "/property/information",

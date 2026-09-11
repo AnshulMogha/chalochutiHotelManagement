@@ -1079,7 +1079,7 @@ function AgentRow({ row }: { row: SalesManagerAgentPortfolioRow }) {
             🏨 Hotel {row.bookings.hotel}
           </Link>
           <a
-            href={`/packageManagement/reports/package-booking-financial-mis?agencyId=${row.agentId}`}
+            href={`${ROUTES.ADMIN.PACKAGE_BOOKING_FINANCIAL_MIS}?agencyId=${row.agentId}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 hover:bg-purple-100"

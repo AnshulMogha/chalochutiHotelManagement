@@ -79,7 +79,7 @@ function transportBookingMisUrl(
 ): string | null {
   const requestId = extractTransportRequestId(bookingRef, bookingId);
   if (!requestId) return null;
-  return `${ROUTES.ADMIN.TRANSPORT}reports/booking-mis?requestId=${encodeURIComponent(requestId)}`;
+  return `${ROUTES.ADMIN.TRANSPORT_BOOKING_MIS}?requestId=${encodeURIComponent(requestId)}`;
 }
 
 export type SettlementApiDebugState = {
