@@ -95,23 +95,33 @@ export function HelpdeskPackageHotelsPanel({
 
 export function HelpdeskPackageFinancialExtras({
   financial: fin,
+  showCosts = true,
+  showBreakups = true,
+  showIncentive = true,
+  showComponents = true,
 }: {
   financial: HelpdeskFinancialDetail;
+  showCosts?: boolean;
+  showBreakups?: boolean;
+  showIncentive?: boolean;
+  showComponents?: boolean;
 }) {
   const hasCosts =
-    fin.packageSupplierCost ||
-    fin.hotelCost ||
-    fin.transportCost ||
-    fin.activityCost ||
-    fin.transportPayout ||
-    fin.activityPayout ||
-    fin.markup ||
-    fin.taxes ||
-    fin.commission;
+    fin.packageSupplierCost != null ||
+    fin.hotelCost != null ||
+    fin.transportCost != null ||
+    fin.activityCost != null ||
+    fin.transportPayout != null ||
+    fin.activityPayout != null ||
+    fin.markup != null ||
+    fin.taxes != null ||
+    fin.commission != null ||
+    fin.totalSupplierPayout != null ||
+    fin.grossProfit != null;
 
   return (
     <div className="space-y-4">
-      {hasCosts ? (
+      {showCosts && hasCosts ? (
         <HelpdeskPanel
           title="Package cost & payout summary"
           subtitle="Supplier costs and component payouts"
@@ -141,7 +151,7 @@ export function HelpdeskPackageFinancialExtras({
         </HelpdeskPanel>
       ) : null}
 
-      {fin.agencyIncentive ? (
+      {showIncentive && fin.agencyIncentive ? (
         <HelpdeskPanel title="Agency incentive" icon={Tag}>
           <HelpdeskInfoRow
             icon={Tag}
@@ -171,7 +181,7 @@ export function HelpdeskPackageFinancialExtras({
         </HelpdeskPanel>
       ) : null}
 
-      {fin.markupDetails ? (
+      {showIncentive && fin.markupDetails ? (
         <HelpdeskPanel title="Markup details" icon={Tag}>
           <MiniMoneyRow
             label={
@@ -186,6 +196,7 @@ export function HelpdeskPackageFinancialExtras({
         </HelpdeskPanel>
       ) : null}
 
+      {showBreakups ? (
       <HelpdeskPanel
         title="Package financial breakdown"
         subtitle="Additional PACKAGE breakups"
@@ -194,6 +205,7 @@ export function HelpdeskPackageFinancialExtras({
           <HelpdeskBreakupAccordion
             title="Gross profit reconciliation"
             breakup={fin.grossProfitReconciliation || { lines: [] }}
+            defaultOpen
           />
           {fin.supplierCostBreakup?.lines.length ? (
             <div className="rounded-lg border border-slate-200 bg-slate-50/50">
@@ -288,11 +300,13 @@ export function HelpdeskPackageFinancialExtras({
           ) : null}
         </div>
       </HelpdeskPanel>
+      ) : null}
 
-      {fin.componentSummary ||
-      (fin.hotelComponents && fin.hotelComponents.length) ||
-      (fin.transportComponents && fin.transportComponents.length) ||
-      (fin.activityComponents && fin.activityComponents.length) ? (
+      {showComponents &&
+      (fin.componentSummary ||
+        (fin.hotelComponents && fin.hotelComponents.length) ||
+        (fin.transportComponents && fin.transportComponents.length) ||
+        (fin.activityComponents && fin.activityComponents.length)) ? (
         <HelpdeskPanel
           title="Package components"
           subtitle={

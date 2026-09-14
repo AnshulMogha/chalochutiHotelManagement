@@ -33,8 +33,10 @@ import {
   HelpdeskPackagePaymentExtras,
 } from "../components/HelpdeskPackageSections";
 import {
+  Activity,
   ArrowLeft,
   Building2,
+  Bus,
   CalendarDays,
   Copy,
   Hash,
@@ -51,7 +53,13 @@ import {
   Wallet,
 } from "lucide-react";
 
-type DetailTab = "overview" | "financial" | "payment" | "timeline" | "actions";
+type DetailTab =
+  | "overview"
+  | "financial"
+  | "components"
+  | "payment"
+  | "timeline"
+  | "actions";
 
 export default function HelpdeskBookingDetailPage() {
   const { bookingRef = "" } = useParams();
@@ -139,10 +147,15 @@ export default function HelpdeskBookingDetailPage() {
   const tabs: Array<{ id: DetailTab; label: string; icon: typeof Tag }> = [
     { id: "overview", label: "Overview", icon: User },
     { id: "financial", label: "Financials", icon: Wallet },
+  ];
+  if (isPackage) {
+    tabs.push({ id: "components", label: "Components", icon: Activity });
+  }
+  tabs.push(
     { id: "payment", label: "Payment", icon: Hash },
     { id: "timeline", label: "Timeline", icon: CalendarDays },
     { id: "actions", label: "Actions", icon: Copy },
-  ];
+  );
 
   return (
     <HelpdeskPageShell>
@@ -249,7 +262,61 @@ export default function HelpdeskBookingDetailPage() {
       </div>
 
       {activeTab === "overview" ? (
-        <div className="grid gap-3.5 lg:grid-cols-2">
+        <div className="space-y-3.5">
+          {isPackage ? (
+            <HelpdeskPanel
+              title="Package snapshot"
+              subtitle={fin.packageName || support.productName}
+              icon={Tag}
+            >
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <HelpdeskMetric
+                  label="Supplier cost"
+                  value={formatFinanceMoney(fin.packageSupplierCost)}
+                  icon={Wallet}
+                  tone="slate"
+                  compact
+                />
+                <HelpdeskMetric
+                  label="Hotel cost"
+                  value={formatFinanceMoney(fin.hotelCost)}
+                  icon={Building2}
+                  tone="blue"
+                  compact
+                />
+                <HelpdeskMetric
+                  label="Transport cost"
+                  value={formatFinanceMoney(fin.transportCost)}
+                  icon={Bus}
+                  tone="emerald"
+                  compact
+                />
+                <HelpdeskMetric
+                  label="Activity cost"
+                  value={formatFinanceMoney(fin.activityCost)}
+                  icon={Activity}
+                  tone="amber"
+                  compact
+                />
+              </div>
+              {fin.componentSummary ? (
+                <p className="mt-3 text-xs text-slate-600">
+                  Components: Hotels {fin.componentSummary.hotelWithValue}/
+                  {fin.componentSummary.hotelTotal} · Transport{" "}
+                  {fin.componentSummary.transportWithValue}/
+                  {fin.componentSummary.transportTotal} · Activities{" "}
+                  {fin.componentSummary.activityWithValue}/
+                  {fin.componentSummary.activityTotal}
+                </p>
+              ) : null}
+            </HelpdeskPanel>
+          ) : null}
+
+          {isPackage && detail.hotels?.length ? (
+            <HelpdeskPackageHotelsPanel hotels={detail.hotels} />
+          ) : null}
+
+          <div className="grid gap-3.5 lg:grid-cols-2">
           <HelpdeskPanel title="Customer" subtitle="Primary contact for this booking">
             <HelpdeskInfoRow icon={User} label="Name" value={customer.name} />
             <HelpdeskInfoRow
@@ -358,17 +425,18 @@ export default function HelpdeskBookingDetailPage() {
               />
             </div>
           </HelpdeskPanel>
-
-          {isPackage && detail.hotels?.length ? (
-            <div className="lg:col-span-2">
-              <HelpdeskPackageHotelsPanel hotels={detail.hotels} />
-            </div>
-          ) : null}
+          </div>
         </div>
       ) : null}
 
       {activeTab === "financial" ? (
         <div className="space-y-4">
+          {isPackage ? (
+            <HelpdeskPackageFinancialExtras
+              financial={fin}
+              showComponents={false}
+            />
+          ) : null}
           <HelpdeskPanel title="Booking metadata">
             <HelpdeskInfoRow
               icon={Tag}
@@ -415,18 +483,30 @@ export default function HelpdeskBookingDetailPage() {
                 breakup={fin.customerSellingPriceBreakup}
                 defaultOpen
               />
-              <HelpdeskBreakupAccordion
-                title={isPackage ? "Supplier payout breakup" : "Hotel payout breakup"}
-                breakup={fin.hotelPayoutBreakup}
-              />
+              {!isPackage ? (
+                <HelpdeskBreakupAccordion
+                  title="Hotel payout breakup"
+                  breakup={fin.hotelPayoutBreakup}
+                />
+              ) : null}
               <HelpdeskBreakupAccordion
                 title="OTA revenue breakup"
                 breakup={fin.otaRevenueBreakup}
+                defaultOpen={isPackage}
               />
             </div>
           </HelpdeskPanel>
-          {isPackage ? <HelpdeskPackageFinancialExtras financial={fin} /> : null}
         </div>
+      ) : null}
+
+      {activeTab === "components" && isPackage ? (
+        <HelpdeskPackageFinancialExtras
+          financial={fin}
+          showCosts={false}
+          showBreakups={false}
+          showIncentive={false}
+          showComponents
+        />
       ) : null}
 
       {activeTab === "payment" ? (
