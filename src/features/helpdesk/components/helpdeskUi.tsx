@@ -445,11 +445,6 @@ export function HelpdeskBreakupAccordion({
           {breakup.lines.map((line) => (
             <BreakupAmount key={line.key} line={line} />
           ))}
-          {breakup.formula ? (
-            <p className="mt-2 rounded-md bg-white px-3 py-2 font-mono text-[11px] text-slate-500">
-              {breakup.formula}
-            </p>
-          ) : null}
         </div>
       ) : null}
     </div>

@@ -241,11 +241,6 @@ export function HelpdeskPackageFinancialExtras({
                   {formatFinanceMoney(fin.supplierCostBreakup.total)}
                 </span>
               </div>
-              {fin.supplierCostBreakup.formula ? (
-                <p className="border-t border-slate-200 px-4 py-2 font-mono text-[11px] text-slate-500">
-                  {fin.supplierCostBreakup.formula}
-                </p>
-              ) : null}
             </div>
           ) : null}
 
