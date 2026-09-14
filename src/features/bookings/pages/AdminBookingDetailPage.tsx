@@ -1762,25 +1762,56 @@ export default function AdminBookingDetailPage({
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                   Accommodation
                 </p>
-                <DetailRow
-                  compact
-                  label="Base price"
-                  value={formatCurrency(detail.financials.basePrice, currency)}
-                />
-                {extraAdultCount != null ? (
-                  <DetailRow
-                    compact
-                    label="Extra adult count"
-                    value={String(extraAdultCount)}
-                  />
-                ) : null}
-                {extraAdultCharges != null ? (
-                  <DetailRow
-                    compact
-                    label="Extra adult charges"
-                    value={formatCurrency(extraAdultCharges, currency)}
-                  />
-                ) : null}
+                {(() => {
+                  const extraBeforePromo =
+                    rateBreakup?.extraAdultChargesBeforePromotion ??
+                    rateBreakup?.extraAdultChildChargesBeforePromotion ??
+                    extraAdultCharges ??
+                    0;
+                  const hasExtras = extraBeforePromo > 0;
+                  const roomOnlyBeforePromo =
+                    rateBreakup?.roomChargesBeforePromotion ??
+                    (hasExtras && detail.financials.basePrice != null
+                      ? detail.financials.basePrice - extraBeforePromo
+                      : detail.financials.basePrice);
+                  const subtotalBeforePromo =
+                    detail.financials.basePrice ??
+                    (roomOnlyBeforePromo != null
+                      ? roomOnlyBeforePromo + (hasExtras ? extraBeforePromo : 0)
+                      : null);
+                  const extraCountLabel =
+                    extraAdultCount != null && extraAdultCount > 0
+                      ? ` (${extraAdultCount})`
+                      : "";
+
+                  return (
+                    <>
+                      <DetailRow
+                        compact
+                        label={
+                          hasExtras
+                            ? "Room charges (excl. extras)"
+                            : "Base price"
+                        }
+                        value={formatCurrency(roomOnlyBeforePromo, currency)}
+                      />
+                      {hasExtras ? (
+                        <DetailRow
+                          compact
+                          label={`Extra adult charges${extraCountLabel}`}
+                          value={formatCurrency(extraBeforePromo, currency)}
+                        />
+                      ) : null}
+                      {hasExtras ? (
+                        <DetailRow
+                          compact
+                          label="Subtotal before promotion"
+                          value={formatCurrency(subtotalBeforePromo, currency)}
+                        />
+                      ) : null}
+                    </>
+                  );
+                })()}
                 {appliedPromotions.length
                   ? appliedPromotions.map((promo, idx) => (
                       <DetailRow
