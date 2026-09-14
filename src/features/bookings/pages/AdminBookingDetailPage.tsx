@@ -1299,7 +1299,8 @@ export default function AdminBookingDetailPage({
             </td>
           );
           const rowAmounts = rows.map((row) => {
-            const charges = row.roomCharges ?? 0;
+            const charges =
+              (row.roomCharges ?? 0) + (row.extraCharges ?? 0);
             const promo = row.promotionDiscount ?? 0;
             const net = row.netAccommodation ?? charges - promo;
             const gst = row.hotelGst ?? 0;
@@ -1340,13 +1341,13 @@ export default function AdminBookingDetailPage({
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50">
                         <TableHead label="Date" align="left" />
-                        <TableHead label="Charges (A)" hint="Before GST" />
-                        <TableHead label="Promotion (B)" />
-                        <TableHead label="Net (C)" hint="A − B" />
-                        <TableHead label="Hotel GST (D)" />
-                        <TableHead label="Property total (E)" hint="C + D, incl. GST" />
-                        <TableHead label="Commission (F)" hint="Inclusive of GST" />
-                        <TableHead label="Before TDS/TCS (G)" hint="E − F" />
+                        <TableHead label="Charges" hint="Room + extras, before GST" />
+                        <TableHead label="Promotion" />
+                        <TableHead label="Net" />
+                        <TableHead label="Hotel GST" />
+                        <TableHead label="Property total" />
+                        <TableHead label="Commission" />
+                        <TableHead label="Before TDS/TCS" />
                       </tr>
                     </thead>
                     <tbody>
@@ -1421,6 +1422,25 @@ export default function AdminBookingDetailPage({
             }
             currency={currency}
           />
+          {(() => {
+            const extraBeforePromo =
+              rateBreakup?.extraAdultChargesBeforePromotion ??
+              rateBreakup?.extraAdultChildChargesBeforePromotion ??
+              extraAdultCharges ??
+              0;
+            if (!(extraBeforePromo > 0)) return null;
+            const countLabel =
+              extraAdultCount != null && extraAdultCount > 0
+                ? ` (${extraAdultCount})`
+                : "";
+            return (
+              <CalcLine
+                label={`Extra adult charges before promotion${countLabel}`}
+                amount={extraBeforePromo}
+                currency={currency}
+              />
+            );
+          })()}
           {appliedPromotions.length
             ? appliedPromotions.map((promo, idx) => (
                 <CalcLine
@@ -1464,11 +1484,7 @@ export default function AdminBookingDetailPage({
           ) : null}
           <CalcSubtotal
             letter="A"
-            label={
-              isPackageBooking && !(packageTaxAmount > 0)
-                ? "Total property charges"
-                : "Total property charges (room charges + GST)"
-            }
+            label="Total property charges"
             amount={
               rateBreakup?.hotelGrossCharges ??
               detail.financials.customerSellingPrice
@@ -1495,7 +1511,7 @@ export default function AdminBookingDetailPage({
           />
           <CalcSubtotal
             letter="B"
-            label="Commission inclusive of GST (3 + 4)"
+            label="Commission inclusive of GST"
             amount={
               detail.financials.commissionInclusiveGst ??
               rateBreakup?.commissionTotal
@@ -1522,7 +1538,7 @@ export default function AdminBookingDetailPage({
           />
           <CalcSubtotal
             letter="C"
-            label="Tax deduction (5 + 6)"
+            label="Tax deduction"
             amount={
               rateBreakup?.taxDeductions ??
               (detail.financials.tcsAmount ?? 0) +
@@ -1536,11 +1552,7 @@ export default function AdminBookingDetailPage({
           {isCancelledBooking ? (
             <div className="border-t border-rose-100 bg-rose-50/80 px-3 py-2.5 text-xs">
               <div className="flex items-center justify-between gap-4 font-semibold text-slate-500">
-                <span>
-                  {isPackageBooking && !showCommissionBreakup && !showTaxDeductionBreakup
-                    ? "Payable to property"
-                    : "Payable to property (A − B − C)"}
-                </span>
+                <span>Payable to property</span>
                 <span className="text-sm tabular-nums line-through decoration-slate-400">
                   {formatCurrency(
                     rateBreakup?.payableToHotel ?? detail.pricing.hotelPayout,
@@ -1557,11 +1569,7 @@ export default function AdminBookingDetailPage({
             </div>
           ) : (
             <div className="flex items-center justify-between gap-4 border-t border-sky-100 bg-sky-50 px-3 py-2.5 text-xs font-semibold text-sky-900">
-              <span>
-                {isPackageBooking && !showCommissionBreakup && !showTaxDeductionBreakup
-                  ? "Payable to property"
-                  : "Payable to property (A − B − C)"}
-              </span>
+              <span>Payable to property</span>
               <span className="text-sm tabular-nums">
                 {formatCurrency(
                   rateBreakup?.payableToHotel ?? detail.pricing.hotelPayout,
