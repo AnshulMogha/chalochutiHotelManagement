@@ -11,7 +11,6 @@ import {
   FileText,
   Eye,
   FileCheck2,
-  ExternalLink,
   Loader2,
   X,
   Edit,
@@ -24,6 +23,7 @@ import {
   REQUIRED_ONBOARDING_DOCUMENT_LABELS,
   REQUIRED_ONBOARDING_DOCUMENT_TYPES,
 } from "../../validator/onboardingDocuments";
+import { OnboardingDocumentViewModal } from "./OnboardingDocumentViewModal";
 
 const DOCUMENT_TYPES: Array<{ value: OnboardingDocumentType; label: string }> = [
   {
@@ -66,23 +66,6 @@ function formatFileSize(bytes?: number) {
     sizes.length - 1
   );
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-}
-
-function isImage(contentType?: string) {
-  return !!contentType?.startsWith("image/");
-}
-function isPDF(contentType?: string, fileName?: string) {
-  // Check contentType first
-  if (contentType === "application/pdf") return true;
-  
-  // Check file extension as fallback
-  if (fileName) {
-    const ext = fileName.toLowerCase().split('.').pop();
-    if (ext === 'pdf') return true;
-  }
-  
-  // Check URL extension as additional fallback
-  return false;
 }
 
 const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
@@ -462,7 +445,7 @@ export function DocumentsStep() {
                         Edit
                       </button>
                     )}
-                    {documentUrl(doc) && (
+                    {(documentUrl(doc) || getDocumentId(doc) != null) && (
                       <button
                         type="button"
                         onClick={() => {
@@ -640,134 +623,19 @@ export function DocumentsStep() {
         </div>
       )}
 
-      {/* Document viewer popup */}
-      {showViewerModal && selectedDocument && (() => {
-        const url = documentUrl(selectedDocument);
-        // Enhanced PDF detection: check contentType, fileName, and URL
-        const urlIsPDF = url.toLowerCase().endsWith('.pdf') || url.toLowerCase().includes('.pdf?') || url.toLowerCase().includes('.pdf#');
-        const isPDFDoc = isPDF(selectedDocument.contentType, selectedDocument.fileName) || urlIsPDF;
-        return (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-            onClick={() => {
-              setShowViewerModal(false);
-              setSelectedDocument(null);
-            }}
-          >
-            <div
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50 shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
-                  <FileText className="h-5 w-5 shrink-0 text-gray-600" />
-                  <div className="min-w-0">
-                    <h3 className="text-lg font-semibold text-gray-900 truncate">
-                      {getDocTypeLabel(selectedDocument.docType)}
-                    </h3>
-                    <p className="text-sm text-gray-500 truncate">
-                      {selectedDocument.fileName ?? "—"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {url && (
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      title="Open in new tab"
-                    >
-                      <ExternalLink className="h-5 w-5" />
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowViewerModal(false);
-                      setSelectedDocument(null);
-                    }}
-                    className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
-                    aria-label="Close"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-auto p-6 bg-gray-100 flex items-center justify-center min-h-[320px]">
-                {!url ? (
-                  <div className="text-center p-8">
-                    <FileText className="h-14 w-14 text-gray-400 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-gray-700">Document URL not available</p>
-                  </div>
-                ) : isPDFDoc ? (
-                  <div className="flex flex-col items-center justify-center h-full min-h-[500px] p-8 text-center bg-gray-50 rounded-xl">
-                    <FileText className="h-16 w-16 text-gray-400 mb-4" />
-                    <p className="text-sm font-medium text-gray-700 mb-2">
-                      PDF Document Ready
-                    </p>
-                    <p className="text-xs text-gray-500 mb-6 max-w-md">
-                      Due to security restrictions, PDFs cannot be embedded in this viewer. Click the button below to open and view the PDF in a new tab.
-                    </p>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="primary" className="gap-2">
-                        <ExternalLink className="h-4 w-4" />
-                        Open PDF in New Tab
-                      </Button>
-                    </a>
-                    <p className="text-xs text-gray-400 mt-4">
-                      File: {selectedDocument.fileName ?? "Document"}
-                    </p>
-                  </div>
-                ) : isImage(selectedDocument.contentType) ? (
-                  <div className="max-w-full max-h-[calc(90vh-140px)] flex items-center justify-center">
-                    <img
-                      src={url}
-                      alt={selectedDocument.fileName ?? "Document"}
-                      className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
-                    />
-                  </div>
-                ) : (
-                  <div className="text-center p-8">
-                    <FileText className="h-14 w-14 text-gray-400 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-gray-700 mb-2">Preview not available</p>
-                    <p className="text-xs text-gray-500 mb-4">
-                      Open in a new tab to view this file.
-                    </p>
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="outline" className="gap-2">
-                        <ExternalLink className="h-4 w-4" />
-                        Open in new tab
-                      </Button>
-                    </a>
-                  </div>
-                )}
-              </div>
-
-              <div className="px-6 py-3 border-t border-gray-200 bg-gray-50 flex flex-wrap gap-4 text-sm shrink-0">
-                {selectedDocument.fileSize != null && selectedDocument.fileSize > 0 && (
-                  <span className="text-gray-600">
-                    Size: <span className="font-medium text-gray-900">{formatFileSize(selectedDocument.fileSize)}</span>
-                  </span>
-                )}
-                <span className="text-gray-600">
-                  Uploaded: <span className="font-medium text-gray-900">{formatDate(selectedDocument.uploadedAt)}</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {/* Document viewer — full-page embed like booking voucher */}
+      {showViewerModal && selectedDocument && hotelId ? (
+        <OnboardingDocumentViewModal
+          open={showViewerModal}
+          hotelId={hotelId}
+          document={selectedDocument}
+          title={getDocTypeLabel(selectedDocument.docType)}
+          onClose={() => {
+            setShowViewerModal(false);
+            setSelectedDocument(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

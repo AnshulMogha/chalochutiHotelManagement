@@ -14,12 +14,13 @@ export function getStoredDocumentUrl(document: {
   return String(document.documentUrl || document.fileUrl || "").trim();
 }
 
-/** List APIs return `documentId`; older payloads may use `id`. */
+/** List APIs return `documentId`; older payloads may use `id` / `docId`. */
 export function getDocumentId(document: {
   documentId?: number | string | null;
   id?: number | string | null;
+  docId?: number | string | null;
 }): number | null {
-  const raw = document.documentId ?? document.id;
+  const raw = document.documentId ?? document.id ?? document.docId;
   if (raw == null || raw === "") return null;
   const n = Number(raw);
   return Number.isFinite(n) ? n : null;
