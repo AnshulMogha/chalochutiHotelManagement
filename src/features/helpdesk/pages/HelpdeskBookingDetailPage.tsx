@@ -28,6 +28,11 @@ import {
   type HelpdeskBookingDetail,
 } from "../services/helpdeskBookingService";
 import {
+  HelpdeskPackageFinancialExtras,
+  HelpdeskPackageHotelsPanel,
+  HelpdeskPackagePaymentExtras,
+} from "../components/HelpdeskPackageSections";
+import {
   ArrowLeft,
   Building2,
   CalendarDays,
@@ -266,6 +271,11 @@ export default function HelpdeskBookingDetailPage() {
                 <p className="mt-1 text-sm font-medium text-slate-900">
                   {fin.bookingOwner.name}
                 </p>
+                {fin.bookingOwner.agencyName ? (
+                  <p className="text-xs text-slate-600">
+                    {fin.bookingOwner.agencyName}
+                  </p>
+                ) : null}
                 <p className="text-xs text-slate-600">
                   {formatStatusLabel(fin.bookingOwner.type || "—")}
                   {fin.bookingOwner.email ? ` · ${fin.bookingOwner.email}` : ""}
@@ -332,6 +342,15 @@ export default function HelpdeskBookingDetailPage() {
                   onCopy={() => void copyValue("Package code", fin.packageCode)}
                 />
               ) : null}
+              {fin.packageId != null ? (
+                <HelpdeskCopyChip
+                  label="Package ID"
+                  value={String(fin.packageId)}
+                  onCopy={() =>
+                    void copyValue("Package ID", String(fin.packageId))
+                  }
+                />
+              ) : null}
               <HelpdeskCopyChip
                 label="Booking date"
                 value={formatReportDate(fin.bookingDate)}
@@ -339,6 +358,12 @@ export default function HelpdeskBookingDetailPage() {
               />
             </div>
           </HelpdeskPanel>
+
+          {isPackage && detail.hotels?.length ? (
+            <div className="lg:col-span-2">
+              <HelpdeskPackageHotelsPanel hotels={detail.hotels} />
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -365,6 +390,20 @@ export default function HelpdeskBookingDetailPage() {
               label="OTA revenue"
               value={formatFinanceMoney(fin.otaRevenue)}
             />
+            {isPackage && fin.paymentAttempts ? (
+              <HelpdeskInfoRow
+                icon={Hash}
+                label="Payment attempts"
+                value={`${fin.paymentAttempts.successful} success · ${fin.paymentAttempts.failed} failed`}
+              />
+            ) : null}
+            {isPackage && fin.outstandingAmount ? (
+              <HelpdeskInfoRow
+                icon={Wallet}
+                label="Outstanding"
+                value={formatFinanceMoney(fin.outstandingAmount)}
+              />
+            ) : null}
           </HelpdeskPanel>
           <HelpdeskPanel
             title="Financial breakdown"
@@ -386,6 +425,7 @@ export default function HelpdeskBookingDetailPage() {
               />
             </div>
           </HelpdeskPanel>
+          {isPackage ? <HelpdeskPackageFinancialExtras financial={fin} /> : null}
         </div>
       ) : null}
 
@@ -401,6 +441,7 @@ export default function HelpdeskBookingDetailPage() {
           >
             <HelpdeskPaymentAttemptsTable attempts={fin.payment.payments} />
           </HelpdeskPanel>
+          {isPackage ? <HelpdeskPackagePaymentExtras financial={fin} /> : null}
           {fin.cancellationPolicy || fin.cancellationPolicyLines.length ? (
             <HelpdeskPanel title="Cancellation policy">
               {fin.cancellationPolicy ? (
