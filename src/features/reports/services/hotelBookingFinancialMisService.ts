@@ -113,6 +113,7 @@ export interface HotelFinancialMisHotelPayoutBreakup {
   originalHotelGst: HotelFinancialMisMoney;
   hotelBaseRate: HotelFinancialMisMoney;
   hotelGst: HotelFinancialMisMoney;
+  totalGrossAmount: HotelFinancialMisMoney;
   otaCommission: HotelFinancialMisMoney;
   otaCommissionGst: HotelFinancialMisMoney;
   otaCommissionInclusiveGst: HotelFinancialMisMoney;
@@ -452,11 +453,21 @@ function normalizeHotelPayoutBreakup(
   raw: unknown,
 ): HotelFinancialMisHotelPayoutBreakup {
   const record = (raw ?? {}) as Record<string, unknown>;
+  const hotelBaseRate = money(record.hotelBaseRate);
+  const hotelGst = money(record.hotelGst, hotelBaseRate.currency);
+  const totalGrossAmount =
+    record.totalGrossAmount != null
+      ? money(record.totalGrossAmount, hotelBaseRate.currency)
+      : {
+          amount: hotelBaseRate.amount + hotelGst.amount,
+          currency: hotelBaseRate.currency || hotelGst.currency || "INR",
+        };
   return {
     originalHotelBaseRate: money(record.originalHotelBaseRate),
     originalHotelGst: money(record.originalHotelGst),
-    hotelBaseRate: money(record.hotelBaseRate),
-    hotelGst: money(record.hotelGst),
+    hotelBaseRate,
+    hotelGst,
+    totalGrossAmount,
     otaCommission: money(record.otaCommission),
     otaCommissionGst: money(record.otaCommissionGst),
     otaCommissionInclusiveGst: money(record.otaCommissionInclusiveGst),

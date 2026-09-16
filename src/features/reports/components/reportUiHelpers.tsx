@@ -238,7 +238,9 @@ export function formatReportDateTime(value?: string | null): string {
 
 export function formatStatusLabel(status: string | null | undefined): string {
   if (status == null || status === "") return "—";
-  const text = String(status);
+  const text = String(status).trim();
+  const upper = text.toUpperCase();
+  if (upper === "B2C" || upper === "B2B") return upper;
   return text
     .replace(/_/g, " ")
     .toLowerCase()

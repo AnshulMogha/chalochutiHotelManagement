@@ -559,6 +559,14 @@ export default function HotelBookingFinancialMisDetailPage() {
             actionLabel=""
           />
           <FinanceKpiCard
+            label="Net OTA GST"
+            value={formatFinanceMoney(booking.otaRevenueBreakup.netOtaRevenueGst)}
+            icon={Receipt}
+            tone={FINANCE_KPI_TONES.margin}
+            onClick={() => setTab("otaRevenue")}
+            actionLabel=""
+          />
+          <FinanceKpiCard
             label="OTA Incl. GST"
             value={formatFinanceMoney(booking.otaRevenueInclusiveGst)}
             icon={CircleDollarSign}
@@ -647,10 +655,6 @@ export default function HotelBookingFinancialMisDetailPage() {
             <Panel title="Booking info">
               <div className="space-y-1 p-4">
                 <InfoLine
-                  label="Booking ID"
-                  value={String(booking.bookingId)}
-                />
-                <InfoLine
                   label="Booking ref"
                   value={booking.bookingRef || "—"}
                 />
@@ -727,12 +731,21 @@ export default function HotelBookingFinancialMisDetailPage() {
                 amount={booking.hotelPayoutBreakup.originalHotelGst}
               />
               <BreakupRow
+                label="Promotion discount"
+                amount={booking.promotionDiscount}
+                negative
+              />
+              <BreakupRow
                 label="Hotel base amount"
                 amount={booking.hotelPayoutBreakup.hotelBaseRate}
               />
               <BreakupRow
                 label="Hotel GST"
                 amount={booking.hotelPayoutBreakup.hotelGst}
+              />
+              <BreakupRow
+                label="Total gross amount"
+                amount={booking.hotelPayoutBreakup.totalGrossAmount}
               />
               <BreakupRow
                 label="OTA commission"
@@ -763,11 +776,11 @@ export default function HotelBookingFinancialMisDetailPage() {
             </Panel>
             <Panel title="OTA Revenue Breakup">
               <BreakupRow
-                label="Commission"
+                label="OTA Commission"
                 amount={booking.otaRevenueBreakup.commission}
               />
               <BreakupRow
-                label="Commission GST"
+                label="OTA Commission GST"
                 amount={booking.otaRevenueBreakup.commissionGst}
               />
               <BreakupRow
@@ -871,11 +884,11 @@ export default function HotelBookingFinancialMisDetailPage() {
                   value={formatFinanceMoney(booking.agentCommission)}
                 />
                 <InfoLine
-                  label="Commission"
+                  label="OTA Commission"
                   value={formatFinanceMoney(booking.commission)}
                 />
                 <InfoLine
-                  label="Commission GST"
+                  label="OTA Commission GST"
                   value={formatFinanceMoney(booking.commissionGst)}
                 />
                 <InfoLine
@@ -951,12 +964,21 @@ export default function HotelBookingFinancialMisDetailPage() {
                 amount={booking.hotelPayoutBreakup.originalHotelGst}
               />
               <BreakupRow
+                label="Promotion discount"
+                amount={booking.promotionDiscount}
+                negative
+              />
+              <BreakupRow
                 label="Hotel base amount"
                 amount={booking.hotelPayoutBreakup.hotelBaseRate}
               />
               <BreakupRow
-                label="Hotel taxes / GST"
+                label="Hotel GST"
                 amount={booking.hotelPayoutBreakup.hotelGst}
+              />
+              <BreakupRow
+                label="Total gross amount"
+                amount={booking.hotelPayoutBreakup.totalGrossAmount}
               />
               <BreakupRow
                 label="OTA commission"
@@ -1058,11 +1080,11 @@ export default function HotelBookingFinancialMisDetailPage() {
           <div className="w-full">
             <Panel title="OTA Revenue Breakup" className="w-full">
               <BreakupRow
-                label="Hotel commission"
+                label="OTA Commission"
                 amount={booking.otaRevenueBreakup.commission}
               />
               <BreakupRow
-                label="Commission GST"
+                label="OTA Commission GST"
                 amount={booking.otaRevenueBreakup.commissionGst}
               />
               <BreakupRow

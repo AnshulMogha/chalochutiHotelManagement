@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { AxiosError } from "axios";
 import { ArrowLeft, Eye, EyeOff, Lock } from "lucide-react";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "@/components/ui";
 import { authService } from "../services/authService";
-import type { ApiFailureResponse } from "@/services/api/types/api";
+import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 
 interface ResetPasswordState {
   resetToken: string;
@@ -62,9 +61,8 @@ export default function ResetPasswordPage() {
         state: { message: "Password reset successful. Please login." },
       });
     } catch (err: unknown) {
-      const apiError = err as AxiosError<ApiFailureResponse>;
       setError(
-        apiError.response?.data.message ||
+        extractErrorMessage(err) ||
           "Failed to reset password. Please try again.",
       );
     } finally {

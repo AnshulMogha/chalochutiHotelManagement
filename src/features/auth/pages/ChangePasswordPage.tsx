@@ -10,8 +10,7 @@ import {
 } from "@/components/ui";
 import { Lock, Eye, EyeOff } from "lucide-react";
 import { authService } from "../services/authService";
-import { AxiosError } from "axios";
-import type { ApiFailureResponse } from "@/services/api/types/api";
+import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 
 interface ChangePasswordState {
   pwdChangeToken: string;
@@ -90,9 +89,8 @@ export default function ChangePasswordPage() {
         state: { message: "Password changed successfully. Please login." },
       });
     } catch (err: unknown) {
-      const apiError = err as AxiosError<ApiFailureResponse>;
       setError(
-        apiError.response?.data?.message ||
+        extractErrorMessage(err) ||
           "Failed to change password. Please try again.",
       );
     } finally {
