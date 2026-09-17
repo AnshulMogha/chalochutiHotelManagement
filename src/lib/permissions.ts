@@ -23,6 +23,7 @@ import {
   isReviewerPortalRole,
   isSalesManagerRole,
   isSuperAdmin,
+  isZonalHotelReviewerRole,
   isZonalManagerSalesRole,
 } from "@/constants/roles";
 import { ROUTES, hasAnyRole, ROLES } from "@/constants";
@@ -500,19 +501,27 @@ function canViewReportsPath(user: User | null, pathOnly: string): boolean {
   }
 
   if (pathOnly === ROUTES.REPORTS.BOOKING_SUMMARY) {
-    return canViewModule(user, "BOOKINGS");
+    return (
+      canViewModule(user, "BOOKINGS") || isZonalHotelReviewerRole(user?.roles)
+    );
   }
 
   if (pathOnly === ROUTES.REPORTS.PROMOTIONS) {
-    return canViewModule(user, "BOOKINGS");
+    return (
+      canViewModule(user, "BOOKINGS") || isZonalHotelReviewerRole(user?.roles)
+    );
   }
 
   if (pathOnly === ROUTES.REPORTS.RATE_HEALTH) {
-    return canViewModule(user, "BOOKINGS");
+    return (
+      canViewModule(user, "BOOKINGS") || isZonalHotelReviewerRole(user?.roles)
+    );
   }
 
   if (pathOnly === ROUTES.REPORTS.INVENTORY_ALLOCATION) {
-    return canViewModule(user, "BOOKINGS");
+    return (
+      canViewModule(user, "BOOKINGS") || isZonalHotelReviewerRole(user?.roles)
+    );
   }
 
   if (
@@ -671,6 +680,13 @@ function canReviewerPortalViewPath(user: User | null, pathOnly: string): boolean
   }
   if (pathOnly.startsWith("/reports/")) {
     return canViewReportsPath(user, pathOnly);
+  }
+  if (
+    isZonalHotelReviewerRole(user?.roles) &&
+    (pathOnly === ROUTES.BOOKINGS.LIST ||
+      pathOnly.startsWith(`${ROUTES.BOOKINGS.LIST}/`))
+  ) {
+    return true;
   }
   if (isReviewMisPath(pathOnly)) {
     return canAccessReviewMis(user);
@@ -876,6 +892,15 @@ export function canViewPath(user: User | null, pathname: string): boolean {
 
   // Auditor routes are role-scoped only — no hotel-access module rows required.
   if (isAuditorRole(user?.roles) && !isSuperAdmin(user?.roles)) {
+    return true;
+  }
+
+  // Zonal hotel managers get Bookings like Hotel BD without a BOOKINGS module row.
+  if (
+    isZonalHotelReviewerRole(user?.roles) &&
+    (pathOnly === ROUTES.BOOKINGS.LIST ||
+      pathOnly.startsWith(`${ROUTES.BOOKINGS.LIST}/`))
+  ) {
     return true;
   }
 

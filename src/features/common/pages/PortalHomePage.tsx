@@ -8,6 +8,8 @@ import {
   isHotelBdRole,
   isPlatformAccountantRole,
   isSalesManagerRole,
+  isZonalHotelReviewerRole,
+  canViewHotelBdReports,
 } from "@/constants/roles";
 import { ROUTES } from "@/constants";
 
@@ -35,6 +37,13 @@ export default function PortalHomePage() {
   }
 
   if (isHotelBdRole(user?.roles)) {
+    return <Navigate to={ROUTES.REPORTS.HOTEL_BD_DASHBOARD} replace />;
+  }
+
+  if (
+    isZonalHotelReviewerRole(user?.roles) &&
+    canViewHotelBdReports(user?.roles)
+  ) {
     return <Navigate to={ROUTES.REPORTS.HOTEL_BD_DASHBOARD} replace />;
   }
 

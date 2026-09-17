@@ -207,6 +207,8 @@ export const PAYMENT_REPORT_ROLES = [
   "FINANCE_MANAGER",
   "FRONT_DESK_EXEC",
   "AUDITOR",
+  "ZONAL_MANAGER_HOTEL",
+  "ZontalHotelManager",
 ] as const;
 
 export function canViewPaymentReport(userRoles: string[] | undefined): boolean {
@@ -227,6 +229,8 @@ export const HOTEL_PAYOUT_MIS_ROLES = [
   "FRONT_DESK_EXEC",
   "HOTEL_BD",
   "AUDITOR",
+  "ZONAL_MANAGER_HOTEL",
+  "ZontalHotelManager",
 ] as const;
 
 export function canViewHotelPayoutMis(

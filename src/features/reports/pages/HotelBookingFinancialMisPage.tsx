@@ -644,6 +644,11 @@ export default function HotelBookingFinancialMisPage() {
       ],
       [
         "Summary",
+        "Cancelled bookings",
+        summary.totalCancellation,
+      ],
+      [
+        "Summary",
         "Cancellation",
         formatFinanceMoney(summary.cancellationAmount),
       ],
@@ -1030,6 +1035,18 @@ export default function HotelBookingFinancialMisPage() {
               }
               icon={RotateCcw}
               tone={FINANCE_KPI_TONES.refund}
+            />
+            <FinanceKpiCard
+              label="Cancelled Bookings"
+              value={
+                summary
+                  ? String(summary.totalCancellation)
+                  : loading
+                    ? "…"
+                    : "0"
+              }
+              icon={Receipt}
+              tone={FINANCE_KPI_TONES.cancellation}
             />
             <FinanceKpiCard
               label="Cancellation"

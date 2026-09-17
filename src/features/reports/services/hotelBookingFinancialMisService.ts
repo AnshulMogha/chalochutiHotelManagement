@@ -229,6 +229,7 @@ export interface HotelFinancialMisSummary {
   agencyCommission: HotelFinancialMisMoney;
   commissionReversal: HotelFinancialMisMoney;
   cancellationAmount: HotelFinancialMisMoney;
+  totalCancellation: number;
   refundAmount: HotelFinancialMisMoney;
   outstandingHotelPayout: HotelFinancialMisMoney;
   outstandingCustomerRefund: HotelFinancialMisMoney;
@@ -642,6 +643,7 @@ function normalizeResponse(
       agencyCommission: money(summaryRaw.agencyCommission),
       commissionReversal: money(summaryRaw.commissionReversal),
       cancellationAmount: money(summaryRaw.cancellationAmount),
+      totalCancellation: toNumber(summaryRaw.totalCancellation),
       refundAmount: money(summaryRaw.refundAmount),
       outstandingHotelPayout: money(summaryRaw.outstandingHotelPayout),
       outstandingCustomerRefund: money(summaryRaw.outstandingCustomerRefund),

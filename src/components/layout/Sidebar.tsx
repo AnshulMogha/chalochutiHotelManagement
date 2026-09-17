@@ -22,6 +22,7 @@ import {
   isPlatformAccountantRole,
   isReviewerPortalRole,
   isSalesManagerRole,
+  isZonalHotelReviewerRole,
   isZonalManagerSalesRole,
 } from "@/constants/roles";
 import { useAuth } from "@/hooks/useAuth";
@@ -480,9 +481,11 @@ const getNavItems = (user: User | null): NavItem[] => {
 
   const dashboardPath = isHotelBd
     ? ROUTES.REPORTS.HOTEL_BD_DASHBOARD
-    : isSalesManager
-      ? ROUTES.REPORTS.SALES_MANAGER_DASHBOARD
-      : ROUTES.PROPERTIES.LIST;
+    : isReviewer && canViewHotelBdReports(userRoles)
+      ? ROUTES.REPORTS.HOTEL_BD_DASHBOARD
+      : isSalesManager
+        ? ROUTES.REPORTS.SALES_MANAGER_DASHBOARD
+        : ROUTES.PROPERTIES.LIST;
   items.push({
     label: "Dashboard",
     path: dashboardPath,
@@ -528,10 +531,29 @@ const getNavItems = (user: User | null): NavItem[] => {
     !!userRoles?.includes("ACCOUNTANT");
 
   if (isReviewer) {
+    const isZonalHotel = isZonalHotelReviewerRole(userRoles);
     const reportsNav = getReportsNavItem(user, {
+      includeHotelBdDashboard: canViewHotelBdReports(userRoles),
       includeOnboardingPipeline: canViewHotelBdPipeline(userRoles),
+      // Same operational reports Hotel BD sees under Reports.
+      ...(isZonalHotel
+        ? {
+            includeBookingReports: true,
+            includeSalesManagerDashboard:
+              canViewSalesManagerReports(userRoles),
+            includeSalesManagerPortfolio:
+              canViewSalesManagerReports(userRoles),
+          }
+        : {}),
     });
     if (reportsNav) items.push(reportsNav);
+    if (isZonalHotel) {
+      items.push({
+        label: "Bookings",
+        path: ROUTES.BOOKINGS.LIST,
+        icon: BookOpen,
+      });
+    }
     if (canModerateReviews(userRoles)) {
       items.push(getReviewModerationNavItem());
     }

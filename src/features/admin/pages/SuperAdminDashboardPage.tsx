@@ -7,6 +7,7 @@ import {
   isReviewerPortalRole,
   isSalesManagerRole,
   canViewHotelBdPipeline,
+  canViewHotelBdReports,
   isZonalManagerSalesRole,
 } from "@/constants/roles";
 import {
@@ -203,9 +204,10 @@ export default function SuperAdminDashboardPage() {
   const isSalesManager = isSalesManagerRole(userRoles);
 
   const visibleCards = DASHBOARD_LINKS.filter((item) => {
-    // Hotel BD users are redirected to the portfolio dashboard; keep only
-    // Onboarding Pipeline on the portal home for other authorized roles.
-    if (item.key === "HOTEL_BD_DASHBOARD") return false;
+    // Hotel BD users are redirected to the portfolio dashboard.
+    if (item.key === "HOTEL_BD_DASHBOARD") {
+      return canViewHotelBdReports(userRoles);
+    }
     if (item.key === "HOTEL_BD_PIPELINE") {
       return canViewHotelBdPipeline(userRoles);
     }
@@ -214,7 +216,13 @@ export default function SuperAdminDashboardPage() {
     }
     if (isZonalSales) return item.key === "TRAVEL_PARTNERS";
     if (isSalesManager) return item.key === "AGENTS";
-    if (isReviewer) return item.key === "HOTEL_REVIEW";
+    if (isReviewer) {
+      return (
+        item.key === "HOTEL_REVIEW" ||
+        item.key === "HOTEL_BD_DASHBOARD" ||
+        item.key === "HOTEL_BD_PIPELINE"
+      );
+    }
     if (isOnboardingReviewer) {
       return item.key === "HOTEL_REVIEW";
       // || item.key === "DOCUMENT_REVIEW";

@@ -6,6 +6,7 @@ import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import {
   canFilterHotelBdReportsByUser,
+  canViewHotelBdReports,
   isReviewerPortalRole,
   isSuperAdmin,
 } from "@/constants/roles";
@@ -149,7 +150,8 @@ export default function HotelBdPipelineReportPage() {
   const userRoles = user?.roles;
   const canFilterByBd = canFilterHotelBdReportsByUser(userRoles);
   const isAdmin = isSuperAdmin(userRoles);
-  const hideDashboardLink = isReviewerPortalRole(userRoles);
+  const hideDashboardLink =
+    isReviewerPortalRole(userRoles) && !canViewHotelBdReports(userRoles);
   const { toast, showToast, hideToast } = useToast();
 
   const [status, setStatus] = useState<HotelBdPipelineStatus>(DEFAULT_STATUS);

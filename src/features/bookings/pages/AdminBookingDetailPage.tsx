@@ -774,11 +774,6 @@ export default function AdminBookingDetailPage({
   const cancellationChargePercent =
     firstPercent(matchedBracket?.penaltyPercent) ??
     ratePercent(cancellationChargeAmount, originalReservationValue);
-  const payablePercent = ratePercent(
-    payableToProperty,
-    originalReservationValue,
-  );
-  const refundPercent = ratePercent(refundedAmount, originalReservationValue);
   const gstLabel =
     detail.financials.gst?.rateLabel ||
     (gstPercent != null ? `GST (${formatPercent(gstPercent)})` : "GST");
@@ -1346,7 +1341,7 @@ export default function AdminBookingDetailPage({
                         <TableHead label="Net" />
                         <TableHead label="Hotel GST" />
                         <TableHead label="Property total" />
-                        <TableHead label="Commission" />
+                        <TableHead label="Commission" hint="Incl. GST" />
                         <TableHead label="Before TDS/TCS" />
                       </tr>
                     </thead>
@@ -2105,7 +2100,12 @@ export default function AdminBookingDetailPage({
                       <th className="py-1.5 pr-2 text-right">Net</th>
                       <th className="py-1.5 pr-2 text-right">GST</th>
                       <th className="py-1.5 pr-2 text-right">Gross</th>
-                      <th className="py-1.5 pr-2 text-right">Comm.</th>
+                      <th className="py-1.5 pr-2 text-right">
+                        <span className="block">Comm.</span>
+                        <span className="block text-[9px] font-normal normal-case text-gray-400">
+                          Excl. GST
+                        </span>
+                      </th>
                       <th className="py-1.5 text-right">Payable</th>
                     </tr>
                   </thead>
@@ -2466,12 +2466,11 @@ export default function AdminBookingDetailPage({
             ) : null}
             <CalcSubtotal
               letter="D"
-              label={withRate(
+              label={
                 isPackageBooking
                   ? "Payable to property"
-                  : "Payable to property (A − B − C)",
-                payablePercent,
-              )}
+                  : "Payable to property (A − B − C)"
+              }
               amount={moneyAmount(
                 cancellation.settlement.amountPayableToProperty,
               )}
@@ -2479,10 +2478,7 @@ export default function AdminBookingDetailPage({
             />
             <CalcSubtotal
               letter="E"
-              label={withRate(
-                "Customer refund",
-                refundPercent && refundPercent > 0 ? refundPercent : undefined,
-              )}
+              label="Customer refund"
               amount={moneyAmount(cancellation.settlement.customerRefund)}
               currency={currency}
             />

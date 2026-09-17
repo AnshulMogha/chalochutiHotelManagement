@@ -81,7 +81,8 @@ const COMMISSION_TABS: {
   { value: "otaCommission", label: "OTA Commission", icon: Percent },
   { value: "agencyCommission", label: "Agency Commission", icon: Building2 },
   { value: "tax", label: "Taxes", icon: Receipt },
-  { value: "serviceFee", label: "Service Fee", icon: IndianRupee },
+  // Temporarily hidden — keep code; re-enable when service fee UI is ready
+  // { value: "serviceFee", label: "Service Fee", icon: IndianRupee },
 ];
 
 const COMMISSION_TYPE_OPTIONS = [
@@ -2288,6 +2289,7 @@ export default function CommissionAndTaxPage() {
           )}
         </TabsContent>
 
+        {/* Temporarily hidden Service Fee tab content — do not remove
         <TabsContent value="serviceFee" className="mt-0 flex min-h-0 flex-1 flex-col">
           {tabLoading ? (
             <CommissionTabLoader theme="purple" />
@@ -2442,6 +2444,7 @@ export default function CommissionAndTaxPage() {
           </CommissionPanelBody>
           )}
         </TabsContent>
+        */}
       </Tabs>
 
       {/* Commission Modal */}
