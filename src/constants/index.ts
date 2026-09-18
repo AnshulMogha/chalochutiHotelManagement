@@ -109,6 +109,8 @@ export const ROUTES = {
     LOOKUP: "/helpdesk/orders",
     DETAIL: (bookingRef: string) =>
       `/helpdesk/orders/${encodeURIComponent(bookingRef)}`,
+    ITINERARY: (bookingRef: string) =>
+      `/helpdesk/orders/${encodeURIComponent(bookingRef)}/itinerary`,
     TICKETS: "/helpdesk/tickets",
     TICKET_CREATE: "/helpdesk/tickets/new",
     TICKET_DETAIL: (ticketId: string | number) =>
@@ -568,6 +570,8 @@ export const API_ENDPOINTS = {
   CUSTOMER: {
     HOTEL_LOOKUP: "/customer/packages/hotel/lookup",
     PACKAGE_LOOKUP: "/customer/packages/lookup",
+    PACKAGE_ITINERARY_SUMMARY: (packageBookingId: string | number) =>
+      `/customer/packages/bookings/${packageBookingId}/itinerary-summary`,
   },
   HELPDESK: {
     BOOKINGS: "/helpdesk/bookings",

@@ -9,17 +9,24 @@ import {
   HelpdeskInfoRow,
   HelpdeskPanel,
 } from "./helpdeskUi";
-import type { HelpdeskFinancialDetail, HelpdeskPackageHotel } from "../services/helpdeskBookingService";
+import type {
+  HelpdeskDriver,
+  HelpdeskFinancialDetail,
+  HelpdeskPackageHotel,
+  HelpdeskTransporter,
+} from "../services/helpdeskBookingService";
 import {
   Activity,
   Building2,
   Bus,
   CalendarDays,
+  Car,
   Hash,
   Mail,
   MapPin,
   Phone,
   Tag,
+  User,
   Wallet,
 } from "lucide-react";
 
@@ -90,6 +97,96 @@ export function HelpdeskPackageHotelsPanel({
         })}
       </div>
     </HelpdeskPanel>
+  );
+}
+
+export function HelpdeskPackageTransportPanel({
+  transporter,
+  driver,
+}: {
+  transporter?: HelpdeskTransporter | null;
+  driver?: HelpdeskDriver | null;
+}) {
+  return (
+    <div className="grid gap-3.5 lg:grid-cols-2">
+      <HelpdeskPanel
+        title="Transporter"
+        subtitle={
+          transporter?.type
+            ? formatStatusLabel(transporter.type)
+            : "Transport vendor for this package"
+        }
+        icon={Bus}
+      >
+        {transporter ? (
+          <>
+            <HelpdeskInfoRow
+              icon={Building2}
+              label="Agency"
+              value={transporter.agencyName || "—"}
+            />
+            <HelpdeskInfoRow
+              icon={User}
+              label="Contact"
+              value={transporter.contactName || "—"}
+            />
+            <HelpdeskInfoRow
+              icon={Mail}
+              label="Email"
+              value={transporter.email || "—"}
+            />
+            <HelpdeskInfoRow
+              icon={Phone}
+              label="Phone"
+              value={transporter.phone || "—"}
+            />
+          </>
+        ) : (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-600">
+            No transporter assigned for this package.
+          </p>
+        )}
+      </HelpdeskPanel>
+
+      <HelpdeskPanel
+        title="Driver & vehicle"
+        subtitle={
+          driver?.assignmentStatus
+            ? formatStatusLabel(driver.assignmentStatus)
+            : "Assigned transport crew"
+        }
+        icon={Car}
+      >
+        {driver ? (
+          <>
+            <HelpdeskInfoRow
+              icon={User}
+              label="Driver"
+              value={driver.driverName || "—"}
+            />
+            <HelpdeskInfoRow
+              icon={Phone}
+              label="Phone"
+              value={driver.driverPhone || "—"}
+            />
+            <HelpdeskInfoRow
+              icon={Car}
+              label="Vehicle number"
+              value={driver.vehicleNumber || "—"}
+            />
+            <HelpdeskInfoRow
+              icon={Tag}
+              label="Vehicle model"
+              value={driver.vehicleModel || "—"}
+            />
+          </>
+        ) : (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-600">
+            No driver assigned for this package.
+          </p>
+        )}
+      </HelpdeskPanel>
+    </div>
   );
 }
 

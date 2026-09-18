@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { ROUTES } from "@/constants";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
@@ -31,7 +31,9 @@ import {
   HelpdeskPackageFinancialExtras,
   HelpdeskPackageHotelsPanel,
   HelpdeskPackagePaymentExtras,
+  HelpdeskPackageTransportPanel,
 } from "../components/HelpdeskPackageSections";
+import { HelpdeskPackageItineraryPanel } from "../components/HelpdeskPackageItineraryPanel";
 import {
   Activity,
   ArrowLeft,
@@ -39,6 +41,7 @@ import {
   Bus,
   CalendarDays,
   Copy,
+  GitBranch,
   Hash,
   Loader2,
   Mail,
@@ -57,12 +60,14 @@ type DetailTab =
   | "overview"
   | "financial"
   | "components"
+  | "itinerary"
   | "payment"
   | "timeline"
   | "actions";
 
 export default function HelpdeskBookingDetailPage() {
   const { bookingRef = "" } = useParams();
+  const navigate = useNavigate();
   const { toast, showToast, hideToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<HelpdeskBookingDetail | null>(null);
@@ -149,7 +154,10 @@ export default function HelpdeskBookingDetailPage() {
     { id: "financial", label: "Financials", icon: Wallet },
   ];
   if (isPackage) {
-    tabs.push({ id: "components", label: "Components", icon: Activity });
+    tabs.push(
+      { id: "components", label: "Components", icon: Activity },
+      { id: "itinerary", label: "Itinerary", icon: GitBranch },
+    );
   }
   tabs.push(
     { id: "payment", label: "Payment", icon: Hash },
@@ -197,6 +205,16 @@ export default function HelpdeskBookingDetailPage() {
                 <HelpdeskTag icon={Users}>
                   Booked by {formatStatusLabel(fin.bookedBy)}
                 </HelpdeskTag>
+              ) : null}
+              {isPackage ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("itinerary")}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/15 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-white/25"
+                >
+                  <GitBranch className="h-3.5 w-3.5" />
+                  Trip itinerary
+                </button>
               ) : null}
             </div>
           </div>
@@ -314,6 +332,22 @@ export default function HelpdeskBookingDetailPage() {
 
           {isPackage && detail.hotels?.length ? (
             <HelpdeskPackageHotelsPanel hotels={detail.hotels} />
+          ) : null}
+
+          {isPackage ? (
+            <HelpdeskPackageTransportPanel
+              transporter={detail.transporter}
+              driver={detail.driver}
+            />
+          ) : null}
+
+          {isPackage ? (
+            <HelpdeskPackageItineraryPanel
+              bookingId={detail.bookingId}
+              bookingRef={detail.bookingRef}
+              packageId={fin.packageId}
+              productName={support.productName}
+            />
           ) : null}
 
           <div className="grid gap-3.5 lg:grid-cols-2">
@@ -509,6 +543,15 @@ export default function HelpdeskBookingDetailPage() {
         />
       ) : null}
 
+      {activeTab === "itinerary" && isPackage ? (
+        <HelpdeskPackageItineraryPanel
+          bookingId={detail.bookingId}
+          bookingRef={detail.bookingRef}
+          packageId={fin.packageId}
+          productName={support.productName}
+        />
+      ) : null}
+
       {activeTab === "payment" ? (
         <div className="space-y-4">
           <HelpdeskPanel
@@ -614,6 +657,23 @@ export default function HelpdeskBookingDetailPage() {
                 />
               </div>
               <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                {isPackage ? (
+                  <HelpdeskActionButton
+                    icon={GitBranch}
+                    variant="primary"
+                    onClick={() =>
+                      navigate(ROUTES.HELPDESK.ITINERARY(detail.bookingRef), {
+                        state: {
+                          bookingId: detail.bookingId,
+                          packageId: fin.packageId,
+                          productName: support.productName,
+                        },
+                      })
+                    }
+                  >
+                    View trip itinerary
+                  </HelpdeskActionButton>
+                ) : null}
                 <HelpdeskActionButton
                   icon={Copy}
                   onClick={() =>

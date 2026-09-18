@@ -112,6 +112,22 @@ export interface HelpdeskPackageHotel {
   phoneList: string[];
 }
 
+export interface HelpdeskTransporter {
+  type: string;
+  agencyName: string | null;
+  contactName: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+export interface HelpdeskDriver {
+  driverName: string | null;
+  driverPhone: string | null;
+  vehicleNumber: string | null;
+  vehicleModel: string | null;
+  assignmentStatus: string | null;
+}
+
 export interface HelpdeskPaymentAttemptsCount {
   successful: number;
   failed: number;
@@ -359,6 +375,8 @@ export interface HelpdeskBookingDetail {
   customer: HelpdeskCustomer;
   agency?: HelpdeskAgency | null;
   hotels?: HelpdeskPackageHotel[];
+  transporter?: HelpdeskTransporter | null;
+  driver?: HelpdeskDriver | null;
   timeline: HelpdeskTimelineEvent[];
   financial: HelpdeskFinancialDetail;
 }
@@ -512,6 +530,50 @@ function normalizePackageHotels(raw: unknown): HelpdeskPackageHotel[] {
       phoneList,
     };
   });
+}
+
+function normalizeTransporter(raw: unknown): HelpdeskTransporter | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const agencyName = String(obj.agencyName || "").trim();
+  const contactName = String(obj.contactName || "").trim();
+  const email = String(obj.email || "").trim();
+  const phone = String(obj.phone || "").trim();
+  const type = String(obj.type || "").trim();
+  if (!agencyName && !contactName && !email && !phone) return null;
+  return {
+    type,
+    agencyName: agencyName || null,
+    contactName: contactName || null,
+    email: email || null,
+    phone: phone || null,
+  };
+}
+
+function normalizeDriver(raw: unknown): HelpdeskDriver | null {
+  if (!raw || typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+  const driverName = String(obj.driverName || "").trim();
+  const driverPhone = String(obj.driverPhone || "").trim();
+  const vehicleNumber = String(obj.vehicleNumber || "").trim();
+  const vehicleModel = String(obj.vehicleModel || "").trim();
+  const assignmentStatus = String(obj.assignmentStatus || "").trim();
+  if (
+    !driverName &&
+    !driverPhone &&
+    !vehicleNumber &&
+    !vehicleModel &&
+    !assignmentStatus
+  ) {
+    return null;
+  }
+  return {
+    driverName: driverName || null,
+    driverPhone: driverPhone || null,
+    vehicleNumber: vehicleNumber || null,
+    vehicleModel: vehicleModel || null,
+    assignmentStatus: assignmentStatus || null,
+  };
 }
 
 function normalizeAgencyIncentive(
@@ -921,6 +983,8 @@ function normalizeDetail(raw: Record<string, unknown>): HelpdeskBookingDetail {
         }
       : null,
     hotels: normalizePackageHotels(raw.hotels),
+    transporter: normalizeTransporter(raw.transporter),
+    driver: normalizeDriver(raw.driver),
     timeline: normalizeTimeline(raw.timeline),
     financial: normalizeFinancial(financialRaw),
   };
