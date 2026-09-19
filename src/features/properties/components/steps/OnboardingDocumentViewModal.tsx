@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, ExternalLink, FileText, FileWarning, Loader2, X } from "lucide-react";
-import { adminService } from "@/features/admin/services/adminService";
 import {
   getDocumentId,
   getStoredDocumentUrl,
   usesSignedDocumentDownloadUrls,
 } from "@/features/admin/services/documentDownloadUrl";
+import { propertyService } from "../../services/propertyService";
 import type { OnboardingDocument } from "../../services/api.types";
 
 interface OnboardingDocumentViewModalProps {
@@ -40,7 +40,10 @@ async function resolveDocumentSourceUrl(
     if (docId == null) {
       throw new Error("Document id missing");
     }
-    const data = await adminService.getHotelDocumentDownloadUrl(hotelId, docId);
+    const data = await propertyService.getOnboardingDocumentDownloadUrl(
+      hotelId,
+      docId,
+    );
     return String(data.downloadUrl || "").trim();
   }
   return getStoredDocumentUrl(document);

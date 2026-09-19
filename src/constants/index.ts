@@ -332,6 +332,10 @@ export const API_ENDPOINTS = {
       hotelId: string,
       documentId: string | number,
     ) => `/onboarding/hotels/${hotelId}/documents/${documentId}`,
+    GET_ONBOARDING_DOCUMENT_DOWNLOAD_URL: (
+      hotelId: string,
+      documentId: string | number,
+    ) => `/onboarding/hotels/${hotelId}/documents/${documentId}/download-url`,
     GET_ALL_ROOMS: (hotelId: string) => `onboarding/hotels/${hotelId}/rooms`,
   },
 

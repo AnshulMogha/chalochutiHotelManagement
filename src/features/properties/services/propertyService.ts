@@ -34,6 +34,11 @@ import type { ApiSuccessResponse } from "@/services/api/types";
 import type { Amenity } from "../types";
 import type { MediaTag } from "../components/steps/PhotosAndVideosStep/types";
 
+export interface OnboardingDocumentDownloadUrlData {
+  downloadUrl: string;
+  expiresInSeconds?: number;
+}
+
 export const propertyService = {
   deattachMedia: async (
     mediaId: number,
@@ -392,6 +397,21 @@ export const propertyService = {
           "Content-Type": "multipart/form-data",
         },
       },
+    );
+    return response.data;
+  },
+  /** Production signed URL for onboarding document view. */
+  getOnboardingDocumentDownloadUrl: async (
+    hotelId: string,
+    documentId: string | number,
+  ): Promise<OnboardingDocumentDownloadUrlData> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<OnboardingDocumentDownloadUrlData>
+    >(
+      API_ENDPOINTS.HOTELS.GET_ONBOARDING_DOCUMENT_DOWNLOAD_URL(
+        hotelId,
+        documentId,
+      ),
     );
     return response.data;
   },
