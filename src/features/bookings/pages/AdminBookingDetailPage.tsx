@@ -668,10 +668,8 @@ export default function AdminBookingDetailPage({
     agencyCommissionAmount > 0 ||
     (agentNetCommission ?? 0) > 0 ||
     Boolean(agencyTier);
-  const showAgencyBlock =
-    isAgentBooking ||
-    isPackageBooking ||
-    ((agencyIncentivePercent ?? 0) > 0 && Boolean(agencyIncentiveSource));
+  // Direct (B2C) package bookings must not show Agency / Agent payable.
+  const showAgencyBlock = isAgentBooking;
   const packageTaxAmount =
     rateBreakup?.propertyTaxes ?? detail.pricing.gstAmount ?? 0;
   const packageCommissionAmount =

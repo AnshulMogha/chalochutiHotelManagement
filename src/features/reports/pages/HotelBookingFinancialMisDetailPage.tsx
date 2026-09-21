@@ -14,6 +14,7 @@ import {
   getHotelFinancialMisAgentPrice,
   getHotelFinancialMisAgentCustomerSellingPrice,
   getHotelFinancialMisDisplaySellingPrice,
+  hasHotelFinancialMisAgencyDetails,
   isHotelFinancialMisB2b,
   paymentStatusTone,
   readCachedFinancialMisRow,
@@ -113,8 +114,10 @@ function CustomerOrAgentPriceBreakup({
   const agentPrice = getHotelFinancialMisAgentPrice(booking);
   const agentCustomerSellingPrice =
     getHotelFinancialMisAgentCustomerSellingPrice(booking);
-  const paymentBreakup = booking.agentPaymentBreakup;
-  const incentive = booking.agencyIncentive;
+  const paymentBreakup = isB2b ? booking.agentPaymentBreakup : null;
+  const incentive = hasHotelFinancialMisAgencyDetails(booking)
+    ? booking.agencyIncentive
+    : null;
 
   const panel = (
     <Panel
@@ -943,14 +946,13 @@ export default function HotelBookingFinancialMisDetailPage() {
           <div
             className={cn(
               "grid gap-4",
-              (booking.agencyIncentive || booking.agentPaymentBreakup) &&
-                "lg:grid-cols-2",
+              hasHotelFinancialMisAgencyDetails(booking) && "lg:grid-cols-2",
             )}
           >
             <Panel
               title="Hotel Payout Breakup"
               className={
-                booking.agencyIncentive || booking.agentPaymentBreakup
+                hasHotelFinancialMisAgencyDetails(booking)
                   ? undefined
                   : "w-full"
               }
@@ -1011,7 +1013,7 @@ export default function HotelBookingFinancialMisDetailPage() {
                 highlight
               />
             </Panel>
-            {booking.agencyIncentive || booking.agentPaymentBreakup ? (
+            {hasHotelFinancialMisAgencyDetails(booking) ? (
               <div className="space-y-4">
                 {booking.agencyIncentive ? (
                   <Panel title="Agency incentive">
@@ -1063,7 +1065,7 @@ export default function HotelBookingFinancialMisDetailPage() {
                     </div>
                   </Panel>
                 ) : null}
-                {booking.agentPaymentBreakup ? (
+                {isB2b && booking.agentPaymentBreakup ? (
                   <Panel title="Agent payment breakup">
                     <AgentPaymentBreakupLedger
                       breakup={booking.agentPaymentBreakup}
@@ -1217,11 +1219,11 @@ export default function HotelBookingFinancialMisDetailPage() {
                 />
               </div>
             </Panel>
-            {booking.agentPaymentBreakup ||
+            {(isB2b && booking.agentPaymentBreakup) ||
             booking.cancellationPolicyLines.length > 0 ||
             booking.matchedBracket ? (
               <div className="space-y-4">
-                {booking.agentPaymentBreakup ? (
+                {isB2b && booking.agentPaymentBreakup ? (
                   <Panel title="Agent payment breakup">
                     <AgentPaymentBreakupLedger
                       breakup={booking.agentPaymentBreakup}
@@ -1401,7 +1403,7 @@ export default function HotelBookingFinancialMisDetailPage() {
                 </Panel>
               ) : null}
             </div>
-            {booking.agentPaymentBreakup ? (
+            {isB2b && booking.agentPaymentBreakup ? (
               <Panel title="Agent payment breakup">
                 <AgentPaymentBreakupLedger
                   breakup={booking.agentPaymentBreakup}

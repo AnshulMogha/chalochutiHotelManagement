@@ -44,6 +44,24 @@ export function isHotelFinancialMisB2b(
   return String(booking.bookingRate || "").toUpperCase() === "B2B";
 }
 
+/** Show agency/agent panels only when the booking is B2B or has real incentive money. */
+export function hasHotelFinancialMisAgencyDetails(
+  booking: Pick<
+    HotelFinancialMisBookingRow,
+    "bookingRate" | "agencyIncentive" | "agentPaymentBreakup"
+  >,
+): boolean {
+  if (isHotelFinancialMisB2b(booking)) {
+    return Boolean(booking.agencyIncentive || booking.agentPaymentBreakup);
+  }
+  const incentive = booking.agencyIncentive;
+  if (!incentive) return false;
+  return (
+    (incentive.grossAmount?.amount ?? 0) > 0 ||
+    (incentive.netAmount?.amount ?? 0) > 0
+  );
+}
+
 export function getHotelFinancialMisAgentPrice(
   booking: Pick<
     HotelFinancialMisBookingRow,
