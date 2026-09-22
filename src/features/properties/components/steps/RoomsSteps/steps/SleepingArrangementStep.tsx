@@ -344,6 +344,7 @@ export function SleepingArrangementStep({
     // Calculate capacity from standard beds
     let totalMaxOccupancy = 0;
     let totalMaxAdults = 0;
+    let totalBaseAdults = 0;
 
     sleepingArrangement.standardBeds.forEach((bed) => {
       if (bed.bedType && bed.numberOfBeds > 0) {
@@ -352,6 +353,7 @@ export function SleepingArrangementStep({
         if (capacity) {
           totalMaxOccupancy += capacity.maxOccupancy * bed.numberOfBeds;
           totalMaxAdults += capacity.maxAdults * bed.numberOfBeds;
+          totalBaseAdults += capacity.baseAdults * bed.numberOfBeds;
         }
       }
     });
@@ -392,11 +394,9 @@ export function SleepingArrangementStep({
       ) {
         userModifiedRef.current.maxChildren = true;
       }
-      // baseAdults default is 1 when beds exist; treat any other positive
-      // value as a deliberate override.
       if (
         sleepingArrangement.baseAdults > 0 &&
-        sleepingArrangement.baseAdults !== 1
+        sleepingArrangement.baseAdults !== totalBaseAdults
       ) {
         userModifiedRef.current.baseAdults = true;
       }
@@ -426,9 +426,10 @@ export function SleepingArrangementStep({
       }
       if (
         !userModifiedRef.current.baseAdults &&
-        sleepingArrangement.baseAdults === 0
+        totalBaseAdults > 0 &&
+        sleepingArrangement.baseAdults !== totalBaseAdults
       ) {
-        setRoomDetailsState(setBaseAdults(1));
+        setRoomDetailsState(setBaseAdults(totalBaseAdults));
       }
     }
     // When totalMaxOccupancy === 0 we intentionally do NOT zero out the

@@ -726,7 +726,7 @@ function HotelBookingDetailPage({
 
           <div className="mb-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
             <FinanceKpiCard
-              label={isCancelledBooking ? "Original value" : "Guest paid"}
+              label={isCancelledBooking ? "Original value" : "Hotel Gross Charges"}
               value={formatCurrency(
                 isCancelledBooking
                   ? originalReservationValue

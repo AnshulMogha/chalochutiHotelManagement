@@ -970,7 +970,7 @@ export default function AdminBookingDetailPage({
                   : "Original value"
                 : isAgentBooking
                   ? "Agent paid"
-                  : "Guest paid"
+                  : "Hotel Gross Charges"
             }
             value={formatCurrency(
               isCancelledBooking && !isAgentBooking
