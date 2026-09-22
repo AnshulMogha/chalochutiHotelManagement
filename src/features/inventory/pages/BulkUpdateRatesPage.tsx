@@ -1070,7 +1070,7 @@ export default function BulkUpdateRatesPage() {
       </div>
       <div className="space-y-2.5">
         <label className="block text-sm font-semibold text-slate-800">
-          P ricing rule <span className="text-red-500">*</span>
+          Pricing rule <span className="text-red-500">*</span>
         </label>
         <select
           value={state.mode}
