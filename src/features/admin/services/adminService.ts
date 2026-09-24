@@ -2,6 +2,11 @@ import { apiClient } from "@/services/api/client";
 import { API_ENDPOINTS } from "@/constants";
 import type { ApiSuccessResponse } from "@/services/api/types";
 import type { Permission } from "@/features/team/services/teamService";
+import {
+  runReportExportJob,
+  type ExportJobStatus,
+  type ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 
 export interface HotelReviewItem {
   hotelId: string;
@@ -1341,6 +1346,35 @@ export const adminService = {
             : [],
       })),
     };
+  },
+  /** Queue users export (optional status/role/email), poll, then download. */
+  exportUsers: async (options: {
+    params?: Pick<GetUsersParams, "status" | "role" | "email">;
+    format?: ReportExportFormat;
+    defaultFileName: string;
+    onStatus?: (status: ExportJobStatus) => void;
+  }): Promise<void> => {
+    const format = options.format ?? "EXCEL";
+    const search = new URLSearchParams();
+    search.set("format", format);
+    if (options.params?.status?.trim()) {
+      search.set("status", options.params.status.trim());
+    }
+    if (options.params?.role?.trim()) {
+      search.set("role", options.params.role.trim());
+    }
+    if (options.params?.email?.trim()) {
+      search.set("email", options.params.email.trim());
+    }
+
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.ADMIN.USERS_EXPORT}?${search.toString()}`,
+      statusUrl: API_ENDPOINTS.ADMIN.USERS_EXPORT_JOB,
+      downloadUrl: API_ENDPOINTS.ADMIN.USERS_EXPORT_DOWNLOAD,
+      defaultFileName: options.defaultFileName,
+      format,
+      onStatus: options.onStatus,
+    });
   },
   getUserById: async (userId: string | number): Promise<User> => {
     const response = await apiClient.get<ApiSuccessResponse<User>>(
