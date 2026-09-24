@@ -42,7 +42,12 @@ import type {
   GridPaginationModel,
   GridRowParams,
 } from "@mui/x-data-grid";
-import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
+import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
+import { exportStatusLabel } from "@/features/reports/components/reportUiHelpers";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 import { UserTableToolbar } from "../components/UserTableToolbar";
 import {
   UserColumnHeader,
@@ -558,6 +563,10 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState("");
   const [emailFilterInput, setEmailFilterInput] = useState("");
   const [emailFilter, setEmailFilter] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
+    null,
+  );
 
   useEffect(() => {
     fetchUsers();
@@ -593,126 +602,29 @@ export default function UsersPage() {
     }
   };
 
-  const handleExportCSV = () => {
-    const exportColumns: ExportColumn[] = [
-      {
-        field: "user",
-        headerName: "User",
-        valueGetter: (row) => {
-          const firstName = row.firstName || "";
-          const lastName = row.lastName || "";
-          return `${firstName} ${lastName}`.trim() || "N/A";
+  const handleExport = async (format: ReportExportFormat) => {
+    setExporting(true);
+    setExportStatus("QUEUED");
+    setError(null);
+    try {
+      await adminService.exportUsers({
+        params: {
+          ...(statusFilter ? { status: statusFilter } : {}),
+          ...(roleFilter ? { role: roleFilter } : {}),
+          ...(emailFilter ? { email: emailFilter } : {}),
         },
-      },
-      { field: "email", headerName: "Email" },
-      {
-        field: "phoneNumber",
-        headerName: "Phone",
-        valueGetter: (row) => row.phoneNumber || "N/A",
-      },
-      {
-        field: "roles",
-        headerName: "Roles",
-        valueGetter: (row) =>
-          row.roles && row.roles.length > 0 ? row.roles.join(", ") : "No Role",
-      },
-      {
-        field: "states",
-        headerName: "States",
-        valueGetter: (row) =>
-          row.states && row.states.length > 0
-            ? row.states.map((s: { name: string }) => s.name).join(", ")
-            : "All / Not Set",
-      },
-      { field: "authProvider", headerName: "Auth Provider" },
-      {
-        field: "twoFactorEnabled",
-        headerName: "2FA",
-        valueGetter: (row) => (row.twoFactorEnabled ? "Enabled" : "Disabled"),
-      },
-      {
-        field: "firstLoginRequired",
-        headerName: "First Login Required",
-        valueGetter: (row) => (row.firstLoginRequired ? "Yes" : "No"),
-      },
-      { field: "accountStatus", headerName: "Status" },
-      {
-        field: "lastLoginTime",
-        headerName: "Last Login",
-        valueGetter: (row) => formatDateTime(row.lastLoginTime),
-      },
-      {
-        field: "createdAt",
-        headerName: "Created At",
-        valueGetter: (row) => formatDateTime(row.createdAt),
-      },
-    ];
-    exportToCSV(
-      users,
-      exportColumns,
-      `users-${new Date().toISOString().split("T")[0]}`,
-    );
-  };
-
-  const handleExportExcel = () => {
-    const exportColumns: ExportColumn[] = [
-      {
-        field: "user",
-        headerName: "User",
-        valueGetter: (row) => {
-          const firstName = row.firstName || "";
-          const lastName = row.lastName || "";
-          return `${firstName} ${lastName}`.trim() || "N/A";
-        },
-      },
-      { field: "email", headerName: "Email" },
-      {
-        field: "phoneNumber",
-        headerName: "Phone",
-        valueGetter: (row) => row.phoneNumber || "N/A",
-      },
-      {
-        field: "roles",
-        headerName: "Roles",
-        valueGetter: (row) =>
-          row.roles && row.roles.length > 0 ? row.roles.join(", ") : "No Role",
-      },
-      {
-        field: "states",
-        headerName: "States",
-        valueGetter: (row) =>
-          row.states && row.states.length > 0
-            ? row.states.map((s: { name: string }) => s.name).join(", ")
-            : "All / Not Set",
-      },
-      { field: "authProvider", headerName: "Auth Provider" },
-      {
-        field: "twoFactorEnabled",
-        headerName: "2FA",
-        valueGetter: (row) => (row.twoFactorEnabled ? "Enabled" : "Disabled"),
-      },
-      {
-        field: "firstLoginRequired",
-        headerName: "First Login Required",
-        valueGetter: (row) => (row.firstLoginRequired ? "Yes" : "No"),
-      },
-      { field: "accountStatus", headerName: "Status" },
-      {
-        field: "lastLoginTime",
-        headerName: "Last Login",
-        valueGetter: (row) => formatDateTime(row.lastLoginTime),
-      },
-      {
-        field: "createdAt",
-        headerName: "Created At",
-        valueGetter: (row) => formatDateTime(row.createdAt),
-      },
-    ];
-    exportToExcel(
-      users,
-      exportColumns,
-      `users-${new Date().toISOString().split("T")[0]}`,
-    );
+        format,
+        defaultFileName: `users-${new Date().toISOString().split("T")[0]}`,
+        onStatus: setExportStatus,
+      });
+      setSuccessMessage("Users export downloaded.");
+    } catch (err) {
+      console.error("Users export failed:", err);
+      setError(extractErrorMessage(err) || "Export failed");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
   };
 
   const columns: GridColDef[] = [
@@ -992,12 +904,16 @@ export default function UsersPage() {
             )}
           </h1>
           <div className="flex shrink-0 items-center gap-2">
-            {users.length > 0 && (
-              <ExportButton
-                onExportCSV={handleExportCSV}
-                onExportExcel={handleExportExcel}
-              />
-            )}
+            <ExportButton
+              onExportCSV={() => void handleExport("CSV")}
+              onExportExcel={() => void handleExport("EXCEL")}
+              onExportPDF={() => void handleExport("PDF")}
+              exporting={exporting}
+              exportingLabel={
+                exportStatusLabel(exportStatus) || "Exporting…"
+              }
+              disabled={isLoading && !exporting}
+            />
             <Button
               variant="primary"
               onClick={() => navigate(ROUTES.ADMIN.USER_CREATE)}

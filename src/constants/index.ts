@@ -243,6 +243,10 @@ export const API_ENDPOINTS = {
     GET_USER_BY_ID: (userId: string | number) => `/admin/users/${userId}`,
     CREATE_USER: "/admin/users",
     UPDATE_USER: (userId: string | number) => `/admin/users/${userId}`,
+    USERS_EXPORT: "/admin/users/export",
+    USERS_EXPORT_JOB: (jobId: string) => `/admin/users/export/${jobId}`,
+    USERS_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/admin/users/export/${jobId}/download`,
     GET_STATES: "/masters/states",
     GET_CITIES: "/masters/cities",
     // Commission APIs
