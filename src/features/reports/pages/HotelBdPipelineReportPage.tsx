@@ -101,6 +101,7 @@ type FilterDraft = {
   status: HotelBdPipelineStatus;
   search: string;
   city: string;
+  state: string;
   sort: HotelBdPipelineSort;
   direction: "ASC" | "DESC";
   bdUserId: string;
@@ -110,6 +111,7 @@ const DEFAULT_DRAFT: FilterDraft = {
   status: DEFAULT_STATUS,
   search: "",
   city: "",
+  state: "",
   sort: DEFAULT_SORT,
   direction: "DESC",
   bdUserId: "",
@@ -157,6 +159,7 @@ export default function HotelBdPipelineReportPage() {
   const [status, setStatus] = useState<HotelBdPipelineStatus>(DEFAULT_STATUS);
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("");
+  const [stateFilter, setStateFilter] = useState("");
   const [sort, setSort] = useState<HotelBdPipelineSort>(DEFAULT_SORT);
   const [direction, setDirection] = useState<"ASC" | "DESC">("DESC");
   const [bdUserId, setBdUserId] = useState("");
@@ -179,6 +182,7 @@ export default function HotelBdPipelineReportPage() {
     (status !== DEFAULT_STATUS ? 1 : 0) +
     (search.trim() ? 1 : 0) +
     (city.trim() ? 1 : 0) +
+    (stateFilter.trim() ? 1 : 0) +
     (sort !== DEFAULT_SORT || direction !== "DESC" ? 1 : 0) +
     (bdUserId ? 1 : 0);
 
@@ -216,6 +220,7 @@ export default function HotelBdPipelineReportPage() {
       const nextStatus = overrides?.status ?? status;
       const nextSearch = overrides?.search ?? search;
       const nextCity = overrides?.city ?? city;
+      const nextState = overrides?.state ?? stateFilter;
       const nextSort = overrides?.sort ?? sort;
       const nextDirection = overrides?.direction ?? direction;
       const nextBdUserId = overrides?.bdUserId ?? bdUserId;
@@ -228,6 +233,7 @@ export default function HotelBdPipelineReportPage() {
           status: nextStatus,
           search: nextSearch.trim() || undefined,
           city: nextCity.trim() || undefined,
+          state: nextState.trim() || undefined,
           sort: nextSort,
           direction: nextDirection,
           page: nextPage,
@@ -243,7 +249,7 @@ export default function HotelBdPipelineReportPage() {
         setLoading(false);
       }
     },
-    [bdUserId, city, direction, page, search, showToast, sort, status],
+    [bdUserId, city, stateFilter, direction, page, search, showToast, sort, status],
   );
 
   useEffect(() => {
@@ -254,6 +260,7 @@ export default function HotelBdPipelineReportPage() {
     setStatus(draft.status);
     setSearch(draft.search);
     setCity(draft.city);
+    setStateFilter(draft.state);
     setSort(draft.sort);
     setDirection(draft.direction);
     setBdUserId(draft.bdUserId);
@@ -275,6 +282,7 @@ export default function HotelBdPipelineReportPage() {
     setStatus(DEFAULT_DRAFT.status);
     setSearch("");
     setCity("");
+    setStateFilter("");
     setSort(DEFAULT_DRAFT.sort);
     setDirection(DEFAULT_DRAFT.direction);
     setBdUserId("");
@@ -292,6 +300,7 @@ export default function HotelBdPipelineReportPage() {
           status,
           search: search.trim() || undefined,
           city: city.trim() || undefined,
+          state: stateFilter.trim() || undefined,
           sort,
           direction,
           bdUserId: bdUserId || undefined,
@@ -325,7 +334,7 @@ export default function HotelBdPipelineReportPage() {
             <button
               type="button"
               onClick={() => {
-                setDraft({ status, search, city, sort, direction, bdUserId });
+                setDraft({ status, search, city, state: stateFilter, sort, direction, bdUserId });
                 setFilterOpen(true);
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
@@ -415,6 +424,12 @@ export default function HotelBdPipelineReportPage() {
                   Hotel
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Hotel BD
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Zonal Manager
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Status
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -437,13 +452,13 @@ export default function HotelBdPipelineReportPage() {
             <tbody className="divide-y divide-slate-100 bg-white">
               {loading && !report ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
+                  <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
                     <Loader2 className="mx-auto h-5 w-5 animate-spin text-indigo-600" />
                   </td>
                 </tr>
               ) : !report?.rows.length ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
+                  <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
                     No pipeline rows match your filters.
                   </td>
                 </tr>
@@ -465,8 +480,15 @@ export default function HotelBdPipelineReportPage() {
                         <div className="text-xs text-slate-500">
                           {row.hotelCode}
                           {row.city ? ` · ${row.city}` : ""}
+                          {row.state ? `, ${row.state}` : ""}
                           {row.locked ? " · Locked" : ""}
                         </div>
+                      </td>
+                      <td className="px-3 py-2 text-slate-700">
+                        {row.hotelBd || "—"}
+                      </td>
+                      <td className="px-3 py-2 text-slate-700">
+                        {row.zonalManager || "—"}
                       </td>
                       <td className="px-3 py-2">
                         <span
@@ -623,6 +645,23 @@ export default function HotelBdPipelineReportPage() {
                     }))
                   }
                   placeholder="City name"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  State
+                </label>
+                <input
+                  type="search"
+                  value={draft.state}
+                  onChange={(event) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      state: event.target.value,
+                    }))
+                  }
+                  placeholder="State name"
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 />
               </div>

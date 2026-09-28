@@ -124,6 +124,7 @@ export const HOTEL_BD_REPORT_ROLES = [
   "ZONAL_MANAGER_HOTEL",
   "ZontalHotelManager",
   "AUDITOR",
+  "QC",
 ] as const;
 
 export function canViewHotelBdReports(
@@ -135,7 +136,7 @@ export function canViewHotelBdReports(
   );
 }
 
-/** Roles allowed to view Onboarding Pipeline (includes QC; dashboard stays separate). */
+/** Roles allowed to view Onboarding Pipeline (QC is also in HOTEL_BD_REPORT_ROLES). */
 export function canViewHotelBdPipeline(
   userRoles: string[] | undefined,
 ): boolean {
