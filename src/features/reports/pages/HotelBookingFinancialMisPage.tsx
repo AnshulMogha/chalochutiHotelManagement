@@ -47,6 +47,7 @@ import type { ExportJobStatus } from "../services/reportExportService";
 import {
   hotelBookingFinancialMisService,
   type HotelFinancialMisBookingRow,
+  type HotelFinancialMisBookingSource,
   type HotelFinancialMisBookingStatus,
   type HotelFinancialMisDateAxis,
   type HotelFinancialMisPaymentStatus,
@@ -103,6 +104,7 @@ type FilterDraft = {
   toDate: string;
   dateAxis: HotelFinancialMisDateAxis;
   bookingStatus: HotelFinancialMisBookingStatus;
+  bookingSource: HotelFinancialMisBookingSource;
   paymentStatus: HotelFinancialMisPaymentStatus;
   refundStatus: HotelFinancialMisRefundStatus;
   hotelId: string;
@@ -124,6 +126,7 @@ const DEFAULT_DRAFT: FilterDraft = {
   toDate: "",
   dateAxis: "BOOKING_DATE",
   bookingStatus: "ALL",
+  bookingSource: "ALL",
   paymentStatus: "ALL",
   refundStatus: "ALL",
   hotelId: "",
@@ -177,6 +180,15 @@ const BOOKING_STATUS_OPTIONS: {
   { value: "CONFIRMED", label: "Confirmed" },
   { value: "CANCELLED", label: "Cancelled" },
   { value: "COMPLETED", label: "Completed" },
+];
+
+const BOOKING_SOURCE_OPTIONS: {
+  value: HotelFinancialMisBookingSource;
+  label: string;
+}[] = [
+  { value: "ALL", label: "All" },
+  { value: "HOTEL", label: "Hotel" },
+  { value: "PACKAGE", label: "Package" },
 ];
 
 const PAYMENT_STATUS_OPTIONS: {
@@ -372,6 +384,7 @@ export default function HotelBookingFinancialMisPage() {
     if (filters.uiDatePreset !== "THIS_MONTH") count += 1;
     if (filters.dateAxis !== "BOOKING_DATE") count += 1;
     if (filters.bookingStatus !== "ALL") count += 1;
+    if (filters.bookingSource !== "ALL") count += 1;
     if (filters.paymentStatus !== "ALL") count += 1;
     if (filters.refundStatus !== "ALL") count += 1;
     if (filters.hotelId) count += 1;
@@ -411,7 +424,10 @@ export default function HotelBookingFinancialMisPage() {
           toDate: dateRange.toDate,
           dateAxis: nextFilters.dateAxis,
           bookingStatus: nextFilters.bookingStatus,
-          bookingSource: "HOTEL",
+          bookingSource:
+            nextFilters.bookingSource === "ALL"
+              ? undefined
+              : nextFilters.bookingSource,
           paymentStatus: nextFilters.paymentStatus,
           refundStatus: nextFilters.refundStatus,
           hotelIds: nextFilters.hotelId ? [nextFilters.hotelId] : undefined,
@@ -447,7 +463,10 @@ export default function HotelBookingFinancialMisPage() {
         toDate: dateRange.toDate,
         dateAxis: nextFilters.dateAxis,
         bookingStatus: nextFilters.bookingStatus,
-        bookingSource: "HOTEL" as const,
+        bookingSource:
+          nextFilters.bookingSource === "ALL"
+            ? undefined
+            : nextFilters.bookingSource,
         paymentStatus: nextFilters.paymentStatus,
         refundStatus: nextFilters.refundStatus,
         hotelIds: nextFilters.hotelId ? [nextFilters.hotelId] : undefined,
@@ -614,6 +633,7 @@ export default function HotelBookingFinancialMisPage() {
       ],
       ["Filters", "Date axis", report.dateAxis ?? filters.dateAxis],
       ["Filters", "Booking status", filters.bookingStatus],
+      ["Filters", "Booking source", filters.bookingSource],
       ["Filters", "Payment status", filters.paymentStatus],
       ["Filters", "Refund status", filters.refundStatus],
       ["Summary", "Total bookings", summary.totalBookings],
@@ -1460,6 +1480,25 @@ export default function HotelBookingFinancialMisPage() {
                     className={fieldClass}
                   >
                     {BOOKING_STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </FilterField>
+                <FilterField label="Source">
+                  <select
+                    value={draft.bookingSource}
+                    onChange={(event) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        bookingSource: event.target
+                          .value as HotelFinancialMisBookingSource,
+                      }))
+                    }
+                    className={fieldClass}
+                  >
+                    {BOOKING_SOURCE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>

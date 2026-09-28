@@ -39,6 +39,11 @@ export interface HotelBdPipelineRow {
   hotelCode: string;
   hotelName: string;
   city?: string | null;
+  state?: string | null;
+  hotelBd?: string | null;
+  hotelBdUserId?: number | null;
+  zonalManager?: string | null;
+  zonalManagerUserId?: number | null;
   status: string;
   currentStep?: string | null;
   locked: boolean;
@@ -71,6 +76,7 @@ export interface HotelBdPipelineReportParams {
   status?: HotelBdPipelineStatus;
   search?: string;
   city?: string;
+  state?: string;
   sort?: HotelBdPipelineSort;
   direction?: "ASC" | "DESC";
   page?: number;
@@ -127,6 +133,14 @@ function normalizeRow(raw: Record<string, unknown>): HotelBdPipelineRow {
         ? String(hotelNameRaw).trim()
         : "Untitled hotel",
     city: (raw.city as string | null | undefined) ?? null,
+    state: (raw.state as string | null | undefined) ?? null,
+    hotelBd: (raw.hotelBd as string | null | undefined)?.trim() || null,
+    hotelBdUserId:
+      raw.hotelBdUserId != null ? toNumber(raw.hotelBdUserId) : null,
+    zonalManager:
+      (raw.zonalManager as string | null | undefined)?.trim() || null,
+    zonalManagerUserId:
+      raw.zonalManagerUserId != null ? toNumber(raw.zonalManagerUserId) : null,
     status: String(raw.status ?? raw.hotelStatus ?? "—"),
     currentStep: (raw.currentStep as string | undefined) ?? null,
     locked: Boolean(raw.locked),
@@ -195,6 +209,7 @@ function buildQuery(params: HotelBdPipelineReportParams): string {
   }
   if (params.search?.trim()) search.set("search", params.search.trim());
   if (params.city?.trim()) search.set("city", params.city.trim());
+  if (params.state?.trim()) search.set("state", params.state.trim());
   if (params.sort) search.set("sort", params.sort);
   if (params.direction) search.set("direction", params.direction);
   if (params.page != null) search.set("page", String(params.page));
