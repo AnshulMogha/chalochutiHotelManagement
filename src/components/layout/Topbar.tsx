@@ -18,6 +18,7 @@ import { RiMenuUnfold3Line } from "react-icons/ri";
 import { RiMenuFold3Line } from "react-icons/ri";
 import { HotelSelector } from "@/components/ui/HotelSelector";
 import { ROUTES } from "@/constants";
+import { isAuditorRole, isSuperAdmin } from "@/constants/roles";
 import { RoleBadge } from "@/components/ui/badges";
 import {
   getStoredSelectedHotelId,
@@ -95,10 +96,15 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   // Check team page
   const isTeamPage = location.pathname === ROUTES.TEAM.LIST;
 
-  // Check bookings page (list + detail both need hotel selector)
+  // Bookings list for Super Admin and Auditor is all hotels; detail stays hotel-aware.
   const isBookingsPage =
     location.pathname === ROUTES.BOOKINGS.LIST ||
     location.pathname.startsWith(`${ROUTES.BOOKINGS.LIST}/`);
+  const isBookingsList = location.pathname === ROUTES.BOOKINGS.LIST;
+  const seesAllBookings =
+    isSuperAdmin(user?.roles) || isAuditorRole(user?.roles);
+  const bookingsUseTopHotel =
+    isBookingsPage && !(seesAllBookings && isBookingsList);
 
   const isHotelReviewsPage = location.pathname === ROUTES.HOTEL_REVIEWS.LIST;
   const isReviewMisPage = location.pathname === ROUTES.RATINGS_REVIEWS.MIS;
@@ -128,7 +134,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     isInventoryPage ||
     isPromotionsPage ||
     isTeamPage ||
-    isBookingsPage ||
+    bookingsUseTopHotel ||
     isHotelReviewsPage ||
     isReviewMisPage ||
     isPromotionReportPage ||
@@ -153,7 +159,9 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   // Keep URL in sync with persisted hotel when navigating to hotel-scoped pages without ?hotelId=
   useEffect(() => {
     // Don't push a ?hotelId param onto the My Properties URL.
+    if (!user) return;
     if (!shouldShowHotelSelector || isMyPropertiesPage) return;
+    if (seesAllBookings && isBookingsList) return;
     const fromUrl = searchParams.get("hotelId");
     if (fromUrl) {
       setStoredSelectedHotelId(fromUrl);
@@ -175,6 +183,9 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   }, [
     shouldShowHotelSelector,
     isMyPropertiesPage,
+    seesAllBookings,
+    isBookingsList,
+    user,
     location.pathname,
     location.search,
     setSearchParams,

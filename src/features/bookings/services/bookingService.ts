@@ -471,7 +471,7 @@ export type BookingListDateFilter =
 
 /** Server-side list params */
 export interface BookingListParams {
-  hotelId: string;
+  hotelId?: string;
   guestName?: string;
   bookingId?: string;
   dateFilter?: BookingListDateFilter;
@@ -508,7 +508,7 @@ function buildBookingListQuery(
   } = params;
 
   const search = new URLSearchParams();
-  search.set("hotelId", hotelId);
+  if (hotelId?.trim()) search.set("hotelId", hotelId.trim());
   if (view != null && view.trim() !== "") {
     search.set("view", view.trim());
   }

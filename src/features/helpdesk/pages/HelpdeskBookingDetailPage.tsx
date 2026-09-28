@@ -38,7 +38,6 @@ import {
   Activity,
   ArrowLeft,
   Building2,
-  Bus,
   CalendarDays,
   Copy,
   GitBranch,
@@ -220,40 +219,38 @@ export default function HelpdeskBookingDetailPage() {
           </div>
         </div>
 
-        <div className="grid gap-2 p-2.5 sm:grid-cols-2 sm:p-3 xl:grid-cols-4">
-          <HelpdeskMetric
-            label="Collected"
-            value={formatFinanceMoney(fin.amountCollected)}
-            icon={Wallet}
-            tone="blue"
-            compact
-          />
-          <HelpdeskMetric
-            label={isPackage ? "Supplier payout" : "Hotel payout"}
-            value={formatFinanceMoney(
-              (isPackage ? fin.totalSupplierPayout : fin.hotelPayout) ?? fin.hotelPayout,
-            )}
-            icon={Building2}
-            tone="emerald"
-            compact
-          />
-          <HelpdeskMetric
-            label="Customer price"
-            value={formatFinanceMoney(fin.customerSellingPrice)}
-            icon={Tag}
-            tone="slate"
-            compact
-          />
-          <HelpdeskMetric
-            label={isPackage ? "Gross profit" : "Refund"}
-            value={formatFinanceMoney(
-              (isPackage ? fin.grossProfit : fin.refundAmount) ?? fin.refundAmount,
-            )}
-            icon={RotateCcw}
-            tone={isPackage || fin.refundAmount.amount > 0 ? "amber" : "slate"}
-            compact
-          />
-        </div>
+        {!isPackage ? (
+          <div className="grid gap-2 p-2.5 sm:grid-cols-2 sm:p-3 xl:grid-cols-4">
+            <HelpdeskMetric
+              label="Collected"
+              value={formatFinanceMoney(fin.amountCollected)}
+              icon={Wallet}
+              tone="blue"
+              compact
+            />
+            <HelpdeskMetric
+              label="Hotel payout"
+              value={formatFinanceMoney(fin.hotelPayout)}
+              icon={Building2}
+              tone="emerald"
+              compact
+            />
+            <HelpdeskMetric
+              label="Customer price"
+              value={formatFinanceMoney(fin.customerSellingPrice)}
+              icon={Tag}
+              tone="slate"
+              compact
+            />
+            <HelpdeskMetric
+              label="Refund"
+              value={formatFinanceMoney(fin.refundAmount)}
+              icon={RotateCcw}
+              tone={fin.refundAmount.amount > 0 ? "amber" : "slate"}
+              compact
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="mb-4 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
@@ -281,54 +278,6 @@ export default function HelpdeskBookingDetailPage() {
 
       {activeTab === "overview" ? (
         <div className="space-y-3.5">
-          {isPackage ? (
-            <HelpdeskPanel
-              title="Package snapshot"
-              subtitle={fin.packageName || support.productName}
-              icon={Tag}
-            >
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                <HelpdeskMetric
-                  label="Supplier cost"
-                  value={formatFinanceMoney(fin.packageSupplierCost)}
-                  icon={Wallet}
-                  tone="slate"
-                  compact
-                />
-                <HelpdeskMetric
-                  label="Hotel cost"
-                  value={formatFinanceMoney(fin.hotelCost)}
-                  icon={Building2}
-                  tone="blue"
-                  compact
-                />
-                <HelpdeskMetric
-                  label="Transport cost"
-                  value={formatFinanceMoney(fin.transportCost)}
-                  icon={Bus}
-                  tone="emerald"
-                  compact
-                />
-                <HelpdeskMetric
-                  label="Activity cost"
-                  value={formatFinanceMoney(fin.activityCost)}
-                  icon={Activity}
-                  tone="amber"
-                  compact
-                />
-              </div>
-              {fin.componentSummary ? (
-                <p className="mt-3 text-xs text-slate-600">
-                  Components: Hotels {fin.componentSummary.hotelWithValue}/
-                  {fin.componentSummary.hotelTotal} · Transport{" "}
-                  {fin.componentSummary.transportWithValue}/
-                  {fin.componentSummary.transportTotal} · Activities{" "}
-                  {fin.componentSummary.activityWithValue}/
-                  {fin.componentSummary.activityTotal}
-                </p>
-              ) : null}
-            </HelpdeskPanel>
-          ) : null}
 
           {isPackage && detail.hotels?.length ? (
             <HelpdeskPackageHotelsPanel hotels={detail.hotels} />

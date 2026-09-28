@@ -402,9 +402,15 @@ export default function HelpdeskTicketCreatePage() {
                   <FieldLabel required>Type</FieldLabel>
                   <select
                     value={raisedByType}
-                    onChange={(e) =>
-                      setRaisedByType(e.target.value as HelpdeskRaisedByType)
-                    }
+                    onChange={(e) => {
+                      const next = e.target.value as HelpdeskRaisedByType;
+                      setRaisedByType(next);
+                      if (next !== "CUSTOMER") {
+                        setRaisedByName("");
+                        setRaisedByPhone("");
+                        setRaisedByEmail("");
+                      }
+                    }}
                     className={fieldClass}
                   >
                     {HELPDESK_RAISED_BY_TYPES.map((item) => (
