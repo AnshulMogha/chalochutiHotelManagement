@@ -43,13 +43,27 @@ import {
 const DEFAULT_DATE_PRESET: RateHealthDatePreset = "NEXT_30_DAYS";
 
 const DATE_PRESET_OPTIONS: { value: RateHealthDatePreset; label: string }[] = [
+  { value: "TODAY", label: "Today" },
+  { value: "YESTERDAY", label: "Yesterday" },
+  { value: "THIS_WEEK", label: "This week" },
+  { value: "LAST_WEEK", label: "Last week" },
+  { value: "LAST_7_DAYS", label: "Last 7 days" },
+  { value: "LAST_14_DAYS", label: "Last 14 days" },
+  { value: "LAST_15_DAYS", label: "Last 15 days" },
+  { value: "THIS_MONTH", label: "This month" },
+  { value: "LAST_MONTH", label: "Last month" },
+  { value: "LAST_3_MONTHS", label: "Last 3 months" },
+  { value: "LAST_6_MONTHS", label: "Last 6 months" },
+  { value: "LAST_30_DAYS", label: "Last 30 days" },
+  { value: "LAST_180_DAYS", label: "Last 180 days" },
+  { value: "LAST_365_DAYS", label: "Last 365 days" },
   { value: "NEXT_7_DAYS", label: "Next 7 days" },
-  { value: "NEXT_15_DAYS", label: "Next 15 days" },
   { value: "NEXT_30_DAYS", label: "Next 30 days" },
-  { value: "NEXT_3_MONTHS", label: "Next 3 months" },
-  { value: "NEXT_6_MONTHS", label: "Next 6 months" },
+  { value: "ALL_TIME", label: "All time" },
   { value: "CUSTOM", label: "Custom" },
 ];
+
+const CUSTOM_RANGE_MAX_DAYS = 365;
 
 type FilterDraft = {
   datePreset: RateHealthDatePreset;
@@ -244,6 +258,15 @@ export default function RateHealthReportPage() {
       const parsed = validateCustomDateRange(customFromText, customToText);
       if (!parsed.ok) {
         showToast(parsed.message, "error");
+        return;
+      }
+      const spanDays = Math.round(
+        (new Date(`${parsed.toDate}T00:00:00`).getTime() -
+          new Date(`${parsed.fromDate}T00:00:00`).getTime()) /
+          86_400_000,
+      );
+      if (spanDays > CUSTOM_RANGE_MAX_DAYS) {
+        showToast("Custom range cannot be longer than 365 days", "error");
         return;
       }
       nextDraft = {
@@ -626,13 +649,19 @@ export default function RateHealthReportPage() {
                 </select>
 
                 {draft.datePreset === "CUSTOM" ? (
-                  <ReportCustomDateFields
-                    className="mt-3"
-                    fromText={customFromText}
-                    toText={customToText}
-                    onFromTextChange={setCustomFromText}
-                    onToTextChange={setCustomToText}
-                  />
+                  <>
+                    <ReportCustomDateFields
+                      className="mt-3"
+                      fromText={customFromText}
+                      toText={customToText}
+                      onFromTextChange={setCustomFromText}
+                      onToTextChange={setCustomToText}
+                    />
+                    <p className="mt-2 text-xs text-slate-500">
+                      Custom range can span up to 365 days. Use it for a
+                      forward window such as the next 6 months.
+                    </p>
+                  </>
                 ) : null}
               </section>
 

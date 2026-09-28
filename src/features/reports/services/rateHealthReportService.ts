@@ -8,11 +8,23 @@ import {
 } from "./reportExportService";
 
 export type RateHealthDatePreset =
+  | "TODAY"
+  | "YESTERDAY"
+  | "THIS_WEEK"
+  | "LAST_WEEK"
+  | "LAST_7_DAYS"
+  | "LAST_14_DAYS"
+  | "LAST_15_DAYS"
+  | "THIS_MONTH"
+  | "LAST_MONTH"
+  | "LAST_3_MONTHS"
+  | "LAST_6_MONTHS"
+  | "LAST_30_DAYS"
+  | "LAST_180_DAYS"
+  | "LAST_365_DAYS"
   | "NEXT_7_DAYS"
-  | "NEXT_15_DAYS"
   | "NEXT_30_DAYS"
-  | "NEXT_3_MONTHS"
-  | "NEXT_6_MONTHS"
+  | "ALL_TIME"
   | "CUSTOM";
 
 export interface RateHealthInsight {
