@@ -833,6 +833,7 @@ export default function AdminBookingDetailPage({
               <div className="flex flex-wrap items-center gap-1.5">
                 <StatusBadge
                   status={summary.bookingStatus}
+                  label="Booking"
                   tone={bookingStatusTone(summary.bookingStatus)}
                 />
                 {isPackageBooking ? (
@@ -842,11 +843,13 @@ export default function AdminBookingDetailPage({
                       detail.financials.bookingMode ||
                       "PACKAGE"
                     }
+                    label="Rate"
                     tone="bg-violet-50 text-violet-700 ring-violet-200"
                   />
                 ) : null}
                 <StatusBadge
                   status={detail.payment.paymentStatus}
+                  label="Payment"
                   tone={paymentStatusTone(detail.payment.paymentStatus)}
                 />
                 <button
@@ -1145,7 +1148,7 @@ export default function AdminBookingDetailPage({
             <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
               <SummaryField label="Booking ref" value={summary.bookingRef} />
               <SummaryField label="Booking ID" value={String(summary.bookingId)} />
-              <SummaryField label="Status" value={summary.bookingStatus} />
+              <SummaryField label="Booking status" value={formatStatusLabel(summary.bookingStatus)} />
               <SummaryField label="Hotel" value={summary.hotelName} />
               <SummaryField label="City" value={summary.hotelCity || "—"} />
               <SummaryField label="Booked via" value={summary.bookedVia} />
@@ -2504,7 +2507,7 @@ export default function AdminBookingDetailPage({
                     detail.payment.paymentStatus,
                   )}`}
                 >
-                  {detail.payment.paymentStatus}
+                  {formatStatusLabel(detail.payment.paymentStatus)}
                 </span>
               }
             />

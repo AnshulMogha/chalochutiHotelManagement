@@ -937,11 +937,11 @@ export default function BookingListPage() {
       },
       {
         field: "status",
-        headerName: "Status",
+        headerName: "Booking status",
         flex: 0.7,
         minWidth: 120,
         renderHeader: () => (
-          <BookingColumnHeader icon={BookOpen} label="Status" />
+          <BookingColumnHeader icon={BookOpen} label="Booking status" />
         ),
         renderCell: (params) => {
           const statusStyle = getStatusConfig(params.value);

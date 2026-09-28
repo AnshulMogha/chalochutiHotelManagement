@@ -382,14 +382,17 @@ export default function HotelBookingFinancialMisDetailPage() {
               <div className="flex flex-wrap items-center gap-1">
                 <StatusBadge
                   status={booking.bookingStatus}
+                  label="Booking"
                   tone={bookingStatusTone(booking.bookingStatus)}
                 />
                 <StatusBadge
                   status={booking.bookingSource}
+                  label="Source"
                   tone="bg-sky-50 text-sky-700 ring-sky-200"
                 />
                 <StatusBadge
                   status={booking.paymentStatus}
+                  label="Payment"
                   tone={paymentStatusTone(booking.paymentStatus)}
                 />
               </div>
