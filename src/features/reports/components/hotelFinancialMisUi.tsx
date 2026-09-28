@@ -243,18 +243,24 @@ export function refundStatusTone(status: string | null | undefined): string {
 export function StatusBadge({
   status,
   tone,
+  label,
 }: {
   status: string;
   tone: string;
+  label?: string;
 }) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset",
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
         tone,
       )}
     >
-      {formatStatusLabel(status)}
+      {label ? (
+        <span className="font-semibold opacity-70">{label}</span>
+      ) : null}
+      {label ? <span className="opacity-40">·</span> : null}
+      <span className="font-semibold">{formatStatusLabel(status)}</span>
     </span>
   );
 }

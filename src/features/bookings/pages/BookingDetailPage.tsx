@@ -594,16 +594,19 @@ function HotelBookingDetailPage({
                 <div className="flex flex-wrap items-center gap-1.5">
                   <StatusBadge
                     status={bookingStatus}
+                    label="Booking"
                     tone={bookingStatusTone(bookingStatus)}
                   />
                   {isPackageBooking ? (
                     <StatusBadge
                       status={hotelPricingComputation || "PACKAGE"}
+                      label="Rate"
                       tone="bg-violet-50 text-violet-700 ring-violet-200"
                     />
                   ) : hotelPricingComputation ? (
                     <StatusBadge
                       status={hotelPricingComputation}
+                      label="Rate"
                       tone="bg-slate-100 text-slate-700 ring-slate-200"
                     />
                   ) : null}
@@ -621,6 +624,7 @@ function HotelBookingDetailPage({
                   booking.paymentStatus !== bookingStatus ? (
                     <StatusBadge
                       status={booking.paymentStatus}
+                      label="Payment"
                       tone={paymentStatusTone(booking.paymentStatus)}
                     />
                   ) : null}
@@ -885,7 +889,10 @@ function HotelBookingDetailPage({
                       value={booking.externalBookingId}
                     />
                   ) : null}
-                  <SummaryField label="Status" value={bookingStatus} />
+                  <SummaryField
+                    label="Booking status"
+                    value={formatStatusLabel(bookingStatus)}
+                  />
                   <SummaryField label="Hotel" value={booking.hotelName} />
                   <SummaryField label="City" value={booking.hotelCity || "—"} />
                   <SummaryField label="Booked via" value={booking.bookedVia} />

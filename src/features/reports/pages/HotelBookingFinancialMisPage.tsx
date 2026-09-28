@@ -1135,8 +1135,8 @@ export default function HotelBookingFinancialMisPage() {
                   <th className="px-4 py-3">Hotel Payout</th>
                   <th className="px-4 py-3">TDS / TCS</th>
                   <th className="px-4 py-3">OTA Revenue</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Payment</th>
+                  <th className="px-4 py-3">Booking status</th>
+                  <th className="px-4 py-3">Payment status</th>
                   <th className="px-4 py-3">Cancel / Refund</th>
                   <th className="px-4 py-3">View Details</th>
                 </tr>
@@ -1197,6 +1197,7 @@ export default function HotelBookingFinancialMisPage() {
                     <td className="px-4 py-3">
                       <StatusBadge
                         status={row.bookingSource}
+                        label="Source"
                         tone="bg-sky-50 text-sky-700 ring-sky-200"
                       />
                       <p className="mt-1 text-xs text-slate-500">
@@ -1276,12 +1277,14 @@ export default function HotelBookingFinancialMisPage() {
                     <td className="px-4 py-3">
                       <StatusBadge
                         status={row.bookingStatus}
+                        label="Booking"
                         tone={bookingStatusTone(row.bookingStatus)}
                       />
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge
                         status={row.paymentStatus}
+                        label="Payment"
                         tone={paymentStatusTone(row.paymentStatus)}
                       />
                       <p className="mt-1 text-xs tabular-nums text-slate-500">
@@ -1303,6 +1306,7 @@ export default function HotelBookingFinancialMisPage() {
                         <div className="mt-1">
                           <StatusBadge
                             status={row.refundStatus}
+                            label="Refund"
                             tone={refundStatusTone(row.refundStatus)}
                           />
                         </div>
