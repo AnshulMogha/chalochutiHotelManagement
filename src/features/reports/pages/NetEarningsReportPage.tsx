@@ -672,6 +672,15 @@ export default function NetEarningsReportPage() {
                     {formatReportCurrency(summary.paymentPending)}
                   </p>
                 </div>
+                <div className="hidden h-10 w-px bg-slate-200 xl:block" />
+                <div className="hidden xl:block">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Total Commission incl. GST
+                  </p>
+                  <p className="text-xl font-extrabold tabular-nums text-slate-900">
+                    {formatReportCurrency(summary.totalCommission)}
+                  </p>
+                </div>
               </div>
             ) : (
               <p className="text-sm text-slate-400">Open Filter to load report</p>
@@ -724,6 +733,11 @@ export default function NetEarningsReportPage() {
                       "Booking Status",
                       "Booking Amount",
                       "Payable To Property",
+                      "Commission incl. GST",
+                      "Transferred",
+                      "Adjusted",
+                      "Due Date",
+                      "Settled At",
                       "Payment Status",
                     ].map((h) => (
                       <th
@@ -738,13 +752,13 @@ export default function NetEarningsReportPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-16 text-center">
+                      <td colSpan={12} className="px-4 py-16 text-center">
                         <Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-600" />
                       </td>
                     </tr>
                   ) : !report?.bookings.length ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-16 text-center text-slate-400">
+                      <td colSpan={12} className="px-4 py-16 text-center text-slate-400">
                         No rows found.
                       </td>
                     </tr>
@@ -775,10 +789,22 @@ export default function NetEarningsReportPage() {
                           {formatReportCurrency(row.bookingAmount)}
                         </td>
                         <td className="px-3 py-2.5">
-                          {formatReportCurrency(row.payableToProperty)}{" "}
-                          <span className="text-xs text-slate-500">
-                            ({formatReportCurrency(row.amountTransferred)})
-                          </span>
+                          {formatReportCurrency(row.payableToProperty)}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {formatReportCurrency(row.totalCommission)}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {formatReportCurrency(row.amountTransferred)}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {formatReportCurrency(row.amountAdjusted)}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {formatReportDate(row.dueDate)}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {row.settledAt ? formatReportDateTime(row.settledAt) : "—"}
                         </td>
                         <td className="px-3 py-2.5">
                           <span

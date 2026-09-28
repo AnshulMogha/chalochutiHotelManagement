@@ -2,7 +2,9 @@ import { Link, useLocation, useSearchParams } from "react-router";
 import { ChevronDown, ChevronRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks";
 import { ROUTES } from "@/constants";
+import { isAuditorRole, isSuperAdmin } from "@/constants/roles";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 import { getNavIconTheme } from "./sidebarNavTheme";
 
@@ -24,6 +26,7 @@ interface SidebarItemProps {
 
 export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
   const location = useLocation();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [isExpanded, setIsExpanded] = useState(false);
   const hasChildren = item.children && item.children.length > 0;
@@ -58,7 +61,12 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
   const buildUrl = (path: string) => {
     const hotelId = searchParams.get("hotelId") ?? getStoredSelectedHotelId();
     if (hotelId && isHotelScopedNavPath(path)) {
-      return `${path}?hotelId=${encodeURIComponent(hotelId)}`;
+      const skipHotelOnBookings =
+        path === ROUTES.BOOKINGS.LIST &&
+        (isSuperAdmin(user?.roles) || isAuditorRole(user?.roles));
+      if (!skipHotelOnBookings) {
+        return `${path}?hotelId=${encodeURIComponent(hotelId)}`;
+      }
     }
     return path;
   };

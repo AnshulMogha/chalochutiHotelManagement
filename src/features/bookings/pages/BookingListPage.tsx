@@ -1,6 +1,8 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, type KeyboardEvent, type RefObject } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router";
 import { ROUTES } from "@/constants";
+import { isAuditorRole, isSuperAdmin } from "@/constants/roles";
+import { useAuth } from "@/hooks";
 import {
   getReturnBackLabel,
   readReturnToFromLocation,
@@ -16,6 +18,7 @@ import {
   type BookingListExportParams,
 } from "../services/bookingService";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { HotelLookupFilterField } from "@/features/reports/components/HotelLookupFilterField";
 import { DataTable } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import type {
@@ -351,9 +354,12 @@ function getBookingModeStyle(mode: string | undefined | null): string {
 }
 
 export default function BookingListPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const seesAllBookings =
+    isSuperAdmin(user?.roles) || isAuditorRole(user?.roles);
   const selectedHotelId = searchParams.get("hotelId");
   const bookingIdFromUrl = searchParams.get("bookingId")?.trim() || "";
   const returnTo = readReturnToFromLocation(searchParams, location.state);
@@ -591,9 +597,9 @@ export default function BookingListPage() {
   }, [downloadOpen]);
 
   const listExportParams = useMemo((): BookingListExportParams | null => {
-    if (!selectedHotelId) return null;
+    if (!seesAllBookings && !selectedHotelId) return null;
     return {
-      hotelId: selectedHotelId,
+      hotelId: selectedHotelId || undefined,
       guestName: debouncedGuestName.trim() || undefined,
       bookingId: debouncedBookingId.trim() || undefined,
       dateFilter: dateFilterParams.dateFilter,
@@ -615,6 +621,7 @@ export default function BookingListPage() {
     drillView,
     orderBy,
     sortDir,
+    seesAllBookings,
   ]);
 
   const exportBaseName = () => {
@@ -751,6 +758,24 @@ export default function BookingListPage() {
           </div>
         ),
       },
+      ...(seesAllBookings
+        ? [
+            {
+              field: "hotelName",
+              headerName: "Hotel",
+              flex: 1,
+              minWidth: 160,
+              renderHeader: () => (
+                <BookingColumnHeader icon={Building2} label="Hotel" />
+              ),
+              renderCell: (params: { value?: string }) => (
+                <span className="truncate text-sm text-gray-700">
+                  {params.value || "—"}
+                </span>
+              ),
+            } satisfies GridColDef,
+          ]
+        : []),
       {
         field: "guestName",
         headerName: "Guest",
@@ -978,15 +1003,15 @@ export default function BookingListPage() {
         ),
       },
     ],
-    [],
+    [seesAllBookings],
   );
 
   const fetchBookings = async () => {
-    if (!selectedHotelId) return;
+    if (!seesAllBookings && !selectedHotelId) return;
     setLoading(true);
     try {
       const data = await bookingService.getBookingList({
-        hotelId: selectedHotelId,
+        hotelId: selectedHotelId || undefined,
         guestName: debouncedGuestName.trim() || undefined,
         bookingId: debouncedBookingId.trim() || undefined,
         dateFilter: dateFilterParams.dateFilter,
@@ -1010,12 +1035,13 @@ export default function BookingListPage() {
   };
 
   useEffect(() => {
-    if (selectedHotelId) {
+    if (seesAllBookings || selectedHotelId) {
       fetchBookings();
     } else {
       setListData(null);
     }
   }, [
+    seesAllBookings,
     selectedHotelId,
     debouncedGuestName,
     debouncedBookingId,
@@ -1050,7 +1076,7 @@ export default function BookingListPage() {
       autoNavigatedRef.current ||
       !isSettlementDeepLink ||
       loading ||
-      !selectedHotelId
+      (!seesAllBookings && !selectedHotelId)
     ) {
       return;
     }
@@ -1075,7 +1101,7 @@ export default function BookingListPage() {
     !deepLinkExhausted &&
     (loading || !listData || listData.data.length === 1);
 
-  if (!selectedHotelId) {
+  if (!seesAllBookings && !selectedHotelId) {
     return (
       <div className="container mx-auto px-4 py-4">
         <div className="mb-3">
@@ -1251,12 +1277,33 @@ export default function BookingListPage() {
             </div>
           ) : null}
 
-          {selectedHotelId && (
+          {(seesAllBookings || selectedHotelId) && (
             <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-gray-200/80 bg-white px-3 py-2 shadow-sm">
               <div className="flex items-center gap-1.5 pr-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <Filter className="h-3.5 w-3.5 text-[#2f3d95]" />
                 Filters
               </div>
+              {seesAllBookings ? (
+                <div className="min-w-48 max-w-xs flex-1">
+                  <HotelLookupFilterField
+                    label=""
+                    allLabel="All hotels"
+                    value={selectedHotelId ?? ""}
+                    onChange={({ hotelId }) => {
+                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                      setSearchParams(
+                        (prev) => {
+                          const next = new URLSearchParams(prev);
+                          if (hotelId) next.set("hotelId", hotelId);
+                          else next.delete("hotelId");
+                          return next;
+                        },
+                        { replace: true },
+                      );
+                    }}
+                  />
+                </div>
+              ) : null}
               <div className="relative min-w-40 max-w-55 flex-1">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
                 <input
