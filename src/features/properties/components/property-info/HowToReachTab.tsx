@@ -47,13 +47,16 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
 
   const geocodeTimeoutRef = useRef<number | null>(null);
   const searchTimeoutRef = useRef<number | null>(null);
+  const searchRequestRef = useRef(0);
+  const autocompleteSessionTokenRef =
+    useRef<google.maps.places.AutocompleteSessionToken | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Search state
   const [searchValue, setSearchValue] = useState("");
-  const [suggestions, setSuggestions] = useState<
-    google.maps.places.AutocompletePrediction[]
-  >([]);
+  const [suggestions, setSuggestions] = useState<google.maps.places.PlacePrediction[]>(
+    [],
+  );
   const [showDropdown, setShowDropdown] = useState(false);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   // City is auto-filled from the map/address lookup; require an explicit opt-in
@@ -162,6 +165,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
 
   const handleSearchInput = (value: string) => {
     setSearchValue(value);
+    const requestId = ++searchRequestRef.current;
 
     if (searchTimeoutRef.current) {
       window.clearTimeout(searchTimeoutRef.current);
@@ -170,80 +174,84 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
     if (!value.trim()) {
       setSuggestions([]);
       setShowDropdown(false);
+      setIsSearchLoading(false);
+      autocompleteSessionTokenRef.current = null;
       return;
     }
 
     setIsSearchLoading(true);
 
-    searchTimeoutRef.current = window.setTimeout(() => {
-      if (!window.google) return;
+    searchTimeoutRef.current = window.setTimeout(async () => {
+      if (!window.google) {
+        setIsSearchLoading(false);
+        return;
+      }
 
-      const service = new google.maps.places.AutocompleteService();
-      service.getPlacePredictions(
-        {
-          input: value,
-        },
-        (predictions, status) => {
-          setIsSearchLoading(false);
-          if (
-            status === google.maps.places.PlacesServiceStatus.OK &&
-            predictions
-          ) {
-            setSuggestions(predictions);
-            setShowDropdown(true);
-          } else {
-            setSuggestions([]);
-            setShowDropdown(false);
-          }
-        },
-      );
+      try {
+        await google.maps.importLibrary("places");
+        autocompleteSessionTokenRef.current ??=
+          new google.maps.places.AutocompleteSessionToken();
+        const response =
+          await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions(
+            {
+              input: value.trim(),
+              sessionToken: autocompleteSessionTokenRef.current,
+            },
+          );
+        if (requestId !== searchRequestRef.current) return;
+
+        const predictions = response.suggestions.flatMap((suggestion) =>
+          suggestion.placePrediction ? [suggestion.placePrediction] : [],
+        );
+        setSuggestions(predictions);
+        setShowDropdown(predictions.length > 0);
+      } catch (error) {
+        console.error("Places autocomplete failed:", error);
+        if (requestId === searchRequestRef.current) {
+          setSuggestions([]);
+          setShowDropdown(false);
+        }
+      } finally {
+        if (requestId === searchRequestRef.current) setIsSearchLoading(false);
+      }
     }, 500);
   };
 
-  const handleSelectPlace = (
-    prediction: google.maps.places.AutocompletePrediction,
+  const handleSelectPlace = async (
+    prediction: google.maps.places.PlacePrediction,
   ) => {
     if (!window.google) return;
 
-    setSearchValue(prediction.description);
+    setSearchValue(prediction.text.text);
     setShowDropdown(false);
     setSuggestions([]);
 
-    const service = new google.maps.places.PlacesService(
-      document.createElement("div"),
-    );
+    try {
+      const place = prediction.toPlace();
+      await place.fetchFields({ fields: ["location"] });
+      if (!place.location) return;
 
-    service.getDetails(
-      {
-        placeId: prediction.place_id,
-        fields: ["geometry", "name", "address_components"],
-      },
-      (place, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-          const lat = place.geometry?.location?.lat() ?? 0;
-          const lng = place.geometry?.location?.lng() ?? 0;
-
-          setLocationData((prev) => ({
-            ...prev,
-            latitude: lat,
-            longitude: lng,
-            city: place.name ?? prev.city,
-          }));
-
-          if (place.address_components) {
-            extractAddressComponents(place.address_components);
-          }
-
-          reverseGeocode(lat, lng);
-        }
-      },
-    );
+      const lat = place.location.lat();
+      const lng = place.location.lng();
+      setLocationData((prev) => ({
+        ...prev,
+        latitude: lat,
+        longitude: lng,
+      }));
+      reverseGeocode(lat, lng);
+    } catch (error) {
+      console.error("Place details lookup failed:", error);
+    } finally {
+      autocompleteSessionTokenRef.current = null;
+    }
   };
 
   const clearSearch = () => {
     setSearchValue("");
     setSuggestions([]);
     setShowDropdown(false);
+    setIsSearchLoading(false);
+    autocompleteSessionTokenRef.current = null;
   };
 
   useEffect(() => {
@@ -480,15 +488,15 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
                     ) : suggestions.length > 0 ? (
                       suggestions.map((suggestion) => (
                         <div
-                          key={suggestion.place_id}
+                          key={suggestion.placeId}
                           className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
-                          onClick={() => handleSelectPlace(suggestion)}
+                          onClick={() => void handleSelectPlace(suggestion)}
                         >
                           <div className="font-medium text-sm">
-                            {suggestion.structured_formatting.main_text}
+                            {suggestion.mainText?.text || suggestion.text.text}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {suggestion.structured_formatting.secondary_text}
+                            {suggestion.secondaryText?.text || ""}
                           </div>
                         </div>
                       ))

@@ -156,6 +156,9 @@ export function LocationStep() {
 
   const geocodeTimeoutRef = useRef<number | null>(null);
   const searchTimeoutRef = useRef<number | null>(null);
+  const searchRequestRef = useRef(0);
+  const autocompleteSessionTokenRef =
+    useRef<google.maps.places.AutocompleteSessionToken | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Allows the user to manually edit the city (which is normally auto-filled
@@ -164,9 +167,9 @@ export function LocationStep() {
 
   // Search state
   const [searchValue, setSearchValue] = useState("");
-  const [suggestions, setSuggestions] = useState<
-    google.maps.places.AutocompletePrediction[]
-  >([]);
+  const [suggestions, setSuggestions] = useState<google.maps.places.PlacePrediction[]>(
+    [],
+  );
   const [showDropdown, setShowDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [addressOptions, setAddressOptions] = useState<
@@ -318,6 +321,7 @@ export function LocationStep() {
   const handleSearchInput = (value: string) => {
     if (readOnly) return;
     setSearchValue(value);
+    const requestId = ++searchRequestRef.current;
 
     // Clear previous timeout
     if (searchTimeoutRef.current) {
@@ -328,8 +332,10 @@ export function LocationStep() {
     if (!value.trim()) {
       setSuggestions([]);
       setShowDropdown(false);
+      setIsLoading(false);
       setAddressOptions([]);
       setSelectedAddressIndex(null);
+      autocompleteSessionTokenRef.current = null;
       return;
     }
 
@@ -337,67 +343,70 @@ export function LocationStep() {
     setIsLoading(true);
 
     // Debounce the search - wait 500ms after user stops typing
-    searchTimeoutRef.current = window.setTimeout(() => {
-      if (!window.google) return;
+    searchTimeoutRef.current = window.setTimeout(async () => {
+      if (!window.google) {
+        setIsLoading(false);
+        return;
+      }
 
-      const service = new google.maps.places.AutocompleteService();
-      service.getPlacePredictions(
-        {
-          input: value,
-          // Optional: restrict to specific country
-          // componentRestrictions: { country: 'in' }
-        },
-        (predictions, status) => {
-          setIsLoading(false);
-          if (
-            status === google.maps.places.PlacesServiceStatus.OK &&
-            predictions
-          ) {
-            setSuggestions(predictions);
-            setShowDropdown(true);
-          } else {
-            setSuggestions([]);
-            setShowDropdown(false);
-          }
-        },
-      );
+      try {
+        await google.maps.importLibrary("places");
+        autocompleteSessionTokenRef.current ??=
+          new google.maps.places.AutocompleteSessionToken();
+        const response =
+          await google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions(
+            {
+              input: value.trim(),
+              sessionToken: autocompleteSessionTokenRef.current,
+            },
+          );
+        if (requestId !== searchRequestRef.current) return;
+
+        const predictions = response.suggestions.flatMap((suggestion) =>
+          suggestion.placePrediction ? [suggestion.placePrediction] : [],
+        );
+        setSuggestions(predictions);
+        setShowDropdown(predictions.length > 0);
+      } catch (error) {
+        console.error("Places autocomplete failed:", error);
+        if (requestId === searchRequestRef.current) {
+          setSuggestions([]);
+          setShowDropdown(false);
+        }
+      } finally {
+        if (requestId === searchRequestRef.current) setIsLoading(false);
+      }
     }, 500); // ✅ 500ms debounce delay
   };
 
-  const handleSelectPlace = (
-    prediction: google.maps.places.AutocompletePrediction,
+  const handleSelectPlace = async (
+    prediction: google.maps.places.PlacePrediction,
   ) => {
     if (readOnly) return;
     if (!window.google) return;
 
-    setSearchValue(prediction.description);
+    setSearchValue(prediction.text.text);
     setShowDropdown(false);
     setSuggestions([]);
 
-    // Get detailed place information
-    const service = new google.maps.places.PlacesService(
-      document.createElement("div"),
-    );
+    try {
+      const place = prediction.toPlace();
+      await place.fetchFields({ fields: ["location"] });
+      if (!place.location) return;
 
-    service.getDetails(
-      {
-        placeId: prediction.place_id,
-        fields: ["geometry", "name", "address_components"],
-      },
-      (place, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-          const lat = place.geometry?.location?.lat() ?? 0;
-          const lng = place.geometry?.location?.lng() ?? 0;
-
-          setFormDataState(setLatitude(lat));
-          setFormDataState(setLongitude(lng));
-          clearLocationFieldErrors();
-          setAddressOptions([]);
-          setSelectedAddressIndex(null);
-          reverseGeocode(lat, lng);
-        }
-      },
-    );
+      const lat = place.location.lat();
+      const lng = place.location.lng();
+      setFormDataState(setLatitude(lat));
+      setFormDataState(setLongitude(lng));
+      clearLocationFieldErrors();
+      setAddressOptions([]);
+      setSelectedAddressIndex(null);
+      reverseGeocode(lat, lng);
+    } catch (error) {
+      console.error("Place details lookup failed:", error);
+    } finally {
+      autocompleteSessionTokenRef.current = null;
+    }
   };
 
   const clearSearch = () => {
@@ -407,6 +416,8 @@ export function LocationStep() {
     setShowDropdown(false);
     setAddressOptions([]);
     setSelectedAddressIndex(null);
+    setIsLoading(false);
+    autocompleteSessionTokenRef.current = null;
   };
 
   const handleSelectAddressOption = (
@@ -570,15 +581,15 @@ export function LocationStep() {
                 ) : suggestions.length > 0 ? (
                   suggestions.map((suggestion) => (
                     <div
-                      key={suggestion.place_id}
+                      key={suggestion.placeId}
                       className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
-                      onClick={() => handleSelectPlace(suggestion)}
+                      onClick={() => void handleSelectPlace(suggestion)}
                     >
                       <div className="font-medium text-sm">
-                        {suggestion.structured_formatting.main_text}
+                        {suggestion.mainText?.text || suggestion.text.text}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {suggestion.structured_formatting.secondary_text}
+                        {suggestion.secondaryText?.text || ""}
                       </div>
                     </div>
                   ))
