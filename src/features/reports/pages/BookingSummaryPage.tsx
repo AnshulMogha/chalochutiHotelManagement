@@ -795,9 +795,14 @@ export default function BookingSummaryPage() {
                               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-[#2f3d95] text-white shadow-sm shadow-indigo-200">
                                 <Building2 className="h-4 w-4" />
                               </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-slate-900">
-                                  {hotel.hotelName}
+                              <div className="min-w-0 max-w-full overflow-hidden">
+                                <p
+                                  title={hotel.hotelName}
+                                  className="w-full truncate text-sm font-semibold text-slate-900"
+                                >
+                                  {hotel.hotelName.length > 23
+                                    ? `${hotel.hotelName.slice(0, 23).trimEnd()}…`
+                                    : hotel.hotelName}
                                 </p>
                                 <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-500">
                                   <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
@@ -1014,7 +1019,7 @@ export default function BookingSummaryPage() {
                           active={sort === "hotelEarnings"}
                           direction={sortDir}
                           onClick={() => toggleSort("hotelEarnings")}
-                          hint="Amount payable to the property in selected date range"
+                          hint="Amount receivable by the property in selected date range"
                           tone="emerald"
                         />
                       </th>

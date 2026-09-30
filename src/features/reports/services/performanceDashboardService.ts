@@ -393,7 +393,7 @@ export const performanceDashboardService = {
     const data = await getRawPayload<PerformanceOverviewResponse>(
       `${API_ENDPOINTS.REPORTS.PERFORMANCE_OVERVIEW}?${search.toString()}`,
     );
-    return enrichOverview(data);
+    return data;
   },
 
   getBreakdowns: async (

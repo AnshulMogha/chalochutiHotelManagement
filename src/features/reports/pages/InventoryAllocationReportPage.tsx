@@ -341,6 +341,13 @@ export default function InventoryAllocationReportPage() {
     setDraft(DEFAULT_DRAFT);
     setCustomFromText("");
     setCustomToText("");
+    setDatePreset(DEFAULT_DRAFT.datePreset);
+    setFromDate(DEFAULT_DRAFT.fromDate);
+    setToDate(DEFAULT_DRAFT.toDate);
+    setRoomTypeIds(DEFAULT_DRAFT.roomTypeIds);
+    setRatePlanIds(DEFAULT_DRAFT.ratePlanIds);
+    setPage(0);
+    setFilterOpen(false);
   };
 
   const handleExport = async (format: ReportExportFormat) => {

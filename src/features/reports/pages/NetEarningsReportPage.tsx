@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useLocation, useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { canViewHotelPayoutMis, canViewPaymentReport } from "@/constants/roles";
 import { canViewModule } from "@/lib/permissions";
+import { appendReturnToQuery } from "@/lib/navigationReturn";
+import { setStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 import { cn } from "@/lib/utils";
 import { PaymentsTabNav } from "../components/payoutMisUi";
 import {
@@ -105,6 +108,26 @@ function paymentStatusTone(status: string): string {
   return "bg-slate-100 text-slate-700 ring-slate-200";
 }
 
+function bookingDetailsUrl(
+  bookingId?: string | null,
+  bookingRef?: string | null,
+  hotelId?: string | null,
+  returnTo?: string,
+): string {
+  const params = new URLSearchParams();
+  if (hotelId) params.set("hotelId", hotelId);
+  appendReturnToQuery(params, returnTo);
+
+  const id = String(bookingId ?? "").trim();
+  if (/^\d+$/.test(id)) {
+    const query = params.toString();
+    return `${ROUTES.BOOKINGS.DETAIL(id)}${query ? `?${query}` : ""}`;
+  }
+
+  params.set("bookingId", String(bookingRef || id));
+  return `${ROUTES.BOOKINGS.LIST}?${params.toString()}`;
+}
+
 function ChargeGroupCard({
   letter,
   title,
@@ -173,22 +196,22 @@ function BookingDetailDrawer({
   loading: boolean;
   onClose: () => void;
 }) {
+  const location = useLocation();
   if (!open) return null;
   const booking = detail?.booking;
   const earnings = detail?.earnings;
   const payout = detail?.payout;
+  const returnTo = `${location.pathname}${location.search}`;
+  const bookingHref = booking
+    ? bookingDetailsUrl(booking.bookingId, booking.bookingRef, booking.hotelId, returnTo)
+    : null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40">
       <button type="button" className="flex-1" onClick={onClose} aria-label="Close detail" />
       <div className="h-full w-full max-w-xl overflow-auto bg-white shadow-xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">Booking payout</h2>
-            {booking?.bookingRef ? (
-              <p className="font-mono text-xs text-slate-500">{booking.bookingRef}</p>
-            ) : null}
-          </div>
+          <h2 className="text-lg font-bold text-slate-900">Booking payout</h2>
           <button type="button" onClick={onClose} className="rounded p-1 hover:bg-slate-100">
             <X className="h-5 w-5 text-slate-600" />
           </button>
@@ -206,10 +229,20 @@ function BookingDetailDrawer({
                     <p className="text-sm font-semibold text-slate-900">
                       {booking.hotelName || "Hotel"}
                     </p>
-                    <p className="font-mono text-xs text-slate-500">
+                    <Link
+                      to={bookingHref!}
+                      state={{ returnTo }}
+                      onClick={() => {
+                        if (booking.hotelId) setStoredSelectedHotelId(booking.hotelId);
+                      }}
+                      className="font-mono text-xs font-semibold text-blue-700 hover:underline"
+                    >
                       {booking.bookingRef || booking.bookingId}
-                      {booking.pnr ? ` · ${booking.pnr}` : ""}
-                    </p>
+                      {booking.pnr &&
+                      booking.pnr !== (booking.bookingRef || booking.bookingId)
+                        ? ` · ${booking.pnr}`
+                        : ""}
+                    </Link>
                   </div>
                   <span
                     className={cn(
@@ -470,6 +503,15 @@ export default function NetEarningsReportPage() {
     setDraft(DEFAULT_DRAFT);
     setCustomFromText("");
     setCustomToText("");
+    setDatePreset(DEFAULT_DRAFT.datePreset);
+    setBookingStatuses(DEFAULT_DRAFT.bookingStatuses);
+    setBookingType(DEFAULT_DRAFT.bookingType);
+    setPaymentStatus(DEFAULT_DRAFT.paymentStatus);
+    setSearch(DEFAULT_DRAFT.search);
+    setFromDate(DEFAULT_DRAFT.fromDate);
+    setToDate(DEFAULT_DRAFT.toDate);
+    setPage(0);
+    setFilterOpen(false);
   };
 
   const loadReport = useCallback(async () => {
@@ -680,6 +722,14 @@ export default function NetEarningsReportPage() {
                   <p className="text-xl font-extrabold tabular-nums text-slate-900">
                     {formatReportCurrency(summary.totalCommission)}
                   </p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">
+                      TCS {formatReportCurrency(summary.totalTcs)}
+                    </span>
+                    <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-800 ring-1 ring-blue-200">
+                      TDS {formatReportCurrency(summary.totalTds)}
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -731,9 +781,12 @@ export default function NetEarningsReportPage() {
                       "Guest Name",
                       "Stay Duration",
                       "Booking Status",
+                      "Booking Type",
                       "Booking Amount",
                       "Payable To Property",
                       "Commission incl. GST",
+                      "TCS",
+                      "TDS",
                       "Transferred",
                       "Adjusted",
                       "Due Date",
@@ -752,13 +805,13 @@ export default function NetEarningsReportPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={12} className="px-4 py-16 text-center">
+                      <td colSpan={15} className="px-4 py-16 text-center">
                         <Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-600" />
                       </td>
                     </tr>
                   ) : !report?.bookings.length ? (
                     <tr>
-                      <td colSpan={12} className="px-4 py-16 text-center text-slate-400">
+                      <td colSpan={15} className="px-4 py-16 text-center text-slate-400">
                         No rows found.
                       </td>
                     </tr>
@@ -785,6 +838,7 @@ export default function NetEarningsReportPage() {
                           </div>
                         </td>
                         <td className="px-3 py-2.5">{formatStatusLabel(row.bookingStatus)}</td>
+                        <td className="px-3 py-2.5">{formatStatusLabel(row.bookingSource)}</td>
                         <td className="px-3 py-2.5">
                           {formatReportCurrency(row.bookingAmount)}
                         </td>
@@ -793,6 +847,12 @@ export default function NetEarningsReportPage() {
                         </td>
                         <td className="px-3 py-2.5">
                           {formatReportCurrency(row.totalCommission)}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {formatReportCurrency(row.totalTcs)}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {formatReportCurrency(row.totalTds)}
                         </td>
                         <td className="px-3 py-2.5">
                           {formatReportCurrency(row.amountTransferred)}
