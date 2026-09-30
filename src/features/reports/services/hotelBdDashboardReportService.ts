@@ -79,6 +79,13 @@ export interface HotelBdDashboardReportParams {
   bdUserId?: string | number;
   search?: string;
   city?: string;
+  state?: string;
+}
+
+export interface HotelBdUserOption {
+  userId: number;
+  email: string;
+  displayName: string;
 }
 
 function unwrapPayload<T>(response: ApiSuccessResponse<T> | T): T {
@@ -257,11 +264,28 @@ function buildQuery(params: HotelBdDashboardReportParams): string {
   }
   if (params.search?.trim()) search.set("search", params.search.trim());
   if (params.city?.trim()) search.set("city", params.city.trim());
+  if (params.state?.trim()) search.set("state", params.state.trim());
   const query = search.toString();
   return query ? `?${query}` : "";
 }
 
 export const hotelBdDashboardReportService = {
+  async getBdUsers(): Promise<HotelBdUserOption[]> {
+    const response = await apiClient.get<
+      ApiSuccessResponse<HotelBdUserOption[]> | HotelBdUserOption[]
+    >(API_ENDPOINTS.REPORTS.HOTEL_BD_USERS);
+    const payload = unwrapPayload(response);
+    if (!Array.isArray(payload)) return [];
+
+    return payload
+      .map((entry) => ({
+        userId: toNumber(entry.userId),
+        email: String(entry.email ?? "").trim(),
+        displayName: String(entry.displayName ?? "").trim(),
+      }))
+      .filter((entry) => entry.userId > 0);
+  },
+
   async getReport(
     params: HotelBdDashboardReportParams = {},
   ): Promise<HotelBdDashboardReportResponse> {

@@ -30,14 +30,18 @@ import {
 } from "@mui/x-data-grid";
 import type { GridColDef } from "@mui/x-data-grid";
 import { Box } from "@mui/material";
-import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import {
+  exportStatusLabel,
   isoToReportDateText,
   parseOptionalReportDate,
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 
 const TAB_STATUS_PARAMS: Record<string, string> = {
   all: "",
@@ -182,6 +186,8 @@ export default function MyPropertiesPage() {
     rejected: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(null);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
@@ -205,6 +211,36 @@ export default function MyPropertiesPage() {
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(totalElements / Math.max(1, pageSize))),
     [totalElements, pageSize],
+  );
+
+  const propertyFilterParams = useMemo(
+    () => ({
+      ...(appliedFilters.hotelName
+        ? { hotelName: appliedFilters.hotelName }
+        : {}),
+      ...(appliedFilters.hotelCode
+        ? { hotelCode: appliedFilters.hotelCode }
+        : {}),
+      ...(appliedFilters.city ? { city: appliedFilters.city } : {}),
+      ...(appliedFilters.requestedBy
+        ? { requestedBy: appliedFilters.requestedBy }
+        : {}),
+      ...(appliedFilters.submittedAt
+        ? { submittedAt: appliedFilters.submittedAt }
+        : {
+            ...(appliedFilters.submittedAtFrom
+              ? {
+                  submittedAtFrom: `${appliedFilters.submittedAtFrom}T00:00:00.000+05:30`,
+                }
+              : {}),
+            ...(appliedFilters.submittedAtTo
+              ? {
+                  submittedAtTo: `${appliedFilters.submittedAtTo}T23:59:59.999+05:30`,
+                }
+              : {}),
+          }),
+    }),
+    [appliedFilters],
   );
 
   const getApiErrorMessage = (error: unknown, fallback: string) => {
@@ -311,33 +347,10 @@ export default function MyPropertiesPage() {
       const response = await propertyService.getAllHotels({
         page,
         size: pageSize,
-        ...(appliedFilters.hotelName
-          ? { hotelName: appliedFilters.hotelName }
-          : {}),
-        ...(appliedFilters.hotelCode
-          ? { hotelCode: appliedFilters.hotelCode }
-          : {}),
-        ...(appliedFilters.city ? { city: appliedFilters.city } : {}),
+        ...propertyFilterParams,
         ...(TAB_STATUS_PARAMS[requestedTab]
           ? { status: TAB_STATUS_PARAMS[requestedTab] }
           : {}),
-        ...(appliedFilters.requestedBy
-          ? { requestedBy: appliedFilters.requestedBy }
-          : {}),
-        ...(appliedFilters.submittedAt
-          ? { submittedAt: appliedFilters.submittedAt }
-          : {
-              ...(appliedFilters.submittedAtFrom
-                ? {
-                    submittedAtFrom: `${appliedFilters.submittedAtFrom}T00:00:00.000+05:30`,
-                  }
-                : {}),
-              ...(appliedFilters.submittedAtTo
-                ? {
-                    submittedAtTo: `${appliedFilters.submittedAtTo}T23:59:59.999+05:30`,
-                  }
-                : {}),
-            }),
       });
       const hotelsList = (response.content || []).map(mapHotelToListItem);
       if (requestedTab === "all") setAllHotels(hotelsList);
@@ -361,11 +374,49 @@ export default function MyPropertiesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, activeTab, appliedFilters, showToast]);
+  }, [
+    page,
+    pageSize,
+    activeTab,
+    propertyFilterParams,
+    isScopedPropertyViewer,
+    showToast,
+  ]);
 
   useEffect(() => {
     void fetchProperties();
   }, [fetchProperties]);
+
+  useEffect(() => {
+    if (isScopedPropertyViewer) return;
+    let cancelled = false;
+
+    void Promise.all(
+      (["active", "inprocess", "rejected"] as const).map(async (tab) => {
+        const response = await propertyService.getAllHotels({
+          page: 0,
+          size: 1,
+          ...propertyFilterParams,
+          status: TAB_STATUS_PARAMS[tab],
+        });
+        return [tab, response.totalElements || 0] as const;
+      }),
+    )
+      .then((totals) => {
+        if (cancelled) return;
+        setTabTotals((prev) => ({
+          ...prev,
+          ...Object.fromEntries(totals),
+        }));
+      })
+      .catch((error) => {
+        console.error("Failed to preload property counts:", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isScopedPropertyViewer, propertyFilterParams]);
 
   const paginationFooter = (
     <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
@@ -414,84 +465,28 @@ export default function MyPropertiesPage() {
     </div>
   );
 
-  const handleExportCSV = (
-    hotels: HotelList[],
-    tab: "all" | "active" | "inprocess" | "rejected",
-  ) => {
-    const exportColumns: ExportColumn[] = [
-      { field: "hotelName", headerName: "Hotel Name" },
-      { field: "hotelCode", headerName: "Hotel Code" },
-      { field: "city", headerName: "City" },
-      { field: "status", headerName: "Status" },
-      ...(tab !== "active"
-        ? [
-            {
-              field: "currentStep",
-              headerName: "Current Step",
-              valueGetter: (row) => formatStep(row.currentStep),
-            },
-          ]
-        : []),
-      {
-        field: "submittedAt",
-        headerName: "Submitted At",
-        valueGetter: (row) => formatDate(row.submittedAt),
-      },
-      { field: "requestedByEmail", headerName: "Requested By" },
-      ...(tab !== "active"
-        ? [{ field: "rejectionReason", headerName: "Rejection Reason" }]
-        : []),
-    ];
-    const today = new Date().toISOString().split("T")[0];
-    const filename =
-      tab === "all"
-        ? `all-hotels-${today}`
-        : tab === "active"
-        ? `active-hotels-${today}`
-        : tab === "inprocess"
-          ? `in-process-hotels-${today}`
-          : `rejected-hotels-${today}`;
-    exportToCSV(hotels, exportColumns, filename);
-  };
-
-  const handleExportExcel = (
-    hotels: HotelList[],
-    tab: "all" | "active" | "inprocess" | "rejected",
-  ) => {
-    const exportColumns: ExportColumn[] = [
-      { field: "hotelName", headerName: "Hotel Name" },
-      { field: "hotelCode", headerName: "Hotel Code" },
-      { field: "city", headerName: "City" },
-      { field: "status", headerName: "Status" },
-      ...(tab !== "active"
-        ? [
-            {
-              field: "currentStep",
-              headerName: "Current Step",
-              valueGetter: (row) => formatStep(row.currentStep),
-            },
-          ]
-        : []),
-      {
-        field: "submittedAt",
-        headerName: "Submitted At",
-        valueGetter: (row) => formatDate(row.submittedAt),
-      },
-      { field: "requestedByEmail", headerName: "Requested By" },
-      ...(tab !== "active"
-        ? [{ field: "rejectionReason", headerName: "Rejection Reason" }]
-        : []),
-    ];
-    const today = new Date().toISOString().split("T")[0];
-    const filename =
-      tab === "all"
-        ? `all-hotels-${today}`
-        : tab === "active"
-        ? `active-hotels-${today}`
-        : tab === "inprocess"
-          ? `in-process-hotels-${today}`
-          : `rejected-hotels-${today}`;
-    exportToExcel(hotels, exportColumns, filename);
+  const handleExport = async (format: ReportExportFormat) => {
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await propertyService.exportHotels({
+        params: {
+          ...propertyFilterParams,
+          ...(TAB_STATUS_PARAMS[activeTab]
+            ? { status: TAB_STATUS_PARAMS[activeTab] }
+            : {}),
+        },
+        format,
+        defaultFileName: `${activeTab}-properties-${new Date().toISOString().split("T")[0]}`,
+        onStatus: setExportStatus,
+      });
+      showToast("Property export downloaded.", "success");
+    } catch (error) {
+      showToast(getApiErrorMessage(error, "Property export failed."), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
   };
 
   const renderTable = (
@@ -1004,38 +999,12 @@ export default function MyPropertiesPage() {
                   <span>Add New Property</span>
                 </Button>
               )}
-              {activeTab === "all" && allHotels.length > 0 && (
+              {(tabTotals[activeTab] ?? 0) > 0 && (
                 <ExportButton
-                  onExportCSV={() => handleExportCSV(allHotels, "all")}
-                  onExportExcel={() => handleExportExcel(allHotels, "all")}
-                />
-              )}
-              {activeTab === "active" && activeHotels.length > 0 && (
-                <ExportButton
-                  onExportCSV={() => handleExportCSV(activeHotels, "active")}
-                  onExportExcel={() =>
-                    handleExportExcel(activeHotels, "active")
-                  }
-                />
-              )}
-              {activeTab === "inprocess" && inProcessHotels.length > 0 && (
-                <ExportButton
-                  onExportCSV={() =>
-                    handleExportCSV(inProcessHotels, "inprocess")
-                  }
-                  onExportExcel={() =>
-                    handleExportExcel(inProcessHotels, "inprocess")
-                  }
-                />
-              )}
-              {activeTab === "rejected" && rejectedHotels.length > 0 && (
-                <ExportButton
-                  onExportCSV={() =>
-                    handleExportCSV(rejectedHotels, "rejected")
-                  }
-                  onExportExcel={() =>
-                    handleExportExcel(rejectedHotels, "rejected")
-                  }
+                  onExportCSV={() => void handleExport("CSV")}
+                  onExportExcel={() => void handleExport("EXCEL")}
+                  exporting={exporting}
+                  exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
                 />
               )}
             </div>

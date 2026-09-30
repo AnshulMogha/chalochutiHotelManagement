@@ -301,6 +301,11 @@ export const API_ENDPOINTS = {
       `/media/hotel/${hotelId}/upload`,
     ASSIGN_MEDIA_TAG: (mediaId: string) => `/media/${mediaId}/tags`,
     GET_ALL_HOTELS: "/onboarding/hotels",
+    EXPORT_HOTELS: "/onboarding/hotels/export",
+    EXPORT_HOTELS_JOB: (jobId: string) =>
+      `/onboarding/hotels/export/${jobId}`,
+    EXPORT_HOTELS_DOWNLOAD: (jobId: string) =>
+      `/onboarding/hotels/export/${jobId}/download`,
     GET_LOCATION_DETAILS: (hotelId: string) =>
       `/onboarding/hotels/${hotelId}/location`,
     GET_ROOM_DETAILS: (hotelId: string, roomKey: string) =>
@@ -554,6 +559,7 @@ export const API_ENDPOINTS = {
     TRANSPORT_PAYOUTS_EXPORT_DOWNLOAD: (jobId: string) =>
       `/reports/transport-payouts/export/${jobId}/download`,
     HOTEL_BD_DASHBOARD: "/reports/hotel-bd-dashboard",
+    HOTEL_BD_USERS: "/reports/hotel-bd-dashboard/bd-users",
     HOTEL_BD_PIPELINE: "/reports/hotel-bd-pipeline",
     HOTEL_BD_PIPELINE_EXPORT: "/reports/hotel-bd-pipeline/export",
     HOTEL_BD_PIPELINE_EXPORT_JOB: (jobId: string) =>

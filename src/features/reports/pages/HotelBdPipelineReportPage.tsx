@@ -10,7 +10,6 @@ import {
   isReviewerPortalRole,
   isSuperAdmin,
 } from "@/constants/roles";
-import { adminService } from "@/features/admin/services/adminService";
 import {
   exportStatusLabel,
   formatStatusLabel,
@@ -22,6 +21,7 @@ import {
   SummaryCard,
 } from "../components/reportUiHelpers";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
+import { hotelBdDashboardReportService } from "../services/hotelBdDashboardReportService";
 import {
   hotelBdPipelineReportService,
   type HotelBdPipelineReportResponse,
@@ -191,19 +191,13 @@ export default function HotelBdPipelineReportPage() {
     let cancelled = false;
     (async () => {
       try {
-        const response = await adminService.getUsers({
-          role: "HOTEL_BD",
-          size: 200,
-          status: "ACTIVE",
-        });
+        const response = await hotelBdDashboardReportService.getBdUsers();
         if (cancelled) return;
         setBdUsers(
-          (response.content || []).map((entry) => ({
-            id: String(entry.userId ?? ""),
+          response.map((entry) => ({
+            id: String(entry.userId),
             label:
-              [entry.firstName, entry.lastName].filter(Boolean).join(" ").trim() ||
-              entry.email?.trim() ||
-              `User ${entry.userId ?? ""}`,
+              entry.displayName || entry.email || `User ${entry.userId}`,
           })),
         );
       } catch {
