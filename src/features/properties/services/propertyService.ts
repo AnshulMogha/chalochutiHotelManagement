@@ -33,6 +33,11 @@ import type {
 import type { ApiSuccessResponse } from "@/services/api/types";
 import type { Amenity } from "../types";
 import type { MediaTag } from "../components/steps/PhotosAndVideosStep/types";
+import {
+  runReportExportJob,
+  type ExportJobStatus,
+  type ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 
 export interface OnboardingDocumentDownloadUrlData {
   downloadUrl: string;
@@ -134,6 +139,41 @@ export const propertyService = {
       last: payload?.last ?? page >= totalPages - 1,
       empty: payload?.empty ?? content.length === 0,
     };
+  },
+
+  exportHotels: async (options: {
+    params?: Omit<HotelListPageParams, "page" | "size">;
+    format?: ReportExportFormat;
+    defaultFileName: string;
+    onStatus?: (status: ExportJobStatus) => void;
+  }): Promise<void> => {
+    const format = options.format ?? "EXCEL";
+    const search = new URLSearchParams({ format });
+    const params = options.params;
+    const append = (key: string, value?: string) => {
+      const normalized = value?.trim();
+      if (normalized) search.set(key, normalized);
+    };
+
+    append("hotelName", params?.hotelName);
+    append("hotelCode", params?.hotelCode);
+    append("city", params?.city);
+    append("status", params?.status);
+    append("requestedBy", params?.requestedBy);
+    append("submittedAt", params?.submittedAt);
+    if (!params?.submittedAt?.trim()) {
+      append("submittedAtFrom", params?.submittedAtFrom);
+      append("submittedAtTo", params?.submittedAtTo);
+    }
+
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.HOTELS.EXPORT_HOTELS}?${search.toString()}`,
+      statusUrl: API_ENDPOINTS.HOTELS.EXPORT_HOTELS_JOB,
+      downloadUrl: API_ENDPOINTS.HOTELS.EXPORT_HOTELS_DOWNLOAD,
+      defaultFileName: options.defaultFileName,
+      format,
+      onStatus: options.onStatus,
+    });
   },
 
   /** Fetch every page (for selectors / assignment UIs that need the full list). */

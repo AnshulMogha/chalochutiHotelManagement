@@ -8,7 +8,6 @@ import {
   canFilterHotelBdReportsByUser,
   isSuperAdmin,
 } from "@/constants/roles";
-import { adminService } from "@/features/admin/services/adminService";
 import {
   formatReportDate,
   formatStatusLabel,
@@ -93,9 +92,10 @@ type FilterDraft = {
   fromDate: string;
   toDate: string;
   stuckDaysThreshold: number;
-  bdUserId: string;
+  bdUserId: string[];
   inboxSearch: string;
   inboxCity: string;
+  inboxState: string;
 };
 
 const DEFAULT_DRAFT: FilterDraft = {
@@ -103,9 +103,10 @@ const DEFAULT_DRAFT: FilterDraft = {
   fromDate: "",
   toDate: "",
   stuckDaysThreshold: DEFAULT_STUCK_THRESHOLD,
-  bdUserId: "",
+  bdUserId: [],
   inboxSearch: "",
   inboxCity: "",
+  inboxState: "",
 };
 
 function getHotelLink(
@@ -164,31 +165,26 @@ export default function HotelBdDashboardPage() {
   const activeFilterCount =
     (applied.datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
     (applied.stuckDaysThreshold !== DEFAULT_STUCK_THRESHOLD ? 1 : 0) +
-    (applied.bdUserId ? 1 : 0) +
+    (applied.bdUserId.length ? 1 : 0) +
     (applied.datePreset === "CUSTOM" && (applied.fromDate || applied.toDate)
       ? 1
       : 0) +
     (applied.inboxSearch.trim() ? 1 : 0) +
-    (applied.inboxCity.trim() ? 1 : 0);
+    (applied.inboxCity.trim() ? 1 : 0) +
+    (applied.inboxState.trim() ? 1 : 0);
 
   useEffect(() => {
     if (!canFilterByBd) return;
     let cancelled = false;
     (async () => {
       try {
-        const response = await adminService.getUsers({
-          role: "HOTEL_BD",
-          size: 200,
-          status: "ACTIVE",
-        });
+        const response = await hotelBdDashboardReportService.getBdUsers();
         if (cancelled) return;
         setBdUsers(
-          (response.content || []).map((entry) => ({
-            id: String(entry.userId ?? ""),
+          response.map((entry) => ({
+            id: String(entry.userId),
             label:
-              [entry.firstName, entry.lastName].filter(Boolean).join(" ").trim() ||
-              entry.email?.trim() ||
-              `User ${entry.userId ?? ""}`,
+              entry.displayName || entry.email || `User ${entry.userId}`,
           })),
         );
       } catch {
@@ -219,9 +215,12 @@ export default function HotelBdDashboardPage() {
             filters.datePreset === "CUSTOM" ? filters.fromDate : undefined,
           toDate: filters.datePreset === "CUSTOM" ? filters.toDate : undefined,
           stuckDaysThreshold: filters.stuckDaysThreshold,
-          bdUserId: filters.bdUserId || undefined,
+          bdUserId: filters.bdUserId.length
+            ? filters.bdUserId.join(",")
+            : undefined,
           search: filters.inboxSearch.trim() || undefined,
           city: filters.inboxCity.trim() || undefined,
+          state: filters.inboxState.trim() || undefined,
         });
         if (requestId !== requestIdRef.current) return;
         setReport(data);
@@ -720,28 +719,71 @@ export default function HotelBdDashboardPage() {
                   />
                 </div>
               </div>
-              {canFilterByBd ? (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">
-                    BD user (admin)
-                  </label>
-                  <select
-                    value={draft.bdUserId}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600">
+                  State
+                </label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    value={draft.inboxState}
                     onChange={(event) =>
                       setDraft((prev) => ({
                         ...prev,
-                        bdUserId: event.target.value,
+                        inboxState: event.target.value,
                       }))
                     }
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  >
-                    <option value="">All BD users</option>
-                    {bdUsers.map((entry) => (
-                      <option key={entry.id} value={entry.id}>
-                        {entry.label}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Search by state"
+                    className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm"
+                  />
+                </div>
+              </div>
+              {canFilterByBd ? (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    BD users
+                  </label>
+                  <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-slate-200 px-2 py-2">
+                    {bdUsers.length ? (
+                      bdUsers.map((entry) => {
+                        const checked = draft.bdUserId.includes(entry.id);
+                        return (
+                          <label
+                            key={entry.id}
+                            className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm text-slate-800 hover:bg-slate-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                setDraft((prev) => ({
+                                  ...prev,
+                                  bdUserId: checked
+                                    ? prev.bdUserId.filter(
+                                        (id) => id !== entry.id,
+                                      )
+                                    : [...prev.bdUserId, entry.id],
+                                }))
+                              }
+                            />
+                            <span className="min-w-0 truncate">
+                              {entry.label}
+                            </span>
+                          </label>
+                        );
+                      })
+                    ) : (
+                      <p className="px-1 py-1 text-xs text-slate-500">
+                        No BD users found.
+                      </p>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {draft.bdUserId.length
+                      ? `${draft.bdUserId.length} selected`
+                      : "None selected shows all BD users"}
+                  </p>
                 </div>
               ) : null}
             </div>
