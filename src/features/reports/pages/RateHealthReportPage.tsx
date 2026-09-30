@@ -289,6 +289,13 @@ export default function RateHealthReportPage() {
     setDraft(DEFAULT_DRAFT);
     setCustomFromText("");
     setCustomToText("");
+    setDatePreset(DEFAULT_DRAFT.datePreset);
+    setFromDate(DEFAULT_DRAFT.fromDate);
+    setToDate(DEFAULT_DRAFT.toDate);
+    setRoomTypeIds(DEFAULT_DRAFT.roomTypeIds);
+    setRatePlanIds(DEFAULT_DRAFT.ratePlanIds);
+    setPage(0);
+    setFilterOpen(false);
   };
 
   const handleExport = async () => {
@@ -326,7 +333,7 @@ export default function RateHealthReportPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-slate-900">
-          Rate Disparity Report
+          Rate Variance
         </h1>
         <p className="mt-1 text-sm text-slate-500">
           Select a hotel from the top bar to view rate health.
@@ -372,7 +379,7 @@ export default function RateHealthReportPage() {
               </div>
               <div className="min-w-0">
                 <h1 className="truncate text-lg font-bold text-slate-900">
-                  Rate Disparity Report
+                  Rate Variance
                 </h1>
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
                   <span className="inline-flex items-center gap-1.5">
@@ -467,7 +474,7 @@ export default function RateHealthReportPage() {
                 tone="warning"
               />
               <SummaryCard
-                label="High disparities"
+                label="Rate variance"
                 value={summary.highDisparities}
                 tone="danger"
               />
@@ -561,7 +568,9 @@ export default function RateHealthReportPage() {
                               healthStatusTone(row.healthStatus),
                             )}
                           >
-                            {formatStatusLabel(row.healthStatus)}
+                            {row.healthStatus.toUpperCase().includes("DISPAR")
+                              ? "Rate Variance"
+                              : formatStatusLabel(row.healthStatus)}
                           </span>
                         </td>
                       </tr>

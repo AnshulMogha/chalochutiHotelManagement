@@ -110,7 +110,7 @@ const PERMISSION_MODULES: { value: PermissionModule; label: string }[] = [
   // Per-report permissions (Hotel Manager)
   { value: "REPORT_BOOKING_SUMMARY", label: "Report - Booking Summary" },
   { value: "REPORT_PROMOTIONS", label: "Report - Promotion Report" },
-  { value: "REPORT_RATE_HEALTH", label: "Report - Rate Disparity" },
+  { value: "REPORT_RATE_HEALTH", label: "Report - Rate Variance" },
   {
     value: "REPORT_INVENTORY_ALLOCATION",
     label: "Report - Inventory Allocation",

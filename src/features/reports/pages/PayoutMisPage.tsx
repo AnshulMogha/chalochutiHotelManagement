@@ -280,6 +280,12 @@ export default function PayoutMisPage() {
     setDraft(DEFAULT_DRAFT);
     setCustomFromText("");
     setCustomToText("");
+    setDatePreset(DEFAULT_DRAFT.datePreset);
+    setFromDate(DEFAULT_DRAFT.fromDate);
+    setToDate(DEFAULT_DRAFT.toDate);
+    setSearch(DEFAULT_DRAFT.search);
+    setPage(0);
+    setFilterOpen(false);
   };
 
   if (!hotelId) {

@@ -31,6 +31,8 @@ export interface NetEarningsSummary {
   amountAdjusted: number;
   paymentPending: number;
   totalCommission: number;
+  totalTcs: number;
+  totalTds: number;
   currency: string;
 }
 
@@ -42,11 +44,14 @@ export interface NetEarningsBookingRow {
   checkInDate: string;
   checkOutDate: string;
   bookingStatus: string;
+  bookingSource: string;
   bookingAmount: number;
   payableToProperty: number;
   amountTransferred: number;
   amountAdjusted: number;
   totalCommission: number;
+  totalTcs: number;
+  totalTds: number;
   paymentStatus: string;
   dueDate: string | null;
   settledAt: string | null;
@@ -190,6 +195,8 @@ function normalizeSummary(raw: Record<string, unknown> | undefined): NetEarnings
     amountAdjusted: toMoney(raw?.amountAdjusted),
     paymentPending: toMoney(raw?.paymentPending),
     totalCommission: toMoney(raw?.totalCommission),
+    totalTcs: toMoney(raw?.totalTcs),
+    totalTds: toMoney(raw?.totalTds),
     currency: String(raw?.currency ?? "INR"),
   };
 }
@@ -210,11 +217,14 @@ function normalizeBookingRow(raw: Record<string, unknown>): NetEarningsBookingRo
     checkInDate: String(raw.checkInDate ?? raw.checkIn ?? ""),
     checkOutDate: String(raw.checkOutDate ?? raw.checkOut ?? ""),
     bookingStatus: String(raw.bookingStatus ?? "—"),
+    bookingSource: String(raw.bookingSource ?? raw.bookingType ?? "—"),
     bookingAmount: toMoney(raw.bookingAmount),
     payableToProperty: toMoney(raw.payableToProperty),
     amountTransferred: toMoney(raw.amountTransferred),
     amountAdjusted: toMoney(raw.amountAdjusted),
     totalCommission: toMoney(raw.totalCommission),
+    totalTcs: toMoney(raw.totalTcs),
+    totalTds: toMoney(raw.totalTds),
     paymentStatus: String(raw.paymentStatus ?? "—"),
     dueDate: raw.dueDate != null ? String(raw.dueDate) : null,
     settledAt: raw.settledAt != null ? String(raw.settledAt) : null,

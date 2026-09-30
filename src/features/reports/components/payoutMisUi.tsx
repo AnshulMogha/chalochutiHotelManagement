@@ -1,6 +1,7 @@
-import { Link, useSearchParams } from "react-router";
+import { Link, useLocation, useSearchParams } from "react-router";
 import { ROUTES } from "@/constants";
 import { cn } from "@/lib/utils";
+import { appendReturnToQuery } from "@/lib/navigationReturn";
 import {
   formatFinanceMoney,
   formatReportMoney,
@@ -56,6 +57,39 @@ function hotelScopedPath(path: string, hotelId?: string | null): string {
   const id = hotelId ?? getStoredSelectedHotelId();
   if (!id) return path;
   return `${path}?hotelId=${encodeURIComponent(id)}`;
+}
+
+function payoutBookingUrl(
+  variant: "hotel" | "transport",
+  bookingId?: string | null,
+  bookingReference?: string | null,
+  returnTo?: string,
+): string | null {
+  const id = String(bookingId ?? "").trim();
+  const reference = String(bookingReference ?? "").trim();
+
+  if (variant === "transport") {
+    const raw = reference || id;
+    const requestId = raw.match(/TRN-(\d+)/i)?.[1] || (/^\d+$/.test(raw) ? raw : "");
+    return requestId
+      ? `${ROUTES.ADMIN.TRANSPORT_BOOKING_MIS}?requestId=${encodeURIComponent(requestId)}`
+      : null;
+  }
+
+  const params = new URLSearchParams();
+  const hotelId = getStoredSelectedHotelId();
+  if (hotelId) params.set("hotelId", hotelId);
+  appendReturnToQuery(params, returnTo);
+
+  if (/^\d+$/.test(id)) {
+    const query = params.toString();
+    return `${ROUTES.BOOKINGS.DETAIL(id)}${query ? `?${query}` : ""}`;
+  }
+
+  const lookup = reference || id;
+  if (!lookup) return null;
+  params.set("bookingId", lookup);
+  return `${ROUTES.BOOKINGS.LIST}?${params.toString()}`;
 }
 
 export function PaymentsTabNav({
@@ -218,9 +252,11 @@ export function PayoutDetailDrawer({
   onExport?: () => void;
   exporting?: boolean;
 }) {
+  const location = useLocation();
   if (!open) return null;
 
   const dateColumnLabel = variant === "hotel" ? "Stay Duration" : "Trip Dates";
+  const returnTo = `${location.pathname}${location.search}`;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40">
@@ -332,10 +368,29 @@ export function PayoutDetailDrawer({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {detail.bookings.map((row) => (
+                      {detail.bookings.map((row) => {
+                        const bookingHref = payoutBookingUrl(
+                          variant,
+                          row.bookingId,
+                          row.bookingReference,
+                          returnTo,
+                        );
+                        return (
                         <tr key={`${row.bookingId}-${row.bookingReference}`}>
-                          <td className="px-4 py-3 font-mono text-xs text-blue-700">
-                            {row.bookingReference || row.bookingId}
+                          <td className="px-4 py-3 font-mono text-xs">
+                            {bookingHref ? (
+                              <Link
+                                to={bookingHref}
+                                state={{ returnTo }}
+                                className="font-semibold text-blue-700 hover:underline"
+                              >
+                                {row.bookingReference || row.bookingId}
+                              </Link>
+                            ) : (
+                              <span className="text-slate-600">
+                                {row.bookingReference || row.bookingId}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-slate-700">
                             {formatStayOrTripDates(
@@ -358,7 +413,8 @@ export function PayoutDetailDrawer({
                             {row.adjustmentReason?.trim() || "—"}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

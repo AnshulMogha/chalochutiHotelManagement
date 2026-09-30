@@ -39,20 +39,17 @@ import {
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
 
-const HOTEL_LIST_STATUSES = [
-  "DRAFT",
-  "UNDER_QC",
-  "QC_REJECTED",
-  "UNDER_ZONAL_REVIEW",
-  "ZONAL_REJECTED",
-  "LIVE",
-] as const;
+const TAB_STATUS_PARAMS: Record<string, string> = {
+  all: "",
+  active: "LIVE",
+  inprocess: "INPROCESS",
+  rejected: "REJECTED",
+};
 
 type PropertyListFilters = {
   hotelName: string;
   hotelCode: string;
   city: string;
-  status: string;
   requestedBy: string;
   submittedAt: string;
   submittedAtFrom: string;
@@ -63,7 +60,6 @@ const DEFAULT_PROPERTY_FILTERS: PropertyListFilters = {
   hotelName: "",
   hotelCode: "",
   city: "",
-  status: "",
   requestedBy: "",
   submittedAt: "",
   submittedAtFrom: "",
@@ -170,46 +166,23 @@ function mapHotelToListItem(
   };
 }
 
-function splitHotelsByTab(hotels: ReturnType<typeof mapHotelToListItem>[]) {
-  const hasRejectionFeedback = (hotel: (typeof hotels)[number]) =>
-    Boolean(
-      hotel.rejectionReason && String(hotel.rejectionReason).trim().length > 0,
-    );
-  const status = (hotel: (typeof hotels)[number]) =>
-    String(hotel.status || "").toUpperCase();
-  const isExplicitRejectedStatus = (hotel: (typeof hotels)[number]) =>
-    status(hotel) === "REJECTED";
-  const isReviewInProgressStatus = (hotel: (typeof hotels)[number]) =>
-    status(hotel) === "UNDER_QC" ||
-    status(hotel) === "UNDER_REVIEW" ||
-    status(hotel) === "PENDING";
-  const shouldGoToRejected = (hotel: (typeof hotels)[number]) =>
-    isExplicitRejectedStatus(hotel) ||
-    (status(hotel) === "DRAFT" && hasRejectionFeedback(hotel));
-
-  return {
-    active: hotels.filter((hotel) => hotel.status === "LIVE"),
-    inProcess: hotels.filter(
-      (hotel) =>
-        hotel.status !== "LIVE" &&
-        (!shouldGoToRejected(hotel) || isReviewInProgressStatus(hotel)),
-    ),
-    rejected: hotels.filter(
-      (hotel) => shouldGoToRejected(hotel) && !isReviewInProgressStatus(hotel),
-    ),
-  };
-}
-
 export default function MyPropertiesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast, showToast, hideToast } = useToast();
 
+  const [allHotels, setAllHotels] = useState<HotelList[]>([]);
   const [activeHotels, setActiveHotels] = useState<HotelList[]>([]);
   const [inProcessHotels, setInProcessHotels] = useState<HotelList[]>([]);
   const [rejectedHotels, setRejectedHotels] = useState<HotelList[]>([]);
+  const [tabTotals, setTabTotals] = useState<Record<string, number>>({
+    all: 0,
+    active: 0,
+    inprocess: 0,
+    rejected: 0,
+  });
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>("active");
+  const [activeTab, setActiveTab] = useState<string>("all");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [totalElements, setTotalElements] = useState(0);
@@ -272,7 +245,6 @@ export default function MyPropertiesPage() {
     (appliedFilters.hotelName.trim() ? 1 : 0) +
     (appliedFilters.hotelCode.trim() ? 1 : 0) +
     (appliedFilters.city.trim() ? 1 : 0) +
-    (appliedFilters.status.trim() ? 1 : 0) +
     (appliedFilters.requestedBy.trim() ? 1 : 0) +
     (appliedFilters.submittedAt ? 1 : 0) +
     (!appliedFilters.submittedAt &&
@@ -306,7 +278,6 @@ export default function MyPropertiesPage() {
       hotelName: draftFilters.hotelName.trim(),
       hotelCode: draftFilters.hotelCode.trim(),
       city: draftFilters.city.trim(),
-      status: draftFilters.status.trim(),
       requestedBy: draftFilters.requestedBy.trim(),
       submittedAt: submittedAtIso || "",
       submittedAtFrom,
@@ -336,6 +307,7 @@ export default function MyPropertiesPage() {
   const fetchProperties = useCallback(async () => {
     try {
       setIsLoading(true);
+      const requestedTab = isScopedPropertyViewer ? "active" : activeTab;
       const response = await propertyService.getAllHotels({
         page,
         size: pageSize,
@@ -346,7 +318,9 @@ export default function MyPropertiesPage() {
           ? { hotelCode: appliedFilters.hotelCode }
           : {}),
         ...(appliedFilters.city ? { city: appliedFilters.city } : {}),
-        ...(appliedFilters.status ? { status: appliedFilters.status } : {}),
+        ...(TAB_STATUS_PARAMS[requestedTab]
+          ? { status: TAB_STATUS_PARAMS[requestedTab] }
+          : {}),
         ...(appliedFilters.requestedBy
           ? { requestedBy: appliedFilters.requestedBy }
           : {}),
@@ -366,14 +340,16 @@ export default function MyPropertiesPage() {
             }),
       });
       const hotelsList = (response.content || []).map(mapHotelToListItem);
-      const split = splitHotelsByTab(hotelsList);
-
-      setActiveHotels(split.active);
-      setInProcessHotels(split.inProcess);
-      setRejectedHotels(split.rejected);
-      setTotalElements(response.totalElements || 0);
+      if (requestedTab === "all") setAllHotels(hotelsList);
+      if (requestedTab === "active") setActiveHotels(hotelsList);
+      if (requestedTab === "inprocess") setInProcessHotels(hotelsList);
+      if (requestedTab === "rejected") setRejectedHotels(hotelsList);
+      const responseTotal = response.totalElements || 0;
+      setTabTotals((prev) => ({ ...prev, [requestedTab]: responseTotal }));
+      setTotalElements(responseTotal);
     } catch (error) {
       console.error("Error fetching properties:", error);
+      setAllHotels([]);
       setActiveHotels([]);
       setInProcessHotels([]);
       setRejectedHotels([]);
@@ -385,7 +361,7 @@ export default function MyPropertiesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, appliedFilters, showToast]);
+  }, [page, pageSize, activeTab, appliedFilters, showToast]);
 
   useEffect(() => {
     void fetchProperties();
@@ -440,7 +416,7 @@ export default function MyPropertiesPage() {
 
   const handleExportCSV = (
     hotels: HotelList[],
-    tab: "active" | "inprocess" | "rejected",
+    tab: "all" | "active" | "inprocess" | "rejected",
   ) => {
     const exportColumns: ExportColumn[] = [
       { field: "hotelName", headerName: "Hotel Name" },
@@ -468,7 +444,9 @@ export default function MyPropertiesPage() {
     ];
     const today = new Date().toISOString().split("T")[0];
     const filename =
-      tab === "active"
+      tab === "all"
+        ? `all-hotels-${today}`
+        : tab === "active"
         ? `active-hotels-${today}`
         : tab === "inprocess"
           ? `in-process-hotels-${today}`
@@ -478,7 +456,7 @@ export default function MyPropertiesPage() {
 
   const handleExportExcel = (
     hotels: HotelList[],
-    tab: "active" | "inprocess" | "rejected",
+    tab: "all" | "active" | "inprocess" | "rejected",
   ) => {
     const exportColumns: ExportColumn[] = [
       { field: "hotelName", headerName: "Hotel Name" },
@@ -506,7 +484,9 @@ export default function MyPropertiesPage() {
     ];
     const today = new Date().toISOString().split("T")[0];
     const filename =
-      tab === "active"
+      tab === "all"
+        ? `all-hotels-${today}`
+        : tab === "active"
         ? `active-hotels-${today}`
         : tab === "inprocess"
           ? `in-process-hotels-${today}`
@@ -519,6 +499,7 @@ export default function MyPropertiesPage() {
     isActiveTab: boolean = false,
     canAddProperty: boolean = true,
     inProcessViewOnly: boolean = false,
+    isAllTab: boolean = false,
   ) => {
     if (hotels.length === 0) {
       return (
@@ -688,7 +669,11 @@ export default function MyPropertiesPage() {
             return null;
           }
 
-          if (isActiveTab) {
+          const isLiveProperty = ["ACTIVE", "LIVE"].includes(
+            String(params.row.status || "").toUpperCase(),
+          );
+
+          if (isActiveTab || (isAllTab && isLiveProperty)) {
             return (
               <Button
                 variant="outline"
@@ -762,11 +747,16 @@ export default function MyPropertiesPage() {
           hideFooter
           disableColumnFilter
           onRowClick={
-            isActiveTab && !isScopedPropertyViewer
+            (isActiveTab || isAllTab) && !isScopedPropertyViewer
               ? (params) => {
-                  navigate(
-                    `${ROUTES.PROPERTY_INFO.BASIC_INFO}?hotelId=${params.row.hotelId}`,
+                  const isLiveProperty = ["ACTIVE", "LIVE"].includes(
+                    String(params.row.status || "").toUpperCase(),
                   );
+                  if (isActiveTab || isLiveProperty) {
+                    navigate(
+                      `${ROUTES.PROPERTY_INFO.BASIC_INFO}?hotelId=${params.row.hotelId}`,
+                    );
+                  }
                 }
               : undefined
           }
@@ -847,7 +837,7 @@ export default function MyPropertiesPage() {
               },
             },
             "& .MuiDataGrid-row": {
-              ...(isActiveTab && !isScopedPropertyViewer
+              ...((isActiveTab || isAllTab) && !isScopedPropertyViewer
                 ? { cursor: "pointer" }
                 : {}),
               "&:hover": {
@@ -944,18 +934,30 @@ export default function MyPropertiesPage() {
         <Tabs
           defaultValue="active"
           value={activeTab}
-          onValueChange={setActiveTab}
+          onValueChange={(value) => {
+            setActiveTab(value);
+            setPage(0);
+          }}
           className="space-y-6"
         >
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <TabsList className="bg-white border border-gray-200 shadow-sm h-12 px-1 space-x-1 rounded-xl">
+              <TabsTrigger
+                value="all"
+                className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
+              >
+                <span>All Properties</span>
+                <span className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
+                  {tabTotals.all}
+                </span>
+              </TabsTrigger>
               <TabsTrigger
                 value="active"
                 className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
               >
                 <span>Active Properties</span>
                 <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
-                  {activeHotels.length}
+                  {tabTotals.active}
                 </span>
               </TabsTrigger>
               <TabsTrigger
@@ -964,7 +966,7 @@ export default function MyPropertiesPage() {
               >
                 <span>In Process</span>
                 <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
-                  {inProcessHotels.length}
+                  {tabTotals.inprocess}
                 </span>
               </TabsTrigger>
               <TabsTrigger
@@ -973,7 +975,7 @@ export default function MyPropertiesPage() {
               >
                 <span>Rejected</span>
                 <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
-                  {rejectedHotels.length}
+                  {tabTotals.rejected}
                 </span>
               </TabsTrigger>
             </TabsList>
@@ -1001,6 +1003,12 @@ export default function MyPropertiesPage() {
                   <Plus className="w-5 h-5" />
                   <span>Add New Property</span>
                 </Button>
+              )}
+              {activeTab === "all" && allHotels.length > 0 && (
+                <ExportButton
+                  onExportCSV={() => handleExportCSV(allHotels, "all")}
+                  onExportExcel={() => handleExportExcel(allHotels, "all")}
+                />
               )}
               {activeTab === "active" && activeHotels.length > 0 && (
                 <ExportButton
@@ -1032,6 +1040,11 @@ export default function MyPropertiesPage() {
               )}
             </div>
           </div>
+
+          {/* All Properties Tab */}
+          <TabsContent value="all" className="mt-0">
+            {renderTable(allHotels, false, canOnboard, isHotelBdUser, true)}
+          </TabsContent>
 
           {/* Active Properties Tab */}
           <TabsContent value="active" className="mt-0">
@@ -1127,35 +1140,6 @@ export default function MyPropertiesPage() {
                   placeholder="Mumbai"
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Status
-                </label>
-                <select
-                  value={draftFilters.status}
-                  onChange={(e) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      status: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="">All statuses</option>
-                  {HOTEL_LIST_STATUSES.map((status) => (
-                    <option key={status} value={status}>
-                      {status
-                        .toLowerCase()
-                        .split("_")
-                        .map(
-                          (part) =>
-                            part.charAt(0).toUpperCase() + part.slice(1),
-                        )
-                        .join(" ")}
-                    </option>
-                  ))}
-                </select>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">

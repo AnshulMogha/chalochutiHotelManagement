@@ -378,7 +378,7 @@ function getReportsNavItem(
     ...(showRateDisparity
       ? [
           {
-            label: "Rate Disparity",
+            label: "Rate Variance",
             path: ROUTES.REPORTS.RATE_HEALTH,
             icon: HeartPulse,
           },
