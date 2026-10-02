@@ -117,6 +117,17 @@ export function isHotelBdRole(userRoles: string[] | undefined): boolean {
   return !!userRoles?.includes("HOTEL_BD");
 }
 
+/** Roles that select one or more hotels inside cross-hotel report filters. */
+export function canUseCrossHotelReportFilter(
+  userRoles: string[] | undefined,
+): boolean {
+  return (
+    isSuperAdmin(userRoles) ||
+    isZonalHotelReviewerRole(userRoles) ||
+    isHotelBdRole(userRoles)
+  );
+}
+
 /** Roles allowed to view Hotel BD portfolio dashboard and pipeline reports. */
 export const HOTEL_BD_REPORT_ROLES = [
   "HOTEL_BD",

@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/hooks/useAuth";
-import { canViewPaymentReport } from "@/constants/roles";
+import {
+  canUseCrossHotelReportFilter,
+  canViewPaymentReport,
+} from "@/constants/roles";
 import { canViewModule } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
@@ -15,6 +18,7 @@ import {
   validateCustomDateRange,
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import { HotelLookupMultiSelectField } from "../components/HotelLookupFilterField";
 import {
   PaymentsTabNav,
   PayoutDetailDrawer,
@@ -57,6 +61,7 @@ const DATE_PRESET_OPTIONS: { value: PayoutMisDatePreset; label: string }[] = [
 ];
 
 type FilterDraft = {
+  propertyIds: string[];
   datePreset: PayoutMisDatePreset;
   fromDate: string;
   toDate: string;
@@ -64,6 +69,7 @@ type FilterDraft = {
 };
 
 const DEFAULT_DRAFT: FilterDraft = {
+  propertyIds: [],
   datePreset: DEFAULT_DATE_PRESET,
   fromDate: "",
   toDate: "",
@@ -74,6 +80,7 @@ export default function PayoutMisPage() {
   const { user } = useAuth();
   const { toast, showToast, hideToast } = useToast();
   const hotelId = useHotelIdFromUrl();
+  const canFilterHotels = canUseCrossHotelReportFilter(user?.roles);
   const [, setSearchParams] = useSearchParams();
 
   // Same Net Earnings tab as Super Admin / Owner for Manager & Accountant too.
@@ -81,6 +88,7 @@ export default function PayoutMisPage() {
     canViewPaymentReport(user?.roles) || canViewModule(user, "PAYMENTS");
 
   const [datePreset, setDatePreset] = useState<PayoutMisDatePreset>(DEFAULT_DATE_PRESET);
+  const [propertyIds, setPropertyIds] = useState<string[]>([]);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [search, setSearch] = useState("");
@@ -105,11 +113,13 @@ export default function PayoutMisPage() {
   const [rowExportingRef, setRowExportingRef] = useState<string | null>(null);
   const [detailExporting, setDetailExporting] = useState(false);
 
-  const scopeReady = !!hotelId;
+  const scopeReady = canFilterHotels || !!hotelId;
   const customRangeInvalid = datePreset === "CUSTOM" && (!fromDate || !toDate);
 
   const activeFilterCount =
-    (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) + (search.trim() ? 1 : 0);
+    (propertyIds.length ? 1 : 0) +
+    (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
+    (search.trim() ? 1 : 0);
 
   const listParams = useMemo(
     () => ({
@@ -121,9 +131,24 @@ export default function PayoutMisPage() {
       fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
       toDate: datePreset === "CUSTOM" ? toDate : undefined,
       search: search.trim() || undefined,
-      propertyIds: hotelId ? [hotelId] : undefined,
+      propertyIds: canFilterHotels
+        ? propertyIds
+        : hotelId
+          ? [hotelId]
+          : undefined,
     }),
-    [page, sortField, sortDir, datePreset, fromDate, toDate, search, hotelId],
+    [
+      page,
+      sortField,
+      sortDir,
+      datePreset,
+      fromDate,
+      toDate,
+      search,
+      hotelId,
+      canFilterHotels,
+      propertyIds,
+    ],
   );
 
   const loadReport = useCallback(async () => {
@@ -148,7 +173,7 @@ export default function PayoutMisPage() {
   }, [scopeReady, customRangeInvalid, loadReport]);
 
   useEffect(() => {
-    if (hotelId) return;
+    if (canFilterHotels || hotelId) return;
     const stored = getStoredSelectedHotelId();
     if (!stored) return;
     setSearchParams(
@@ -159,7 +184,7 @@ export default function PayoutMisPage() {
       },
       { replace: true },
     );
-  }, [hotelId, setSearchParams]);
+  }, [hotelId, canFilterHotels, setSearchParams]);
 
   const openDetail = async (paymentReference: string) => {
     setActiveReference(paymentReference);
@@ -168,7 +193,11 @@ export default function PayoutMisPage() {
     try {
       const parsed = await hotelPayoutMisService.getDetail({
         paymentReference,
-        hotelId: hotelId ?? undefined,
+        hotelId:
+          hotelId ??
+          (canFilterHotels && propertyIds.length === 1
+            ? propertyIds[0]
+            : undefined),
       });
       setDetail(parsed);
     } catch (err) {
@@ -261,6 +290,7 @@ export default function PayoutMisPage() {
       }
       nextDraft = { ...draft, fromDate: parsed.fromDate, toDate: parsed.toDate };
     }
+    setPropertyIds(nextDraft.propertyIds);
     setDatePreset(nextDraft.datePreset);
     setFromDate(nextDraft.fromDate);
     setToDate(nextDraft.toDate);
@@ -270,7 +300,7 @@ export default function PayoutMisPage() {
   };
 
   const openFilters = () => {
-    setDraft({ datePreset, fromDate, toDate, search });
+    setDraft({ propertyIds, datePreset, fromDate, toDate, search });
     setCustomFromText(isoToReportDateText(fromDate));
     setCustomToText(isoToReportDateText(toDate));
     setFilterOpen(true);
@@ -280,6 +310,7 @@ export default function PayoutMisPage() {
     setDraft(DEFAULT_DRAFT);
     setCustomFromText("");
     setCustomToText("");
+    setPropertyIds(DEFAULT_DRAFT.propertyIds);
     setDatePreset(DEFAULT_DRAFT.datePreset);
     setFromDate(DEFAULT_DRAFT.fromDate);
     setToDate(DEFAULT_DRAFT.toDate);
@@ -288,7 +319,7 @@ export default function PayoutMisPage() {
     setFilterOpen(false);
   };
 
-  if (!hotelId) {
+  if (!canFilterHotels && !hotelId) {
     return (
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-slate-900">Payments</h1>
@@ -478,6 +509,14 @@ export default function PayoutMisPage() {
             </div>
 
             <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+              {canFilterHotels ? (
+                <HotelLookupMultiSelectField
+                  value={draft.propertyIds}
+                  onChange={(ids) =>
+                    setDraft((prev) => ({ ...prev, propertyIds: ids }))
+                  }
+                />
+              ) : null}
               <section>
                 <h3 className="mb-2 text-sm font-bold text-slate-900">Payment date range</h3>
                 <label className="mb-1 block text-xs text-slate-500">Time period</label>

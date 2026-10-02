@@ -18,7 +18,11 @@ import { RiMenuUnfold3Line } from "react-icons/ri";
 import { RiMenuFold3Line } from "react-icons/ri";
 import { HotelSelector } from "@/components/ui/HotelSelector";
 import { ROUTES } from "@/constants";
-import { isAuditorRole, isSuperAdmin } from "@/constants/roles";
+import {
+  canUseCrossHotelReportFilter,
+  isAuditorRole,
+  isSuperAdmin,
+} from "@/constants/roles";
 import { RoleBadge } from "@/components/ui/badges";
 import {
   getStoredSelectedHotelId,
@@ -109,7 +113,8 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   const isHotelReviewsPage = location.pathname === ROUTES.HOTEL_REVIEWS.LIST;
   const isReviewMisPage = location.pathname === ROUTES.RATINGS_REVIEWS.MIS;
 
-  // Analytics (performance dashboard) and other report pages are hotel-scoped via ?hotelId=
+  // Super Admin selects hotels inside supported report filters; other roles
+  // continue to use the hotel-scoped topbar selector.
   const isPromotionReportPage = location.pathname === ROUTES.REPORTS.PROMOTIONS;
   const isAnalyticsPage =
     location.pathname === ROUTES.ANALYTICS.DASHBOARD ||
@@ -122,6 +127,13 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     location.pathname === ROUTES.REPORTS.NET_EARNINGS;
   const isHotelPayoutMisPage =
     location.pathname === ROUTES.REPORTS.HOTEL_PAYOUTS;
+  const usesInReportHotelFilter =
+    canUseCrossHotelReportFilter(user?.roles) &&
+    (isPromotionReportPage ||
+      isRateHealthReportPage ||
+      isInventoryAllocationReportPage ||
+      isNetEarningsReportPage ||
+      isHotelPayoutMisPage);
 
   // Check My Properties page. Selecting a hotel here jumps to its info.
   const isMyPropertiesPage =
@@ -137,12 +149,12 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     bookingsUseTopHotel ||
     isHotelReviewsPage ||
     isReviewMisPage ||
-    isPromotionReportPage ||
+    (isPromotionReportPage && !usesInReportHotelFilter) ||
     isAnalyticsPage ||
-    isRateHealthReportPage ||
-    isInventoryAllocationReportPage ||
-    isNetEarningsReportPage ||
-    isHotelPayoutMisPage ||
+    (isRateHealthReportPage && !usesInReportHotelFilter) ||
+    (isInventoryAllocationReportPage && !usesInReportHotelFilter) ||
+    (isNetEarningsReportPage && !usesInReportHotelFilter) ||
+    (isHotelPayoutMisPage && !usesInReportHotelFilter) ||
     isDocumentReviewPage ||
     isMyPropertiesPage;
   const hotelIdFromUrl = searchParams.get("hotelId");

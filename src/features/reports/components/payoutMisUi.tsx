@@ -500,6 +500,9 @@ export function PayoutPaymentsTable({
               </span>
             </th>
             <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+              Hotel Name
+            </th>
+            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
               <SortableHeader
                 label="Payment Date"
                 field="PAYMENT_DATE"
@@ -552,13 +555,13 @@ export function PayoutPaymentsTable({
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={7} className="px-4 py-16 text-center">
+              <td colSpan={8} className="px-4 py-16 text-center">
                 <Loader2 className="mx-auto h-6 w-6 animate-spin text-blue-600" />
               </td>
             </tr>
           ) : !rows.length ? (
             <tr>
-              <td colSpan={7} className="px-4 py-16 text-center text-slate-400">
+              <td colSpan={8} className="px-4 py-16 text-center text-slate-400">
                 No payout records found for the selected filters.
               </td>
             </tr>
@@ -576,6 +579,14 @@ export function PayoutPaymentsTable({
                   >
                     {row.paymentReferenceNumber}
                   </button>
+                </td>
+                <td className="max-w-56 px-3 py-2.5">
+                  <span
+                    className="block truncate text-slate-700"
+                    title={row.hotelName || undefined}
+                  >
+                    {row.hotelName || "—"}
+                  </span>
                 </td>
                 <td className="px-3 py-2.5 text-slate-700">
                   {formatPayoutShortDate(row.paymentDate)}

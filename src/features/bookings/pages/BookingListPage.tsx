@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef, type KeyboardEvent, type RefObject } from "react";
+import { useState, useEffect, useMemo, useRef, type KeyboardEvent, type RefObject } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router";
 import { ROUTES } from "@/constants";
 import { isAuditorRole, isSuperAdmin } from "@/constants/roles";
@@ -18,7 +18,7 @@ import {
   type BookingListExportParams,
 } from "../services/bookingService";
 import { Toast, useToast } from "@/components/ui/Toast";
-import { HotelLookupFilterField } from "@/features/reports/components/HotelLookupFilterField";
+import { HotelLookupMultiSelectField } from "@/features/reports/components/HotelLookupFilterField";
 import { DataTable } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import type {
@@ -31,7 +31,6 @@ import {
 } from "@/features/reports/components/reportUiHelpers";
 import {
   ArrowLeft,
-  ArrowUpDown,
   BookOpen,
   Building2,
   Calendar,
@@ -41,7 +40,6 @@ import {
   Layers,
   Loader2,
   RefreshCw,
-  Search,
   Filter,
   X,
   FileText,
@@ -61,7 +59,6 @@ import {
   bookingTableGridSx,
   getStatusConfig,
 } from "../components/bookingTableUi";
-import { cn } from "@/lib/utils";
 
 const TEXT_FILTER_DEBOUNCE_MS = 400;
 
@@ -360,7 +357,18 @@ export default function BookingListPage() {
   const { user } = useAuth();
   const seesAllBookings =
     isSuperAdmin(user?.roles) || isAuditorRole(user?.roles);
-  const selectedHotelId = searchParams.get("hotelId");
+  const selectedHotelIds = useMemo(() => {
+    const propertyIds = searchParams
+      .get("propertyIds")
+      ?.split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (propertyIds?.length) return [...new Set(propertyIds)];
+    const hotelId = searchParams.get("hotelId")?.trim();
+    return hotelId ? [hotelId] : [];
+  }, [searchParams]);
+  const selectedHotelId =
+    selectedHotelIds.length === 1 ? selectedHotelIds[0] : null;
   const bookingIdFromUrl = searchParams.get("bookingId")?.trim() || "";
   const returnTo = readReturnToFromLocation(searchParams, location.state);
   const backLabel = getReturnBackLabel(returnTo);
@@ -429,12 +437,8 @@ export default function BookingListPage() {
     readParam("bookingStatus"),
   );
   const [drillView, setDrillView] = useState(() => readParam("view"));
-  const [dateOpen, setDateOpen] = useState(false);
-  const [dateMenuPlacement, setDateMenuPlacement] = useState<"bottom" | "top">(
-    "bottom",
-  );
-  const [dateMenuMaxHeight, setDateMenuMaxHeight] = useState<number>(320);
-  const dateDropdownRef = useRef<HTMLDivElement>(null);
+  const [bookingFilterOpen, setBookingFilterOpen] = useState(false);
+  const [draftHotelIds, setDraftHotelIds] = useState<string[]>([]);
   const fromDateInputRef = useRef<HTMLInputElement>(null);
   const toDateInputRef = useRef<HTMLInputElement>(null);
 
@@ -496,22 +500,6 @@ export default function BookingListPage() {
     };
   }, [dateAxis, resolvedDates]);
 
-  const dateSummaryLabel = useMemo(() => {
-    if (dateAxis === "NONE") return "Any date";
-    const axisLabel =
-      DATE_AXIS_OPTIONS.find((o) => o.value === dateAxis)?.label ?? "Date";
-    if (customFrom && customTo) {
-      if (customFrom === customTo) {
-        return `${axisLabel}: ${formatReportDate(customFrom)}`;
-      }
-      return `${axisLabel}: ${formatReportDate(customFrom)} → ${formatReportDate(customTo)}`;
-    }
-    const presetLabel =
-      DATE_PRESET_OPTIONS.find((o) => o.value === datePreset)?.label ??
-      datePreset;
-    return `${axisLabel}: ${presetLabel}`;
-  }, [dateAxis, datePreset, customFrom, customTo]);
-
   // Seed Booking ID search from deep links (e.g. settlement preview).
   useEffect(() => {
     if (!bookingIdFromUrl) return;
@@ -530,51 +518,6 @@ export default function BookingListPage() {
     }, TEXT_FILTER_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [guestName, bookingId]);
-
-  useEffect(() => {
-    if (!dateOpen) return;
-    const onPointerDown = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node | null;
-      if (
-        target &&
-        dateDropdownRef.current &&
-        !dateDropdownRef.current.contains(target)
-      ) {
-        setDateOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("touchstart", onPointerDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("touchstart", onPointerDown);
-    };
-  }, [dateOpen]);
-
-  useLayoutEffect(() => {
-    if (!dateOpen || !dateDropdownRef.current) return;
-
-    const updateMenuPosition = () => {
-      const trigger = dateDropdownRef.current;
-      if (!trigger) return;
-
-      const rect = trigger.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom - 12;
-      const spaceAbove = rect.top - 12;
-      const openUp = spaceBelow < 280 && spaceAbove > spaceBelow;
-
-      setDateMenuPlacement(openUp ? "top" : "bottom");
-      setDateMenuMaxHeight(Math.max(180, openUp ? spaceAbove : spaceBelow));
-    };
-
-    updateMenuPosition();
-    window.addEventListener("resize", updateMenuPosition);
-    window.addEventListener("scroll", updateMenuPosition, true);
-    return () => {
-      window.removeEventListener("resize", updateMenuPosition);
-      window.removeEventListener("scroll", updateMenuPosition, true);
-    };
-  }, [dateOpen, dateAxis, datePreset]);
 
   useEffect(() => {
     if (!downloadOpen) return;
@@ -599,7 +542,7 @@ export default function BookingListPage() {
   const listExportParams = useMemo((): BookingListExportParams | null => {
     if (!seesAllBookings && !selectedHotelId) return null;
     return {
-      hotelId: selectedHotelId || undefined,
+      propertyIds: selectedHotelIds.length ? selectedHotelIds : undefined,
       guestName: debouncedGuestName.trim() || undefined,
       bookingId: debouncedBookingId.trim() || undefined,
       dateFilter: dateFilterParams.dateFilter,
@@ -612,6 +555,7 @@ export default function BookingListPage() {
     };
   }, [
     selectedHotelId,
+    selectedHotelIds,
     debouncedGuestName,
     debouncedBookingId,
     dateFilterParams.dateFilter,
@@ -703,6 +647,7 @@ export default function BookingListPage() {
 
   const hasDateFilter = dateAxis !== "NONE";
   const hasActiveFilters =
+    (seesAllBookings && selectedHotelIds.length > 0) ||
     guestName.trim() !== "" ||
     bookingId.trim() !== "" ||
     hasDateFilter ||
@@ -725,6 +670,17 @@ export default function BookingListPage() {
     setOrderBy("bookingDate");
     setSortDir("desc");
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    if (seesAllBookings && selectedHotelIds.length) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("hotelId");
+          next.delete("propertyIds");
+          return next;
+        },
+        { replace: true },
+      );
+    }
     if (searchParams.has("bookingId")) {
       const hotelId = searchParams.get("hotelId");
       navigate(
@@ -734,6 +690,29 @@ export default function BookingListPage() {
         { replace: true },
       );
     }
+  };
+
+  const openBookingFilters = () => {
+    setDraftHotelIds(selectedHotelIds);
+    setBookingFilterOpen(true);
+  };
+
+  const applyHotelFilter = () => {
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("hotelId");
+        if (draftHotelIds.length) {
+          next.set("propertyIds", draftHotelIds.join(","));
+        } else {
+          next.delete("propertyIds");
+        }
+        return next;
+      },
+      { replace: true },
+    );
+    setBookingFilterOpen(false);
   };
 
   const columns: GridColDef<BookingListItem>[] = useMemo(
@@ -1011,7 +990,7 @@ export default function BookingListPage() {
     setLoading(true);
     try {
       const data = await bookingService.getBookingList({
-        hotelId: selectedHotelId || undefined,
+        propertyIds: selectedHotelIds.length ? selectedHotelIds : undefined,
         guestName: debouncedGuestName.trim() || undefined,
         bookingId: debouncedBookingId.trim() || undefined,
         dateFilter: dateFilterParams.dateFilter,
@@ -1043,6 +1022,7 @@ export default function BookingListPage() {
   }, [
     seesAllBookings,
     selectedHotelId,
+    selectedHotelIds,
     debouncedGuestName,
     debouncedBookingId,
     dateFilterParams.dateFilter,
@@ -1179,6 +1159,33 @@ export default function BookingListPage() {
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              {(seesAllBookings || selectedHotelId) ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={openBookingFilters}
+                    className="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-[#2f3d95]/20 bg-[#2f3d95]/10 px-2.5 text-xs font-semibold uppercase tracking-wide text-[#2f3d95] transition-colors hover:border-[#2f3d95]/35 hover:bg-[#2f3d95]/20"
+                  >
+                    <Filter className="h-3.5 w-3.5" />
+                    Filters
+                    {hasActiveFilters ? (
+                      <span className="rounded-full bg-[#2f3d95] px-1.5 py-0.5 text-[9px] text-white">
+                        Active
+                      </span>
+                    ) : null}
+                  </button>
+                  {hasActiveFilters ? (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Clear
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
               <div className="relative" ref={downloadMenuRef}>
                 <button
                   type="button"
@@ -1277,220 +1284,6 @@ export default function BookingListPage() {
             </div>
           ) : null}
 
-          {(seesAllBookings || selectedHotelId) && (
-            <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-gray-200/80 bg-white px-3 py-2 shadow-sm">
-              <div className="flex items-center gap-1.5 pr-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <Filter className="h-3.5 w-3.5 text-[#2f3d95]" />
-                Filters
-              </div>
-              {seesAllBookings ? (
-                <div className="min-w-48 max-w-xs flex-1">
-                  <HotelLookupFilterField
-                    label=""
-                    allLabel="All hotels"
-                    value={selectedHotelId ?? ""}
-                    onChange={({ hotelId }) => {
-                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                      setSearchParams(
-                        (prev) => {
-                          const next = new URLSearchParams(prev);
-                          if (hotelId) next.set("hotelId", hotelId);
-                          else next.delete("hotelId");
-                          return next;
-                        },
-                        { replace: true },
-                      );
-                    }}
-                  />
-                </div>
-              ) : null}
-              <div className="relative min-w-40 max-w-55 flex-1">
-                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Guest name..."
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 py-1.5 pr-2.5 pl-8 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
-                />
-              </div>
-              <div className="relative min-w-40 max-w-55 flex-1">
-                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Booking ID..."
-                  value={bookingId}
-                  onChange={(e) => setBookingId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 py-1.5 pr-2.5 pl-8 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
-                />
-              </div>
-
-              <div className="relative" ref={dateDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setDateOpen((v) => !v)}
-                  className={cn(
-                    "inline-flex max-w-[240px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition",
-                    hasDateFilter
-                      ? "border-indigo-200 bg-indigo-50 text-indigo-800"
-                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300",
-                  )}
-                >
-                  <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{dateSummaryLabel}</span>
-                </button>
-                {dateOpen && (
-                  <div
-                    className={cn(
-                      "absolute left-0 z-30 w-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-xl",
-                      dateMenuPlacement === "top"
-                        ? "bottom-full mb-1"
-                        : "top-full mt-1",
-                    )}
-                    style={{ maxHeight: dateMenuMaxHeight }}
-                  >
-                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                      Date field
-                    </p>
-                    <div className="mb-3 space-y-1">
-                      {DATE_AXIS_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => {
-                            setDateAxis(opt.value);
-                            setPaginationModel((prev) => ({
-                              ...prev,
-                              page: 0,
-                            }));
-                            if (opt.value === "NONE") {
-                              setDateOpen(false);
-                              return;
-                            }
-                            if (!customFrom || !customTo) {
-                              applyPresetRange(
-                                datePreset === "CUSTOM" ? "THIS_MONTH" : datePreset,
-                              );
-                            }
-                          }}
-                          className={cn(
-                            "flex w-full rounded-lg px-2 py-1.5 text-left text-sm",
-                            dateAxis === opt.value
-                              ? "bg-indigo-50 font-semibold text-indigo-700"
-                              : "text-slate-700 hover:bg-slate-50",
-                          )}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {dateAxis !== "NONE" && (
-                      <>
-                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                          Quick range
-                        </p>
-                        <div className="space-y-1">
-                          {DATE_PRESET_OPTIONS.map((opt) => (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => applyPresetRange(opt.value)}
-                              className={cn(
-                                "flex w-full rounded-lg px-2 py-1.5 text-left text-sm",
-                                datePreset === opt.value
-                                  ? "bg-indigo-50 font-semibold text-indigo-700"
-                                  : "text-slate-700 hover:bg-slate-50",
-                              )}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
-                          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                            From / To
-                          </p>
-                          <div className="grid grid-cols-2 gap-2">
-                            <CalendarDateField
-                              label="From"
-                              value={customFrom}
-                              onChange={handleFromDateChange}
-                              inputRef={fromDateInputRef}
-                            />
-                            <CalendarDateField
-                              label="To"
-                              value={customTo}
-                              min={customFrom || undefined}
-                              onChange={handleToDateChange}
-                              inputRef={toDateInputRef}
-                            />
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <select
-                value={bookingStatus}
-                onChange={(e) => {
-                  setBookingStatus(e.target.value);
-                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                }}
-                className="cursor-pointer rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
-              >
-                {BOOKING_STATUS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label || "Status"}
-                  </option>
-                ))}
-              </select>
-
-              <div className="flex items-center gap-1.5">
-                <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />
-                <select
-                  value={orderBy}
-                  onChange={(e) => {
-                    setOrderBy(e.target.value as BookingListOrderBy);
-                    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                  }}
-                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
-                >
-                  {BOOKING_ORDER_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={sortDir}
-                  onChange={(e) => {
-                    setSortDir(e.target.value as BookingListSortDir);
-                    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                  }}
-                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
-                >
-                  <option value="desc">Newest first</option>
-                  <option value="asc">Oldest first</option>
-                </select>
-              </div>
-
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Clear
-                </button>
-              )}
-            </div>
-          )}
-
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm">
             {loading ? (
               <div className="flex flex-1 flex-col items-center justify-center px-4">
@@ -1554,6 +1347,215 @@ export default function BookingListPage() {
           </div>
         </div>
       </div>
+
+      {bookingFilterOpen ? (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <button
+            type="button"
+            aria-label="Close booking filters"
+            onClick={() => setBookingFilterOpen(false)}
+            className="absolute inset-0 cursor-pointer bg-slate-900/40"
+          />
+          <div className="relative flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <h2 className="text-lg font-bold text-slate-900">Booking Filters</h2>
+              <button
+                type="button"
+                onClick={() => setBookingFilterOpen(false)}
+                className="cursor-pointer rounded-lg p-1 text-slate-500 hover:bg-slate-100"
+                aria-label="Close filters"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+              {seesAllBookings ? (
+                <HotelLookupMultiSelectField
+                  label="Hotels"
+                  allLabel="All hotels"
+                  value={draftHotelIds}
+                  onChange={setDraftHotelIds}
+                />
+              ) : null}
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">
+                  Guest name
+                </span>
+                <input
+                  type="text"
+                  value={guestName}
+                  onChange={(event) => setGuestName(event.target.value)}
+                  placeholder="Search by guest name"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/20"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">
+                  Booking ID
+                </span>
+                <input
+                  type="text"
+                  value={bookingId}
+                  onChange={(event) => setBookingId(event.target.value)}
+                  placeholder="Search by booking ID"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/20"
+                />
+              </label>
+
+              <section className="space-y-3">
+                <h3 className="text-sm font-bold text-slate-900">Date range</h3>
+                <label className="block">
+                  <span className="mb-1 block text-xs text-slate-500">Date field</span>
+                  <select
+                    value={dateAxis}
+                    onChange={(event) => {
+                      const nextAxis = event.target.value as BookingDateAxis;
+                      setDateAxis(nextAxis);
+                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                      if (
+                        nextAxis !== "NONE" &&
+                        (!customFrom || !customTo)
+                      ) {
+                        applyPresetRange(
+                          datePreset === "CUSTOM" ? "THIS_MONTH" : datePreset,
+                        );
+                      }
+                    }}
+                    className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none"
+                  >
+                    {DATE_AXIS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {dateAxis !== "NONE" ? (
+                  <>
+                    <label className="block">
+                      <span className="mb-1 block text-xs text-slate-500">
+                        Quick range
+                      </span>
+                      <select
+                        value={datePreset}
+                        onChange={(event) =>
+                          applyPresetRange(
+                            event.target.value as BookingDatePreset,
+                          )
+                        }
+                        className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none"
+                      >
+                        {DATE_PRESET_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <CalendarDateField
+                        label="From"
+                        value={customFrom}
+                        onChange={handleFromDateChange}
+                        inputRef={fromDateInputRef}
+                      />
+                      <CalendarDateField
+                        label="To"
+                        value={customTo}
+                        min={customFrom || undefined}
+                        onChange={handleToDateChange}
+                        inputRef={toDateInputRef}
+                      />
+                    </div>
+                  </>
+                ) : null}
+              </section>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">
+                  Booking status
+                </span>
+                <select
+                  value={bookingStatus}
+                  onChange={(event) => {
+                    setBookingStatus(event.target.value);
+                    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                  }}
+                  className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none"
+                >
+                  {BOOKING_STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label || "All statuses"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-slate-600">
+                    Sort by
+                  </span>
+                  <select
+                    value={orderBy}
+                    onChange={(event) => {
+                      setOrderBy(event.target.value as BookingListOrderBy);
+                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                    }}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none"
+                  >
+                    {BOOKING_ORDER_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-slate-600">
+                    Direction
+                  </span>
+                  <select
+                    value={sortDir}
+                    onChange={(event) => {
+                      setSortDir(event.target.value as BookingListSortDir);
+                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                    }}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none"
+                  >
+                    <option value="desc">Newest first</option>
+                    <option value="asc">Oldest first</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftHotelIds([]);
+                  clearFilters();
+                }}
+                className="cursor-pointer rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Clear All
+              </button>
+              <button
+                type="button"
+                onClick={applyHotelFilter}
+                className="cursor-pointer rounded-lg bg-[#2f3d95] px-4 py-2 text-sm font-semibold text-white hover:bg-[#253178]"
+              >
+                Apply Filter
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <VoucherViewModal
         open={voucherBookingId != null}

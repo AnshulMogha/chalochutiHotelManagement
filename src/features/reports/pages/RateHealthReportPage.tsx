@@ -4,6 +4,9 @@ import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { inventoryService } from "@/features/inventory/services/inventoryService";
 import { rateService } from "@/features/inventory/services/rateService";
+import { useAuth } from "@/hooks/useAuth";
+import { canUseCrossHotelReportFilter } from "@/constants/roles";
+import { HotelLookupMultiSelectField } from "../components/HotelLookupFilterField";
 import {
   mergeIdOptions,
   ReportIdMultiSelect,
@@ -66,6 +69,7 @@ const DATE_PRESET_OPTIONS: { value: RateHealthDatePreset; label: string }[] = [
 const CUSTOM_RANGE_MAX_DAYS = 365;
 
 type FilterDraft = {
+  propertyIds: string[];
   datePreset: RateHealthDatePreset;
   fromDate: string;
   toDate: string;
@@ -74,6 +78,7 @@ type FilterDraft = {
 };
 
 const DEFAULT_DRAFT: FilterDraft = {
+  propertyIds: [],
   datePreset: DEFAULT_DATE_PRESET,
   fromDate: "",
   toDate: "",
@@ -84,10 +89,13 @@ const DEFAULT_DRAFT: FilterDraft = {
 export default function RateHealthReportPage() {
   const [searchParams] = useSearchParams();
   const hotelId = searchParams.get("hotelId");
+  const { user } = useAuth();
+  const canFilterHotels = canUseCrossHotelReportFilter(user?.roles);
   const { toast, showToast, hideToast } = useToast();
 
   const [datePreset, setDatePreset] =
     useState<RateHealthDatePreset>(DEFAULT_DATE_PRESET);
+  const [propertyIds, setPropertyIds] = useState<string[]>([]);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [roomTypeIds, setRoomTypeIds] = useState<number[]>([]);
@@ -116,6 +124,7 @@ export default function RateHealthReportPage() {
     !isValidCustomDateRange(customFromText, customToText);
 
   const activeFilterCount =
+    (propertyIds.length ? 1 : 0) +
     (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
     (datePreset === "CUSTOM" && (fromDate || toDate) ? 1 : 0) +
     (roomTypeIds.length ? 1 : 0) +
@@ -123,7 +132,8 @@ export default function RateHealthReportPage() {
 
   const loadReport = useCallback(
     async (overrides?: Partial<FilterDraft>) => {
-      if (!hotelId) return;
+      if (!canFilterHotels && !hotelId) return;
+      const nextPropertyIds = overrides?.propertyIds ?? propertyIds;
       const nextPreset = overrides?.datePreset ?? datePreset;
       const nextFrom = overrides?.fromDate ?? fromDate;
       const nextTo = overrides?.toDate ?? toDate;
@@ -135,7 +145,11 @@ export default function RateHealthReportPage() {
       setError(null);
       try {
         const data = await rateHealthReportService.getReport({
-          propertyIds: [hotelId],
+          propertyIds: canFilterHotels
+            ? nextPropertyIds
+            : hotelId
+              ? [hotelId]
+              : [],
           datePreset: nextPreset,
           fromDate: nextPreset === "CUSTOM" ? nextFrom : undefined,
           toDate: nextPreset === "CUSTOM" ? nextTo : undefined,
@@ -159,6 +173,8 @@ export default function RateHealthReportPage() {
     },
     [
       hotelId,
+      canFilterHotels,
+      propertyIds,
       datePreset,
       fromDate,
       toDate,
@@ -171,12 +187,17 @@ export default function RateHealthReportPage() {
   );
 
   useEffect(() => {
-    if (!hotelId || customRangeInvalid) return;
+    if ((!canFilterHotels && !hotelId) || customRangeInvalid) return;
     loadReport();
-  }, [hotelId, page, loadReport, customRangeInvalid]);
+  }, [hotelId, canFilterHotels, page, loadReport, customRangeInvalid]);
 
   useEffect(() => {
-    if (!hotelId) {
+    const optionHotelId = canFilterHotels
+      ? propertyIds.length === 1
+        ? propertyIds[0]
+        : null
+      : hotelId;
+    if (!optionHotelId) {
       setRoomOptions([]);
       setRatePlanOptions([]);
       setRoomTypeIds([]);
@@ -187,8 +208,8 @@ export default function RateHealthReportPage() {
     const today = new Date().toISOString().slice(0, 10);
     (async () => {
       const [rooms, plans] = await Promise.all([
-        inventoryService.getCalendar(hotelId, today, today).catch(() => []),
-        rateService.getHotelRatePlans(hotelId).catch(() => []),
+        inventoryService.getCalendar(optionHotelId, today, today).catch(() => []),
+        rateService.getHotelRatePlans(optionHotelId).catch(() => []),
       ]);
       if (cancelled) return;
       setRoomOptions(
@@ -219,7 +240,7 @@ export default function RateHealthReportPage() {
     return () => {
       cancelled = true;
     };
-  }, [hotelId]);
+  }, [hotelId, canFilterHotels, propertyIds]);
 
   useEffect(() => {
     if (!report?.rates.length) return;
@@ -246,7 +267,14 @@ export default function RateHealthReportPage() {
   }, [report]);
 
   const openFilters = () => {
-    setDraft({ datePreset, fromDate, toDate, roomTypeIds, ratePlanIds });
+    setDraft({
+      propertyIds,
+      datePreset,
+      fromDate,
+      toDate,
+      roomTypeIds,
+      ratePlanIds,
+    });
     setCustomFromText(isoToReportDateText(fromDate));
     setCustomToText(isoToReportDateText(toDate));
     setFilterOpen(true);
@@ -275,6 +303,7 @@ export default function RateHealthReportPage() {
         toDate: parsed.toDate,
       };
     }
+    setPropertyIds(nextDraft.propertyIds);
     setDatePreset(nextDraft.datePreset);
     setFromDate(nextDraft.fromDate);
     setToDate(nextDraft.toDate);
@@ -289,6 +318,7 @@ export default function RateHealthReportPage() {
     setDraft(DEFAULT_DRAFT);
     setCustomFromText("");
     setCustomToText("");
+    setPropertyIds(DEFAULT_DRAFT.propertyIds);
     setDatePreset(DEFAULT_DRAFT.datePreset);
     setFromDate(DEFAULT_DRAFT.fromDate);
     setToDate(DEFAULT_DRAFT.toDate);
@@ -299,13 +329,17 @@ export default function RateHealthReportPage() {
   };
 
   const handleExport = async () => {
-    if (!hotelId || customRangeInvalid) return;
+    if ((!canFilterHotels && !hotelId) || customRangeInvalid) return;
     setExporting(true);
     setExportStatus("QUEUED");
     try {
       await rateHealthReportService.exportReport({
         params: {
-          propertyIds: [hotelId],
+          propertyIds: canFilterHotels
+            ? propertyIds
+            : hotelId
+              ? [hotelId]
+              : [],
           datePreset,
           fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
           toDate: datePreset === "CUSTOM" ? toDate : undefined,
@@ -329,7 +363,7 @@ export default function RateHealthReportPage() {
     }
   };
 
-  if (!hotelId) {
+  if (!canFilterHotels && !hotelId) {
     return (
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-slate-900">
@@ -493,6 +527,7 @@ export default function RateHealthReportPage() {
                   <tr className="border-b border-slate-100 bg-slate-50/80">
                     {[
                       "Stay Date",
+                      "Hotel Name",
                       "Room Type",
                       "Rate Plan",
                       "Total Rooms",
@@ -515,14 +550,14 @@ export default function RateHealthReportPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={10} className="px-4 py-16 text-center">
+                      <td colSpan={11} className="px-4 py-16 text-center">
                         <Loader2 className="mx-auto h-6 w-6 animate-spin text-rose-600" />
                       </td>
                     </tr>
                   ) : !report?.rates.length ? (
                     <tr>
                       <td
-                        colSpan={10}
+                        colSpan={11}
                         className="px-4 py-16 text-center text-slate-400"
                       >
                         No rate health rows for this period.
@@ -536,6 +571,14 @@ export default function RateHealthReportPage() {
                       >
                         <td className="px-3 py-2.5 whitespace-nowrap text-slate-800">
                           {formatReportDate(row.stayDate)}
+                        </td>
+                        <td className="max-w-56 px-3 py-2.5">
+                          <span
+                            className="block truncate text-slate-700"
+                            title={row.hotelName || undefined}
+                          >
+                            {row.hotelName || "—"}
+                          </span>
                         </td>
                         <td className="px-3 py-2.5 text-slate-700">
                           {row.roomType}
@@ -633,6 +676,19 @@ export default function RateHealthReportPage() {
             </div>
 
             <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+              {canFilterHotels ? (
+                <HotelLookupMultiSelectField
+                  value={draft.propertyIds}
+                  onChange={(ids) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      propertyIds: ids,
+                      roomTypeIds: [],
+                      ratePlanIds: [],
+                    }))
+                  }
+                />
+              ) : null}
               <section>
                 <h3 className="mb-2 text-sm font-bold text-slate-900">
                   Date range

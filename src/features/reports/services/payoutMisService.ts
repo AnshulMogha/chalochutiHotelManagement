@@ -85,6 +85,8 @@ function normalizePaymentRow(raw: Record<string, unknown>): PayoutMisPaymentRow 
   );
   return {
     settlementNo: String(raw.settlementNo ?? ""),
+    hotelId: raw.hotelId != null ? String(raw.hotelId) : null,
+    hotelName: raw.hotelName != null ? String(raw.hotelName) : null,
     paymentReferenceNumber: String(
       raw.paymentReferenceNumber ?? raw.paymentReference ?? "",
     ),

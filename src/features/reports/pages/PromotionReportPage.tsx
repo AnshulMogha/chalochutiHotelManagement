@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { canUseCrossHotelReportFilter } from "@/constants/roles";
+import { HotelLookupMultiSelectField } from "../components/HotelLookupFilterField";
 import {
   formatReportDate,
   isoToReportDateText,
@@ -138,6 +141,8 @@ export default function PromotionReportPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const hotelId = searchParams.get("hotelId");
+  const { user } = useAuth();
+  const canFilterHotels = canUseCrossHotelReportFilter(user?.roles);
   const { toast, showToast, hideToast } = useToast();
 
   const [loading, setLoading] = useState(false);
@@ -168,6 +173,7 @@ export default function PromotionReportPage() {
   // Filter panel state (draft values are applied on "Apply filter").
   const [filterOpen, setFilterOpen] = useState(false);
   const [tiers, setTiers] = useState<PromotionTier[]>([]);
+  const [propertyIds, setPropertyIds] = useState<string[]>([]);
   const [datePreset, setDatePreset] =
     useState<PromotionDatePreset>(DEFAULT_PRESET);
   const [customFrom, setCustomFrom] = useState("");
@@ -185,6 +191,7 @@ export default function PromotionReportPage() {
   const [applicToText, setApplicToText] = useState("");
 
   const [draft, setDraft] = useState({
+    propertyIds: [] as string[],
     tiers: [] as PromotionTier[],
     datePreset: DEFAULT_PRESET as PromotionDatePreset,
     customFrom: "",
@@ -198,6 +205,7 @@ export default function PromotionReportPage() {
 
   const openFilters = () => {
     setDraft({
+      propertyIds,
       tiers,
       datePreset,
       customFrom,
@@ -243,6 +251,7 @@ export default function PromotionReportPage() {
       nextApplicTo = parsed.toDate;
     }
 
+    setPropertyIds(draft.propertyIds);
     setTiers(draft.tiers);
     setDatePreset(draft.datePreset);
     setCustomFrom(nextCustomFrom);
@@ -258,6 +267,7 @@ export default function PromotionReportPage() {
 
   const clearAll = () => {
     setDraft({
+      propertyIds: [],
       tiers: [],
       datePreset: DEFAULT_PRESET,
       customFrom: "",
@@ -272,16 +282,29 @@ export default function PromotionReportPage() {
     setCustomToText("");
     setApplicFromText("");
     setApplicToText("");
+    setPropertyIds([]);
+    setTiers([]);
+    setDatePreset(DEFAULT_PRESET);
+    setCustomFrom("");
+    setCustomTo("");
+    setPerformanceAxis("BOOKING");
+    setApplicability("");
+    setPromotionName("");
+    setApplicabilityFrom("");
+    setApplicabilityTo("");
+    setPage(0);
+    setFilterOpen(false);
   };
 
   const activeFilterCount =
+    (propertyIds.length ? 1 : 0) +
     (tiers.length ? 1 : 0) +
     (datePreset !== DEFAULT_PRESET ? 1 : 0) +
     (performanceAxis !== "BOOKING" ? 1 : 0) +
     (applicability ? 1 : 0);
 
   const fetchReport = useCallback(async () => {
-    if (!hotelId) return;
+    if (!canFilterHotels && !hotelId) return;
     if (datePreset === "CUSTOM" && (!customFrom || !customTo)) return;
     if (
       (applicability === "BOOKING_WINDOW" || applicability === "STAY_WINDOW") &&
@@ -293,7 +316,8 @@ export default function PromotionReportPage() {
     setLoading(true);
     try {
       const data = await promotionReportService.getPromotionReport({
-        hotelId,
+        hotelId: canFilterHotels ? undefined : hotelId || undefined,
+        propertyIds: canFilterHotels ? propertyIds : undefined,
         lifecycleTab,
         page,
         size: pageSize,
@@ -336,6 +360,8 @@ export default function PromotionReportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     hotelId,
+    canFilterHotels,
+    propertyIds,
     lifecycleTab,
     page,
     pageSize,
@@ -440,7 +466,7 @@ export default function PromotionReportPage() {
     [summary.activeCount, summary.expiredCount],
   );
 
-  if (!hotelId) {
+  if (!canFilterHotels && !hotelId) {
     return (
       <div className="container mx-auto px-4 py-4">
         <div className="mb-3">
@@ -465,7 +491,7 @@ export default function PromotionReportPage() {
     );
   }
 
-  const colSpan = 8;
+  const colSpan = 9;
 
   return (
     <>
@@ -626,6 +652,7 @@ export default function PromotionReportPage() {
                     {(
                       [
                         { label: "Promotion Name", field: "name" as const },
+                        { label: "Hotel Name" },
                         { label: "Promotion Type", field: "type" as const },
                         { label: "Booking Date" },
                         { label: "Stay Date" },
@@ -695,7 +722,7 @@ export default function PromotionReportPage() {
                             type="button"
                             onClick={() =>
                               navigate(
-                                `/promotions/edit/${row.promotionId}?hotelId=${hotelId}&mode=view`,
+                                `/promotions/edit/${row.promotionId}?hotelId=${row.hotelId || hotelId}&mode=view`,
                               )
                             }
                             className="cursor-pointer text-left text-sm font-semibold text-[#2f3d95] hover:underline"
@@ -708,6 +735,14 @@ export default function PromotionReportPage() {
                               {formatReportDate(row.lastModified)}
                             </p>
                           ) : null}
+                        </td>
+                        <td className="max-w-56 px-3 py-2">
+                          <span
+                            className="block truncate text-sm text-slate-700"
+                            title={row.hotelName || undefined}
+                          >
+                            {row.hotelName || "—"}
+                          </span>
                         </td>
                         <td className="px-3 py-2">
                           <span className="text-sm text-slate-700">
@@ -835,6 +870,14 @@ export default function PromotionReportPage() {
             </div>
 
             <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+              {canFilterHotels ? (
+                <HotelLookupMultiSelectField
+                  value={draft.propertyIds}
+                  onChange={(ids) =>
+                    setDraft((prev) => ({ ...prev, propertyIds: ids }))
+                  }
+                />
+              ) : null}
               <section>
                 <h3 className="mb-2 text-sm font-bold text-slate-900">
                   Promotion Type
