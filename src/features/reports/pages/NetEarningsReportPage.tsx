@@ -58,6 +58,7 @@ const DEFAULT_BOOKING_TYPE: NetEarningsBookingType = "ALL";
 const DEFAULT_PAYMENT_STATUS: NetEarningsPaymentStatus | "ALL" = "ALL";
 
 const DATE_PRESET_OPTIONS: { value: NetEarningsDatePreset; label: string }[] = [
+  { value: "TODAY", label: "Today" },
   { value: "THIS_MONTH", label: "Month Till Date" },
   { value: "LAST_MONTH", label: "Last Month" },
   { value: "THIS_WEEK", label: "This Week" },
