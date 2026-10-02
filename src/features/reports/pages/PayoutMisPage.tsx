@@ -51,6 +51,7 @@ const DEFAULT_DATE_PRESET: PayoutMisDatePreset = "THIS_MONTH";
 const DEFAULT_SORT: PayoutMisSortField = "PAYMENT_DATE";
 
 const DATE_PRESET_OPTIONS: { value: PayoutMisDatePreset; label: string }[] = [
+  { value: "TODAY", label: "Today" },
   { value: "THIS_MONTH", label: "Month Till Date" },
   { value: "LAST_MONTH", label: "Last Month" },
   { value: "THIS_WEEK", label: "This Week" },

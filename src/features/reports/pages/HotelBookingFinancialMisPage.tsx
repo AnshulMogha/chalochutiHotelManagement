@@ -11,7 +11,6 @@ import {
 import { toPng } from "html-to-image";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
-import { cn } from "@/lib/utils";
 import { sanitizeReturnTo } from "@/lib/navigationReturn";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
@@ -23,9 +22,7 @@ import {
   cacheFinancialMisFilters,
   cacheFinancialMisRow,
   clearCachedFinancialMisFilters,
-  getHotelFinancialMisDisplaySellingPrice,
   getHotelFinancialMisAgentCustomerSellingPrice,
-  isHotelFinancialMisB2b,
   paymentStatusTone,
   readCachedFinancialMisFilters,
   refundStatusTone,
@@ -47,7 +44,6 @@ import type { ExportJobStatus } from "../services/reportExportService";
 import {
   hotelBookingFinancialMisService,
   type HotelFinancialMisBookingRow,
-  type HotelFinancialMisBookingSource,
   type HotelFinancialMisBookingStatus,
   type HotelFinancialMisDateAxis,
   type HotelFinancialMisPaymentStatus,
@@ -104,7 +100,6 @@ type FilterDraft = {
   toDate: string;
   dateAxis: HotelFinancialMisDateAxis;
   bookingStatus: HotelFinancialMisBookingStatus;
-  bookingSource: HotelFinancialMisBookingSource;
   paymentStatus: HotelFinancialMisPaymentStatus;
   refundStatus: HotelFinancialMisRefundStatus;
   hotelId: string;
@@ -126,7 +121,6 @@ const DEFAULT_DRAFT: FilterDraft = {
   toDate: "",
   dateAxis: "BOOKING_DATE",
   bookingStatus: "ALL",
-  bookingSource: "ALL",
   paymentStatus: "ALL",
   refundStatus: "ALL",
   hotelId: "",
@@ -180,15 +174,6 @@ const BOOKING_STATUS_OPTIONS: {
   { value: "CONFIRMED", label: "Confirmed" },
   { value: "CANCELLED", label: "Cancelled" },
   { value: "COMPLETED", label: "Completed" },
-];
-
-const BOOKING_SOURCE_OPTIONS: {
-  value: HotelFinancialMisBookingSource;
-  label: string;
-}[] = [
-  { value: "ALL", label: "All" },
-  { value: "HOTEL", label: "Hotel" },
-  { value: "PACKAGE", label: "Package" },
 ];
 
 const PAYMENT_STATUS_OPTIONS: {
@@ -384,7 +369,6 @@ export default function HotelBookingFinancialMisPage() {
     if (filters.uiDatePreset !== "THIS_MONTH") count += 1;
     if (filters.dateAxis !== "BOOKING_DATE") count += 1;
     if (filters.bookingStatus !== "ALL") count += 1;
-    if (filters.bookingSource !== "ALL") count += 1;
     if (filters.paymentStatus !== "ALL") count += 1;
     if (filters.refundStatus !== "ALL") count += 1;
     if (filters.hotelId) count += 1;
@@ -424,10 +408,7 @@ export default function HotelBookingFinancialMisPage() {
           toDate: dateRange.toDate,
           dateAxis: nextFilters.dateAxis,
           bookingStatus: nextFilters.bookingStatus,
-          bookingSource:
-            nextFilters.bookingSource === "ALL"
-              ? undefined
-              : nextFilters.bookingSource,
+          bookingSource: "HOTEL",
           paymentStatus: nextFilters.paymentStatus,
           refundStatus: nextFilters.refundStatus,
           hotelIds: nextFilters.hotelId ? [nextFilters.hotelId] : undefined,
@@ -463,10 +444,7 @@ export default function HotelBookingFinancialMisPage() {
         toDate: dateRange.toDate,
         dateAxis: nextFilters.dateAxis,
         bookingStatus: nextFilters.bookingStatus,
-        bookingSource:
-          nextFilters.bookingSource === "ALL"
-            ? undefined
-            : nextFilters.bookingSource,
+        bookingSource: "HOTEL",
         paymentStatus: nextFilters.paymentStatus,
         refundStatus: nextFilters.refundStatus,
         hotelIds: nextFilters.hotelId ? [nextFilters.hotelId] : undefined,
@@ -534,7 +512,7 @@ export default function HotelBookingFinancialMisPage() {
   const applyFilters = () => {
     if (draftCustomInvalid) return;
 
-    let nextDraft = { ...draft };
+    const nextDraft = { ...draft };
     if (draft.uiDatePreset === "CUSTOM") {
       const parsed = validateCustomDateRange(customFromText, customToText);
       if (!parsed.ok) {
@@ -633,7 +611,6 @@ export default function HotelBookingFinancialMisPage() {
       ],
       ["Filters", "Date axis", report.dateAxis ?? filters.dateAxis],
       ["Filters", "Booking status", filters.bookingStatus],
-      ["Filters", "Booking source", filters.bookingSource],
       ["Filters", "Payment status", filters.paymentStatus],
       ["Filters", "Refund status", filters.refundStatus],
       ["Summary", "Total bookings", summary.totalBookings],
@@ -701,8 +678,9 @@ export default function HotelBookingFinancialMisPage() {
         "Owner name",
         "Owner email",
         "Agency",
-        "Customer / Agent price",
-        "Agent customer selling price",
+        "Customer selling price",
+        "Agent customer price",
+        "Agent selling markup",
         "Hotel payout",
         "TDS",
         "TCS",
@@ -730,8 +708,9 @@ export default function HotelBookingFinancialMisPage() {
         row.bookingOwner?.name,
         row.bookingOwner?.email,
         row.bookingOwner?.agencyName,
-        formatFinanceMoney(getHotelFinancialMisDisplaySellingPrice(row)),
+        formatFinanceMoney(row.customerSellingPrice),
         formatFinanceMoney(getHotelFinancialMisAgentCustomerSellingPrice(row)),
+        formatFinanceMoney(row.agentSellingMarkupAmount),
         formatFinanceMoney(row.hotelPayout),
         formatFinanceMoney(row.tds),
         formatFinanceMoney(row.tcs),
@@ -1131,7 +1110,9 @@ export default function HotelBookingFinancialMisPage() {
                   <th className="px-4 py-3">Booking Date</th>
                   <th className="px-4 py-3">Stay</th>
                   <th className="px-4 py-3">Source</th>
-                  <th className="px-4 py-3">Customer / Agent Price</th>
+                  <th className="px-4 py-3">Customer Selling Price</th>
+                  <th className="px-4 py-3">Agent Customer Price</th>
+                  <th className="px-4 py-3">Agent Selling Markup</th>
                   <th className="px-4 py-3">Hotel Payout</th>
                   <th className="px-4 py-3">TDS / TCS</th>
                   <th className="px-4 py-3">OTA Revenue</th>
@@ -1221,26 +1202,16 @@ export default function HotelBookingFinancialMisPage() {
                         onClick={() => openDetail(row, "customer")}
                         className="font-semibold tabular-nums text-blue-700 hover:underline"
                       >
-                        {formatFinanceMoney(
-                          getHotelFinancialMisDisplaySellingPrice(row),
-                        )}
+                        {formatFinanceMoney(row.customerSellingPrice)}
                       </button>
-                      {isHotelFinancialMisB2b(row) ? (
-                        <>
-                          {getHotelFinancialMisAgentCustomerSellingPrice(row) ? (
-                            <p className="mt-1 inline-flex items-center rounded-md bg-violet-50 px-1.5 py-0.5 text-xs font-medium tabular-nums text-violet-800 ring-1 ring-inset ring-violet-200">
-                              Agent sell{" "}
-                              {formatFinanceMoney(
-                                getHotelFinancialMisAgentCustomerSellingPrice(row)!,
-                              )}
-                            </p>
-                          ) : null}
-                          <p className="text-xs text-slate-500">
-                            Platform{" "}
-                            {formatFinanceMoney(row.customerSellingPrice)}
-                          </p>
-                        </>
-                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 font-semibold tabular-nums text-violet-700">
+                      {formatFinanceMoney(
+                        getHotelFinancialMisAgentCustomerSellingPrice(row),
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-semibold tabular-nums text-amber-700">
+                      {formatFinanceMoney(row.agentSellingMarkupAmount)}
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -1484,25 +1455,6 @@ export default function HotelBookingFinancialMisPage() {
                     className={fieldClass}
                   >
                     {BOOKING_STATUS_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </FilterField>
-                <FilterField label="Source">
-                  <select
-                    value={draft.bookingSource}
-                    onChange={(event) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        bookingSource: event.target
-                          .value as HotelFinancialMisBookingSource,
-                      }))
-                    }
-                    className={fieldClass}
-                  >
-                    {BOOKING_SOURCE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>

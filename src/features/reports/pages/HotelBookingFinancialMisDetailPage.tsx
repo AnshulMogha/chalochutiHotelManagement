@@ -114,6 +114,10 @@ function CustomerOrAgentPriceBreakup({
   const agentPrice = getHotelFinancialMisAgentPrice(booking);
   const agentCustomerSellingPrice =
     getHotelFinancialMisAgentCustomerSellingPrice(booking);
+  const agentSellingMarkupAmount = booking.agentSellingMarkupAmount ?? {
+    amount: 0,
+    currency: booking.customerSellingPrice.currency,
+  };
   const paymentBreakup = isB2b ? booking.agentPaymentBreakup : null;
   const incentive = hasHotelFinancialMisAgencyDetails(booking)
     ? booking.agencyIncentive
@@ -157,6 +161,10 @@ function CustomerOrAgentPriceBreakup({
             }
             bold
             highlight
+          />
+          <BreakupRow
+            label="Agent selling markup"
+            amount={agentSellingMarkupAmount}
           />
           <BreakupRow
             label="Platform customer price"
@@ -331,6 +339,10 @@ export default function HotelBookingFinancialMisDetailPage() {
   const displaySellingPrice = getHotelFinancialMisDisplaySellingPrice(booking);
   const agentCustomerSellingPrice =
     getHotelFinancialMisAgentCustomerSellingPrice(booking);
+  const agentSellingMarkupAmount = booking.agentSellingMarkupAmount ?? {
+    amount: 0,
+    currency: booking.customerSellingPrice.currency,
+  };
   const detailTabs = TABS.map((item) =>
     item.value === "customer"
       ? { ...item, label: isB2b ? "Agent Price" : "Customer Price" }
@@ -879,6 +891,10 @@ export default function HotelBookingFinancialMisDetailPage() {
                         value={formatFinanceMoney(agentCustomerSellingPrice)}
                       />
                     ) : null}
+                    <InfoLine
+                      label="Agent selling markup"
+                      value={formatFinanceMoney(agentSellingMarkupAmount)}
+                    />
                     <InfoLine
                       label="Platform customer price"
                       value={formatFinanceMoney(booking.customerSellingPrice)}
