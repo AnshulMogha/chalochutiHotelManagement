@@ -45,6 +45,8 @@ export interface PayoutMisSummary {
 
 export interface PayoutMisPaymentRow {
   settlementNo: string;
+  hotelId?: string | null;
+  hotelName?: string | null;
   paymentReferenceNumber: string;
   paymentDate: string;
   bookingCount: number;

@@ -3,7 +3,11 @@ import { Link, useLocation, useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
-import { canViewHotelPayoutMis, canViewPaymentReport } from "@/constants/roles";
+import {
+  canViewHotelPayoutMis,
+  canViewPaymentReport,
+  canUseCrossHotelReportFilter,
+} from "@/constants/roles";
 import { canViewModule } from "@/lib/permissions";
 import { appendReturnToQuery } from "@/lib/navigationReturn";
 import { setStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
@@ -22,6 +26,7 @@ import {
   validateCustomDateRange,
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import { HotelLookupMultiSelectField } from "../components/HotelLookupFilterField";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
   netEarningsReportService,
@@ -82,6 +87,7 @@ const PAYMENT_STATUS_OPTIONS: {
 ];
 
 type FilterDraft = {
+  propertyIds: string[];
   datePreset: NetEarningsDatePreset;
   bookingStatuses: NetEarningsBookingStatus[];
   bookingType: NetEarningsBookingType;
@@ -92,6 +98,7 @@ type FilterDraft = {
 };
 
 const DEFAULT_DRAFT: FilterDraft = {
+  propertyIds: [],
   datePreset: DEFAULT_DATE_PRESET,
   bookingStatuses: DEFAULT_BOOKING_STATUSES,
   bookingType: DEFAULT_BOOKING_TYPE,
@@ -409,6 +416,7 @@ export default function NetEarningsReportPage() {
   const [searchParams] = useSearchParams();
   const hotelId = searchParams.get("hotelId");
   const { user } = useAuth();
+  const canFilterHotels = canUseCrossHotelReportFilter(user?.roles);
   const { toast, showToast, hideToast } = useToast();
   // Match Super Admin / Owner: Net Earnings tab for payment-report roles
   // and for Hotel Manager / Accountant with PAYMENTS permission.
@@ -419,6 +427,7 @@ export default function NetEarningsReportPage() {
   const showPaymentsTabs = showNetEarningsTab || showPayoutsTab;
 
   const [datePreset, setDatePreset] = useState<NetEarningsDatePreset>(DEFAULT_DATE_PRESET);
+  const [propertyIds, setPropertyIds] = useState<string[]>([]);
   const [bookingStatuses, setBookingStatuses] = useState<NetEarningsBookingStatus[]>(
     DEFAULT_BOOKING_STATUSES,
   );
@@ -453,6 +462,7 @@ export default function NetEarningsReportPage() {
     !isValidCustomDateRange(customFromText, customToText);
 
   const activeFilterCount =
+    (propertyIds.length ? 1 : 0) +
     (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
     (bookingStatuses.length > 0 ? 1 : 0) +
     (bookingType !== DEFAULT_BOOKING_TYPE ? 1 : 0) +
@@ -461,6 +471,7 @@ export default function NetEarningsReportPage() {
 
   const openFilters = () => {
     setDraft({
+      propertyIds,
       datePreset,
       bookingStatuses,
       bookingType,
@@ -488,6 +499,7 @@ export default function NetEarningsReportPage() {
         toDate: parsed.toDate,
       };
     }
+    setPropertyIds(nextDraft.propertyIds);
     setDatePreset(nextDraft.datePreset);
     setBookingStatuses(nextDraft.bookingStatuses);
     setBookingType(nextDraft.bookingType);
@@ -503,6 +515,7 @@ export default function NetEarningsReportPage() {
     setDraft(DEFAULT_DRAFT);
     setCustomFromText("");
     setCustomToText("");
+    setPropertyIds(DEFAULT_DRAFT.propertyIds);
     setDatePreset(DEFAULT_DRAFT.datePreset);
     setBookingStatuses(DEFAULT_DRAFT.bookingStatuses);
     setBookingType(DEFAULT_DRAFT.bookingType);
@@ -515,12 +528,16 @@ export default function NetEarningsReportPage() {
   };
 
   const loadReport = useCallback(async () => {
-    if (!hotelId || customRangeInvalid) return;
+    if ((!canFilterHotels && !hotelId) || customRangeInvalid) return;
     setLoading(true);
     setError(null);
     try {
       const params = {
-        propertyIds: [hotelId],
+        propertyIds: canFilterHotels
+          ? propertyIds
+          : hotelId
+            ? [hotelId]
+            : [],
         datePreset,
         fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
         toDate: datePreset === "CUSTOM" ? toDate : undefined,
@@ -542,6 +559,8 @@ export default function NetEarningsReportPage() {
     }
   }, [
     hotelId,
+    canFilterHotels,
+    propertyIds,
     customRangeInvalid,
     datePreset,
     fromDate,
@@ -555,9 +574,9 @@ export default function NetEarningsReportPage() {
   ]);
 
   useEffect(() => {
-    if (!hotelId || customRangeInvalid) return;
+    if ((!canFilterHotels && !hotelId) || customRangeInvalid) return;
     loadReport();
-  }, [hotelId, page, loadReport, customRangeInvalid]);
+  }, [hotelId, canFilterHotels, page, loadReport, customRangeInvalid]);
 
   const openDetail = async (bookingRef: string) => {
     setActiveBookingRef(bookingRef);
@@ -574,13 +593,17 @@ export default function NetEarningsReportPage() {
   };
 
   const downloadExport = async () => {
-    if (!hotelId || customRangeInvalid) return;
+    if ((!canFilterHotels && !hotelId) || customRangeInvalid) return;
     setExporting(true);
     setExportStatus("QUEUED");
     try {
       await netEarningsReportService.exportReport({
         params: {
-          propertyIds: [hotelId],
+          propertyIds: canFilterHotels
+            ? propertyIds
+            : hotelId
+              ? [hotelId]
+              : [],
           datePreset,
           fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
           toDate: datePreset === "CUSTOM" ? toDate : undefined,
@@ -600,7 +623,7 @@ export default function NetEarningsReportPage() {
     }
   };
 
-  if (!hotelId) {
+  if (!canFilterHotels && !hotelId) {
     return (
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-slate-900">Payments</h1>
@@ -778,6 +801,7 @@ export default function NetEarningsReportPage() {
                   <tr className="border-b border-slate-100 bg-slate-50/80">
                     {[
                       "Booking ID",
+                      "Hotel Name",
                       "Guest Name",
                       "Stay Duration",
                       "Booking Status",
@@ -805,13 +829,13 @@ export default function NetEarningsReportPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={15} className="px-4 py-16 text-center">
+                      <td colSpan={16} className="px-4 py-16 text-center">
                         <Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-600" />
                       </td>
                     </tr>
                   ) : !report?.bookings.length ? (
                     <tr>
-                      <td colSpan={15} className="px-4 py-16 text-center text-slate-400">
+                      <td colSpan={16} className="px-4 py-16 text-center text-slate-400">
                         No rows found.
                       </td>
                     </tr>
@@ -829,6 +853,14 @@ export default function NetEarningsReportPage() {
                           >
                             {row.bookingRef || row.bookingId}
                           </button>
+                        </td>
+                        <td className="max-w-56 px-3 py-2.5">
+                          <span
+                            className="block truncate text-slate-700"
+                            title={row.hotelName || undefined}
+                          >
+                            {row.hotelName || "—"}
+                          </span>
                         </td>
                         <td className="px-3 py-2.5">{row.guestName}</td>
                         <td className="px-3 py-2.5">
@@ -932,6 +964,14 @@ export default function NetEarningsReportPage() {
             </div>
 
             <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+              {canFilterHotels ? (
+                <HotelLookupMultiSelectField
+                  value={draft.propertyIds}
+                  onChange={(ids) =>
+                    setDraft((prev) => ({ ...prev, propertyIds: ids }))
+                  }
+                />
+              ) : null}
               <section>
                 <h3 className="mb-2 text-sm font-bold text-slate-900">Date range</h3>
                 <label className="mb-1 block text-xs text-slate-500">Time period</label>

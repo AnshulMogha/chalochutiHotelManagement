@@ -11,6 +11,7 @@ import {
 export interface BookingListItem {
   id: number;
   bookingId: string;
+  hotelName?: string | null;
   guestName: string;
   numberOfGuests: number;
   bookingDate?: string;
@@ -472,6 +473,7 @@ export type BookingListDateFilter =
 /** Server-side list params */
 export interface BookingListParams {
   hotelId?: string;
+  propertyIds?: string[];
   guestName?: string;
   bookingId?: string;
   dateFilter?: BookingListDateFilter;
@@ -494,6 +496,7 @@ function buildBookingListQuery(
   const includePagination = options?.includePagination ?? true;
   const {
     hotelId,
+    propertyIds,
     guestName,
     bookingId,
     dateFilter,
@@ -508,7 +511,11 @@ function buildBookingListQuery(
   } = params;
 
   const search = new URLSearchParams();
-  if (hotelId?.trim()) search.set("hotelId", hotelId.trim());
+  if (propertyIds?.length) {
+    search.set("propertyIds", propertyIds.join(","));
+  } else if (hotelId?.trim()) {
+    search.set("hotelId", hotelId.trim());
+  }
   if (view != null && view.trim() !== "") {
     search.set("view", view.trim());
   }

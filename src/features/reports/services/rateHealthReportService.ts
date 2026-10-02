@@ -48,6 +48,8 @@ export interface RateHealthSummary {
 
 export interface RateHealthRow {
   stayDate: string;
+  hotelId?: string | null;
+  hotelName?: string | null;
   roomTypeId?: number | null;
   roomType: string;
   ratePlanId?: number | null;
@@ -94,6 +96,8 @@ export interface RateHealthReportParams {
 
 type RawRateRow = Partial<{
   stayDate: string;
+  hotelId: string;
+  hotelName: string;
   roomTypeId: number;
   roomType: string;
   roomTypeName: string;
@@ -142,6 +146,8 @@ function appendIdList(
 function normalizeRow(raw: RawRateRow): RateHealthRow {
   return {
     stayDate: raw.stayDate ?? "",
+    hotelId: raw.hotelId ?? null,
+    hotelName: raw.hotelName ?? null,
     roomTypeId: raw.roomTypeId ?? null,
     roomType: raw.roomType ?? raw.roomTypeName ?? "—",
     ratePlanId: raw.ratePlanId ?? null,

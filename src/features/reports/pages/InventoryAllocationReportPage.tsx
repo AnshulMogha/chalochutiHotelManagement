@@ -14,6 +14,9 @@ import {
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import { inventoryService } from "@/features/inventory/services/inventoryService";
 import { rateService } from "@/features/inventory/services/rateService";
+import { useAuth } from "@/hooks/useAuth";
+import { canUseCrossHotelReportFilter } from "@/constants/roles";
+import { HotelLookupMultiSelectField } from "../components/HotelLookupFilterField";
 import {
   mergeIdOptions,
   ReportIdMultiSelect,
@@ -113,6 +116,7 @@ function MetricCard({
 }
 
 type FilterDraft = {
+  propertyIds: string[];
   datePreset: InventoryAllocationDatePreset;
   fromDate: string;
   toDate: string;
@@ -121,6 +125,7 @@ type FilterDraft = {
 };
 
 const DEFAULT_DRAFT: FilterDraft = {
+  propertyIds: [],
   datePreset: DEFAULT_DATE_PRESET,
   fromDate: "",
   toDate: "",
@@ -131,10 +136,13 @@ const DEFAULT_DRAFT: FilterDraft = {
 export default function InventoryAllocationReportPage() {
   const [searchParams] = useSearchParams();
   const hotelId = searchParams.get("hotelId");
+  const { user } = useAuth();
+  const canFilterHotels = canUseCrossHotelReportFilter(user?.roles);
   const { toast, showToast, hideToast } = useToast();
 
   const [datePreset, setDatePreset] =
     useState<InventoryAllocationDatePreset>(DEFAULT_DATE_PRESET);
+  const [propertyIds, setPropertyIds] = useState<string[]>([]);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [roomTypeIds, setRoomTypeIds] = useState<number[]>([]);
@@ -166,6 +174,7 @@ export default function InventoryAllocationReportPage() {
     !isValidCustomDateRange(customFromText, customToText);
 
   const activeFilterCount =
+    (propertyIds.length ? 1 : 0) +
     (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
     (datePreset === "CUSTOM" && (fromDate || toDate) ? 1 : 0) +
     (roomTypeIds.length ? 1 : 0) +
@@ -173,7 +182,8 @@ export default function InventoryAllocationReportPage() {
 
   const loadReport = useCallback(
     async (overrides?: Partial<FilterDraft>) => {
-      if (!hotelId) return;
+      if (!canFilterHotels && !hotelId) return;
+      const nextPropertyIds = overrides?.propertyIds ?? propertyIds;
       const nextPreset = overrides?.datePreset ?? datePreset;
       const nextFrom = overrides?.fromDate ?? fromDate;
       const nextTo = overrides?.toDate ?? toDate;
@@ -185,7 +195,11 @@ export default function InventoryAllocationReportPage() {
       setError(null);
       try {
         const data = await inventoryAllocationReportService.getReport({
-          propertyIds: [hotelId],
+          propertyIds: canFilterHotels
+            ? nextPropertyIds
+            : hotelId
+              ? [hotelId]
+              : [],
           datePreset: nextPreset,
           fromDate: nextPreset === "CUSTOM" ? nextFrom : undefined,
           toDate: nextPreset === "CUSTOM" ? nextTo : undefined,
@@ -209,6 +223,8 @@ export default function InventoryAllocationReportPage() {
     },
     [
       hotelId,
+      canFilterHotels,
+      propertyIds,
       datePreset,
       fromDate,
       toDate,
@@ -221,7 +237,12 @@ export default function InventoryAllocationReportPage() {
   );
 
   useEffect(() => {
-    if (!hotelId) {
+    const optionHotelId = canFilterHotels
+      ? propertyIds.length === 1
+        ? propertyIds[0]
+        : null
+      : hotelId;
+    if (!optionHotelId) {
       setRoomOptions([]);
       setRatePlanOptions([]);
       setRoomTypeIds([]);
@@ -232,8 +253,8 @@ export default function InventoryAllocationReportPage() {
     const today = new Date().toISOString().slice(0, 10);
     (async () => {
       const [rooms, plans] = await Promise.all([
-        inventoryService.getCalendar(hotelId, today, today).catch(() => []),
-        rateService.getHotelRatePlans(hotelId).catch(() => []),
+        inventoryService.getCalendar(optionHotelId, today, today).catch(() => []),
+        rateService.getHotelRatePlans(optionHotelId).catch(() => []),
       ]);
       if (cancelled) return;
       setRoomOptions(
@@ -264,12 +285,12 @@ export default function InventoryAllocationReportPage() {
     return () => {
       cancelled = true;
     };
-  }, [hotelId]);
+  }, [hotelId, canFilterHotels, propertyIds]);
 
   useEffect(() => {
-    if (!hotelId || customRangeInvalid) return;
+    if ((!canFilterHotels && !hotelId) || customRangeInvalid) return;
     loadReport();
-  }, [hotelId, page, loadReport, customRangeInvalid]);
+  }, [hotelId, canFilterHotels, page, loadReport, customRangeInvalid]);
 
   useEffect(() => {
     if (!report?.inventory.length) return;
@@ -307,7 +328,14 @@ export default function InventoryAllocationReportPage() {
   }, [exportMenuOpen]);
 
   const openFilters = () => {
-    setDraft({ datePreset, fromDate, toDate, roomTypeIds, ratePlanIds });
+    setDraft({
+      propertyIds,
+      datePreset,
+      fromDate,
+      toDate,
+      roomTypeIds,
+      ratePlanIds,
+    });
     setCustomFromText(isoToReportDateText(fromDate));
     setCustomToText(isoToReportDateText(toDate));
     setFilterOpen(true);
@@ -327,6 +355,7 @@ export default function InventoryAllocationReportPage() {
         toDate: parsed.toDate,
       };
     }
+    setPropertyIds(nextDraft.propertyIds);
     setDatePreset(nextDraft.datePreset);
     setFromDate(nextDraft.fromDate);
     setToDate(nextDraft.toDate);
@@ -341,6 +370,7 @@ export default function InventoryAllocationReportPage() {
     setDraft(DEFAULT_DRAFT);
     setCustomFromText("");
     setCustomToText("");
+    setPropertyIds(DEFAULT_DRAFT.propertyIds);
     setDatePreset(DEFAULT_DRAFT.datePreset);
     setFromDate(DEFAULT_DRAFT.fromDate);
     setToDate(DEFAULT_DRAFT.toDate);
@@ -351,14 +381,18 @@ export default function InventoryAllocationReportPage() {
   };
 
   const handleExport = async (format: ReportExportFormat) => {
-    if (!hotelId || customRangeInvalid) return;
+    if ((!canFilterHotels && !hotelId) || customRangeInvalid) return;
     setExportMenuOpen(false);
     setExporting(true);
     setExportStatus("QUEUED");
     try {
       await inventoryAllocationReportService.exportReport({
         params: {
-          propertyIds: [hotelId],
+          propertyIds: canFilterHotels
+            ? propertyIds
+            : hotelId
+              ? [hotelId]
+              : [],
           datePreset,
           fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
           toDate: datePreset === "CUSTOM" ? toDate : undefined,
@@ -383,7 +417,7 @@ export default function InventoryAllocationReportPage() {
     }
   };
 
-  if (!hotelId) {
+  if (!canFilterHotels && !hotelId) {
     return (
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-slate-900">
@@ -638,6 +672,7 @@ export default function InventoryAllocationReportPage() {
                   <tr className="border-b border-slate-100 bg-slate-50">
                     {[
                       "Date",
+                      "Hotel Name",
                       "Room Type",
                       "Rate Plan",
                       "Total",
@@ -663,14 +698,14 @@ export default function InventoryAllocationReportPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={13} className="px-4 py-16 text-center">
+                      <td colSpan={14} className="px-4 py-16 text-center">
                         <Loader2 className="mx-auto h-6 w-6 animate-spin text-violet-600" />
                       </td>
                     </tr>
                   ) : !report?.inventory.length ? (
                     <tr>
                       <td
-                        colSpan={13}
+                        colSpan={14}
                         className="px-4 py-16 text-center text-slate-400"
                       >
                         No inventory allocation rows for this period.
@@ -686,6 +721,14 @@ export default function InventoryAllocationReportPage() {
                           <span className="inline-flex items-center gap-1.5">
                             <CalendarDays className="h-3.5 w-3.5 text-violet-400" />
                             {formatReportDate(row.date)}
+                          </span>
+                        </td>
+                        <td className="max-w-56 px-3 py-2.5">
+                          <span
+                            className="block truncate text-slate-700"
+                            title={row.hotelName || undefined}
+                          >
+                            {row.hotelName || "—"}
                           </span>
                         </td>
                         <td className="px-3 py-2.5 text-slate-700">
@@ -791,6 +834,19 @@ export default function InventoryAllocationReportPage() {
             </div>
 
             <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+              {canFilterHotels ? (
+                <HotelLookupMultiSelectField
+                  value={draft.propertyIds}
+                  onChange={(ids) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      propertyIds: ids,
+                      roomTypeIds: [],
+                      ratePlanIds: [],
+                    }))
+                  }
+                />
+              ) : null}
               <section>
                 <h3 className="mb-2 text-sm font-bold text-slate-900">
                   Date range

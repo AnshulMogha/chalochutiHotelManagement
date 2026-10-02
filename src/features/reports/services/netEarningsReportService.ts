@@ -40,6 +40,8 @@ export interface NetEarningsBookingRow {
   bookingRef: string;
   bookingId: string;
   pnr: string | null;
+  hotelId: string | null;
+  hotelName: string | null;
   guestName: string;
   checkInDate: string;
   checkOutDate: string;
@@ -210,6 +212,11 @@ function normalizeBookingRow(raw: Record<string, unknown>): NetEarningsBookingRo
     bookingRef,
     bookingId: String(raw.bookingId ?? ""),
     pnr: raw.pnr != null ? String(raw.pnr) : null,
+    hotelId: raw.hotelId != null ? String(raw.hotelId) : null,
+    hotelName:
+      raw.hotelName != null && String(raw.hotelName).trim()
+        ? String(raw.hotelName).trim()
+        : null,
     guestName:
       guestNameRaw == null || String(guestNameRaw).trim() === ""
         ? "—"

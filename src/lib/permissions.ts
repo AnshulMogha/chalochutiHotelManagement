@@ -15,7 +15,6 @@ import {
   canModerateReviews,
   canManageHotelReviews,
   isAuditorRole,
-  isFinanceManagerRole,
   isHelpdeskAgentRole,
   isHotelBdRole,
   isPlatformAccountantRole,
@@ -570,7 +569,9 @@ function canViewReportsPath(user: User | null, pathOnly: string): boolean {
 
   if (pathOnly === "/reports/performance") {
     return (
-      canViewModule(user, "ANALYTICS") || canViewModule(user, "BOOKINGS")
+      canViewModule(user, "ANALYTICS") ||
+      canViewModule(user, "BOOKINGS") ||
+      isZonalHotelReviewerRole(user?.roles)
     );
   }
 
@@ -882,7 +883,9 @@ export function canViewPath(user: User | null, pathname: string): boolean {
 
   if (pathOnly === "/analytics" || pathOnly.startsWith("/analytics/")) {
     return (
-      canViewModule(user, "ANALYTICS") || canViewModule(user, "BOOKINGS")
+      canViewModule(user, "ANALYTICS") ||
+      canViewModule(user, "BOOKINGS") ||
+      isZonalHotelReviewerRole(user?.roles)
     );
   }
 

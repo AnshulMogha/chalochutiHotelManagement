@@ -553,6 +553,11 @@ const getNavItems = (user: User | null): NavItem[] => {
         path: ROUTES.BOOKINGS.LIST,
         icon: BookOpen,
       });
+      items.push({
+        label: "Analytics",
+        path: ROUTES.ANALYTICS.DASHBOARD,
+        icon: Activity,
+      });
     }
     if (canModerateReviews(userRoles)) {
       items.push(getReviewModerationNavItem());

@@ -100,7 +100,8 @@ export interface PromotionReportResponse {
 }
 
 export interface PromotionReportParams {
-  hotelId: string;
+  hotelId?: string;
+  propertyIds?: string[];
   lifecycleTab?: PromotionLifecycleTab;
   page?: number;
   size?: number;
@@ -131,6 +132,7 @@ export const promotionReportService = {
   ): Promise<PromotionReportResponse> => {
     const {
       hotelId,
+      propertyIds,
       lifecycleTab = "ACTIVE",
       page = 0,
       size = 20,
@@ -148,7 +150,11 @@ export const promotionReportService = {
     } = params;
 
     const search = new URLSearchParams();
-    search.set("hotelId", hotelId);
+    if (propertyIds?.length) {
+      search.set("hotelId", propertyIds.join(","));
+    } else if (hotelId) {
+      search.set("hotelId", hotelId);
+    }
     search.set("lifecycleTab", lifecycleTab);
     search.set("page", String(page));
     search.set("size", String(size));
