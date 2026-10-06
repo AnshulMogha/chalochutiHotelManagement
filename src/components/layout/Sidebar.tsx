@@ -4,6 +4,7 @@ import logo from "@/assets/originallogo.webp";
 import {
   canViewHelpdeskBookings,
   canViewHelpdeskTickets,
+  canViewChaloChuttiRevenueDashboard,
   canViewHotelBdPipeline,
   canViewHotelBookingFinancialMis,
   canViewHotelPayoutMis,
@@ -35,6 +36,7 @@ import {
   Users,
   Info,
   IndianRupee,
+  BadgeIndianRupee,
   BookOpen,
   Star,
   BarChart3,
@@ -326,6 +328,8 @@ function getReportsNavItem(
     !paymentsOnly && canViewTransportBookingMis(user?.roles);
   const showPackageMis =
     !paymentsOnly && canViewPackageBookingFinancialMis(user?.roles);
+  const showRevenueDashboard =
+    !paymentsOnly && canViewChaloChuttiRevenueDashboard(user?.roles);
   const showSettlementDashboard =
     !paymentsOnly && canViewSupplierSettlement(user?.roles);
   const showHotelPayments = showPaymentReport || showHotelPayouts;
@@ -344,12 +348,22 @@ function getReportsNavItem(
     !showTransportPayouts &&
     !showTransportBookingMis &&
     !showPackageMis &&
+    !showRevenueDashboard &&
     !showSettlementDashboard
   ) {
     return null;
   }
 
   const children: NavItem[] = [
+    ...(showRevenueDashboard
+      ? [
+          {
+            label: "Revenue Dashboard",
+            path: ROUTES.REPORTS.REVENUE_DASHBOARD,
+            icon: BadgeIndianRupee,
+          },
+        ]
+      : []),
     ...(showSettlementDashboard
       ? [
           {
