@@ -1,6 +1,11 @@
 import { apiClient } from "@/services/api/client";
 import type { ApiSuccessResponse } from "@/services/api/types";
 import { API_ENDPOINTS } from "@/constants";
+import {
+  runReportExportJob,
+  type ExportJobStatus,
+  type ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 import type {
   HotelReviewItem,
   HotelReviewListParams,
@@ -136,6 +141,18 @@ function normalizeListResponse(
   };
 }
 
+function buildListParams(
+  params: Omit<HotelReviewListParams, "page" | "size">,
+): URLSearchParams {
+  const search = new URLSearchParams();
+  search.set("hotelId", params.hotelId);
+  const bookingRef = params.bookingRef?.trim();
+  const customerEmail = params.customerEmail?.trim();
+  if (bookingRef) search.set("bookingRef", bookingRef);
+  if (customerEmail) search.set("customerEmail", customerEmail);
+  return search;
+}
+
 export const hotelReviewService = {
   list: async (
     params: HotelReviewListParams,
@@ -161,6 +178,23 @@ export const hotelReviewService = {
       page,
       size,
     );
+  },
+
+  exportList: async (
+    params: Omit<HotelReviewListParams, "page" | "size">,
+    format: ReportExportFormat = "EXCEL",
+    onStatus?: (status: ExportJobStatus) => void,
+  ): Promise<void> => {
+    const search = buildListParams(params);
+    search.set("format", format);
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.HOTEL_REVIEWS.EXPORT}?${search.toString()}`,
+      statusUrl: API_ENDPOINTS.HOTEL_REVIEWS.EXPORT_JOB,
+      downloadUrl: API_ENDPOINTS.HOTEL_REVIEWS.EXPORT_DOWNLOAD,
+      defaultFileName: "hotel-reviews",
+      format,
+      onStatus,
+    });
   },
 
   reply: async (

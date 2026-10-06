@@ -195,6 +195,9 @@ const HelpdeskTicketDetailPage = lazy(
 const SettlementWorkbenchPage = lazy(
   () => import("../features/settlement/pages/SettlementWorkbenchPage"),
 );
+const SettlementDashboardPage = lazy(
+  () => import("../features/settlement/pages/SettlementDashboardPage"),
+);
 const ReviewModerationQueuePage = lazy(
   () => import("../features/reviews/pages/ReviewModerationQueuePage"),
 );
@@ -537,6 +540,10 @@ export const routes: RouteObject[] = [
       {
         path: "helpdesk/tickets/:ticketId",
         element: <HelpdeskTicketDetailPage />,
+      },
+      {
+        path: "finance/settlements/dashboard",
+        element: <SettlementDashboardPage />,
       },
       {
         path: "finance/settlements/workbench",

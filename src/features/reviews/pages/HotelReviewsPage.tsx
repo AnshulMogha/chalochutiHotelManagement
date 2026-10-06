@@ -10,11 +10,17 @@ import {
   X,
 } from "lucide-react";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
+  exportStatusLabel,
   formatReportDateTime,
   formatStatusLabel,
 } from "@/features/reports/components/reportUiHelpers";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 import {
   ReviewFilterField,
   ReviewStatusBadge,
@@ -50,6 +56,8 @@ export default function HotelReviewsPage() {
 
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(null);
   const [rows, setRows] = useState<HotelReviewItem[]>([]);
   const [totalElements, setTotalElements] = useState(0);
   const [draft, setDraft] = useState<FilterDraft>(DEFAULT_FILTERS);
@@ -122,6 +130,29 @@ export default function HotelReviewsPage() {
     setDraft(DEFAULT_FILTERS);
     setFilters({});
     setPage(0);
+  };
+
+  const handleExport = async (format: ReportExportFormat) => {
+    if (!hotelId) return;
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await hotelReviewService.exportList(
+        {
+          hotelId,
+          bookingRef: filters.bookingRef,
+          customerEmail: filters.customerEmail,
+        },
+        format,
+        setExportStatus,
+      );
+      showToast("Hotel reviews downloaded", "success");
+    } catch (error) {
+      showToast(extractErrorMessage(error), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
   };
 
   const openDialog = (mode: DialogMode, review: HotelReviewItem) => {
@@ -263,11 +294,32 @@ export default function HotelReviewsPage() {
                   Clear
                 </button>
               ) : null}
+              <ExportButton
+                iconOnly
+                disabled={loading}
+                exporting={exporting}
+                exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+                onExportExcel={() => void handleExport("EXCEL")}
+                onExportCSV={() => void handleExport("CSV")}
+                onExportPDF={() => void handleExport("PDF")}
+              />
             </div>
           </form>
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="border-b border-slate-100 px-4 py-2.5">
+            <p className="text-xs font-medium text-slate-600">
+              {totalElements.toLocaleString("en-IN")} review
+              {totalElements === 1 ? "" : "s"}
+              {totalElements > 0 ? (
+                <span className="font-normal text-slate-400">
+                  {" "}
+                  · Page {page + 1} of {totalPages}
+                </span>
+              ) : null}
+            </p>
+          </div>
           {loading ? (
             <div className="flex min-h-56 items-center justify-center">
               <Loader2 className="h-7 w-7 animate-spin text-slate-400" />
@@ -417,7 +469,12 @@ export default function HotelReviewsPage() {
           {totalElements > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3">
               <p className="text-xs text-slate-500">
-                Page {page + 1} of {totalPages}
+                {totalElements.toLocaleString("en-IN")} review
+                {totalElements === 1 ? "" : "s"}
+                <span className="text-slate-400">
+                  {" "}
+                  · Page {page + 1} of {totalPages}
+                </span>
               </p>
               <div className="flex gap-2">
                 <button

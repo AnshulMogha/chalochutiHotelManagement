@@ -1099,6 +1099,18 @@ export default function HotelBookingFinancialMisPage() {
         </div>
 
         <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-4 py-2.5">
+            <p className="text-xs font-medium text-slate-600">
+              {totalElements} booking{totalElements === 1 ? "" : "s"}
+              {report?.page.sort
+                ? ` · sorted by ${formatStatusLabel(report.page.sort)} (${report.page.direction})`
+                : null}
+              <span className="font-normal text-slate-400">
+                {" "}
+                · Page {page + 1} of {Math.max(totalPages, 1)}
+              </span>
+            </p>
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -1312,9 +1324,10 @@ export default function HotelBookingFinancialMisPage() {
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-slate-100 px-3 py-1.5">
             <p className="text-[11px] leading-none text-slate-500">
               {totalElements} booking{totalElements === 1 ? "" : "s"}
-              {report?.page.sort
-                ? ` · sorted by ${formatStatusLabel(report.page.sort)} (${report.page.direction})`
-                : null}
+              <span className="text-slate-400">
+                {" "}
+                · Page {page + 1} of {Math.max(totalPages, 1)}
+              </span>
             </p>
             <div className="flex items-center gap-1.5">
               <button

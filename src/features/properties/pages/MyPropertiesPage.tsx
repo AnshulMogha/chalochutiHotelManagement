@@ -418,12 +418,12 @@ export default function MyPropertiesPage() {
     };
   }, [isScopedPropertyViewer, propertyFilterParams]);
 
-  const paginationFooter = (
-    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+  const paginationHeader = (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
       <p className="text-sm text-gray-600">
-        Page {page + 1} of {totalPages}
-        <span className="text-gray-400"> · </span>
         {totalElements.toLocaleString("en-IN")} total
+        <span className="text-gray-400"> · </span>
+        Page {page + 1} of {totalPages}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2 text-sm text-gray-600">
@@ -922,8 +922,9 @@ export default function MyPropertiesPage() {
               ) : null}
             </button>
           </div>
+          <div className="mb-3">{paginationHeader}</div>
           {renderTable(activeHotels, true, false)}
-          {paginationFooter}
+          <div className="mt-3">{paginationHeader}</div>
         </>
       ) : (
         <Tabs
@@ -1010,6 +1011,8 @@ export default function MyPropertiesPage() {
             </div>
           </div>
 
+          <div className="mb-3">{paginationHeader}</div>
+
           {/* All Properties Tab */}
           <TabsContent value="all" className="mt-0">
             {renderTable(allHotels, false, canOnboard, isHotelBdUser, true)}
@@ -1030,7 +1033,7 @@ export default function MyPropertiesPage() {
             {renderTable(rejectedHotels, false, canOnboard, isHotelBdUser)}
           </TabsContent>
 
-          {paginationFooter}
+          <div className="mt-3">{paginationHeader}</div>
         </Tabs>
       )}
 

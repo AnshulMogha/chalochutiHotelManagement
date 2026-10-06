@@ -325,6 +325,8 @@ export type SettlementApiResult<T> = {
   raw: unknown;
 };
 
+export type SettlementQueueMode = "pending" | "approved" | "rejected";
+
 function computeTotalPages(payload: Record<string, unknown>): number {
   const explicit = Number(payload.totalPages);
   if (Number.isFinite(explicit) && explicit > 0) return explicit;
@@ -612,6 +614,50 @@ export const settlementService = {
       statusUrl: API_ENDPOINTS.SETTLEMENT.WORKBENCH_EXPORT_JOB,
       downloadUrl: API_ENDPOINTS.SETTLEMENT.WORKBENCH_EXPORT_DOWNLOAD,
       defaultFileName: options.defaultFileName ?? "settlement-workbench",
+      format,
+      onStatus: options.onStatus,
+    });
+  },
+
+  async exportQueue(options: {
+    mode: SettlementQueueMode;
+    params: Omit<QueueListParams, "page" | "size">;
+    format?: ReportExportFormat;
+    defaultFileName?: string;
+    onStatus?: (status: ExportJobStatus) => void;
+  }): Promise<void> {
+    const format = options.format ?? "EXCEL";
+    const query = buildQuery({
+      ...options.params,
+      page: undefined,
+      size: undefined,
+      format,
+    });
+    const endpoints =
+      options.mode === "approved"
+        ? {
+            start: API_ENDPOINTS.SETTLEMENT.APPROVED_EXPORT,
+            status: API_ENDPOINTS.SETTLEMENT.APPROVED_EXPORT_JOB,
+            download: API_ENDPOINTS.SETTLEMENT.APPROVED_EXPORT_DOWNLOAD,
+          }
+        : options.mode === "rejected"
+          ? {
+              start: API_ENDPOINTS.SETTLEMENT.REJECTED_EXPORT,
+              status: API_ENDPOINTS.SETTLEMENT.REJECTED_EXPORT_JOB,
+              download: API_ENDPOINTS.SETTLEMENT.REJECTED_EXPORT_DOWNLOAD,
+            }
+          : {
+              start: API_ENDPOINTS.SETTLEMENT.PENDING_EXPORT,
+              status: API_ENDPOINTS.SETTLEMENT.PENDING_EXPORT_JOB,
+              download: API_ENDPOINTS.SETTLEMENT.PENDING_EXPORT_DOWNLOAD,
+            };
+
+    await runReportExportJob({
+      startUrl: `${endpoints.start}${query}`,
+      statusUrl: endpoints.status,
+      downloadUrl: endpoints.download,
+      defaultFileName:
+        options.defaultFileName ?? `settlements-${options.mode}`,
       format,
       onStatus: options.onStatus,
     });

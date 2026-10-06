@@ -7,6 +7,7 @@ import {
 } from "react";
 import { Link } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants";
 import { appendReturnToQuery } from "@/lib/navigationReturn";
@@ -34,7 +35,10 @@ import {
   type SalesManagerAgentPortfolioRow,
   type SalesManagerAgentsReportResponse,
 } from "../services/salesManagerAgentsReportService";
-import type { ExportJobStatus } from "../services/reportExportService";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "../services/reportExportService";
 import type {
   SalesManagerAgencyTier,
   SalesManagerAgentStatus,
@@ -48,7 +52,6 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  Download,
   Filter,
   LayoutDashboard,
   Loader2,
@@ -328,7 +331,7 @@ export default function SalesManagerAgentsReportPage() {
   const applyFilters = () => {
     if (draftCustomInvalid) return;
 
-    let nextDraft = { ...draft };
+    const nextDraft = { ...draft };
     if (draft.datePreset === "CUSTOM") {
       const parsed = validateCustomDateRange(customFromText, customToText);
       if (!parsed.ok) {
@@ -475,14 +478,14 @@ export default function SalesManagerAgentsReportPage() {
     ],
   );
 
-  const handleExport = async () => {
+  const handleExport = async (format: ReportExportFormat) => {
     if (customRangeInvalid) return;
     setExporting(true);
     setExportStatus("QUEUED");
     try {
       await salesManagerAgentsReportService.exportReport(
         exportParams,
-        "EXCEL",
+        format,
         setExportStatus,
       );
       showToast("Agent portfolio export downloaded.", "success");
@@ -567,28 +570,15 @@ export default function SalesManagerAgentsReportPage() {
               )}
               Refresh
             </button>
-            <button
-              type="button"
-              onClick={() => void handleExport()}
-              disabled={exporting || loading || customRangeInvalid}
-              aria-label={
-                exportStatus
-                  ? exportStatusLabel(exportStatus)
-                  : "Download report"
-              }
-              title={
-                exportStatus
-                  ? exportStatusLabel(exportStatus)
-                  : "Download report"
-              }
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
-            >
-              {exporting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-            </button>
+            <ExportButton
+              iconOnly
+              disabled={loading || customRangeInvalid}
+              exporting={exporting}
+              exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+              onExportExcel={() => void handleExport("EXCEL")}
+              onExportCSV={() => void handleExport("CSV")}
+              onExportPDF={() => void handleExport("PDF")}
+            />
             <Link
               to={ROUTES.REPORTS.SALES_MANAGER_DASHBOARD}
               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700"
@@ -664,6 +654,18 @@ export default function SalesManagerAgentsReportPage() {
       ) : null}
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-4 py-2.5">
+          <p className="text-xs font-medium text-slate-600">
+            {totalElements} agent{totalElements === 1 ? "" : "s"}
+            {report?.agents.page.sort
+              ? ` · sorted by ${formatStatusLabel(report.agents.page.sort)} (${report.agents.page.direction})`
+              : null}
+            <span className="font-normal text-slate-400">
+              {" "}
+              · Page {page + 1} of {Math.max(totalPages, 1)}
+            </span>
+          </p>
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -700,9 +702,10 @@ export default function SalesManagerAgentsReportPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3">
           <p className="text-xs text-slate-500">
             {totalElements} agent{totalElements === 1 ? "" : "s"}
-            {report?.agents.page.sort
-              ? ` · sorted by ${formatStatusLabel(report.agents.page.sort)} (${report.agents.page.direction})`
-              : null}
+            <span className="text-slate-400">
+              {" "}
+              · Page {page + 1} of {Math.max(totalPages, 1)}
+            </span>
           </p>
           <div className="flex items-center gap-2">
             <button

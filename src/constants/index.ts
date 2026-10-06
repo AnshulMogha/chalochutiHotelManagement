@@ -117,6 +117,7 @@ export const ROUTES = {
       `/helpdesk/tickets/${ticketId}`,
   },
   SETTLEMENT: {
+    DASHBOARD: "/finance/settlements/dashboard",
     WORKBENCH: "/finance/settlements/workbench",
     PREVIEW: "/finance/settlements/preview",
     PENDING: "/finance/settlements/pending",
@@ -199,6 +200,10 @@ export const API_ENDPOINTS = {
   TRAVEL_AGENT_ONBOARDING: {
     /** GET list, POST create */
     ROOT: "travel-agent/onboarding",
+    EXPORT: "travel-agent/onboarding/export",
+    EXPORT_JOB: (jobId: string) => `travel-agent/onboarding/export/${jobId}`,
+    EXPORT_DOWNLOAD: (jobId: string) =>
+      `travel-agent/onboarding/export/${jobId}/download`,
     /** GET one, PUT full payload (e.g. resubmit after reject) */
     BY_ID: (id: string | number) => `travel-agent/onboarding/${id}`,
     /** PATCH agency tier for approved agents */
@@ -567,6 +572,12 @@ export const API_ENDPOINTS = {
     HOTEL_BD_PIPELINE_EXPORT_DOWNLOAD: (jobId: string) =>
       `/reports/hotel-bd-pipeline/export/${jobId}/download`,
     SALES_MANAGER_DASHBOARD: "/reports/sales-manager-dashboard",
+    SALES_MANAGER_DASHBOARD_EXPORT:
+      "/reports/sales-manager-dashboard/export",
+    SALES_MANAGER_DASHBOARD_EXPORT_JOB: (jobId: string) =>
+      `/reports/sales-manager-dashboard/export/${jobId}`,
+    SALES_MANAGER_DASHBOARD_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/sales-manager-dashboard/export/${jobId}/download`,
     SALES_MANAGER_AGENTS: "/reports/sales-manager-agents",
     SALES_MANAGER_AGENTS_EXPORT: "/reports/sales-manager-agents/export",
     SALES_MANAGER_AGENTS_EXPORT_JOB: (jobId: string) =>
@@ -580,6 +591,19 @@ export const API_ENDPOINTS = {
       `/reports/hotel-booking-financial-mis/export/${jobId}`,
     HOTEL_BOOKING_FINANCIAL_MIS_EXPORT_DOWNLOAD: (jobId: string) =>
       `/reports/hotel-booking-financial-mis/export/${jobId}/download`,
+    SETTLEMENT_DASHBOARD: "/reports/settlement-dashboard",
+    SETTLEMENT_DASHBOARD_EXPORT: "/reports/settlement-dashboard/export",
+    SETTLEMENT_DASHBOARD_EXPORT_JOB: (jobId: string) =>
+      `/reports/settlement-dashboard/export/${jobId}`,
+    SETTLEMENT_DASHBOARD_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/settlement-dashboard/export/${jobId}/download`,
+    SETTLEMENT_DASHBOARD_BOOKINGS: "/reports/settlement-dashboard/bookings",
+    SETTLEMENT_DASHBOARD_BOOKINGS_EXPORT:
+      "/reports/settlement-dashboard/bookings/export",
+    SETTLEMENT_DASHBOARD_BOOKINGS_EXPORT_JOB: (jobId: string) =>
+      `/reports/settlement-dashboard/bookings/export/${jobId}`,
+    SETTLEMENT_DASHBOARD_BOOKINGS_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/settlement-dashboard/bookings/export/${jobId}/download`,
   },
   CUSTOMER: {
     HOTEL_LOOKUP: "/customer/packages/hotel/lookup",
@@ -603,6 +627,11 @@ export const API_ENDPOINTS = {
       return `/helpdesk/bookings/${encodeURIComponent(bookingRef)}/voucher?${search.toString()}`;
     },
     TICKETS: "/helpdesk/tickets",
+    TICKETS_EXPORT: "/helpdesk/tickets/export",
+    TICKETS_EXPORT_JOB: (jobId: string) =>
+      `/helpdesk/tickets/export/${jobId}`,
+    TICKETS_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/helpdesk/tickets/export/${jobId}/download`,
     TICKET_BY_ID: (ticketId: string | number) =>
       `/helpdesk/tickets/${ticketId}`,
     TICKET_ASSIGN: (ticketId: string | number) =>
@@ -630,8 +659,23 @@ export const API_ENDPOINTS = {
     PREVIEW: "/admin/settlements/preview",
     GENERATE: "/admin/settlements",
     PENDING: "/admin/settlements/pending",
+    PENDING_EXPORT: "/admin/settlements/pending/export",
+    PENDING_EXPORT_JOB: (jobId: string) =>
+      `/admin/settlements/pending/export/${jobId}`,
+    PENDING_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/admin/settlements/pending/export/${jobId}/download`,
     APPROVED: "/admin/settlements/approved",
+    APPROVED_EXPORT: "/admin/settlements/approved/export",
+    APPROVED_EXPORT_JOB: (jobId: string) =>
+      `/admin/settlements/approved/export/${jobId}`,
+    APPROVED_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/admin/settlements/approved/export/${jobId}/download`,
     REJECTED: "/admin/settlements/rejected",
+    REJECTED_EXPORT: "/admin/settlements/rejected/export",
+    REJECTED_EXPORT_JOB: (jobId: string) =>
+      `/admin/settlements/rejected/export/${jobId}`,
+    REJECTED_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/admin/settlements/rejected/export/${jobId}/download`,
     MIS: "/admin/reports/settlement-mis",
     MIS_EXPORT: "/admin/reports/settlement-mis/export",
     MIS_EXPORT_JOB: (jobId: string) =>
@@ -653,7 +697,17 @@ export const API_ENDPOINTS = {
   },
   REVIEW_MODERATION: {
     FLAG_QUEUE: "/admin/reviews/moderation/flag-queue",
+    FLAG_QUEUE_EXPORT: "/admin/reviews/moderation/flag-queue/export",
+    FLAG_QUEUE_EXPORT_JOB: (jobId: string) =>
+      `/admin/reviews/moderation/flag-queue/export/${jobId}`,
+    FLAG_QUEUE_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/admin/reviews/moderation/flag-queue/export/${jobId}/download`,
     MIS: "/admin/reviews/mis",
+    MIS_EXPORT: "/admin/reviews/mis/export",
+    MIS_EXPORT_JOB: (jobId: string) =>
+      `/admin/reviews/mis/export/${jobId}`,
+    MIS_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/admin/reviews/mis/export/${jobId}/download`,
     AUDIT: (reviewId: string) =>
       `/admin/reviews/moderation/${encodeURIComponent(reviewId)}/audit`,
     APPROVE: (reviewId: string) =>
@@ -667,6 +721,10 @@ export const API_ENDPOINTS = {
   },
   HOTEL_REVIEWS: {
     LIST: "/hotel/reviews",
+    EXPORT: "/hotel/reviews/export",
+    EXPORT_JOB: (jobId: string) => `/hotel/reviews/export/${jobId}`,
+    EXPORT_DOWNLOAD: (jobId: string) =>
+      `/hotel/reviews/export/${jobId}/download`,
     REPLY: (reviewId: string) =>
       `/hotel/reviews/${encodeURIComponent(reviewId)}/reply`,
     REPORT: (reviewId: string) =>

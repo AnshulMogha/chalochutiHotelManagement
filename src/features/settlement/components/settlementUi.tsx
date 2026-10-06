@@ -2,7 +2,6 @@ import { cn } from "@/lib/utils";
 import {
   formatFinanceMoney,
   formatReportDate,
-  formatReportDateTime,
   formatStatusLabel,
   ReportPageHeader,
   SummaryCard,
@@ -90,6 +89,24 @@ export type SettlementApiDebugState = {
 
 export function settlementStatusTone(status?: string | null): string {
   const value = String(status || "").toUpperCase();
+  if (value === "FULLY_SETTLED") {
+    return "bg-emerald-50 text-emerald-800 ring-emerald-200";
+  }
+  if (value === "CUSTOMER_PAYMENT_PENDING") {
+    return "bg-amber-50 text-amber-800 ring-amber-200";
+  }
+  if (value === "SUPPLIER_PAYMENT_PENDING") {
+    return "bg-orange-50 text-orange-800 ring-orange-200";
+  }
+  if (value === "BOTH_PENDING" || value === "REFUND_PENDING") {
+    return "bg-rose-50 text-rose-800 ring-rose-200";
+  }
+  if (value === "SETTLEMENT_TRACKING_INCOMPLETE") {
+    return "bg-violet-50 text-violet-800 ring-violet-200";
+  }
+  if (value === "NO_SETTLEMENT_DUE") {
+    return "bg-slate-100 text-slate-700 ring-slate-200";
+  }
   if (value === "PENDING") {
     return "bg-amber-50 text-amber-800 ring-amber-200";
   }
@@ -305,7 +322,7 @@ export function SettlementPageShell({
 }) {
   return (
     <div className="min-h-full bg-[#f7f8fa]">
-      <div className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4">
+      <div className="mx-auto max-w-350 px-3 py-2 sm:px-4">
         <ReportPageHeader
           icon={Icon}
           iconClassName={iconClassName}
@@ -451,16 +468,23 @@ export function SettlementReportSection({
   children,
   action,
   flush,
+  compact,
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   action?: ReactNode;
   flush?: boolean;
+  compact?: boolean;
 }) {
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-200/80 bg-[#f4f6fb] px-4 py-3">
+      <div
+        className={cn(
+          "flex flex-wrap items-start justify-between gap-2 border-b border-slate-200/80 bg-[#f4f6fb] px-4",
+          compact ? "py-2" : "py-3",
+        )}
+      >
         <div>
           <h3 className="text-sm font-bold text-slate-900">{title}</h3>
           {description ? (
@@ -469,7 +493,9 @@ export function SettlementReportSection({
         </div>
         {action}
       </div>
-      <div className={flush ? undefined : "p-4"}>{children}</div>
+      <div className={flush ? undefined : compact ? "p-3" : "p-4"}>
+        {children}
+      </div>
     </section>
   );
 }
@@ -956,10 +982,10 @@ export function SettlementFilterDrawer({
       <button
         type="button"
         aria-label="Close filters"
-        className="fixed inset-0 z-[120] bg-slate-900/30 backdrop-blur-[1px]"
+        className="fixed inset-0 z-120 bg-slate-900/30 backdrop-blur-[1px]"
         onClick={onClose}
       />
-      <aside className="fixed inset-y-0 right-0 z-[130] flex w-full max-w-sm flex-col border-l border-slate-200 bg-white shadow-2xl">
+      <aside className="fixed inset-y-0 right-0 z-130 flex w-full max-w-sm flex-col border-l border-slate-200 bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">Filters</h2>

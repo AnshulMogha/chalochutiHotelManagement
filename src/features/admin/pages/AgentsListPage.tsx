@@ -459,6 +459,15 @@ export default function AgentsListPage() {
           </nav>
         </div>
 
+        <div className="mb-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 shadow-sm">
+          <p className="text-sm font-medium text-gray-700">
+            {totalElements.toLocaleString("en-IN")} total
+            <span className="font-normal text-gray-500">
+              {" "}
+              · Page {totalPages === 0 ? 0 : currentPage + 1} of {totalPages}
+            </span>
+          </p>
+        </div>
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           {partners.length === 0 && !loading ? (
             (() => {
@@ -623,8 +632,8 @@ export default function AgentsListPage() {
 
         <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="text-sm text-gray-600">
-            Showing page {totalPages === 0 ? 0 : currentPage + 1} of {totalPages} ({totalElements}{" "}
-            total)
+            {totalElements.toLocaleString("en-IN")} total · Page{" "}
+            {totalPages === 0 ? 0 : currentPage + 1} of {totalPages}
           </div>
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-600" htmlFor="agents-page-size">
