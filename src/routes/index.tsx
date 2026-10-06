@@ -261,6 +261,9 @@ const HotelBookingFinancialMisPage = lazy(
 const HotelBookingFinancialMisDetailPage = lazy(
   () => import("../features/reports/pages/HotelBookingFinancialMisDetailPage"),
 );
+const RevenueDashboardPage = lazy(
+  () => import("../features/reports/pages/RevenueDashboardPage"),
+);
 const MyProfilePage = lazy(
   () => import("../features/user/pages/MyProfilePage"),
 );
@@ -624,6 +627,10 @@ export const routes: RouteObject[] = [
       {
         path: "reports/hotel-booking-financial-mis",
         element: <HotelBookingFinancialMisPage />,
+      },
+      {
+        path: "reports/revenue-dashboard",
+        element: <RevenueDashboardPage />,
       },
       {
         path: "reports/hotel-booking-financial-mis/:bookingId",

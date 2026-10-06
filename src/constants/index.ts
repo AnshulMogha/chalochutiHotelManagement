@@ -144,6 +144,7 @@ export const ROUTES = {
     HOTEL_BOOKING_FINANCIAL_MIS: "/reports/hotel-booking-financial-mis",
     HOTEL_BOOKING_FINANCIAL_MIS_DETAIL: (bookingId: string | number) =>
       `/reports/hotel-booking-financial-mis/${bookingId}`,
+    REVENUE_DASHBOARD: "/reports/revenue-dashboard",
   },
   RATINGS_REVIEWS: {
     LIST: "/ratings-reviews",
@@ -591,6 +592,13 @@ export const API_ENDPOINTS = {
       `/reports/hotel-booking-financial-mis/export/${jobId}`,
     HOTEL_BOOKING_FINANCIAL_MIS_EXPORT_DOWNLOAD: (jobId: string) =>
       `/reports/hotel-booking-financial-mis/export/${jobId}/download`,
+    REVENUE_DASHBOARD: "/reports/revenue/chalochutti-dashboard",
+    REVENUE_DASHBOARD_EXPORT:
+      "/reports/revenue/chalochutti-dashboard/export",
+    REVENUE_DASHBOARD_EXPORT_JOB: (jobId: string) =>
+      `/reports/revenue/chalochutti-dashboard/export/${jobId}`,
+    REVENUE_DASHBOARD_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/revenue/chalochutti-dashboard/export/${jobId}/download`,
     SETTLEMENT_DASHBOARD: "/reports/settlement-dashboard",
     SETTLEMENT_DASHBOARD_EXPORT: "/reports/settlement-dashboard/export",
     SETTLEMENT_DASHBOARD_EXPORT_JOB: (jobId: string) =>

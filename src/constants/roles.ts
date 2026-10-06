@@ -373,6 +373,17 @@ export function isSuperAdmin(userRoles: string[] | undefined): boolean {
   return hasRole(userRoles, ROLES.SUPER_ADMIN);
 }
 
+/** Finance dashboard access for Super Admin and platform finance roles. */
+export function canViewChaloChuttiRevenueDashboard(
+  userRoles: string[] | undefined,
+): boolean {
+  return (
+    isSuperAdmin(userRoles) ||
+    !!userRoles?.includes("FINANCE_MANAGER") ||
+    !!userRoles?.includes("ACCOUNTANT")
+  );
+}
+
 /**
  * Check if user has any of the specified roles
  */
