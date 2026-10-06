@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button, DataTable, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { ApproveRejectModal } from "../components/ApproveRejectModal";
 import { adminService } from "../services/adminService";
 import type {
@@ -43,7 +44,12 @@ import {
   isoToReportDateText,
   parseOptionalReportDate,
   validateOptionalDateRange,
+  exportStatusLabel,
 } from "@/features/reports/components/reportUiHelpers";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 import {
   TravelPartnerBadge,
   TravelPartnerColumnHeader,
@@ -235,6 +241,8 @@ export default function TravelPartnersPage() {
     REJECTED: 0,
   });
   const [filterOpen, setFilterOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(null);
   const [draftFilters, setDraftFilters] = useState<PartnerListFilters>(
     DEFAULT_PARTNER_FILTERS,
   );
@@ -311,6 +319,53 @@ export default function TravelPartnersPage() {
       createdAtTo: isoToReportDateText(appliedFilters.createdAtTo),
     });
     setFilterOpen(true);
+  };
+
+  const exportPartners = async (format: ReportExportFormat) => {
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await adminService.exportTravelAgentOnboarding({
+        params: {
+          status: activeTab,
+          ...(appliedFilters.email ? { email: appliedFilters.email } : {}),
+          ...(appliedFilters.name ? { name: appliedFilters.name } : {}),
+          ...(appliedFilters.agencyName
+            ? { agencyName: appliedFilters.agencyName }
+            : {}),
+          ...(appliedFilters.agencyTier
+            ? { agencyTier: appliedFilters.agencyTier as AgencyTier }
+            : {}),
+          ...(appliedFilters.createdAt
+            ? { createdAt: appliedFilters.createdAt }
+            : {
+                ...(appliedFilters.createdAtFrom
+                  ? {
+                      createdAtFrom: `${appliedFilters.createdAtFrom}T00:00:00.000+05:30`,
+                    }
+                  : {}),
+                ...(appliedFilters.createdAtTo
+                  ? {
+                      createdAtTo: `${appliedFilters.createdAtTo}T23:59:59.999+05:30`,
+                    }
+                  : {}),
+              }),
+        },
+        format,
+        defaultFileName: `travel-partners-${activeTab.toLowerCase()}`,
+        onStatus: setExportStatus,
+      });
+      showToast("Travel partners downloaded", "success");
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: unknown }).message)
+          : "Export failed";
+      showToast(message, "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
   };
 
   const fetchPartners = useCallback(async () => {
@@ -673,19 +728,29 @@ export default function TravelPartnersPage() {
               </span>
             )}
           </h1>
-          <button
-            type="button"
-            onClick={openFilterDrawer}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-          >
-            <Filter className="h-4 w-4" />
-            Filters
-            {hasActiveFilters ? (
-              <span className="rounded-full bg-[#2f3d95] px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                Active
-              </span>
-            ) : null}
-          </button>
+          <div className="flex items-center gap-2">
+            <ExportButton
+              iconOnly
+              exporting={exporting}
+              exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+              onExportExcel={() => void exportPartners("EXCEL")}
+              onExportCSV={() => void exportPartners("CSV")}
+              onExportPDF={() => void exportPartners("PDF")}
+            />
+            <button
+              type="button"
+              onClick={openFilterDrawer}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+              {hasActiveFilters ? (
+                <span className="rounded-full bg-[#2f3d95] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  Active
+                </span>
+              ) : null}
+            </button>
+          </div>
         </div>
 
         <Tabs

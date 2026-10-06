@@ -405,7 +405,7 @@ export default function HotelBdPipelineReportPage() {
             <span>
               {loading && !report
                 ? "Loading…"
-                : `${totalElements} hotel${totalElements === 1 ? "" : "s"}`}
+                : `${totalElements} hotel${totalElements === 1 ? "" : "s"} · Page ${page + 1} of ${Math.max(totalPages, 1)}`}
             </span>
           </div>
         </div>
@@ -554,7 +554,8 @@ export default function HotelBdPipelineReportPage() {
         {totalPages > 1 ? (
           <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
             <p className="text-xs text-slate-500">
-              Page {page + 1} of {totalPages}
+              {totalElements} hotel{totalElements === 1 ? "" : "s"} · Page{" "}
+              {page + 1} of {Math.max(totalPages, 1)}
             </p>
             <div className="flex items-center gap-2">
               <button

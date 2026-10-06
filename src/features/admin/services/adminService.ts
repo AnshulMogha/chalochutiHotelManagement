@@ -2323,6 +2323,40 @@ export const adminService = {
     >(API_ENDPOINTS.TRAVEL_AGENT_ONBOARDING.ROOT, { params: query });
     return response.data;
   },
+  exportTravelAgentOnboarding: async (options: {
+    params?: Omit<TravelAgentOnboardingListParams, "page" | "size">;
+    format?: ReportExportFormat;
+    defaultFileName?: string;
+    onStatus?: (status: ExportJobStatus) => void;
+  }): Promise<void> => {
+    const format = options.format ?? "EXCEL";
+    const search = new URLSearchParams();
+    search.set("format", format);
+    const trim = (value?: string) => value?.trim() || undefined;
+    const params = options.params;
+    const entries: Array<[string, string | undefined]> = [
+      ["status", trim(params?.status)],
+      ["email", trim(params?.email)],
+      ["name", trim(params?.name)],
+      ["agencyName", trim(params?.agencyName)],
+      ["agencyTier", trim(params?.agencyTier)],
+      ["createdAt", trim(params?.createdAt)],
+      ["createdAtFrom", trim(params?.createdAtFrom)],
+      ["createdAtTo", trim(params?.createdAtTo)],
+    ];
+    for (const [key, value] of entries) {
+      if (value) search.set(key, value);
+    }
+
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.TRAVEL_AGENT_ONBOARDING.EXPORT}?${search.toString()}`,
+      statusUrl: API_ENDPOINTS.TRAVEL_AGENT_ONBOARDING.EXPORT_JOB,
+      downloadUrl: API_ENDPOINTS.TRAVEL_AGENT_ONBOARDING.EXPORT_DOWNLOAD,
+      defaultFileName: options.defaultFileName ?? "travel-agent-onboarding",
+      format,
+      onStatus: options.onStatus,
+    });
+  },
   createTravelAgentOnboarding: async (
     data: TravelAgentOnboardingCreatePayload,
   ): Promise<void> => {

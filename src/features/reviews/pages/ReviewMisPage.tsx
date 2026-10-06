@@ -8,14 +8,20 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
+  exportStatusLabel,
   formatReportDate,
   formatReportDateTime,
   formatStatusLabel,
   isoToReportDateText,
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import { reviewMisService } from "../services/reviewMisService";
 import { hotelReviewService } from "../services/hotelReviewService";
@@ -361,6 +367,8 @@ export default function ReviewMisPage() {
   const { toast, showToast, hideToast } = useToast();
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(null);
   const [rows, setRows] = useState<ReviewMisItem[]>([]);
   const [summary, setSummary] = useState<ReviewMisSummary>(EMPTY_SUMMARY);
   const [totalElements, setTotalElements] = useState(0);
@@ -505,6 +513,28 @@ export default function ReviewMisPage() {
     }
     setPage(0);
     setFilterOpen(false);
+  };
+
+  const handleExport = async (format: ReportExportFormat) => {
+    const requestParams = buildMisRequestParams({
+      isHotelScopedMis,
+      hotelId,
+      page: 0,
+      filters,
+    });
+    if (!requestParams) return;
+
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await reviewMisService.exportMis(requestParams, format, setExportStatus);
+      showToast("Review MIS downloaded", "success");
+    } catch (error) {
+      showToast(extractErrorMessage(error), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
   };
 
   const openOwnerDialog = (mode: Exclude<OwnerReviewDialogMode, null>, row: ReviewMisItem) => {
@@ -682,6 +712,15 @@ export default function ReviewMisPage() {
               )}
               Refresh
             </button>
+            <ExportButton
+              iconOnly
+              disabled={loading || (isHotelScopedMis && !hotelId)}
+              exporting={exporting}
+              exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+              onExportExcel={() => void handleExport("EXCEL")}
+              onExportCSV={() => void handleExport("CSV")}
+              onExportPDF={() => void handleExport("PDF")}
+            />
           </div>
         }
       >
@@ -855,6 +894,15 @@ export default function ReviewMisPage() {
         ) : null}
 
         <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="border-b border-slate-100 px-4 py-2.5">
+            <p className="text-xs font-medium text-slate-600">
+              {totalElements.toLocaleString("en-IN")} reviews
+              <span className="font-normal text-slate-400">
+                {" "}
+                · Page {page + 1} of {totalPages}
+              </span>
+            </p>
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead>
@@ -1294,7 +1342,7 @@ function FragmentRow({
           </span>
         </td>
         <td className="px-4 py-4">
-          <p className="max-w-[14rem] font-medium text-slate-900">
+          <p className="max-w-56 font-medium text-slate-900">
             {row.subjectName || "—"}
           </p>
         </td>

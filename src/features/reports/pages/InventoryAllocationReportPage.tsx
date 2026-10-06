@@ -666,6 +666,15 @@ export default function InventoryAllocationReportPage() {
           ) : null}
 
           <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-4 py-2.5">
+              <p className="text-xs font-medium text-slate-600">
+                {(report?.page.totalElements ?? 0).toLocaleString("en-IN")} rows
+                <span className="font-normal text-slate-400">
+                  {" "}
+                  · Page {page + 1} of {Math.max(totalPages, 1)}
+                </span>
+              </p>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-max text-sm">
                 <thead>
@@ -784,8 +793,9 @@ export default function InventoryAllocationReportPage() {
             {totalPages > 1 ? (
               <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-600">
                 <span>
-                  Page {page + 1} of {totalPages} ·{" "}
-                  {report?.page.totalElements ?? 0} rows
+                  {(report?.page.totalElements ?? 0).toLocaleString("en-IN")} rows
+                  {" · "}
+                  Page {page + 1} of {Math.max(totalPages, 1)}
                 </span>
                 <div className="flex gap-2">
                   <button

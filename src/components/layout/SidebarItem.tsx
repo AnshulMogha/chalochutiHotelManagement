@@ -38,8 +38,7 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
 
   const isInventoryRoute = (path: string) => {
     return (
-      path === ROUTES.ROOM_INVENTORY.LIST ||
-      path === ROUTES.RATE_INVENTORY.LIST
+      path === ROUTES.ROOM_INVENTORY.LIST || path === ROUTES.RATE_INVENTORY.LIST
     );
   };
 
@@ -134,7 +133,10 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#283585]",
     isOpen ? "justify-start" : "justify-center",
     isHighlighted
-      ? cn(theme.row, "text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]")
+      ? cn(
+          theme.row,
+          "text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]",
+        )
       : cn("text-white/92 hover:text-white", theme.rowHover),
   );
 
@@ -228,7 +230,8 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
               const childTheme = getNavIconTheme(
                 pathMatches(child.path)
                   ? child.path
-                  : (child.activePaths?.find((p) => pathMatches(p)) ?? child.path),
+                  : (child.activePaths?.find((p) => pathMatches(p)) ??
+                      child.path),
               );
 
               return (
@@ -245,7 +248,10 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
                       }}
                       className={cn(
                         "flex min-w-0 w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-all duration-200",
-                        cn("text-white/88 hover:text-white", childTheme.rowHover),
+                        cn(
+                          "text-white/88 hover:text-white",
+                          childTheme.rowHover,
+                        ),
                       )}
                     >
                       <span
@@ -278,7 +284,10 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
                               childTheme.row,
                               "font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]",
                             )
-                          : cn("text-white/88 hover:text-white", childTheme.rowHover),
+                          : cn(
+                              "text-white/88 hover:text-white",
+                              childTheme.rowHover,
+                            ),
                       )}
                       aria-current={childActive ? "page" : undefined}
                     >
@@ -291,7 +300,9 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
                         <ChildIcon
                           className={cn(
                             "h-3.5 w-3.5",
-                            childActive ? childTheme.iconActive : childTheme.icon,
+                            childActive
+                              ? childTheme.iconActive
+                              : childTheme.icon,
                           )}
                           strokeWidth={2.25}
                         />
@@ -309,7 +320,9 @@ export function SidebarItem({ item, isOpen, onToggle }: SidebarItemProps) {
 
         {!isOpen && (
           <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-lg border border-white/10 bg-[#1f2a72] px-3 py-2 text-xs font-semibold text-white opacity-0 shadow-2xl transition-all duration-200 group-hover/item:pointer-events-auto group-hover/item:opacity-100 lg:flex">
-            <span className={cn("h-2 w-2 shrink-0 rounded-full", theme.accent)} />
+            <span
+              className={cn("h-2 w-2 shrink-0 rounded-full", theme.accent)}
+            />
             {item.label}
             <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#1f2a72]" />
           </div>

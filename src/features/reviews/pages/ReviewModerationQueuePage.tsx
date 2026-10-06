@@ -2,13 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { ROUTES } from "@/constants";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
+  exportStatusLabel,
   formatReportDateTime,
   formatStatusLabel,
   isoToReportDateText,
   parseOptionalReportDate,
 } from "@/features/reports/components/reportUiHelpers";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import { reviewModerationService } from "../services/reviewModerationService";
 import type { ReviewQueueItem } from "../services/reviewModerationTypes";
@@ -127,6 +133,8 @@ export default function ReviewModerationQueuePage() {
   const { toast, showToast, hideToast } = useToast();
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(null);
   const [rows, setRows] = useState<ReviewQueueItem[]>([]);
   const [totalElements, setTotalElements] = useState(0);
   const [queueStatus, setQueueStatus] = useState<string | null>(null);
@@ -192,6 +200,24 @@ export default function ReviewModerationQueuePage() {
     setFilterOpen(false);
   };
 
+  const handleExport = async (format: ReportExportFormat) => {
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await reviewModerationService.exportFlagQueue(
+        filters,
+        format,
+        setExportStatus,
+      );
+      showToast("Flag queue downloaded", "success");
+    } catch (error) {
+      showToast(extractErrorMessage(error), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
+  };
+
   const flaggedCount = rows.filter(
     (row) => row.status.toUpperCase() === "REVIEW_FLAGGED",
   ).length;
@@ -239,6 +265,15 @@ export default function ReviewModerationQueuePage() {
               />
               Refresh
             </button>
+            <ExportButton
+              iconOnly
+              disabled={loading}
+              exporting={exporting}
+              exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+              onExportExcel={() => void handleExport("EXCEL")}
+              onExportCSV={() => void handleExport("CSV")}
+              onExportPDF={() => void handleExport("PDF")}
+            />
           </div>
         }
       >
@@ -286,6 +321,7 @@ export default function ReviewModerationQueuePage() {
                   ? "Loading…"
                   : `${totalElements.toLocaleString("en-IN")} review${totalElements === 1 ? "" : "s"} in queue`}
                 {activeFilterCount > 0 ? " · filtered" : ""}
+                {loading ? "" : ` · Page ${page + 1} of ${totalPages}`}
               </p>
             </div>
           </div>
@@ -434,9 +470,10 @@ export default function ReviewModerationQueuePage() {
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3">
             <p className="text-sm text-slate-600">
-              Page {page + 1} of {totalPages}
+              {totalElements.toLocaleString("en-IN")} review
+              {totalElements === 1 ? "" : "s"}
               <span className="text-slate-400"> · </span>
-              {totalElements.toLocaleString("en-IN")} total
+              Page {page + 1} of {totalPages}
             </p>
             <div className="flex items-center gap-2">
               <button

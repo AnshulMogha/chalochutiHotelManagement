@@ -9,6 +9,7 @@ import {
 import { Link } from "react-router";
 import { toPng } from "html-to-image";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +20,7 @@ import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
   ReportPageHeader,
   agentStatusTone,
+  exportStatusLabel,
   formatChangePercent,
   formatReportDate,
   formatReportMoney,
@@ -38,6 +40,10 @@ import {
   type SalesManagerPeriodMetric,
   type SalesManagerPeriodMoneyMetric,
 } from "../services/salesManagerDashboardReportService";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "../services/reportExportService";
 import type {
   SalesManagerAgencyTier,
   SalesManagerBookingType,
@@ -719,6 +725,8 @@ export default function SalesManagerDashboardReportPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("portfolio");
   const analyticsCaptureRef = useRef<HTMLDivElement>(null);
   const [capturingAnalytics, setCapturingAnalytics] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(null);
 
   const [report, setReport] =
     useState<SalesManagerDashboardReportResponse | null>(null);
@@ -911,6 +919,34 @@ export default function SalesManagerDashboardReportPage() {
     void loadReport(DEFAULT_DRAFT);
   };
 
+  const exportDashboard = async (format: ReportExportFormat) => {
+    if (customRangeInvalid) return;
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await salesManagerDashboardReportService.exportReport(
+        {
+          datePreset,
+          fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
+          toDate: datePreset === "CUSTOM" ? toDate : undefined,
+          dateAxis,
+          bookingType,
+          stateId: stateId || undefined,
+          agencyTier: (agencyTier as SalesManagerAgencyTier) || undefined,
+          salesManagerId: salesManagerId || undefined,
+        },
+        format,
+        setExportStatus,
+      );
+      showToast("Dashboard downloaded", "success");
+    } catch (err) {
+      showToast(extractErrorMessage(err), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
+  };
+
   const downloadAnalyticsPng = async () => {
     const node = analyticsCaptureRef.current;
     if (!node) {
@@ -995,6 +1031,15 @@ export default function SalesManagerDashboardReportPage() {
                 </span>
               ) : null}
             </button>
+            <ExportButton
+              iconOnly
+              disabled={loading || customRangeInvalid}
+              exporting={exporting}
+              exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+              onExportExcel={() => void exportDashboard("EXCEL")}
+              onExportCSV={() => void exportDashboard("CSV")}
+              onExportPDF={() => void exportDashboard("PDF")}
+            />
             {activeTab === "analytics" ? (
               <button
                 type="button"

@@ -2,13 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { ROUTES } from "@/constants";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
+  exportStatusLabel,
   formatReportDateTime,
   formatStatusLabel,
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 import { settlementService } from "../services/settlementService";
 import {
   SETTLEMENT_COMPONENTS,
@@ -73,6 +79,8 @@ export default function SettlementQueuePage() {
   const [rows, setRows] = useState<SettlementSummary[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(null);
 
   const meta = useMemo(() => {
     if (mode === "approved") {
@@ -181,6 +189,41 @@ export default function SettlementQueuePage() {
     setFilterOpen(false);
   };
 
+  const exportQueue = async (format: ReportExportFormat) => {
+    const range = validateOptionalDateRange(
+      applied.fromDateText,
+      applied.toDateText,
+    );
+    if (!range.ok) {
+      showToast(range.message, "error");
+      return;
+    }
+
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await settlementService.exportQueue({
+        mode,
+        params: {
+          supplierName: applied.supplierName.trim() || undefined,
+          component: applied.component || undefined,
+          settlementNo: applied.settlementNo.trim() || undefined,
+          fromDate: range.fromDate || undefined,
+          toDate: range.toDate || undefined,
+        },
+        format,
+        defaultFileName: `settlements-${mode}`,
+        onStatus: setExportStatus,
+      });
+      showToast(`${meta.title} export downloaded`, "success");
+    } catch (error) {
+      showToast(extractErrorMessage(error), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
+  };
+
   useEffect(() => {
     setPage(0);
   }, [mode]);
@@ -198,6 +241,14 @@ export default function SettlementQueuePage() {
         iconClassName="bg-gradient-to-br from-indigo-500 to-violet-600"
         actions={
           <div className="flex items-center gap-2">
+            <ExportButton
+              iconOnly
+              exporting={exporting}
+              exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+              onExportExcel={() => void exportQueue("EXCEL")}
+              onExportCSV={() => void exportQueue("CSV")}
+              onExportPDF={() => void exportQueue("PDF")}
+            />
             <button
               type="button"
               onClick={openFilterDrawer}
@@ -216,6 +267,16 @@ export default function SettlementQueuePage() {
         }
       >
         <div className="overflow-hidden rounded-xl border border-slate-200">
+          <div className="border-b border-slate-100 px-4 py-2.5">
+            <p className="text-xs font-medium text-slate-600">
+              {totalElements.toLocaleString("en-IN")} settlement
+              {totalElements === 1 ? "" : "s"}
+              <span className="font-normal text-slate-400">
+                {" "}
+                · Page {page + 1} of {Math.max(totalPages, 1)}
+              </span>
+            </p>
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -320,8 +381,12 @@ export default function SettlementQueuePage() {
           </div>
           <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
             <p className="text-xs text-slate-500">
-              Page {page + 1} of {Math.max(totalPages, 1)} ·{" "}
-              {totalElements.toLocaleString("en-IN")} total
+              {totalElements.toLocaleString("en-IN")} settlement
+              {totalElements === 1 ? "" : "s"}
+              <span className="text-slate-400">
+                {" "}
+                · Page {page + 1} of {Math.max(totalPages, 1)}
+              </span>
             </p>
             <div className="flex gap-2">
               <button

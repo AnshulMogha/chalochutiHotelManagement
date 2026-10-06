@@ -1,6 +1,11 @@
 import { apiClient } from "@/services/api/client";
 import type { ApiSuccessResponse } from "@/services/api/types";
 import { API_ENDPOINTS } from "@/constants";
+import {
+  runReportExportJob,
+  type ExportJobStatus,
+  type ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 import type {
   FlagQueueParams,
   ModerationReasonPayload,
@@ -121,10 +126,15 @@ function normalizeAuditEntry(raw: Record<string, unknown>): ReviewAuditEntry {
   };
 }
 
-function buildFlagQueueQuery(params: FlagQueueParams): string {
+function buildFlagQueueQuery(
+  params: FlagQueueParams,
+  includePagination = true,
+): string {
   const search = new URLSearchParams();
-  search.set("page", String(params.page ?? 0));
-  search.set("size", String(params.size ?? 20));
+  if (includePagination) {
+    search.set("page", String(params.page ?? 0));
+    search.set("size", String(params.size ?? 20));
+  }
   if (params.bookingType) search.set("bookingType", params.bookingType);
   if (params.bookingRef?.trim()) {
     search.set("bookingRef", params.bookingRef.trim());
@@ -157,6 +167,23 @@ export const reviewModerationService = {
         ? payload
         : { items: [], totalElements: 0, page, size },
     );
+  },
+
+  exportFlagQueue: async (
+    params: Omit<FlagQueueParams, "page" | "size">,
+    format: ReportExportFormat = "EXCEL",
+    onStatus?: (status: ExportJobStatus) => void,
+  ): Promise<void> => {
+    const query = buildFlagQueueQuery(params, false);
+    const separator = query === "?" ? "" : "&";
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.REVIEW_MODERATION.FLAG_QUEUE_EXPORT}${query}${separator}format=${format}`,
+      statusUrl: API_ENDPOINTS.REVIEW_MODERATION.FLAG_QUEUE_EXPORT_JOB,
+      downloadUrl: API_ENDPOINTS.REVIEW_MODERATION.FLAG_QUEUE_EXPORT_DOWNLOAD,
+      defaultFileName: "review-moderation-flag-queue",
+      format,
+      onStatus,
+    });
   },
 
   getAuditTrail: async (reviewId: string): Promise<ReviewAuditEntry[]> => {

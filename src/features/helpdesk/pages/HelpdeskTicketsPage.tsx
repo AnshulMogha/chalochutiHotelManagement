@@ -2,14 +2,20 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ROUTES } from "@/constants";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
+  exportStatusLabel,
   ReportPageHeader,
   SummaryCard,
   formatReportDateTime,
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 import { helpdeskTicketService } from "../services/helpdeskTicketService";
 import {
   HELPDESK_RAISED_BY_TYPES,
@@ -93,6 +99,8 @@ export default function HelpdeskTicketsPage() {
   const [activeBucket, setActiveBucket] = useState<DashboardBucket>(
     (searchParams.get("bucket") as DashboardBucket) || null,
   );
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(null);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -236,6 +244,49 @@ export default function HelpdeskTicketsPage() {
     setDraft((prev) => ({ ...prev, status: "" }));
   };
 
+  const exportTickets = async (format: ReportExportFormat) => {
+    const range = validateOptionalDateRange(
+      filters.fromDateText,
+      filters.toDateText,
+    );
+    if (!range.ok) {
+      showToast(range.message, "error");
+      return;
+    }
+
+    const status =
+      activeBucket === "WAITING"
+        ? WAITING_STATUSES
+        : activeBucket || filters.status || undefined;
+
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await helpdeskTicketService.exportTickets({
+        params: {
+          status,
+          priority: filters.priority || undefined,
+          category: filters.category || undefined,
+          raisedByType: filters.raisedByType || undefined,
+          ticketNo: filters.ticketNo.trim() || undefined,
+          referenceKey: filters.referenceKey.trim() || undefined,
+          fromDate: range.fromDate || undefined,
+          toDate: range.toDate || undefined,
+          sort: "createdAt,desc",
+        },
+        format,
+        defaultFileName: "helpdesk-tickets",
+        onStatus: setExportStatus,
+      });
+      showToast("Helpdesk tickets export downloaded", "success");
+    } catch (error) {
+      showToast(extractErrorMessage(error), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
+  };
+
   return (
     <div className="min-h-full bg-linear-to-b from-slate-50 via-white to-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
@@ -246,6 +297,14 @@ export default function HelpdeskTicketsPage() {
           description="Inbox, SLA, and ticket workflow"
           actions={
             <div className="flex flex-wrap items-center gap-2">
+              <ExportButton
+                iconOnly
+                exporting={exporting}
+                exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+                onExportExcel={() => void exportTickets("EXCEL")}
+                onExportCSV={() => void exportTickets("CSV")}
+                onExportPDF={() => void exportTickets("PDF")}
+              />
               <button
                 type="button"
                 onClick={() => {
@@ -360,6 +419,10 @@ export default function HelpdeskTicketsPage() {
               <p className="text-xs text-slate-500">
                 {totalElements.toLocaleString("en-IN")} ticket
                 {totalElements === 1 ? "" : "s"}
+                <span className="text-slate-400">
+                  {" "}
+                  · Page {page + 1} of {Math.max(totalPages, 1)}
+                </span>
               </p>
             </div>
             <Link
@@ -412,7 +475,7 @@ export default function HelpdeskTicketsPage() {
                         </p>
                         <p className="text-[11px] text-slate-400">#{row.ticketId}</p>
                       </td>
-                      <td className="max-w-[220px] px-4 py-3">
+                      <td className="max-w-55 px-4 py-3">
                         <p className="truncate font-medium text-slate-900">
                           {row.subject}
                         </p>
@@ -447,7 +510,12 @@ export default function HelpdeskTicketsPage() {
 
           <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
             <p className="text-xs text-slate-500">
-              Page {page + 1} of {Math.max(totalPages, 1)}
+              {totalElements.toLocaleString("en-IN")} ticket
+              {totalElements === 1 ? "" : "s"}
+              <span className="text-slate-400">
+                {" "}
+                · Page {page + 1} of {Math.max(totalPages, 1)}
+              </span>
             </p>
             <div className="flex items-center gap-2">
               <button

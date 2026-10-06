@@ -98,7 +98,7 @@ function getHelpdeskNavItems(userRoles: string[] | undefined): NavItem[] {
 
 function getSettlementNavItem(): NavItem {
   return {
-    label: "Settlements",
+    label: "Finance",
     path: ROUTES.SETTLEMENT.WORKBENCH,
     icon: Landmark,
     children: [
@@ -121,11 +121,6 @@ function getSettlementNavItem(): NavItem {
         label: "Rejected",
         path: ROUTES.SETTLEMENT.REJECTED,
         icon: RotateCcw,
-      },
-      {
-        label: "Settlement MIS",
-        path: ROUTES.SETTLEMENT.MIS,
-        icon: BarChart3,
       },
     ],
   };
@@ -331,6 +326,8 @@ function getReportsNavItem(
     !paymentsOnly && canViewTransportBookingMis(user?.roles);
   const showPackageMis =
     !paymentsOnly && canViewPackageBookingFinancialMis(user?.roles);
+  const showSettlementDashboard =
+    !paymentsOnly && canViewSupplierSettlement(user?.roles);
   const showHotelPayments = showPaymentReport || showHotelPayouts;
 
   if (
@@ -346,12 +343,22 @@ function getReportsNavItem(
     !showHotelPayments &&
     !showTransportPayouts &&
     !showTransportBookingMis &&
-    !showPackageMis
+    !showPackageMis &&
+    !showSettlementDashboard
   ) {
     return null;
   }
 
   const children: NavItem[] = [
+    ...(showSettlementDashboard
+      ? [
+          {
+            label: "Settlement MIS",
+            path: ROUTES.SETTLEMENT.DASHBOARD,
+            icon: LayoutDashboard,
+          },
+        ]
+      : []),
     ...(includeSalesManagerDashboard ? [getSalesManagerDashboardNavItem()] : []),
     ...(includeSalesManagerPortfolio ? [getSalesManagerAgentsNavItem()] : []),
     ...(includeHotelFinancialMis ? [getHotelFinancialMisNavItem()] : []),

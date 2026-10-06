@@ -645,6 +645,15 @@ export default function PromotionReportPage() {
 
           {/* Table */}
           <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-4 py-2.5">
+              <p className="text-xs font-medium text-slate-600">
+                {totalElements.toLocaleString("en-IN")} promotions
+                <span className="font-normal text-slate-400">
+                  {" "}
+                  · Page {page + 1} of {Math.max(totalPages, 1)}
+                </span>
+              </p>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-full">
                 <thead>
@@ -822,7 +831,8 @@ export default function PromotionReportPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-3 py-2">
                 <p className="text-xs text-slate-500">
-                  Page {page + 1} of {totalPages} · {totalElements} promotions
+                  {totalElements.toLocaleString("en-IN")} promotions · Page{" "}
+                  {page + 1} of {Math.max(totalPages, 1)}
                 </p>
                 <div className="flex gap-2">
                   <button

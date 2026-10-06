@@ -585,7 +585,7 @@ export default function SettlementWorkbenchPage() {
 
             <SettlementReportSection
               title="Workbench results"
-              description="Preview opens full page so long booking lists have enough space"
+              description={`${totalElements.toLocaleString("en-IN")} suppliers · Page ${page + 1} of ${Math.max(totalPages, 1)}`}
               flush
             >
               <div className="overflow-x-auto">

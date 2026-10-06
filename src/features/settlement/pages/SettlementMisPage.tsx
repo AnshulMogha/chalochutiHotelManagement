@@ -329,7 +329,11 @@ export default function SettlementMisPage() {
           />
         </div>
 
-        <SettlementReportSection title="Settlement records" flush>
+        <SettlementReportSection
+          title="Settlement records"
+          description={`${totalElements.toLocaleString("en-IN")} settlements · Page ${page + 1} of ${Math.max(totalPages, 1)}`}
+          flush
+        >
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse text-left text-sm">
               <thead>

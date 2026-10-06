@@ -1,6 +1,11 @@
 import { apiClient } from "@/services/api/client";
 import type { ApiSuccessResponse } from "@/services/api/types";
 import { API_ENDPOINTS } from "@/constants";
+import {
+  runReportExportJob,
+  type ExportJobStatus,
+  type ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 import type {
   ReviewMisAggregate,
   ReviewMisAuditEntry,
@@ -30,10 +35,15 @@ function toCount(value: unknown): number {
   return n == null ? 0 : n;
 }
 
-function buildMisQuery(params: ReviewMisParams): string {
+function buildMisQuery(
+  params: ReviewMisParams,
+  includePagination = true,
+): string {
   const search = new URLSearchParams();
-  search.set("page", String(params.page ?? 0));
-  search.set("size", String(params.size ?? 20));
+  if (includePagination) {
+    search.set("page", String(params.page ?? 0));
+    search.set("size", String(params.size ?? 20));
+  }
   if (params.bookingType) search.set("bookingType", params.bookingType);
   if (params.status) search.set("status", params.status);
   if (params.fromDate) search.set("fromDate", params.fromDate);
@@ -215,5 +225,22 @@ export const reviewMisService = {
       page,
       size,
     );
+  },
+
+  exportMis: async (
+    params: Omit<ReviewMisParams, "page" | "size">,
+    format: ReportExportFormat = "EXCEL",
+    onStatus?: (status: ExportJobStatus) => void,
+  ): Promise<void> => {
+    const query = buildMisQuery(params, false);
+    const separator = query === "?" ? "" : "&";
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.REVIEW_MODERATION.MIS_EXPORT}${query}${separator}format=${format}`,
+      statusUrl: API_ENDPOINTS.REVIEW_MODERATION.MIS_EXPORT_JOB,
+      downloadUrl: API_ENDPOINTS.REVIEW_MODERATION.MIS_EXPORT_DOWNLOAD,
+      defaultFileName: "review-mis",
+      format,
+      onStatus,
+    });
   },
 };

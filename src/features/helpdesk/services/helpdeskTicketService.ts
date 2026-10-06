@@ -1,6 +1,11 @@
 import { apiClient } from "@/services/api/client";
 import type { ApiSuccessResponse } from "@/services/api/types";
 import { API_ENDPOINTS } from "@/constants";
+import {
+  runReportExportJob,
+  type ExportJobStatus,
+  type ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 import type {
   HelpdeskTicketCreateRequest,
   HelpdeskTicketCreateResponse,
@@ -46,6 +51,40 @@ function buildListQuery(params: HelpdeskTicketListParams): string {
   search.set("sort", params.sort || "createdAt,desc");
   const qs = search.toString();
   return qs ? `?${qs}` : "";
+}
+
+type HelpdeskTicketExportParams = Omit<
+  HelpdeskTicketListParams,
+  "status" | "page" | "size"
+> & {
+  status?: string | readonly string[];
+};
+
+function buildExportQuery(
+  params: HelpdeskTicketExportParams,
+  format: ReportExportFormat,
+): string {
+  const search = new URLSearchParams();
+  const statuses: readonly string[] =
+    typeof params.status === "string"
+      ? [params.status]
+      : (params.status ?? []);
+  statuses.forEach((status) => search.append("status", status));
+  if (params.priority) search.set("priority", params.priority);
+  if (params.category) search.set("category", params.category);
+  if (params.raisedByType) search.set("raisedByType", params.raisedByType);
+  if (params.assignedTo != null && params.assignedTo !== "") {
+    search.set("assignedTo", String(params.assignedTo));
+  }
+  if (params.ticketNo?.trim()) search.set("ticketNo", params.ticketNo.trim());
+  if (params.referenceKey?.trim()) {
+    search.set("referenceKey", params.referenceKey.trim());
+  }
+  if (params.fromDate) search.set("fromDate", params.fromDate);
+  if (params.toDate) search.set("toDate", params.toDate);
+  if (params.sort) search.set("sort", params.sort);
+  search.set("format", format);
+  return `?${search.toString()}`;
 }
 
 function normalizeListItem(raw: Record<string, unknown>) {
@@ -178,6 +217,26 @@ export const helpdeskTicketService = {
     >(`${API_ENDPOINTS.HELPDESK.TICKETS}${buildListQuery(params)}`);
     const payload = unwrapPayload(response) as Record<string, unknown>;
     return normalizeListResponse(payload);
+  },
+
+  async exportTickets(options: {
+    params: HelpdeskTicketExportParams;
+    format?: ReportExportFormat;
+    defaultFileName?: string;
+    onStatus?: (status: ExportJobStatus) => void;
+  }): Promise<void> {
+    const format = options.format ?? "EXCEL";
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.HELPDESK.TICKETS_EXPORT}${buildExportQuery(
+        options.params,
+        format,
+      )}`,
+      statusUrl: API_ENDPOINTS.HELPDESK.TICKETS_EXPORT_JOB,
+      downloadUrl: API_ENDPOINTS.HELPDESK.TICKETS_EXPORT_DOWNLOAD,
+      defaultFileName: options.defaultFileName ?? "helpdesk-tickets",
+      format,
+      onStatus: options.onStatus,
+    });
   },
 
   async getTicket(ticketId: string | number): Promise<HelpdeskTicketDetail> {

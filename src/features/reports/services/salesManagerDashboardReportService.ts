@@ -5,6 +5,11 @@ import {
   appendSalesManagerSharedParams,
   type SalesManagerDashboardReportParams,
 } from "./salesManagerReportTypes";
+import {
+  runReportExportJob,
+  type ExportJobStatus,
+  type ReportExportFormat,
+} from "./reportExportService";
 
 export interface SalesManagerMoneyAmount {
   amount: number;
@@ -596,5 +601,25 @@ export const salesManagerDashboardReportService = {
     return normalizeDashboardResponse(
       (payload ?? {}) as Record<string, unknown>,
     );
+  },
+
+  async exportReport(
+    params: SalesManagerDashboardReportParams = {},
+    format: ReportExportFormat = "EXCEL",
+    onStatus?: (status: ExportJobStatus) => void,
+  ): Promise<void> {
+    const query = buildQuery(params);
+    const formatParam = query
+      ? `${query}&format=${format}`
+      : `?format=${format}`;
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.REPORTS.SALES_MANAGER_DASHBOARD_EXPORT}${formatParam}`,
+      statusUrl: API_ENDPOINTS.REPORTS.SALES_MANAGER_DASHBOARD_EXPORT_JOB,
+      downloadUrl:
+        API_ENDPOINTS.REPORTS.SALES_MANAGER_DASHBOARD_EXPORT_DOWNLOAD,
+      defaultFileName: "sales-manager-dashboard",
+      format,
+      onStatus,
+    });
   },
 };
