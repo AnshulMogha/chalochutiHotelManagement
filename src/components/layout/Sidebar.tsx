@@ -367,7 +367,7 @@ function getReportsNavItem(
     ...(showSettlementDashboard
       ? [
           {
-            label: "Settlement MIS",
+            label: "Settlement Dashboard",
             path: ROUTES.SETTLEMENT.DASHBOARD,
             icon: LayoutDashboard,
           },

@@ -596,7 +596,7 @@ export default function SettlementDashboardPage() {
         format,
         setBookingsExportStatus,
       );
-      showToast("Settlement booking MIS downloaded", "success");
+      showToast("Settlement booking dashboard downloaded", "success");
     } catch (error) {
       showToast(extractErrorMessage(error), "error");
     } finally {
@@ -616,7 +616,7 @@ export default function SettlementDashboardPage() {
     <>
       <Toast {...toast} onClose={hideToast} />
       <SettlementPageShell
-        title="Settlement MIS"
+        title="Settlement Dashboard"
         subtitle={`Customer collection, supplier payable and settlement/payment tracking. · ${dateLabel} · Hotel = check-out date; Package = travel end date`}
         icon={BarChart3}
         actions={
@@ -746,29 +746,6 @@ function OverviewTab({
           );
         })}
       </div>
-      <SettlementReportSection title="Settlement status" compact>
-        {report.statusDistribution.length ? (
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
-            {report.statusDistribution.map((item) => (
-              <div
-                key={item.status}
-                title={formatStatusLabel(item.status)}
-                className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2"
-              >
-                <SettlementStatusBadge
-                  status={item.status}
-                  className="min-w-0 truncate"
-                />
-                <p className="shrink-0 text-base font-bold tabular-nums text-slate-900">
-                  {item.bookingCount.toLocaleString("en-IN")}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <EmptyState compact />
-        )}
-      </SettlementReportSection>
       <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
         {(["HOTEL", "PACKAGE"] as const).map((product) => (
           <button
@@ -909,7 +886,7 @@ function BookingsTab({
   return (
     <div className={cn("space-y-4", loading && "opacity-70")}>
       <SettlementReportSection
-        title="Booking settlement MIS"
+        title="Booking settlement dashboard"
         description={`${report.totalElements.toLocaleString("en-IN")} records · Page ${report.totalPages ? report.page + 1 : 0} of ${report.totalPages}`}
         action={exportAction}
         flush
