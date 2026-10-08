@@ -1,16 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { canUseCrossHotelReportFilter } from "@/constants/roles";
 import { HotelLookupMultiSelectField } from "../components/HotelLookupFilterField";
+import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
+  exportStatusLabel,
   formatReportDate,
   isoToReportDateText,
   validateCustomDateRange,
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "../services/reportExportService";
 import {
   promotionReportService,
   type PromotionApplicabilityFilter,
@@ -29,7 +36,6 @@ import {
   BedDouble,
   Building2,
   CircleDollarSign,
-  Download,
   Filter,
   Loader2,
   RefreshCw,
@@ -146,6 +152,10 @@ export default function PromotionReportPage() {
   const { toast, showToast, hideToast } = useToast();
 
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
+    null,
+  );
   const [rows, setRows] = useState<PromotionReportRow[]>([]);
   const [summary, setSummary] = useState({
     activeCount: 0,
@@ -303,6 +313,48 @@ export default function PromotionReportPage() {
     (performanceAxis !== "BOOKING" ? 1 : 0) +
     (applicability ? 1 : 0);
 
+  const reportParams = useMemo(
+    () => ({
+      hotelId: canFilterHotels ? undefined : hotelId || undefined,
+      propertyIds: canFilterHotels ? propertyIds : undefined,
+      lifecycleTab,
+      sort,
+      sortDir,
+      promotionTiers: tiers.length ? tiers : undefined,
+      datePreset,
+      fromDate: datePreset === "CUSTOM" ? customFrom : undefined,
+      toDate: datePreset === "CUSTOM" ? customTo : undefined,
+      performanceDateAxis: performanceAxis,
+      applicabilityFilter: applicability || undefined,
+      promotionName: applicability === "NAME" ? promotionName : undefined,
+      applicabilityFrom:
+        applicability === "BOOKING_WINDOW" || applicability === "STAY_WINDOW"
+          ? applicabilityFrom
+          : undefined,
+      applicabilityTo:
+        applicability === "BOOKING_WINDOW" || applicability === "STAY_WINDOW"
+          ? applicabilityTo
+          : undefined,
+    }),
+    [
+      canFilterHotels,
+      hotelId,
+      propertyIds,
+      lifecycleTab,
+      sort,
+      sortDir,
+      tiers,
+      datePreset,
+      customFrom,
+      customTo,
+      performanceAxis,
+      applicability,
+      promotionName,
+      applicabilityFrom,
+      applicabilityTo,
+    ],
+  );
+
   const fetchReport = useCallback(async () => {
     if (!canFilterHotels && !hotelId) return;
     if (datePreset === "CUSTOM" && (!customFrom || !customTo)) return;
@@ -316,28 +368,9 @@ export default function PromotionReportPage() {
     setLoading(true);
     try {
       const data = await promotionReportService.getPromotionReport({
-        hotelId: canFilterHotels ? undefined : hotelId || undefined,
-        propertyIds: canFilterHotels ? propertyIds : undefined,
-        lifecycleTab,
+        ...reportParams,
         page,
         size: pageSize,
-        sort,
-        sortDir,
-        promotionTiers: tiers.length ? tiers : undefined,
-        datePreset,
-        fromDate: datePreset === "CUSTOM" ? customFrom : undefined,
-        toDate: datePreset === "CUSTOM" ? customTo : undefined,
-        performanceDateAxis: performanceAxis,
-        applicabilityFilter: applicability || undefined,
-        promotionName: applicability === "NAME" ? promotionName : undefined,
-        applicabilityFrom:
-          applicability === "BOOKING_WINDOW" || applicability === "STAY_WINDOW"
-            ? applicabilityFrom
-            : undefined,
-        applicabilityTo:
-          applicability === "BOOKING_WINDOW" || applicability === "STAY_WINDOW"
-            ? applicabilityTo
-            : undefined,
       });
 
       setRows(data.promotions);
@@ -357,26 +390,7 @@ export default function PromotionReportPage() {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    hotelId,
-    canFilterHotels,
-    propertyIds,
-    lifecycleTab,
-    page,
-    pageSize,
-    sort,
-    sortDir,
-    tiers,
-    datePreset,
-    customFrom,
-    customTo,
-    performanceAxis,
-    applicability,
-    promotionName,
-    applicabilityFrom,
-    applicabilityTo,
-  ]);
+  }, [canFilterHotels, hotelId, datePreset, customFrom, customTo, applicability, applicabilityFrom, applicabilityTo, reportParams, page, pageSize, showToast]);
 
   useEffect(() => {
     fetchReport();
@@ -404,53 +418,35 @@ export default function PromotionReportPage() {
     });
   };
 
-  const downloadCsv = () => {
-    if (!rows.length) {
-      showToast("No rows to download", "error");
+  const handleExport = async (format: ReportExportFormat) => {
+    if (!canFilterHotels && !hotelId) return;
+    if (datePreset === "CUSTOM" && (!customFrom || !customTo)) {
+      showToast("Select both custom dates", "error");
       return;
     }
-    const header = [
-      "Promotion Name",
-      "Promotion Type",
-      "Booking Date",
-      "Stay Date",
-      "Discount",
-      lifecycleTab === "ACTIVE" ? "Expiring" : "De-activated On",
-      "Room Nights",
-      "Revenue",
-      "Currency",
-      "Discount Given",
-      "Last Modified",
-    ];
-    const body = rows.map((row) => [
-      row.promotionName,
-      row.promotionTypeLabel ?? row.promotionType,
-      row.bookingDateLabel ?? "",
-      row.stayDateLabel ?? "",
-      row.discountLabel ?? "",
-      lifecycleTab === "ACTIVE"
-        ? (row.expiringLabel ?? "")
-        : (row.deactivatedOnLabel ?? row.deactivatedOn ?? ""),
-      row.roomNights,
-      row.revenue?.amount ?? 0,
-      row.revenue?.currency ?? summary.currency,
-      row.discountGiven ?? 0,
-      row.lastModified ?? "",
-    ]);
-    const csv = [header, ...body]
-      .map((line) =>
-        line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
-      )
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `promotion-report-${lifecycleTab.toLowerCase()}-${
-      performanceRange.fromDate || "export"
-    }.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    if (
+      (applicability === "BOOKING_WINDOW" || applicability === "STAY_WINDOW") &&
+      (!applicabilityFrom || !applicabilityTo)
+    ) {
+      showToast("Select both applicability dates", "error");
+      return;
+    }
+
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await promotionReportService.exportReport(
+        reportParams,
+        format,
+        setExportStatus,
+      );
+      showToast("Promotion report downloaded", "success");
+    } catch (error) {
+      showToast(extractErrorMessage(error), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
   };
 
   const tabs = useMemo(
@@ -541,15 +537,15 @@ export default function PromotionReportPage() {
                     className={cn("h-3.5 w-3.5", loading && "animate-spin")}
                   />
                 </button>
-                <button
-                  type="button"
-                  onClick={downloadCsv}
-                  aria-label="Download"
-                  title="Download"
-                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-emerald-200 bg-white text-emerald-700 shadow-sm transition hover:bg-emerald-50"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </button>
+                <ExportButton
+                  iconOnly
+                  disabled={loading}
+                  exporting={exporting}
+                  exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+                  onExportExcel={() => void handleExport("EXCEL")}
+                  onExportCSV={() => void handleExport("CSV")}
+                  onExportPDF={() => void handleExport("PDF")}
+                />
               </div>
             </div>
 
