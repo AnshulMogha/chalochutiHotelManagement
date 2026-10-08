@@ -48,6 +48,7 @@ import {
 import {
   settlementDashboardService,
   type SettlementBookingFilters,
+  type SettlementBookingRow,
   type SettlementBookingSort,
   type SettlementBookingsResponse,
   type SettlementDashboardParams,
@@ -249,6 +250,103 @@ function bookingParams(
     sortBy: filter.sortBy,
     sortDirection: filter.sortDirection,
   };
+}
+
+function productTypeKind(
+  productType: string | null | undefined,
+): "HOTEL" | "PACKAGE" | null {
+  const value = String(productType || "")
+    .trim()
+    .toUpperCase();
+  if (value === "HOTEL") return "HOTEL";
+  if (value === "PACKAGE") return "PACKAGE";
+  return null;
+}
+
+function hotelBookingUrl(row: SettlementBookingRow): string | null {
+  const params = new URLSearchParams();
+  const hotel = String(row.hotelId ?? "").trim();
+  if (hotel) params.set("hotelId", hotel);
+
+  const numericId =
+    row.bookingId != null && row.bookingId !== ""
+      ? String(row.bookingId).trim()
+      : "";
+  if (/^\d+$/.test(numericId)) {
+    const query = params.toString();
+    return `${ROUTES.BOOKINGS.DETAIL(numericId)}${query ? `?${query}` : ""}`;
+  }
+
+  const ref = String(row.bookingRef ?? "").trim();
+  if (ref) {
+    params.set("bookingId", ref);
+    return `${ROUTES.BOOKINGS.LIST}?${params.toString()}`;
+  }
+
+  if (!numericId) return null;
+  params.set("bookingId", numericId);
+  return `${ROUTES.BOOKINGS.LIST}?${params.toString()}`;
+}
+
+function packageFinancialMisUrl(row: SettlementBookingRow): string | null {
+  const params = new URLSearchParams();
+  const ref = String(row.bookingRef ?? "").trim();
+  const id = row.bookingId != null ? String(row.bookingId).trim() : "";
+  if (ref) {
+    params.set("bookingRef", ref);
+    params.set("bookingId", ref);
+  }
+  if (id) params.set("bookingId", id);
+  const query = params.toString();
+  if (!query) return null;
+  return `${ROUTES.ADMIN.PACKAGE_BOOKING_FINANCIAL_MIS}?${query}`;
+}
+
+function BookingRefCell({ row }: { row: SettlementBookingRow }) {
+  const kind = productTypeKind(row.productType);
+  const refLabel = row.bookingRef || "—";
+  const hotelHref = kind === "HOTEL" ? hotelBookingUrl(row) : null;
+  const packageHref = kind === "PACKAGE" ? packageFinancialMisUrl(row) : null;
+  const linkClass = "font-semibold text-[#2f3d95] hover:underline";
+  const subtitle = (
+    <p className="text-xs text-slate-500">
+      {formatStatusLabel(row.productType)} · {row.customerName}
+    </p>
+  );
+
+  if (hotelHref) {
+    return (
+      <td className="px-3 py-3">
+        <Link to={hotelHref} className={linkClass}>
+          {refLabel}
+        </Link>
+        {subtitle}
+      </td>
+    );
+  }
+
+  if (packageHref) {
+    return (
+      <td className="px-3 py-3">
+        <a
+          href={packageHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={linkClass}
+        >
+          {refLabel}
+        </a>
+        {subtitle}
+      </td>
+    );
+  }
+
+  return (
+    <td className="px-3 py-3">
+      <p className="font-semibold text-[#2f3d95]">{refLabel}</p>
+      {subtitle}
+    </td>
+  );
 }
 
 function activeSharedCount(filter: SharedFilter): number {
@@ -927,9 +1025,6 @@ function BookingsTab({
                   <th className="min-w-44 whitespace-nowrap px-4 py-3 text-xs font-semibold">
                     Settlement status
                   </th>
-                  <th className="min-w-28 whitespace-nowrap px-4 py-3 text-right text-xs font-semibold">
-                    Action
-                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -940,15 +1035,7 @@ function BookingsTab({
                       key={String(rowKey)}
                       className="border-b border-slate-100 align-top hover:bg-slate-50"
                     >
-                      <td className="px-3 py-3">
-                        <p className="font-semibold text-[#2f3d95]">
-                          {row.bookingRef}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {formatStatusLabel(row.productType)} ·{" "}
-                          {row.customerName}
-                        </p>
-                      </td>
+                      <BookingRefCell row={row} />
                       <td className="whitespace-nowrap px-3 py-3">
                         {formatReportDate(row.serviceDate)}
                       </td>
@@ -967,23 +1054,6 @@ function BookingsTab({
                       ))}
                       <td className="px-3 py-3">
                         <SettlementStatusBadge status={row.settlementStatus} />
-                      </td>
-                      <td className="px-3 py-3 text-right">
-                        {row.settlementNo ? (
-                          <Link
-                            to={ROUTES.SETTLEMENT.DETAIL(row.settlementNo)}
-                            className="inline-flex rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
-                          >
-                            View settlement
-                          </Link>
-                        ) : (
-                          <span
-                            className="text-xs text-slate-400"
-                            title="Settlement number is not available for this booking"
-                          >
-                            Not available
-                          </span>
-                        )}
                       </td>
                     </tr>
                   );
