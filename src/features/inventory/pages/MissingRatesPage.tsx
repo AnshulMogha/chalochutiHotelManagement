@@ -47,7 +47,7 @@ function formatDetailsHeading(dateStr: string): string {
   try {
     const d = parseISO(dateStr);
     if (!isValid(d)) return dateStr;
-    return format(d, "MMMM dd, yyyy");
+    return format(d, "dd/MM/yyyy");
   } catch {
     return dateStr;
   }
@@ -325,7 +325,7 @@ export default function MissingRatesPage() {
                         </span>
                         {inMonth && (
                           <span className="mt-auto text-[10px] font-medium text-slate-500">
-                            {dateKey}
+                            {format(day, "dd/MM/yyyy")}
                           </span>
                         )}
                       </button>
@@ -352,9 +352,6 @@ export default function MissingRatesPage() {
                     ? `Details for ${formatDetailsHeading(selectedDate)}`
                     : "Select a date"}
                 </h2>
-                {selectedDate && (
-                  <p className="mt-0.5 text-xs text-slate-500">{selectedDate}</p>
-                )}
               </div>
 
               <div className="flex-1 overflow-y-auto px-5 py-4">

@@ -84,11 +84,12 @@ export const DateSelector = ({
             Channel Segment
           </span>
           <span className="text-[#2A3170] font-bold text-lg tracking-wide">
-            {channelSegmentLabel ?? format(baseDate, "MMMM yyyy").toUpperCase()}
+            {channelSegmentLabel ?? format(baseDate, "dd/MM/yyyy")}
           </span>
           {channelSegmentLabel != null && (
-            <span className="text-[11px] text-gray-500 font-medium">
-              {format(baseDate, "MMMM yyyy")}
+            <span className="text-[11px] text-gray-500 font-medium tabular-nums">
+              {format(baseDate, "dd/MM/yyyy")} –{" "}
+              {format(addDays(baseDate, 6), "dd/MM/yyyy")}
             </span>
           )}
         </div>
@@ -120,16 +121,20 @@ export const DateSelector = ({
 
           {/* Date Picker - UI ENHANCEMENT: Premium styling with better visual hierarchy */}
           <div
-            className="flex items-center gap-2.5 bg-white border border-gray-300 rounded-lg px-4 py-2.5 shadow-sm hover:shadow-md hover:border-[#2A3170] transition-all duration-150 group cursor-pointer"
+            className="relative flex items-center gap-2.5 bg-white border border-gray-300 rounded-lg px-4 py-2.5 shadow-sm hover:shadow-md hover:border-[#2A3170] transition-all duration-150 group cursor-pointer"
             onClick={openDatePicker}
           >
             <CalendarIcon className="w-4 h-4 text-gray-500 group-hover:text-[#2A3170] transition-colors" />
+            <span className="text-sm font-semibold text-gray-700 tabular-nums">
+              {format(baseDate, "dd/MM/yyyy")}
+            </span>
             <input
               ref={dateInputRef}
               type="date"
               value={format(baseDate, 'yyyy-MM-dd')}
               min={format(today, 'yyyy-MM-dd')}
-              className="bg-transparent text-sm font-semibold text-gray-700 focus:outline-none cursor-pointer"
+              aria-label="Select start date"
+              className="absolute inset-0 cursor-pointer opacity-0"
               onChange={(e) => {
                 const picked = new Date(e.target.value);
                 handleDateChange(picked);

@@ -550,11 +550,8 @@ export const RoomTypesGrid = ({
               <span className="text-[9px] font-semibold uppercase mb-1 tracking-wider opacity-75">
                 {format(date, 'EEE')}
               </span>
-              <span className="text-2xl font-bold tabular-nums">
-                {format(date, 'd')}
-              </span>
-              <span className="text-[9px] font-semibold uppercase mt-0.5 opacity-75">
-                {format(date, 'MMM')}
+              <span className="text-sm font-bold tabular-nums">
+                {format(date, 'dd/MM/yyyy')}
               </span>
             </button>
           );
