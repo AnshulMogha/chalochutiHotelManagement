@@ -523,6 +523,12 @@ export const API_ENDPOINTS = {
     },
     BOOKING_SUMMARY: "/reports/dashboard/booking-summary",
     PROMOTION_SUMMARY: "/reports/dashboard/booking-summary/promotions",
+    PROMOTION_SUMMARY_EXPORT:
+      "/reports/dashboard/booking-summary/promotions/export",
+    PROMOTION_SUMMARY_EXPORT_JOB: (jobId: string) =>
+      `/reports/dashboard/booking-summary/promotions/export/${jobId}`,
+    PROMOTION_SUMMARY_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/reports/dashboard/booking-summary/promotions/export/${jobId}/download`,
     PERFORMANCE_OVERVIEW: "/reports/dashboard/performance/overview",
     PERFORMANCE_BREAKDOWNS: "/reports/dashboard/performance/breakdowns",
     PERFORMANCE_COMPETITORS: "/reports/dashboard/performance/competitors",

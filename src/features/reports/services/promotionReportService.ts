@@ -1,6 +1,11 @@
 import { apiClient } from "@/services/api/client";
 import type { ApiSuccessResponse } from "@/services/api/types";
 import { API_ENDPOINTS } from "@/constants";
+import {
+  runReportExportJob,
+  type ExportJobStatus,
+  type ReportExportFormat,
+} from "./reportExportService";
 
 export type PromotionLifecycleTab = "ACTIVE" | "EXPIRED";
 
@@ -126,63 +131,83 @@ const EMPTY_SUMMARY = {
   currency: "INR",
 };
 
+function buildSearchParams(
+  params: PromotionReportParams,
+  includePagination = true,
+): URLSearchParams {
+  const {
+    hotelId,
+    propertyIds,
+    lifecycleTab = "ACTIVE",
+    page = 0,
+    size = 20,
+    sort = "roomNights",
+    sortDir = "desc",
+    promotionTiers,
+    datePreset = "LAST_365_DAYS",
+    fromDate,
+    toDate,
+    performanceDateAxis = "BOOKING",
+    applicabilityFilter,
+    promotionName,
+    applicabilityFrom,
+    applicabilityTo,
+  } = params;
+
+  const search = new URLSearchParams();
+  if (propertyIds?.length) {
+    search.set("hotelId", propertyIds.join(","));
+  } else if (hotelId) {
+    search.set("hotelId", hotelId);
+  }
+  search.set("lifecycleTab", lifecycleTab);
+  if (includePagination) {
+    search.set("page", String(page));
+    search.set("size", String(size));
+  }
+  search.set("sort", sort);
+  search.set("sortDir", sortDir);
+  search.set("datePreset", datePreset);
+  search.set("performanceDateAxis", performanceDateAxis);
+
+  promotionTiers?.forEach((tier) => search.append("promotionTiers", tier));
+
+  if (datePreset === "CUSTOM") {
+    if (fromDate) search.set("fromDate", fromDate);
+    if (toDate) search.set("toDate", toDate);
+  }
+
+  if (applicabilityFilter) {
+    search.set("applicabilityFilter", applicabilityFilter);
+    if (applicabilityFilter === "NAME") {
+      if (promotionName?.trim()) {
+        search.set("promotionName", promotionName.trim());
+      }
+    } else {
+      if (applicabilityFrom) search.set("applicabilityFrom", applicabilityFrom);
+      if (applicabilityTo) search.set("applicabilityTo", applicabilityTo);
+    }
+  }
+
+  return search;
+}
+
 export const promotionReportService = {
   getPromotionReport: async (
     params: PromotionReportParams,
   ): Promise<PromotionReportResponse> => {
     const {
-      hotelId,
-      propertyIds,
       lifecycleTab = "ACTIVE",
       page = 0,
       size = 20,
       sort = "roomNights",
       sortDir = "desc",
-      promotionTiers,
       datePreset = "LAST_365_DAYS",
       fromDate,
       toDate,
       performanceDateAxis = "BOOKING",
-      applicabilityFilter,
-      promotionName,
-      applicabilityFrom,
-      applicabilityTo,
     } = params;
-
-    const search = new URLSearchParams();
-    if (propertyIds?.length) {
-      search.set("hotelId", propertyIds.join(","));
-    } else if (hotelId) {
-      search.set("hotelId", hotelId);
-    }
-    search.set("lifecycleTab", lifecycleTab);
-    search.set("page", String(page));
-    search.set("size", String(size));
-    search.set("sort", sort);
-    search.set("sortDir", sortDir);
-    search.set("datePreset", datePreset);
-    search.set("performanceDateAxis", performanceDateAxis);
-
-    // Backend accepts repeated params for tiers.
-    promotionTiers?.forEach((tier) => search.append("promotionTiers", tier));
-
-    if (datePreset === "CUSTOM") {
-      if (fromDate) search.set("fromDate", fromDate);
-      if (toDate) search.set("toDate", toDate);
-    }
-
-    if (applicabilityFilter) {
-      search.set("applicabilityFilter", applicabilityFilter);
-      if (applicabilityFilter === "NAME") {
-        if (promotionName?.trim()) {
-          search.set("promotionName", promotionName.trim());
-        }
-      } else {
-        if (applicabilityFrom) search.set("applicabilityFrom", applicabilityFrom);
-        if (applicabilityTo) search.set("applicabilityTo", applicabilityTo);
-      }
-    }
-
+    const search = buildSearchParams(params);
     const response = await apiClient.get<
       ApiSuccessResponse<PromotionReportResponse>
     >(`${API_ENDPOINTS.REPORTS.PROMOTION_SUMMARY}?${search.toString()}`);
@@ -207,5 +232,25 @@ export const promotionReportService = {
         toDate: toDate ?? "",
       },
     };
+  },
+
+  exportReport: async (
+    params: Omit<PromotionReportParams, "page" | "size">,
+    format: ReportExportFormat = "EXCEL",
+    onStatus?: (status: ExportJobStatus) => void,
+  ): Promise<void> => {
+    const search = buildSearchParams(
+      { ...params, page: undefined, size: undefined },
+      false,
+    );
+    search.set("format", format);
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.REPORTS.PROMOTION_SUMMARY_EXPORT}?${search.toString()}`,
+      statusUrl: API_ENDPOINTS.REPORTS.PROMOTION_SUMMARY_EXPORT_JOB,
+      downloadUrl: API_ENDPOINTS.REPORTS.PROMOTION_SUMMARY_EXPORT_DOWNLOAD,
+      defaultFileName: "promotion-report",
+      format,
+      onStatus,
+    });
   },
 };
