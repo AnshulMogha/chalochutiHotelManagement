@@ -137,6 +137,7 @@ export function getModuleFromPath(pathname: string): PermissionModule | null {
     pathname === "/inventory/bulk-update" ||
     pathname === "/hotel/rates/add-single-derived" ||
     pathname === "/rates/bulk-update" ||
+    pathname === ROUTES.RATE_INVENTORY.MISSING_RATES ||
     pathname === "/restrictions/bulk-update"
   ) {
     return "RATES_INVENTORY";

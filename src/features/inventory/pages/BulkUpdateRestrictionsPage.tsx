@@ -210,16 +210,20 @@ export default function BulkUpdateRestrictionsPage() {
                   className="relative flex-1 cursor-pointer"
                   onClick={() => openDatePicker(startDateInputRef.current)}
                 >
-                  <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                  <span className="block w-full pl-10 pr-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 tabular-nums">
+                    {format(startDate, "dd/MM/yyyy")}
+                  </span>
                   <input
                     ref={startDateInputRef}
                     type="date"
                     value={format(startDate, "yyyy-MM-dd")}
                     min={format(today, "yyyy-MM-dd")}
+                    aria-label="Start date"
                     onChange={(e) =>
                       handleStartDateChange(new Date(e.target.value + "T00:00:00"))
                     }
-                    className="w-full pl-10 pr-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                    className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
                   />
                 </div>
                 <span className="text-gray-500 font-medium">to</span>
@@ -227,16 +231,20 @@ export default function BulkUpdateRestrictionsPage() {
                   className="relative flex-1 cursor-pointer"
                   onClick={() => openDatePicker(endDateInputRef.current)}
                 >
-                  <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                  <span className="block w-full pl-10 pr-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 tabular-nums">
+                    {format(endDate, "dd/MM/yyyy")}
+                  </span>
                   <input
                     ref={endDateInputRef}
                     type="date"
                     value={format(endDate, "yyyy-MM-dd")}
                     min={format(startDate, "yyyy-MM-dd")}
+                    aria-label="End date"
                     onChange={(e) =>
                       handleEndDateChange(new Date(e.target.value + "T00:00:00"))
                     }
-                    className="w-full pl-10 pr-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
+                    className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
                   />
                 </div>
               </div>
