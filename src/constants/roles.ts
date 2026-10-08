@@ -313,6 +313,7 @@ export const HOTEL_BOOKING_FINANCIAL_MIS_ROLES = [
   "SUPER_ADMIN",
   "SALES_MANAGER",
   "ZONAL_MANAGER_SALES",
+  "QC",
 ] as const;
 
 export function canViewHotelBookingFinancialMis(

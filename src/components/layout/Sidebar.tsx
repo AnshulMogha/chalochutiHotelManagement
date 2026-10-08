@@ -556,6 +556,7 @@ const getNavItems = (user: User | null): NavItem[] => {
     const reportsNav = getReportsNavItem(user, {
       includeHotelBdDashboard: canViewHotelBdReports(userRoles),
       includeOnboardingPipeline: canViewHotelBdPipeline(userRoles),
+      includeHotelFinancialMis: canViewHotelBookingFinancialMis(userRoles),
       // Same operational reports Hotel BD sees under Reports.
       ...(isZonalHotel
         ? {
