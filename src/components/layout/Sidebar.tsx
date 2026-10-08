@@ -124,6 +124,11 @@ function getSettlementNavItem(): NavItem {
         path: ROUTES.SETTLEMENT.REJECTED,
         icon: RotateCcw,
       },
+      {
+        label: "Settlement MIS",
+        path: ROUTES.SETTLEMENT.MIS,
+        icon: BarChart3,
+      },
     ],
   };
 }

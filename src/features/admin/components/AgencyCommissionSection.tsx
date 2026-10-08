@@ -54,7 +54,7 @@ const AGENCY_TIER_OPTIONS = [
 
 const INCENTIVE_CATEGORY_OPTIONS = [
   { value: "HOTEL", label: "Hotel booking" },
-  { value: "PACKAGE", label: "Package booking" },
+  // { value: "PACKAGE", label: "Package booking" },
 ];
 
 const INCENTIVE_TYPE_OPTIONS = [
