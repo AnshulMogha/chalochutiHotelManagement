@@ -84,6 +84,15 @@ function formatCancellationBracketLabel(
     .trim();
 }
 
+function isCancelledFinancialMisBooking(
+  status: string | null | undefined,
+): boolean {
+  return String(status ?? "")
+    .trim()
+    .toUpperCase()
+    .includes("CANCEL");
+}
+
 function formatMisPercent(value: number | null | undefined): string | null {
   if (value == null || Number.isNaN(Number(value))) return null;
   const rounded = Number(value);
@@ -133,18 +142,22 @@ function CustomerOrAgentPriceBreakup({
       <BreakupRow
         label={detailed ? "Hotel base fare" : "Base room rate"}
         amount={booking.customerSellingPriceBreakup.baseFare}
+        positive
       />
       <BreakupRow
         label="Hotel taxes / GST"
         amount={booking.customerSellingPriceBreakup.hotelGst}
+        positive
       />
       <BreakupRow
         label="Service fee"
         amount={booking.customerSellingPriceBreakup.serviceFee}
+        positive
       />
       <BreakupRow
         label="Service fee GST"
         amount={booking.customerSellingPriceBreakup.serviceFeeGst}
+        positive
       />
       <BreakupRow
         label="Promotion discount"
@@ -154,21 +167,9 @@ function CustomerOrAgentPriceBreakup({
       {isB2b ? (
         <>
           <BreakupRow
-            label="Agent customer selling price"
-            amount={
-              agentCustomerSellingPrice ??
-              booking.customerSellingPriceBreakup.finalCustomerPrice
-            }
-            bold
-            highlight
-          />
-          <BreakupRow
-            label="Agent selling markup"
-            amount={agentSellingMarkupAmount}
-          />
-          <BreakupRow
             label="Platform customer price"
             amount={booking.customerSellingPrice}
+            positive
           />
           <BreakupRow
             label="Agent net commission"
@@ -180,6 +181,20 @@ function CustomerOrAgentPriceBreakup({
           <BreakupRow
             label="Final agent price"
             amount={agentPrice}
+            bold
+            highlight
+          />
+          <BreakupRow
+            label="Agent selling markup"
+            amount={agentSellingMarkupAmount}
+            positive
+          />
+          <BreakupRow
+            label="Agent customer selling price"
+            amount={
+              agentCustomerSellingPrice ??
+              booking.customerSellingPriceBreakup.finalCustomerPrice
+            }
             bold
             highlight
           />
@@ -245,6 +260,7 @@ function CustomerOrAgentPriceBreakup({
               <InfoLine
                 label="Gross amount"
                 value={formatFinanceMoney(incentive.grossAmount)}
+                positive
               />
               <InfoLine label="TDS" value={formatFinanceMoney(incentive.tds)} />
               <InfoLine
@@ -571,6 +587,13 @@ export default function HotelBookingFinancialMisDetailPage() {
           <FinanceKpiCard
             label="OTA Revenue"
             value={formatFinanceMoney(booking.otaRevenue)}
+            sub={
+              booking.commission.rateLabel?.trim() ||
+              booking.otaRevenueBreakup.commission.rateLabel?.trim() ||
+              (booking.commission.ratePercent != null
+                ? `${booking.commission.ratePercent}%`
+                : undefined)
+            }
             icon={Target}
             tone={FINANCE_KPI_TONES.ota}
             onClick={() => setTab("otaRevenue")}
@@ -743,27 +766,34 @@ export default function HotelBookingFinancialMisDetailPage() {
               <BreakupRow
                 label="Original hotel base"
                 amount={booking.hotelPayoutBreakup.originalHotelBaseRate}
+                positive
               />
-              <BreakupRow
-                label="Original hotel GST"
-                amount={booking.hotelPayoutBreakup.originalHotelGst}
-              />
+              {isCancelledFinancialMisBooking(booking.bookingStatus) ? (
+                <BreakupRow
+                  label="Original hotel GST"
+                  amount={booking.hotelPayoutBreakup.originalHotelGst}
+                  positive
+                />
+              ) : null}
               <BreakupRow
                 label="Promotion discount"
                 amount={booking.promotionDiscount}
                 negative
               />
               <BreakupRow
-                label="Hotel base amount"
+                label="Net Accommodation"
                 amount={booking.hotelPayoutBreakup.hotelBaseRate}
+                positive
               />
               <BreakupRow
                 label="Hotel GST"
                 amount={booking.hotelPayoutBreakup.hotelGst}
+                positive
               />
               <BreakupRow
                 label="Total gross amount"
                 amount={booking.hotelPayoutBreakup.totalGrossAmount}
+                positive
               />
               <BreakupRow
                 label="OTA commission"
@@ -796,26 +826,32 @@ export default function HotelBookingFinancialMisDetailPage() {
               <BreakupRow
                 label="OTA Commission"
                 amount={booking.otaRevenueBreakup.commission}
+                positive
               />
               <BreakupRow
                 label="OTA Commission GST"
                 amount={booking.otaRevenueBreakup.commissionGst}
+                positive
               />
               <BreakupRow
                 label="Markup"
                 amount={booking.otaRevenueBreakup.markup}
+                positive
               />
               <BreakupRow
                 label="Service fee"
                 amount={booking.otaRevenueBreakup.serviceFee}
+                positive
               />
               <BreakupRow
                 label="Service fee GST"
                 amount={booking.otaRevenueBreakup.serviceFeeGst}
+                positive
               />
               <BreakupRow
                 label="Cancellation income"
                 amount={booking.otaRevenueBreakup.cancellationIncome}
+                positive
               />
               <BreakupRow
                 label="Agency commission"
@@ -825,6 +861,7 @@ export default function HotelBookingFinancialMisDetailPage() {
               <BreakupRow
                 label="Commission reversal"
                 amount={booking.otaRevenueBreakup.commissionReversal}
+                positive
               />
               <BreakupRow
                 label="Refund adjustment"
@@ -840,6 +877,7 @@ export default function HotelBookingFinancialMisDetailPage() {
               <BreakupRow
                 label="Net OTA GST"
                 amount={booking.otaRevenueBreakup.netOtaRevenueGst}
+                positive
               />
               <BreakupRow
                 label="Net OTA incl. GST"
@@ -881,6 +919,7 @@ export default function HotelBookingFinancialMisDetailPage() {
                 <InfoLine
                   label="Collected"
                   value={formatFinanceMoney(booking.amountCollected)}
+                  positive
                 />
                 {isB2b ? (
                   <>
@@ -894,10 +933,12 @@ export default function HotelBookingFinancialMisDetailPage() {
                     <InfoLine
                       label="Agent selling markup"
                       value={formatFinanceMoney(agentSellingMarkupAmount)}
+                      positive
                     />
                     <InfoLine
                       label="Platform customer price"
                       value={formatFinanceMoney(booking.customerSellingPrice)}
+                      positive
                     />
                   </>
                 ) : null}
@@ -908,10 +949,12 @@ export default function HotelBookingFinancialMisDetailPage() {
                 <InfoLine
                   label="OTA Commission"
                   value={formatFinanceMoney(booking.commission)}
+                  positive
                 />
                 <InfoLine
                   label="OTA Commission GST"
                   value={formatFinanceMoney(booking.commissionGst)}
+                  positive
                 />
                 <InfoLine
                   label="OTA revenue incl. GST"
@@ -947,6 +990,7 @@ export default function HotelBookingFinancialMisDetailPage() {
                 <InfoLine
                   label="Cancellation charge"
                   value={formatFinanceMoney(booking.cancellationCharge)}
+                  positive
                 />
                 <InfoLine
                   label="Refund amount"
@@ -979,27 +1023,34 @@ export default function HotelBookingFinancialMisDetailPage() {
               <BreakupRow
                 label="Original hotel base"
                 amount={booking.hotelPayoutBreakup.originalHotelBaseRate}
+                positive
               />
-              <BreakupRow
-                label="Original hotel GST"
-                amount={booking.hotelPayoutBreakup.originalHotelGst}
-              />
+              {isCancelledFinancialMisBooking(booking.bookingStatus) ? (
+                <BreakupRow
+                  label="Original hotel GST"
+                  amount={booking.hotelPayoutBreakup.originalHotelGst}
+                  positive
+                />
+              ) : null}
               <BreakupRow
                 label="Promotion discount"
                 amount={booking.promotionDiscount}
                 negative
               />
               <BreakupRow
-                label="Hotel base amount"
+                label="Net Accommodation"
                 amount={booking.hotelPayoutBreakup.hotelBaseRate}
+                positive
               />
               <BreakupRow
                 label="Hotel GST"
                 amount={booking.hotelPayoutBreakup.hotelGst}
+                positive
               />
               <BreakupRow
                 label="Total gross amount"
                 amount={booking.hotelPayoutBreakup.totalGrossAmount}
+                positive
               />
               <BreakupRow
                 label="OTA commission"
@@ -1070,6 +1121,7 @@ export default function HotelBookingFinancialMisDetailPage() {
                         value={formatFinanceMoney(
                           booking.agencyIncentive.grossAmount,
                         )}
+                        positive
                       />
                       <InfoLine
                         label="TDS"
@@ -1103,30 +1155,37 @@ export default function HotelBookingFinancialMisDetailPage() {
               <BreakupRow
                 label="OTA Commission"
                 amount={booking.otaRevenueBreakup.commission}
+                positive
               />
               <BreakupRow
                 label="OTA Commission GST"
                 amount={booking.otaRevenueBreakup.commissionGst}
+                positive
               />
               <BreakupRow
                 label="Commission incl. GST"
                 amount={booking.otaRevenueBreakup.commissionInclusiveGst}
+                positive
               />
               <BreakupRow
                 label="OTA markup"
                 amount={booking.otaRevenueBreakup.markup}
+                positive
               />
               <BreakupRow
                 label="Service fee"
                 amount={booking.otaRevenueBreakup.serviceFee}
+                positive
               />
               <BreakupRow
                 label="Service fee GST"
                 amount={booking.otaRevenueBreakup.serviceFeeGst}
+                positive
               />
               <BreakupRow
                 label="Cancellation income"
                 amount={booking.otaRevenueBreakup.cancellationIncome}
+                positive
               />
               <BreakupRow
                 label="Agency commission"
@@ -1136,6 +1195,7 @@ export default function HotelBookingFinancialMisDetailPage() {
               <BreakupRow
                 label="Commission reversal"
                 amount={booking.otaRevenueBreakup.commissionReversal}
+                positive
               />
               <BreakupRow
                 label="Refund adjustment"
@@ -1151,6 +1211,7 @@ export default function HotelBookingFinancialMisDetailPage() {
               <BreakupRow
                 label="Net OTA GST"
                 amount={booking.otaRevenueBreakup.netOtaRevenueGst}
+                positive
               />
               <BreakupRow
                 label="Net OTA incl. GST"
@@ -1199,6 +1260,7 @@ export default function HotelBookingFinancialMisDetailPage() {
                     booking.agentPaymentBreakup?.amountPayableByAgent ??
                       booking.customerSellingPrice,
                   )}
+                  positive
                 />
                 {booking.matchedBracket?.label ? (
                   <InfoLine
@@ -1211,6 +1273,7 @@ export default function HotelBookingFinancialMisDetailPage() {
                 <InfoLine
                   label="Cancellation charge"
                   value={formatFinanceMoney(booking.cancellationCharge)}
+                  positive
                 />
                 <InfoLine
                   label="Refund amount"
@@ -1349,6 +1412,7 @@ export default function HotelBookingFinancialMisDetailPage() {
                   <InfoLine
                     label="Collected"
                     value={formatFinanceMoney(booking.amountCollected)}
+                    positive
                   />
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-sm text-slate-600">
@@ -1392,8 +1456,8 @@ export default function HotelBookingFinancialMisDetailPage() {
                         className="space-y-2 p-4"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium text-slate-800">
-                            {formatFinanceMoney(entry.amount)}
+                          <span className="text-sm font-medium tabular-nums text-emerald-600">
+                            + {formatFinanceMoney(entry.amount)}
                           </span>
                           <StatusBadge
                             status={entry.status}
@@ -1464,10 +1528,12 @@ function InfoLine({
   label,
   value,
   highlight,
+  positive,
 }: {
   label: string;
   value: ReactNode;
   highlight?: boolean;
+  positive?: boolean;
 }) {
   return (
     <div
@@ -1489,10 +1555,12 @@ function InfoLine({
           "text-right text-sm tabular-nums",
           highlight
             ? "font-semibold text-violet-800"
-            : "font-medium text-slate-900",
+            : positive
+              ? "font-medium text-emerald-600"
+              : "font-medium text-slate-900",
         )}
       >
-        {value}
+        {positive && typeof value === "string" ? `+ ${value}` : value}
       </span>
     </div>
   );

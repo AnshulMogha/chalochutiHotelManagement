@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ExportButton } from "@/components/ui/ExportButton";
+import { HotelLookupFilterField } from "@/features/reports/components/HotelLookupFilterField";
+import { PackageLookupFilterField } from "@/features/reports/components/PackageLookupFilterField";
 import { ROUTES } from "@/constants";
 import { cn } from "@/lib/utils";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
@@ -69,9 +71,6 @@ type SharedFilter = {
   hotelLabel: string;
   packageId: string;
   packageLabel: string;
-  supplierId: string;
-  component: string;
-  settlementStatus: string;
 };
 
 type BookingFilter = SharedFilter & {
@@ -98,13 +97,12 @@ const DEFAULT_SHARED: SharedFilter = {
   hotelLabel: "",
   packageId: "",
   packageLabel: "",
-  supplierId: "",
-  component: "",
-  settlementStatus: "",
 };
 
 const DEFAULT_BOOKING: BookingFilter = {
   ...DEFAULT_SHARED,
+  supplierId: "",
+  settlementStatus: "",
   customerPaymentStatus: "",
   supplierPaymentStatus: "",
   bookingStatus: "",
@@ -144,6 +142,12 @@ const SETTLEMENT_STATUSES = [
   "REFUND_PENDING",
   "NO_SETTLEMENT_DUE",
   "SETTLEMENT_TRACKING_INCOMPLETE",
+];
+const TRACKED_PAYMENT_STATUSES = [
+  "PAID",
+  "PARTIALLY_PAID",
+  "PENDING",
+  "NOT_APPLICABLE",
 ];
 const PAGE_SIZE = 20;
 const fieldClass =
@@ -216,9 +220,6 @@ function sharedParams(filter: SharedFilter): SettlementDashboardParams {
     product: filter.product,
     hotelId: filter.hotelId || undefined,
     packageId: filter.packageId || undefined,
-    supplierId: filter.supplierId || undefined,
-    component: filter.component || undefined,
-    settlementStatus: filter.settlementStatus || undefined,
   };
 }
 
@@ -235,7 +236,6 @@ function bookingParams(
     packageId: common.packageId,
     productType: filter.product,
     supplierId: filter.supplierId || undefined,
-    component: filter.component || undefined,
     settlementStatus: filter.settlementStatus || undefined,
     customerPaymentStatus: filter.customerPaymentStatus || undefined,
     supplierPaymentStatus: filter.supplierPaymentStatus || undefined,
@@ -353,9 +353,8 @@ function activeSharedCount(filter: SharedFilter): number {
   return (
     (filter.datePreset !== "THIS_MONTH" ? 1 : 0) +
     (filter.product !== "ALL" ? 1 : 0) +
-    (filter.supplierId ? 1 : 0) +
-    (filter.component ? 1 : 0) +
-    (filter.settlementStatus ? 1 : 0)
+    (filter.hotelId ? 1 : 0) +
+    (filter.packageId ? 1 : 0)
   );
 }
 
@@ -523,37 +522,20 @@ function SharedFilterFields({
           <option value="PACKAGE">Package</option>
         </select>
       </SettlementFilterField>
-      <SettlementFilterField label="Supplier">
-        <input
-          className={fieldClass}
-          value={draft.supplierId}
-          onChange={(event) =>
-            setDraft({ ...draft, supplierId: event.target.value })
-          }
-          placeholder="Hotel UUID or transport vendor ID"
-        />
-      </SettlementFilterField>
-      <SettlementFilterField label="Component">
-        <select
-          className={fieldClass}
-          value={draft.component}
-          onChange={(event) =>
-            setDraft({ ...draft, component: event.target.value })
-          }
-        >
-          <option value="">All components</option>
-          <option value="HOTEL">Hotel</option>
-          <option value="TRANSPORT">Transport</option>
-          <option value="ACTIVITY">Activity</option>
-        </select>
-      </SettlementFilterField>
-      <SettlementFilterField label="Settlement status">
-        <SelectAny
-          value={draft.settlementStatus}
-          onChange={(value) => setDraft({ ...draft, settlementStatus: value })}
-          options={SETTLEMENT_STATUSES}
-        />
-      </SettlementFilterField>
+      <HotelLookupFilterField
+        value={draft.hotelId}
+        selectedLabel={draft.hotelLabel}
+        onChange={({ hotelId, hotelLabel }) =>
+          setDraft({ ...draft, hotelId, hotelLabel })
+        }
+      />
+      <PackageLookupFilterField
+        value={draft.packageId}
+        selectedLabel={draft.packageLabel}
+        onChange={({ packageId, packageLabel }) =>
+          setDraft({ ...draft, packageId, packageLabel })
+        }
+      />
     </>
   );
 }
@@ -628,6 +610,8 @@ export default function SettlementDashboardPage() {
     return (
       activeSharedCount(bookingFilter) +
       [
+        bookingFilter.supplierId,
+        bookingFilter.settlementStatus,
         bookingFilter.customerPaymentStatus,
         bookingFilter.supplierPaymentStatus,
         bookingFilter.bookingStatus,
@@ -715,7 +699,7 @@ export default function SettlementDashboardPage() {
       <Toast {...toast} onClose={hideToast} />
       <SettlementPageShell
         title="Settlement Dashboard"
-        subtitle={`Customer collection, supplier payable and settlement/payment tracking. · ${dateLabel} · Hotel = check-out date; Package = travel end date`}
+        subtitle={`Customer collection, supplier payable and settlement/payment tracking. · ${dateLabel} · Based on booking date`}
         icon={BarChart3}
         actions={
           <div className="flex items-center gap-2">
@@ -844,6 +828,21 @@ function OverviewTab({
           );
         })}
       </div>
+      {report.statusDistribution.length ? (
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          {report.statusDistribution.map((item) => (
+            <div
+              key={item.status}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm"
+            >
+              <SettlementStatusBadge status={item.status} />
+              <p className="mt-1.5 text-lg font-semibold tabular-nums text-slate-900">
+                {item.bookingCount.toLocaleString("en-IN")}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
         {(["HOTEL", "PACKAGE"] as const).map((product) => (
           <button
@@ -913,6 +912,51 @@ function BookingFilterFields({
           />
         </div>
       </SettlementFilterField>
+      <SettlementFilterField label="Supplier">
+        <input
+          className={fieldClass}
+          value={draft.supplierId}
+          onChange={(event) =>
+            setDraft({ ...draft, supplierId: event.target.value })
+          }
+          placeholder="Hotel UUID or transport vendor ID"
+        />
+      </SettlementFilterField>
+      <SettlementFilterField label="Settlement status">
+        <SelectAny
+          value={draft.settlementStatus}
+          onChange={(value) => setDraft({ ...draft, settlementStatus: value })}
+          options={SETTLEMENT_STATUSES}
+        />
+      </SettlementFilterField>
+      <SettlementFilterField label="Customer payment status">
+        <SelectAny
+          value={draft.customerPaymentStatus}
+          onChange={(value) =>
+            setDraft({ ...draft, customerPaymentStatus: value })
+          }
+          options={TRACKED_PAYMENT_STATUSES}
+        />
+      </SettlementFilterField>
+      <SettlementFilterField label="Supplier payment status">
+        <SelectAny
+          value={draft.supplierPaymentStatus}
+          onChange={(value) =>
+            setDraft({ ...draft, supplierPaymentStatus: value })
+          }
+          options={TRACKED_PAYMENT_STATUSES}
+        />
+      </SettlementFilterField>
+      <SettlementFilterField label="Booking status">
+        <input
+          className={fieldClass}
+          value={draft.bookingStatus}
+          onChange={(event) =>
+            setDraft({ ...draft, bookingStatus: event.target.value })
+          }
+          placeholder="Hotel or package booking status"
+        />
+      </SettlementFilterField>
       <SettlementFilterField label="Payment status">
         <select
           className={fieldClass}
@@ -925,8 +969,40 @@ function BookingFilterFields({
           <option value="PAID">Paid</option>
           <option value="PARTIALLY_PAID">Partially paid</option>
           <option value="PENDING">Pending</option>
-          <option value="FAILED">Failed</option>
         </select>
+      </SettlementFilterField>
+      <SettlementFilterField label="Channel">
+        <input
+          className={fieldClass}
+          value={draft.channel}
+          onChange={(event) =>
+            setDraft({ ...draft, channel: event.target.value })
+          }
+          placeholder="Hotel channel or B2B/B2C"
+        />
+      </SettlementFilterField>
+      <SettlementFilterField label="Business type">
+        <select
+          className={fieldClass}
+          value={draft.businessType}
+          onChange={(event) =>
+            setDraft({ ...draft, businessType: event.target.value })
+          }
+        >
+          <option value="">All types</option>
+          <option value="B2B">B2B</option>
+          <option value="B2C">B2C</option>
+        </select>
+      </SettlementFilterField>
+      <SettlementFilterField label="Agency ID">
+        <input
+          className={fieldClass}
+          value={draft.agencyId}
+          onChange={(event) =>
+            setDraft({ ...draft, agencyId: event.target.value })
+          }
+          placeholder="Exact bookedByUserId"
+        />
       </SettlementFilterField>
     </>
   );

@@ -28,6 +28,7 @@ import {
   type RevenueChannel,
   type RevenueDashboardResponse,
   type RevenueDashboardParams,
+  type RevenueDateAxis,
   type RevenueDatePreset,
   type RevenueMoney,
   type RevenuePaymentStatus,
@@ -111,12 +112,18 @@ const DEFAULT_FILTERS: Filters = {
 const fieldClass =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100";
 
+function revenueDateAxis(product: RevenueProduct): RevenueDateAxis {
+  if (product === "HOTEL") return "CHECK_OUT";
+  if (product === "PACKAGE") return "TRAVEL_END_DATE";
+  return "REVENUE_DATE";
+}
+
 function dashboardParams(filters: Filters): RevenueDashboardParams {
   return {
     datePreset: filters.datePreset,
     fromDate: filters.datePreset === "CUSTOM" ? filters.fromDate : undefined,
     toDate: filters.datePreset === "CUSTOM" ? filters.toDate : undefined,
-    dateAxis: "BOOKING_DATE",
+    dateAxis: revenueDateAxis(filters.product),
     product: filters.product,
     channel: filters.channel,
     paymentStatus: filters.paymentStatus,
@@ -228,7 +235,7 @@ export default function RevenueDashboardPage() {
           icon={BadgeIndianRupee}
           iconClassName="bg-emerald-600 text-white"
           title="Revenue Dashboard"
-          description="Financial performance based on booking date."
+          description="Financial performance from completed Hotel & Package services. Hotel = CHECK_OUT; Package = TRAVEL_END_DATE."
           actions={
             <div className="flex items-center gap-2">
               <button

@@ -221,6 +221,7 @@ export interface HotelFinancialMisBookingRow {
 export interface HotelFinancialMisSummary {
   totalBookings: number;
   grossBookingValue: HotelFinancialMisMoney;
+  amountCollected: HotelFinancialMisMoney;
   hotelPayout: HotelFinancialMisMoney;
   tcs: HotelFinancialMisMoney;
   tds: HotelFinancialMisMoney;
@@ -636,6 +637,7 @@ function normalizeResponse(
     summary: {
       totalBookings: toNumber(summaryRaw.totalBookings),
       grossBookingValue: money(summaryRaw.grossBookingValue),
+      amountCollected: money(summaryRaw.amountCollected),
       hotelPayout: money(summaryRaw.hotelPayout),
       tcs: money(summaryRaw.tcs),
       tds: money(summaryRaw.tds),

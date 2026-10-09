@@ -619,6 +619,11 @@ export default function HotelBookingFinancialMisPage() {
         "Gross booking value",
         formatFinanceMoney(summary.grossBookingValue),
       ],
+      [
+        "Summary",
+        "Amount collected",
+        formatFinanceMoney(summary.amountCollected),
+      ],
       ["Summary", "Hotel payout", formatFinanceMoney(summary.hotelPayout)],
       ["Summary", "TDS", formatFinanceMoney(summary.tds)],
       ["Summary", "TCS", formatFinanceMoney(summary.tcs)],
@@ -940,6 +945,18 @@ export default function HotelBookingFinancialMisPage() {
               tone={FINANCE_KPI_TONES.customer}
             />
             <FinanceKpiCard
+              label="Collected"
+              value={
+                summary
+                  ? formatFinanceMoney(summary.amountCollected)
+                  : loading
+                    ? "…"
+                    : "—"
+              }
+              icon={HandCoins}
+              tone={FINANCE_KPI_TONES.collected}
+            />
+            <FinanceKpiCard
               label="Hotel Payout"
               value={
                 summary
@@ -983,6 +1000,12 @@ export default function HotelBookingFinancialMisPage() {
                   : loading
                     ? "…"
                     : "—"
+              }
+              sub={
+                summary?.otaRevenue.rateLabel?.trim() ||
+                (summary?.otaRevenue.ratePercent != null
+                  ? `${summary.otaRevenue.ratePercent}%`
+                  : undefined)
               }
               icon={Target}
               tone={FINANCE_KPI_TONES.ota}
@@ -1250,6 +1273,13 @@ export default function HotelBookingFinancialMisPage() {
                       >
                         {formatFinanceMoney(row.otaRevenue)}
                       </button>
+                      {row.commission.rateLabel?.trim() ||
+                      row.commission.ratePercent != null ? (
+                        <p className="text-xs tabular-nums text-slate-500">
+                          {row.commission.rateLabel?.trim() ||
+                            `${row.commission.ratePercent}%`}
+                        </p>
+                      ) : null}
                       <p className="text-xs tabular-nums text-slate-500">
                         GST {formatFinanceMoney(row.otaRevenueGst)}
                       </p>

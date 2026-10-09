@@ -266,12 +266,14 @@ function CalcLine({
   amount,
   currency,
   negative = false,
+  positive = false,
 }: {
   index?: string;
   label: string;
   amount: number | undefined | null;
   currency: string;
   negative?: boolean;
+  positive?: boolean;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 px-3 py-1.5 text-xs">
@@ -281,10 +283,14 @@ function CalcLine({
       </span>
       <span
         className={`shrink-0 font-medium tabular-nums ${
-          negative ? "text-emerald-700" : "text-gray-900"
+          negative
+            ? "text-rose-600"
+            : positive
+              ? "text-emerald-600"
+              : "text-gray-900"
         }`}
       >
-        {negative ? "−" : ""}
+        {negative ? "− " : positive ? "+ " : ""}
         {formatCurrency(amount, currency)}
       </span>
     </div>
@@ -1069,6 +1075,7 @@ function HotelBookingDetailPage({
                     rateBreakup?.roomCharges
                   }
                   currency={currency}
+                  positive
                 />
                 {appliedPromotions.length ? (
                   appliedPromotions.map((promo, idx) => (
@@ -1095,12 +1102,13 @@ function HotelBookingDetailPage({
                 ) : null}
                 {promotionDiscount > 0 || appliedPromotions.length ? (
                   <CalcLine
-                    label="Net accommodation (after promotion)"
+                    label="Net Accommodation"
                     amount={
                       rateBreakup?.netAccommodationAfterPromotion ??
                       rateBreakup?.roomCharges
                     }
                     currency={currency}
+                    positive
                   />
                 ) : null}
                 {extraCharges > 0 ? (
@@ -1109,6 +1117,7 @@ function HotelBookingDetailPage({
                     label="Extra adult / child charges"
                     amount={extraCharges}
                     currency={currency}
+                    positive
                   />
                 ) : null}
                 {showPropertyTaxLine ? (
@@ -1117,6 +1126,7 @@ function HotelBookingDetailPage({
                     label={withRate("Property taxes", gstPercent)}
                     amount={rateBreakup?.propertyTaxes}
                     currency={currency}
+                    positive
                   />
                 ) : null}
                 <CalcSubtotal
@@ -1134,6 +1144,7 @@ function HotelBookingDetailPage({
                     }
                     amount={serviceFeeAmount}
                     currency={currency}
+                    positive
                   />
                 ) : null}
 
@@ -1145,6 +1156,7 @@ function HotelBookingDetailPage({
                       label={withRate("Commission", commissionPercent)}
                       amount={rateBreakup?.commissionAmount}
                       currency={currency}
+                      negative
                     />
                     <CalcLine
                       index="4"
@@ -1154,6 +1166,7 @@ function HotelBookingDetailPage({
                       )}
                       amount={rateBreakup?.commissionGst}
                       currency={currency}
+                      negative
                     />
                     <CalcSubtotal
                       letter="B"
@@ -1172,12 +1185,14 @@ function HotelBookingDetailPage({
                       label={withRate("TCS", tcsPercent)}
                       amount={rateBreakup?.tcsAmount}
                       currency={currency}
+                      negative
                     />
                     <CalcLine
                       index="6"
                       label={withRate("TDS", tdsPercent)}
                       amount={rateBreakup?.tdsAmount}
                       currency={currency}
+                      negative
                     />
                     <CalcSubtotal
                       letter="C"
