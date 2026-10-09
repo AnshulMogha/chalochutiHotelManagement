@@ -266,10 +266,14 @@ function DetailRow({
   label,
   value,
   compact = false,
+  positive,
+  negative,
 }: {
   label: string;
   value: React.ReactNode;
   compact?: boolean;
+  positive?: boolean;
+  negative?: boolean;
 }) {
   return (
     <div
@@ -278,8 +282,18 @@ function DetailRow({
       }`}
     >
       <dt className="text-xs leading-snug text-gray-500">{label}</dt>
-      <dd className="min-w-0 text-right text-xs font-medium leading-snug break-words text-gray-900">
-        {value ?? "—"}
+      <dd
+        className={`min-w-0 text-right text-xs font-medium leading-snug break-words ${
+          negative
+            ? "text-rose-600"
+            : positive
+              ? "text-emerald-600"
+              : "text-gray-900"
+        }`}
+      >
+        {typeof value === "string"
+          ? `${negative ? "− " : positive ? "+ " : ""}${value}`
+          : (value ?? "—")}
       </dd>
     </div>
   );
@@ -346,12 +360,14 @@ function CalcLine({
   amount,
   currency,
   negative = false,
+  positive = false,
 }: {
   index?: string;
   label: string;
   amount: number | undefined | null;
   currency: string;
   negative?: boolean;
+  positive?: boolean;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 px-3 py-1.5 text-xs">
@@ -361,10 +377,14 @@ function CalcLine({
       </span>
       <span
         className={`shrink-0 font-medium tabular-nums ${
-          negative ? "text-emerald-700" : "text-gray-900"
+          negative
+            ? "text-rose-600"
+            : positive
+              ? "text-emerald-600"
+              : "text-gray-900"
         }`}
       >
-        {negative ? "−" : ""}
+        {negative ? "− " : positive ? "+ " : ""}
         {formatCurrency(amount, currency)}
       </span>
     </div>
@@ -1417,6 +1437,7 @@ export default function AdminBookingDetailPage({
               detail.pricing.basePrice
             }
             currency={currency}
+            positive
           />
           {(() => {
             const extraBeforePromo =
@@ -1434,6 +1455,7 @@ export default function AdminBookingDetailPage({
                 label={`Extra adult charges before promotion${countLabel}`}
                 amount={extraBeforePromo}
                 currency={currency}
+                positive
               />
             );
           })()}
@@ -1461,13 +1483,14 @@ export default function AdminBookingDetailPage({
               ) : null}
           {promotionDiscount > 0 || appliedPromotions.length ? (
             <CalcLine
-              label="Net accommodation (after promotion)"
+              label="Net Accommodation"
               amount={
                 rateBreakup?.netAccommodationAfterPromotion ??
                 rateBreakup?.roomCharges ??
                 detail.financials.priceAfterPromo
               }
               currency={currency}
+              positive
             />
           ) : null}
           {!(isPackageBooking && !(packageTaxAmount > 0)) ? (
@@ -1476,6 +1499,7 @@ export default function AdminBookingDetailPage({
               label={withRate("Property taxes", gstPercent)}
               amount={rateBreakup?.propertyTaxes ?? detail.pricing.gstAmount}
               currency={currency}
+              positive
             />
           ) : null}
           <CalcSubtotal
@@ -1498,12 +1522,14 @@ export default function AdminBookingDetailPage({
               rateBreakup?.commissionAmount ?? detail.pricing.commissionAmount
             }
             currency={currency}
+            negative
           />
           <CalcLine
             index="4"
             label={withRate("GST on commission", commissionGstPercent)}
             amount={rateBreakup?.commissionGst ?? detail.financials.commissionGst}
             currency={currency}
+            negative
           />
           <CalcSubtotal
             letter="B"
@@ -1525,12 +1551,14 @@ export default function AdminBookingDetailPage({
             label={withRate("TCS", tcsPercent)}
             amount={rateBreakup?.tcsAmount ?? detail.financials.tcsAmount}
             currency={currency}
+            negative
           />
           <CalcLine
             index="6"
             label={withRate("TDS", tdsPercent)}
             amount={rateBreakup?.tdsAmount ?? detail.financials.tdsAmount}
             currency={currency}
+            negative
           />
           <CalcSubtotal
             letter="C"
@@ -1592,6 +1620,7 @@ export default function AdminBookingDetailPage({
                   }
                   amount={agencyCommissionAmount}
                   currency={currency}
+                  negative
                 />
               ) : (
                 <div className="flex items-start justify-between gap-4 px-3 py-1.5 text-xs">
@@ -1624,6 +1653,7 @@ export default function AdminBookingDetailPage({
                   }
                   amount={agentTdsAmount}
                   currency={currency}
+                  negative
                 />
               ) : null}
               {agentNetCommission != null ? (
@@ -1787,15 +1817,17 @@ export default function AdminBookingDetailPage({
                         label={
                           hasExtras
                             ? "Room charges (excl. extras)"
-                            : "Base price"
+                            : "Net Accommodation"
                         }
                         value={formatCurrency(roomOnlyBeforePromo, currency)}
+                        positive
                       />
                       {hasExtras ? (
                         <DetailRow
                           compact
                           label={`Extra adult charges${extraCountLabel}`}
                           value={formatCurrency(extraBeforePromo, currency)}
+                          positive
                         />
                       ) : null}
                       {hasExtras ? (
@@ -1803,6 +1835,7 @@ export default function AdminBookingDetailPage({
                           compact
                           label="Subtotal before promotion"
                           value={formatCurrency(subtotalBeforePromo, currency)}
+                          positive
                         />
                       ) : null}
                     </>
@@ -1815,8 +1848,8 @@ export default function AdminBookingDetailPage({
                         compact
                         label={promoDisplayLabel(promo)}
                         value={
-                          <span className="text-emerald-700">
-                            −{formatCurrency(promo.discountAmount, currency)}
+                          <span className="text-rose-600">
+                            − {formatCurrency(promo.discountAmount, currency)}
                           </span>
                         }
                       />
@@ -1826,8 +1859,8 @@ export default function AdminBookingDetailPage({
                         compact
                         label="Promotion discount"
                         value={
-                          <span className="text-emerald-700">
-                            −{formatCurrency(promotionDiscount, currency)}
+                          <span className="text-rose-600">
+                            − {formatCurrency(promotionDiscount, currency)}
                           </span>
                         }
                       />
@@ -1847,6 +1880,7 @@ export default function AdminBookingDetailPage({
                     detail.financials.gst?.amount ?? detail.financials.gstAmount,
                     currency,
                   )}
+                  positive
                 />
                 {(detail.financials.cgstAmount != null ||
                   detail.financials.sgstAmount != null) && (
@@ -1868,11 +1902,13 @@ export default function AdminBookingDetailPage({
                     detail.financials.serviceFeeAmount,
                     currency,
                   )}
+                  positive
                 />
                 <DetailRow
                   compact
                   label="GST on service fee"
                   value={formatCurrency(detail.financials.serviceFeeGst, currency)}
+                  positive
                 />
                 <DetailRow
                   compact
@@ -1942,6 +1978,7 @@ export default function AdminBookingDetailPage({
                         compact
                         label="Agency commission"
                         value={formatCurrency(agencyCommissionAmount, currency)}
+                        negative
                       />
                     ) : null}
                     {agentTdsAmount != null && agentTdsAmount > 0 ? (
@@ -1960,6 +1997,7 @@ export default function AdminBookingDetailPage({
                         compact
                         label="Agent net commission"
                         value={formatCurrency(agentNetCommission, currency)}
+                        negative
                       />
                     ) : null}
                   </>
@@ -2381,6 +2419,7 @@ export default function AdminBookingDetailPage({
                 cancellation.settlement.cancellationAccommodationCharge,
               )}
               currency={currency}
+              positive
             />
             {!(
               isPackageBooking &&
@@ -2391,6 +2430,7 @@ export default function AdminBookingDetailPage({
                 label={withRate("Hotel GST", gstPercent)}
                 amount={moneyAmount(cancellation.settlement.hotelGst)}
                 currency={currency}
+                positive
               />
             ) : null}
             <CalcSubtotal
@@ -2420,6 +2460,7 @@ export default function AdminBookingDetailPage({
               label={withRate("OTA commission", commissionPercent)}
               amount={moneyAmount(cancellation.settlement.otaCommission)}
               currency={currency}
+              negative
             />
             <CalcLine
               index="4"
@@ -2430,6 +2471,7 @@ export default function AdminBookingDetailPage({
               }
               amount={moneyAmount(cancellation.settlement.commissionGst)}
               currency={currency}
+              negative
             />
             <CalcSubtotal
               letter="B"
@@ -2450,12 +2492,14 @@ export default function AdminBookingDetailPage({
               label={withRate("TCS", tcsPercent)}
               amount={moneyAmount(cancellation.settlement.tcs)}
               currency={currency}
+              negative
             />
             <CalcLine
               index="6"
               label={withRate("TDS", tdsPercent)}
               amount={moneyAmount(cancellation.settlement.tds)}
               currency={currency}
+              negative
             />
             <CalcSubtotal
               letter="C"

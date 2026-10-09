@@ -27,7 +27,11 @@ export type RevenueDatePreset =
   | "ALL_TIME"
   | "CUSTOM";
 
-export type RevenueDateAxis = "REVENUE_DATE" | "BOOKING_DATE";
+export type RevenueDateAxis =
+  | "REVENUE_DATE"
+  | "CHECK_OUT"
+  | "TRAVEL_END_DATE"
+  | "BOOKING_DATE";
 export type RevenueProduct = "ALL" | "HOTEL" | "PACKAGE";
 export type RevenueChannel = "ALL" | "B2C" | "B2B";
 export type RevenuePaymentStatus = "ALL" | "PAID" | "PARTIAL" | "PENDING";

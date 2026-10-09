@@ -269,18 +269,21 @@ export function BreakupRow({
   label,
   amount,
   negative,
+  positive,
   bold,
   highlight,
 }: {
   label: string;
   amount: HotelFinancialMisMoney;
   negative?: boolean;
+  positive?: boolean;
   bold?: boolean;
   highlight?: boolean;
 }) {
+  const signed = Boolean(negative || positive);
   const displayAmount = {
     ...amount,
-    amount: negative ? Math.abs(amount.amount) : amount.amount,
+    amount: signed ? Math.abs(amount.amount) : amount.amount,
   };
   const rateHint = amount.rateLabel?.trim() || null;
   return (
@@ -304,30 +307,21 @@ export function BreakupRow({
       <span
         className={cn(
           "shrink-0 tabular-nums",
-          negative ? "text-rose-600" : "text-slate-900",
+          negative
+            ? "text-rose-600"
+            : positive
+              ? "text-emerald-600"
+              : "text-slate-900",
           bold && "text-blue-700",
         )}
       >
         {negative
           ? `− ${formatFinanceMoney(displayAmount)}`
-          : formatFinanceMoney(displayAmount)}
+          : positive
+            ? `+ ${formatFinanceMoney(displayAmount)}`
+            : formatFinanceMoney(displayAmount)}
       </span>
     </div>
-  );
-}
-
-export function AgentPaymentBreakupFormula({
-  formula,
-}: {
-  formula?: string | null;
-}) {
-  const text =
-    formula?.trim() ||
-    "sellingPrice - netAgentCommission = amountPayableByAgent";
-  return (
-    <p className="border-t border-slate-100 px-3 py-2.5 font-mono text-[11px] leading-relaxed text-slate-500">
-      {text}
-    </p>
   );
 }
 
@@ -351,12 +345,18 @@ export function AgentPaymentBreakupLedger({
         <BreakupRow
           label="Agent customer selling price"
           amount={agentCustomerSellingPrice}
+          positive
         />
       ) : null}
-      <BreakupRow label="Platform selling price" amount={breakup.sellingPrice} />
+      <BreakupRow
+        label="Platform selling price"
+        amount={breakup.sellingPrice}
+        positive
+      />
       <BreakupRow
         label="Gross agent commission"
         amount={breakup.grossAgentCommission}
+        positive
       />
       <BreakupRow label="Agent TDS" amount={breakup.agentTds} />
       <BreakupRow
@@ -370,7 +370,6 @@ export function AgentPaymentBreakupLedger({
         bold
         highlight
       />
-      <AgentPaymentBreakupFormula formula={breakup.formula} />
     </>
   );
 }

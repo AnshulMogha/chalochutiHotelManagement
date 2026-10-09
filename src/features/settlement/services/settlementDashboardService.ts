@@ -89,9 +89,6 @@ export interface SettlementDashboardParams {
   product?: SettlementProduct;
   hotelId?: string;
   packageId?: string;
-  supplierId?: string;
-  component?: string;
-  settlementStatus?: string;
 }
 
 export interface SettlementBookingFilters {
@@ -102,7 +99,6 @@ export interface SettlementBookingFilters {
   hotelId?: string;
   packageId?: string;
   supplierId?: string;
-  component?: string;
   settlementStatus?: string;
   customerPaymentStatus?: string;
   supplierPaymentStatus?: string;
