@@ -145,6 +145,21 @@ function CustomerOrAgentPriceBreakup({
         positive
       />
       <BreakupRow
+        label="Promotion discount"
+        amount={booking.customerSellingPriceBreakup.promotionDiscount}
+        negative
+      />
+      <BreakupRow
+        label="Net Accommodation"
+        amount={{
+          amount:
+            booking.customerSellingPriceBreakup.baseFare.amount -
+            booking.customerSellingPriceBreakup.promotionDiscount.amount,
+          currency: booking.customerSellingPriceBreakup.baseFare.currency,
+        }}
+        positive
+      />
+      <BreakupRow
         label="Hotel taxes / GST"
         amount={booking.customerSellingPriceBreakup.hotelGst}
         positive
@@ -158,11 +173,6 @@ function CustomerOrAgentPriceBreakup({
         label="Service fee GST"
         amount={booking.customerSellingPriceBreakup.serviceFeeGst}
         positive
-      />
-      <BreakupRow
-        label="Promotion discount"
-        amount={booking.customerSellingPriceBreakup.promotionDiscount}
-        negative
       />
       {isB2b ? (
         <>
