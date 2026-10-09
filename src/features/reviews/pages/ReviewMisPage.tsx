@@ -219,6 +219,35 @@ function buildHotelScopedDraft(hotelId: string | null): FilterDraft {
   };
 }
 
+function initialMisFilters(
+  isHotelScopedMis: boolean,
+  hotelId: string | null,
+): AppliedFilters {
+  if (isHotelScopedMis) return buildHotelScopedFilters(hotelId);
+  if (hotelId) return { subjectId: hotelId };
+  return {};
+}
+
+function initialMisDraft(
+  isHotelScopedMis: boolean,
+  hotelId: string | null,
+): FilterDraft {
+  if (isHotelScopedMis) return buildHotelScopedDraft(hotelId);
+  if (hotelId) return { ...DEFAULT_FILTERS, subjectId: hotelId };
+  return DEFAULT_FILTERS;
+}
+
+function appliedFiltersEqual(a: AppliedFilters, b: AppliedFilters): boolean {
+  return (
+    a.bookingType === b.bookingType &&
+    a.status === b.status &&
+    a.bookingRef === b.bookingRef &&
+    a.subjectId === b.subjectId &&
+    a.fromDate === b.fromDate &&
+    a.toDate === b.toDate
+  );
+}
+
 function shouldApplyTopBarHotelSubject(
   bookingType: string | undefined,
 ): boolean {
@@ -372,8 +401,12 @@ export default function ReviewMisPage() {
   const [rows, setRows] = useState<ReviewMisItem[]>([]);
   const [summary, setSummary] = useState<ReviewMisSummary>(EMPTY_SUMMARY);
   const [totalElements, setTotalElements] = useState(0);
-  const [filters, setFilters] = useState<AppliedFilters>({});
-  const [draft, setDraft] = useState<FilterDraft>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<AppliedFilters>(() =>
+    initialMisFilters(isHotelScopedMis, hotelId),
+  );
+  const [draft, setDraft] = useState<FilterDraft>(() =>
+    initialMisDraft(isHotelScopedMis, hotelId),
+  );
   const [filterOpen, setFilterOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [ownerDialogMode, setOwnerDialogMode] =
@@ -409,24 +442,30 @@ export default function ReviewMisPage() {
   useEffect(() => {
     if (!user) return;
     if (isHotelScopedMis) {
-      setFilters(buildHotelScopedFilters(hotelId));
-      setDraft(buildHotelScopedDraft(hotelId));
-      setPage(0);
-      return;
-    }
-    if (hotelId) {
-      setPage(0);
+      const nextFilters = buildHotelScopedFilters(hotelId);
+      const nextDraft = buildHotelScopedDraft(hotelId);
       setFilters((prev) =>
-        shouldApplyTopBarHotelSubject(prev.bookingType)
-          ? { ...prev, subjectId: hotelId }
-          : prev,
+        appliedFiltersEqual(prev, nextFilters) ? prev : nextFilters,
       );
       setDraft((prev) =>
-        shouldApplyTopBarHotelSubject(prev.bookingType)
-          ? { ...prev, subjectId: hotelId }
-          : prev,
+        prev.bookingType === nextDraft.bookingType &&
+        prev.subjectId === nextDraft.subjectId
+          ? prev
+          : nextDraft,
       );
+      setPage((prev) => (prev === 0 ? prev : 0));
+      return;
     }
+    if (!hotelId) return;
+    setFilters((prev) => {
+      if (!shouldApplyTopBarHotelSubject(prev.bookingType)) return prev;
+      return prev.subjectId === hotelId ? prev : { ...prev, subjectId: hotelId };
+    });
+    setDraft((prev) => {
+      if (!shouldApplyTopBarHotelSubject(prev.bookingType)) return prev;
+      return prev.subjectId === hotelId ? prev : { ...prev, subjectId: hotelId };
+    });
+    setPage((prev) => (prev === 0 ? prev : 0));
   }, [user, isHotelScopedMis, hotelId]);
 
   const dateRangeLabel = useMemo(() => {
@@ -473,8 +512,48 @@ export default function ReviewMisPage() {
   }, [filters, page, showToast, isHotelScopedMis, hotelId, user]);
 
   useEffect(() => {
-    void loadMis();
-  }, [loadMis]);
+    let cancelled = false;
+    if (isHotelScopedMis && !user) return undefined;
+
+    const requestParams = buildMisRequestParams({
+      isHotelScopedMis,
+      hotelId,
+      page,
+      filters,
+    });
+
+    if (!requestParams) {
+      setRows([]);
+      setSummary(EMPTY_SUMMARY);
+      setTotalElements(0);
+      setLoading(false);
+      return undefined;
+    }
+
+    setLoading(true);
+    void reviewMisService
+      .getMis(requestParams)
+      .then((data) => {
+        if (cancelled) return;
+        setRows(data.items);
+        setSummary(data.summary);
+        setTotalElements(data.totalElements);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        showToast(extractErrorMessage(error), "error");
+        setRows([]);
+        setSummary(EMPTY_SUMMARY);
+        setTotalElements(0);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filters, page, showToast, isHotelScopedMis, hotelId, user]);
 
   const applyFilters = () => {
     const range = validateOptionalDateRange(
