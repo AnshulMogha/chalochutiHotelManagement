@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
@@ -130,36 +130,31 @@ export default function RateHealthReportPage() {
     (roomTypeIds.length ? 1 : 0) +
     (ratePlanIds.length ? 1 : 0);
 
-  const loadReport = useCallback(
-    async (overrides?: Partial<FilterDraft>) => {
-      if (!canFilterHotels && !hotelId) return;
-      const nextPropertyIds = overrides?.propertyIds ?? propertyIds;
-      const nextPreset = overrides?.datePreset ?? datePreset;
-      const nextFrom = overrides?.fromDate ?? fromDate;
-      const nextTo = overrides?.toDate ?? toDate;
-      const nextRoomTypeIds = overrides?.roomTypeIds ?? roomTypeIds;
-      const nextRatePlanIds = overrides?.ratePlanIds ?? ratePlanIds;
-      if (nextPreset === "CUSTOM" && (!nextFrom || !nextTo)) return;
-
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await rateHealthReportService.getReport({
-          propertyIds: canFilterHotels
-            ? nextPropertyIds
-            : hotelId
-              ? [hotelId]
-              : [],
-          datePreset: nextPreset,
-          fromDate: nextPreset === "CUSTOM" ? nextFrom : undefined,
-          toDate: nextPreset === "CUSTOM" ? nextTo : undefined,
-          roomTypeIds: nextRoomTypeIds,
-          ratePlanIds: nextRatePlanIds,
-          page,
-          size: pageSize,
-        });
-        setReport(data);
-      } catch (err) {
+  useEffect(() => {
+    if ((!canFilterHotels && !hotelId) || customRangeInvalid) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void rateHealthReportService
+      .getReport({
+        propertyIds: canFilterHotels
+          ? propertyIds
+          : hotelId
+            ? [hotelId]
+            : [],
+        datePreset,
+        fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
+        toDate: datePreset === "CUSTOM" ? toDate : undefined,
+        roomTypeIds,
+        ratePlanIds,
+        page,
+        size: pageSize,
+      })
+      .then((data) => {
+        if (!cancelled) setReport(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
         console.error(err);
         const message =
           err && typeof err === "object" && "message" in err
@@ -167,29 +162,27 @@ export default function RateHealthReportPage() {
             : "Failed to load rate health report";
         setError(message);
         showToast(message, "error");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [
-      hotelId,
-      canFilterHotels,
-      propertyIds,
-      datePreset,
-      fromDate,
-      toDate,
-      roomTypeIds,
-      ratePlanIds,
-      page,
-      pageSize,
-      showToast,
-    ],
-  );
-
-  useEffect(() => {
-    if ((!canFilterHotels && !hotelId) || customRangeInvalid) return;
-    loadReport();
-  }, [hotelId, canFilterHotels, page, loadReport, customRangeInvalid]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    hotelId,
+    canFilterHotels,
+    propertyIds,
+    datePreset,
+    fromDate,
+    toDate,
+    roomTypeIds,
+    ratePlanIds,
+    page,
+    pageSize,
+    customRangeInvalid,
+    showToast,
+  ]);
 
   useEffect(() => {
     const optionHotelId = canFilterHotels
@@ -198,10 +191,10 @@ export default function RateHealthReportPage() {
         : null
       : hotelId;
     if (!optionHotelId) {
-      setRoomOptions([]);
-      setRatePlanOptions([]);
-      setRoomTypeIds([]);
-      setRatePlanIds([]);
+      setRoomOptions((prev) => (prev.length ? [] : prev));
+      setRatePlanOptions((prev) => (prev.length ? [] : prev));
+      setRoomTypeIds((prev) => (prev.length ? [] : prev));
+      setRatePlanIds((prev) => (prev.length ? [] : prev));
       return;
     }
     let cancelled = false;
@@ -311,7 +304,6 @@ export default function RateHealthReportPage() {
     setRatePlanIds(nextDraft.ratePlanIds);
     setPage(0);
     setFilterOpen(false);
-    loadReport(nextDraft);
   };
 
   const clearAll = () => {
