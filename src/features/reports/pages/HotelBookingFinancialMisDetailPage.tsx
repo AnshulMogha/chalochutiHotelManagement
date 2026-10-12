@@ -127,6 +127,10 @@ function CustomerOrAgentPriceBreakup({
     amount: 0,
     currency: booking.customerSellingPrice.currency,
   };
+  const agentSellingGst = booking.agentSellingGst ?? {
+    amount: 0,
+    currency: booking.customerSellingPrice.currency,
+  };
   const paymentBreakup = isB2b ? booking.agentPaymentBreakup : null;
   const incentive = hasHotelFinancialMisAgencyDetails(booking)
     ? booking.agencyIncentive
@@ -197,6 +201,11 @@ function CustomerOrAgentPriceBreakup({
           <BreakupRow
             label="Agent selling markup"
             amount={agentSellingMarkupAmount}
+            positive
+          />
+          <BreakupRow
+            label="Agent selling GST"
+            amount={agentSellingGst}
             positive
           />
           <BreakupRow
