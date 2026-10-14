@@ -641,6 +641,16 @@ export default function HotelBookingFinancialMisPage() {
       ],
       [
         "Summary",
+        "Agency TDS",
+        formatFinanceMoney(summary.agentTdsAmount),
+      ],
+      [
+        "Summary",
+        "Agency net commission",
+        formatFinanceMoney(summary.agentNetCommission),
+      ],
+      [
+        "Summary",
         "Commission reversal",
         formatFinanceMoney(summary.commissionReversal),
       ],
@@ -1044,6 +1054,30 @@ export default function HotelBookingFinancialMisPage() {
                     : "—"
               }
               icon={HandCoins}
+              tone={FINANCE_KPI_TONES.outstanding}
+            />
+            <FinanceKpiCard
+              label="Agency TDS"
+              value={
+                summary
+                  ? formatFinanceMoney(summary.agentTdsAmount)
+                  : loading
+                    ? "…"
+                    : "—"
+              }
+              icon={Percent}
+              tone={FINANCE_KPI_TONES.margin}
+            />
+            <FinanceKpiCard
+              label="Agency Net Comm."
+              value={
+                summary
+                  ? formatFinanceMoney(summary.agentNetCommission)
+                  : loading
+                    ? "…"
+                    : "—"
+              }
+              icon={Wallet}
               tone={FINANCE_KPI_TONES.outstanding}
             />
             <FinanceKpiCard

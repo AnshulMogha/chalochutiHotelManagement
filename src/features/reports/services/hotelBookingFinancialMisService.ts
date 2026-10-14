@@ -195,7 +195,7 @@ export interface HotelFinancialMisBookingRow {
   tcs: HotelFinancialMisMoney;
   tds: HotelFinancialMisMoney;
   agentCommission: HotelFinancialMisMoney;
-  agentTds: HotelFinancialMisMoney;
+  agentTdsAmount: HotelFinancialMisMoney;
   agentNetCommission: HotelFinancialMisMoney;
   agencyIncentive: HotelFinancialMisAgencyIncentive | null;
   agentPaymentBreakup: HotelFinancialMisAgentPaymentBreakup | null;
@@ -230,6 +230,8 @@ export interface HotelFinancialMisSummary {
   otaRevenueGst: HotelFinancialMisMoney;
   otaRevenueInclusiveGst: HotelFinancialMisMoney;
   agencyCommission: HotelFinancialMisMoney;
+  agentTdsAmount: HotelFinancialMisMoney;
+  agentNetCommission: HotelFinancialMisMoney;
   commissionReversal: HotelFinancialMisMoney;
   cancellationAmount: HotelFinancialMisMoney;
   totalCancellation: number;
@@ -575,7 +577,7 @@ function normalizeRow(raw: unknown): HotelFinancialMisBookingRow {
     tcs: money(record.tcs),
     tds: money(record.tds),
     agentCommission: money(record.agentCommission),
-    agentTds: money(record.agentTds),
+    agentTdsAmount: money(record.agentTdsAmount ?? record.agentTds),
     agentNetCommission: money(record.agentNetCommission),
     agencyIncentive: normalizeAgencyIncentive(
       record.agencyIncentive,
@@ -647,6 +649,8 @@ function normalizeResponse(
       otaRevenueGst: money(summaryRaw.otaRevenueGst),
       otaRevenueInclusiveGst: money(summaryRaw.otaRevenueInclusiveGst),
       agencyCommission: money(summaryRaw.agencyCommission),
+      agentTdsAmount: money(summaryRaw.agentTdsAmount ?? summaryRaw.agentTds),
+      agentNetCommission: money(summaryRaw.agentNetCommission),
       commissionReversal: money(summaryRaw.commissionReversal),
       cancellationAmount: money(summaryRaw.cancellationAmount),
       totalCancellation: toNumber(summaryRaw.totalCancellation),
