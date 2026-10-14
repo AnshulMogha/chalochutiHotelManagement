@@ -39,7 +39,6 @@ import {
   Receipt,
   RotateCcw,
   Target,
-  TrendingUp,
   User,
   Wallet,
 } from "lucide-react";
@@ -556,6 +555,19 @@ export default function HotelBookingFinancialMisDetailPage() {
             actionLabel=""
           />
           <FinanceKpiCard
+            label="Net Accommodation"
+            value={formatFinanceMoney({
+              amount:
+                booking.customerSellingPriceBreakup.baseFare.amount -
+                booking.customerSellingPriceBreakup.promotionDiscount.amount,
+              currency: booking.customerSellingPriceBreakup.baseFare.currency,
+            })}
+            icon={Building2}
+            tone={FINANCE_KPI_TONES.hotelPayout}
+            onClick={() => setTab("customer")}
+            actionLabel=""
+          />
+          <FinanceKpiCard
             label="Collected"
             value={formatFinanceMoney(booking.amountCollected)}
             icon={HandCoins}
@@ -571,14 +583,34 @@ export default function HotelBookingFinancialMisDetailPage() {
             onClick={() => setTab("cancellation")}
             actionLabel=""
           />
-          <FinanceKpiCard
-            label="Agent Commission"
-            value={formatFinanceMoney(booking.agentCommission)}
-            icon={Wallet}
-            tone={FINANCE_KPI_TONES.outstanding}
-            onClick={() => setTab("otaRevenue")}
-            actionLabel=""
-          />
+          {isB2b ? (
+            <>
+              <FinanceKpiCard
+                label="Agent Commission"
+                value={formatFinanceMoney(booking.agentCommission)}
+                icon={Wallet}
+                tone={FINANCE_KPI_TONES.outstanding}
+                onClick={() => setTab("otaRevenue")}
+                actionLabel=""
+              />
+              <FinanceKpiCard
+                label="Agent TDS"
+                value={formatFinanceMoney(booking.agentTdsAmount)}
+                icon={Wallet}
+                tone={FINANCE_KPI_TONES.margin}
+                onClick={() => setTab("customer")}
+                actionLabel=""
+              />
+              <FinanceKpiCard
+                label="Agent Net Comm."
+                value={formatFinanceMoney(booking.agentNetCommission)}
+                icon={Wallet}
+                tone={FINANCE_KPI_TONES.outstanding}
+                onClick={() => setTab("customer")}
+                actionLabel=""
+              />
+            </>
+          ) : null}
           <FinanceKpiCard
             label="Hotel Payout"
             value={formatFinanceMoney(booking.hotelPayout)}
@@ -641,17 +673,6 @@ export default function HotelBookingFinancialMisDetailPage() {
             tone={FINANCE_KPI_TONES.cancellation}
             onClick={() => setTab("cancellation")}
             actionLabel=""
-          />
-          <FinanceKpiCard
-            label="Margin"
-            value={formatFinanceMoney({
-              amount:
-                booking.customerSellingPrice.amount -
-                booking.hotelPayout.amount,
-              currency: booking.customerSellingPrice.currency,
-            })}
-            icon={TrendingUp}
-            tone={FINANCE_KPI_TONES.margin}
           />
         </div>
 
@@ -800,7 +821,11 @@ export default function HotelBookingFinancialMisDetailPage() {
                 negative
               />
               <BreakupRow
-                label="Net Accommodation"
+                label={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "Net Accommodation after cancellation"
+                    : "Net Accommodation"
+                }
                 amount={booking.hotelPayoutBreakup.hotelBaseRate}
                 positive
               />
@@ -872,11 +897,13 @@ export default function HotelBookingFinancialMisDetailPage() {
                 amount={booking.otaRevenueBreakup.cancellationIncome}
                 positive
               />
-              <BreakupRow
-                label="Agency commission"
-                amount={booking.otaRevenueBreakup.agencyCommission}
-                negative
-              />
+              {isB2b ? (
+                <BreakupRow
+                  label="Agency commission"
+                  amount={booking.otaRevenueBreakup.agencyCommission}
+                  negative
+                />
+              ) : null}
               <BreakupRow
                 label="Commission reversal"
                 amount={booking.otaRevenueBreakup.commissionReversal}
@@ -961,10 +988,22 @@ export default function HotelBookingFinancialMisDetailPage() {
                     />
                   </>
                 ) : null}
-                <InfoLine
-                  label="Agent commission"
-                  value={formatFinanceMoney(booking.agentCommission)}
-                />
+                {isB2b ? (
+                  <>
+                    <InfoLine
+                      label="Agent commission"
+                      value={formatFinanceMoney(booking.agentCommission)}
+                    />
+                    <InfoLine
+                      label="Agent TDS"
+                      value={formatFinanceMoney(booking.agentTdsAmount)}
+                    />
+                    <InfoLine
+                      label="Agent net commission"
+                      value={formatFinanceMoney(booking.agentNetCommission)}
+                    />
+                  </>
+                ) : null}
                 <InfoLine
                   label="OTA Commission"
                   value={formatFinanceMoney(booking.commission)}
@@ -1057,7 +1096,11 @@ export default function HotelBookingFinancialMisDetailPage() {
                 negative
               />
               <BreakupRow
-                label="Net Accommodation"
+                label={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "Net Accommodation after cancellation"
+                    : "Net Accommodation"
+                }
                 amount={booking.hotelPayoutBreakup.hotelBaseRate}
                 positive
               />
@@ -1206,11 +1249,13 @@ export default function HotelBookingFinancialMisDetailPage() {
                 amount={booking.otaRevenueBreakup.cancellationIncome}
                 positive
               />
-              <BreakupRow
-                label="Agency commission"
-                amount={booking.otaRevenueBreakup.agencyCommission}
-                negative
-              />
+              {isB2b ? (
+                <BreakupRow
+                  label="Agency commission"
+                  amount={booking.otaRevenueBreakup.agencyCommission}
+                  negative
+                />
+              ) : null}
               <BreakupRow
                 label="Commission reversal"
                 amount={booking.otaRevenueBreakup.commissionReversal}
@@ -1505,14 +1550,6 @@ export default function HotelBookingFinancialMisDetailPage() {
                 </Panel>
               ) : null}
             </div>
-            {isB2b && booking.agentPaymentBreakup ? (
-              <Panel title="Agent payment breakup">
-                <AgentPaymentBreakupLedger
-                  breakup={booking.agentPaymentBreakup}
-                  agentCustomerSellingPrice={agentCustomerSellingPrice}
-                />
-              </Panel>
-            ) : null}
           </div>
         ) : null}
       </div>

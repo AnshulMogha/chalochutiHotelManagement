@@ -341,13 +341,6 @@ export function AgentPaymentBreakupLedger({
 
   return (
     <>
-      {showAgentCustomerPrice ? (
-        <BreakupRow
-          label="Agent customer selling price"
-          amount={agentCustomerSellingPrice}
-          positive
-        />
-      ) : null}
       <BreakupRow
         label="Platform selling price"
         amount={breakup.sellingPrice}
@@ -356,7 +349,6 @@ export function AgentPaymentBreakupLedger({
       <BreakupRow
         label="Gross agent commission"
         amount={breakup.grossAgentCommission}
-        positive
       />
       <BreakupRow label="Agent TDS" amount={breakup.agentTds} />
       <BreakupRow
@@ -364,6 +356,12 @@ export function AgentPaymentBreakupLedger({
         amount={breakup.netAgentCommission}
         negative
       />
+      {showAgentCustomerPrice ? (
+        <BreakupRow
+          label="Agent customer selling price"
+          amount={agentCustomerSellingPrice}
+        />
+      ) : null}
       <BreakupRow
         label="Amount payable by agent"
         amount={breakup.amountPayableByAgent}
