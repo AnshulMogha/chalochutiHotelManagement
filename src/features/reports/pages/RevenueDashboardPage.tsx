@@ -114,7 +114,7 @@ const fieldClass =
 
 function revenueDateAxis(product: RevenueProduct): RevenueDateAxis {
   if (product === "HOTEL") return "CHECK_OUT";
-  if (product === "PACKAGE") return "TRAVEL_END_DATE";
+  if (product === "PACKAGE") return "REVENUE_DATE";
   return "REVENUE_DATE";
 }
 
@@ -235,7 +235,7 @@ export default function RevenueDashboardPage() {
           icon={BadgeIndianRupee}
           iconClassName="bg-emerald-600 text-white"
           title="Revenue Dashboard"
-          description="Financial performance from completed Hotel & Package services. Hotel = CHECK_OUT; Package = TRAVEL_END_DATE."
+          description="Financial performance from completed Hotel & Package services. Hotel = CHECK_OUT; Package = REVENUE_DATE."
           actions={
             <div className="flex items-center gap-2">
               <button
