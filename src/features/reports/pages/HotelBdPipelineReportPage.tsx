@@ -117,13 +117,17 @@ const DEFAULT_DRAFT: FilterDraft = {
   bdUserId: [],
 };
 
+function withPipelineOrigin(url: string): string {
+  return `${url}${url.includes("?") ? "&" : "?"}from=pipeline`;
+}
+
 function getHotelLink(row: HotelBdPipelineRow, isAdmin: boolean): string | null {
   if (!row.hotelId) return null;
   // Super admin: same read-only onboarding wizard as hotel-owner Active → View
-  if (isAdmin) {
-    return getHotelOnboardingReadOnlyLink(row.hotelId);
-  }
-  return getHotelOnboardingLink(row.hotelId, row.status);
+  const url = isAdmin
+    ? getHotelOnboardingReadOnlyLink(row.hotelId)
+    : getHotelOnboardingLink(row.hotelId, row.status);
+  return withPipelineOrigin(url);
 }
 
 function stepTone(status: HotelBdStepStatus): string {

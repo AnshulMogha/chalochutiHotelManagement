@@ -81,6 +81,7 @@ function Container() {
   const draftId = searchParams.get("draftId");
   const isForcedReadOnly = searchParams.get("readOnly") === "true";
   const fromMyProperty = searchParams.get("from") === "my-property";
+  const fromPipeline = searchParams.get("from") === "pipeline";
   const reviewTabFromQuery = searchParams.get("reviewTab");
   const reviewTabFromState =
     (location.state as { reviewTab?: string } | null)?.reviewTab ?? null;
@@ -181,12 +182,13 @@ function Container() {
       if (isForcedReadOnly) nextParams.set("readOnly", "true");
       if (reviewTab) nextParams.set("reviewTab", reviewTab);
       if (fromMyProperty) nextParams.set("from", "my-property");
+      if (fromPipeline) nextParams.set("from", "pipeline");
       navigate({
         pathname: path,
         search: nextParams.toString() ? `?${nextParams.toString()}` : "",
       });
     },
-    [draftId, fromMyProperty, isForcedReadOnly, navigate, reviewTab],
+    [draftId, fromMyProperty, fromPipeline, isForcedReadOnly, navigate, reviewTab],
   );
 
   useEffect(() => {
@@ -506,10 +508,7 @@ function Container() {
     onboardingHotelName.trim() ||
     undefined;
 
-  const backLabel =
-    fromMyProperty || (isForcedReadOnly && !isSuperAdmin)
-      ? "Back to Property"
-      : "Back";
+  const backLabel = fromMyProperty ? "Back to Property" : "Back";
 
   return (
     <>
@@ -524,11 +523,15 @@ function Container() {
           type="button"
           variant="outline"
           onClick={() => {
-            if (isForcedReadOnly && isSuperAdmin) {
+            if (fromMyProperty) {
+              navigate(ROUTES.PROPERTIES.MY_PROPERTY);
+              return;
+            }
+            if (fromPipeline || (isForcedReadOnly && !reviewTab)) {
               navigate(ROUTES.REPORTS.HOTEL_BD_PIPELINE);
               return;
             }
-            if (fromMyProperty || isForcedReadOnly) {
+            if (isForcedReadOnly) {
               navigate(ROUTES.PROPERTIES.MY_PROPERTY);
               return;
             }
