@@ -13,6 +13,8 @@ import {
   isQcReviewerRole,
   isZonalHotelReviewerRole,
 } from "@/constants/roles";
+import { Toast, useToast } from "@/components/ui/Toast";
+import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 
 const stepRoutes = [
   { id: "basic_info", title: "Basic Info" },
@@ -46,6 +48,8 @@ function Container() {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
+  const { toast, showToast, hideToast } = useToast();
   const { user } = useAuth();
 
   useEffect(() => {
@@ -90,6 +94,7 @@ function Container() {
 
   const handleApprove = async (remarks: string) => {
     if (!hotelId) return;
+    setApproveError(null);
     setIsProcessing(true);
     try {
       if (isZonalHotelReviewerRole(user?.roles)) {
@@ -102,10 +107,13 @@ function Container() {
       navigate("/admin/hotels/review", { replace: true });
     } catch (error) {
       console.error("Error approving hotel:", error);
-      alert("Failed to approve hotel. Please try again.");
+      const message =
+        extractErrorMessage(error) ||
+        "Failed to approve hotel. Please try again.";
+      setApproveError(message);
+      showToast(message, "error");
     } finally {
       setIsProcessing(false);
-      setShowApproveModal(false);
     }
   };
 
@@ -140,6 +148,12 @@ function Container() {
 
   return (
     <>
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
       <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -160,7 +174,10 @@ function Container() {
             </Button>
             <Button
               variant="primary"
-              onClick={() => setShowApproveModal(true)}
+              onClick={() => {
+                setApproveError(null);
+                setShowApproveModal(true);
+              }}
               disabled={isProcessing}
               className="gap-2"
             >
@@ -189,10 +206,14 @@ function Container() {
       {showApproveModal && (
         <ApproveRejectModal
           isOpen={showApproveModal}
-          onClose={() => setShowApproveModal(false)}
+          onClose={() => {
+            setShowApproveModal(false);
+            setApproveError(null);
+          }}
           onConfirm={handleApprove}
           type="approve"
           isLoading={isProcessing}
+          error={approveError}
         />
       )}
 

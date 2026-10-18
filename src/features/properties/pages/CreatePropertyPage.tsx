@@ -126,6 +126,7 @@ function Container() {
   const [errors, setErrors] = useState<Errors>({});
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showCityConfirmModal, setShowCityConfirmModal] = useState(false);
   const [isConfirmingLocation, setIsConfirmingLocation] = useState(false);
@@ -425,6 +426,7 @@ function Container() {
 
   const handleApprove = async (remarks: string) => {
     if (!draftId) return;
+    setApproveError(null);
     setIsProcessing(true);
     try {
       if (!isSuperAdmin) {
@@ -441,10 +443,14 @@ function Container() {
       navigate("/admin/hotels/review", { replace: true });
     } catch (error) {
       console.error("Error approving hotel:", error);
-      alert("Failed to approve hotel. Please try again.");
+      const message = extractApiErrorMessage(
+        error,
+        "Failed to approve hotel. Please try again.",
+      );
+      setApproveError(message);
+      showToast(message, "error");
     } finally {
       setIsProcessing(false);
-      setShowApproveModal(false);
     }
   };
 
@@ -546,7 +552,10 @@ function Container() {
           </Button>
           <Button
             variant="primary"
-            onClick={() => setShowApproveModal(true)}
+            onClick={() => {
+              setApproveError(null);
+              setShowApproveModal(true);
+            }}
             disabled={isProcessing}
             className="gap-2"
           >
@@ -579,10 +588,14 @@ function Container() {
       {showApproveModal && (
         <ApproveRejectModal
           isOpen={showApproveModal}
-          onClose={() => setShowApproveModal(false)}
+          onClose={() => {
+            setShowApproveModal(false);
+            setApproveError(null);
+          }}
           onConfirm={handleApprove}
           type="approve"
           isLoading={isProcessing}
+          error={approveError}
         />
       )}
 

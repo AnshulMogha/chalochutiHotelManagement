@@ -11,6 +11,7 @@ interface ApproveRejectModalProps {
   isLoading?: boolean;
   /** Optional title; defaults to "Approve Document" / "Reject Document" */
   title?: string;
+  error?: string | null;
 }
 
 export function ApproveRejectModal({
@@ -20,6 +21,7 @@ export function ApproveRejectModal({
   type,
   isLoading = false,
   title,
+  error,
 }: ApproveRejectModalProps) {
   const defaultTitle = type === "approve" ? "Approve Document" : "Reject Document";
   const displayTitle = title ?? defaultTitle;
@@ -34,7 +36,6 @@ export function ApproveRejectModal({
       return;
     }
     onConfirm(remarks);
-    setRemarks("");
   };
 
   const handleClose = () => {
@@ -102,6 +103,12 @@ export function ApproveRejectModal({
               disabled={isLoading}
             />
           </div>
+
+          {error ? (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+              {error}
+            </div>
+          ) : null}
 
           <div className="flex items-center gap-3 pt-4">
             <Button
