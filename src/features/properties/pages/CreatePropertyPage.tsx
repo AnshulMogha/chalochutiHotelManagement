@@ -527,12 +527,12 @@ function Container() {
               navigate(ROUTES.PROPERTIES.MY_PROPERTY);
               return;
             }
-            if (fromPipeline || (isForcedReadOnly && !reviewTab)) {
-              navigate(ROUTES.REPORTS.HOTEL_BD_PIPELINE);
+            if (reviewTab) {
+              navigate(ROUTES.ADMIN.HOTEL_REVIEW);
               return;
             }
-            if (isForcedReadOnly) {
-              navigate(ROUTES.PROPERTIES.MY_PROPERTY);
+            if (fromPipeline || isForcedReadOnly) {
+              navigate(ROUTES.REPORTS.HOTEL_BD_PIPELINE);
               return;
             }
             navigate("/");
