@@ -441,6 +441,7 @@ export interface BookingDetail {
   originalReservationValue?: AdminMoneyLike;
   cancellationCharge?: AdminMoneyLike;
   amountPayableToProperty?: AdminMoneyLike;
+  hotelCancellationBase?: number | null;
   refundAmount?: number | null;
   refundStatus?: string | null;
   refundDateTime?: string | null;

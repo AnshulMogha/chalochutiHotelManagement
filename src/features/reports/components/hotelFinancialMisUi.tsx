@@ -102,6 +102,54 @@ export function getHotelFinancialMisAgentCustomerSellingPrice(
   return null;
 }
 
+export function isHotelFinancialMisCancelled(
+  booking: Pick<HotelFinancialMisBookingRow, "bookingStatus">,
+): boolean {
+  return String(booking.bookingStatus || "")
+    .trim()
+    .toUpperCase()
+    .includes("CANCEL");
+}
+
+/** Cancelled bookings: OTA cards use cancellation settlement (final after cancel). */
+export function getHotelFinancialMisDisplayOta(
+  booking: Pick<
+    HotelFinancialMisBookingRow,
+    | "bookingStatus"
+    | "otaRevenue"
+    | "otaRevenueGst"
+    | "otaRevenueInclusiveGst"
+    | "cancellationSettlement"
+    | "hotelPayoutBreakup"
+  >,
+): {
+  otaRevenue: HotelFinancialMisMoney;
+  otaRevenueGst: HotelFinancialMisMoney;
+  otaRevenueInclusiveGst: HotelFinancialMisMoney;
+} {
+  if (isHotelFinancialMisCancelled(booking) && booking.cancellationSettlement) {
+    const settlement = booking.cancellationSettlement;
+    return {
+      otaRevenue: settlement.otaCommission,
+      otaRevenueGst: settlement.commissionGst,
+      otaRevenueInclusiveGst: settlement.commissionInclusiveGst,
+    };
+  }
+  if (isHotelFinancialMisCancelled(booking)) {
+    return {
+      otaRevenue: booking.hotelPayoutBreakup.otaCommission,
+      otaRevenueGst: booking.hotelPayoutBreakup.otaCommissionGst,
+      otaRevenueInclusiveGst:
+        booking.hotelPayoutBreakup.otaCommissionInclusiveGst,
+    };
+  }
+  return {
+    otaRevenue: booking.otaRevenue,
+    otaRevenueGst: booking.otaRevenueGst,
+    otaRevenueInclusiveGst: booking.otaRevenueInclusiveGst,
+  };
+}
+
 export function getHotelFinancialMisDisplaySellingPrice(
   booking: Pick<
     HotelFinancialMisBookingRow,
@@ -272,6 +320,8 @@ export function BreakupRow({
   positive,
   bold,
   highlight,
+  tag,
+  formula,
 }: {
   label: string;
   amount: HotelFinancialMisMoney;
@@ -279,8 +329,11 @@ export function BreakupRow({
   positive?: boolean;
   bold?: boolean;
   highlight?: boolean;
+  tag?: string;
+  formula?: string;
 }) {
   const signed = Boolean(negative || positive);
+  const emphasized = Boolean(highlight || formula);
   const displayAmount = {
     ...amount,
     amount: signed ? Math.abs(amount.amount) : amount.amount,
@@ -290,36 +343,53 @@ export function BreakupRow({
     <div
       className={cn(
         "flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2.5 text-sm last:border-b-0",
-        highlight && "rounded-lg border-b-0 bg-blue-50",
-        bold && "font-semibold",
+        emphasized && "rounded-lg border-b-0 bg-blue-50",
+        (bold || emphasized) && "font-semibold",
       )}
     >
       <span
-        className={cn("min-w-0", bold ? "text-slate-900" : "text-slate-600")}
+        className={cn(
+          "min-w-0",
+          bold || emphasized ? "text-slate-900" : "text-slate-600",
+        )}
       >
-        <span className="block">{label}</span>
+        <span className="flex items-center gap-1.5">
+          {tag ? (
+            <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded bg-slate-100 px-1 text-[10px] font-bold text-slate-600">
+              {tag}
+            </span>
+          ) : null}
+          <span>{label}</span>
+        </span>
         {rateHint ? (
           <span className="mt-0.5 block text-[11px] font-normal text-slate-400">
             {rateHint}
           </span>
         ) : null}
       </span>
-      <span
-        className={cn(
-          "shrink-0 tabular-nums",
-          negative
-            ? "text-rose-600"
+      <span className="shrink-0 text-right">
+        <span
+          className={cn(
+            "block tabular-nums",
+            negative
+              ? "text-rose-600"
+              : positive
+                ? "text-emerald-600"
+                : "text-slate-900",
+            (bold || emphasized) && "text-blue-700",
+          )}
+        >
+          {negative
+            ? `− ${formatFinanceMoney(displayAmount)}`
             : positive
-              ? "text-emerald-600"
-              : "text-slate-900",
-          bold && "text-blue-700",
-        )}
-      >
-        {negative
-          ? `− ${formatFinanceMoney(displayAmount)}`
-          : positive
-            ? `+ ${formatFinanceMoney(displayAmount)}`
-            : formatFinanceMoney(displayAmount)}
+              ? `+ ${formatFinanceMoney(displayAmount)}`
+              : formatFinanceMoney(displayAmount)}
+        </span>
+        {formula ? (
+          <span className="mt-0.5 block text-[11px] font-medium text-slate-400">
+            {formula}
+          </span>
+        ) : null}
       </span>
     </div>
   );
@@ -342,27 +412,34 @@ export function AgentPaymentBreakupLedger({
   return (
     <>
       <BreakupRow
+        tag="A"
         label="Platform selling price"
         amount={breakup.sellingPrice}
         positive
       />
       <BreakupRow
+        tag="B"
         label="Gross agent commission"
         amount={breakup.grossAgentCommission}
       />
-      <BreakupRow label="Agent TDS" amount={breakup.agentTds} />
+      <BreakupRow tag="C" label="Agent TDS" amount={breakup.agentTds} />
       <BreakupRow
+        tag="D"
+        formula="B − C"
         label="Net agent commission"
         amount={breakup.netAgentCommission}
         negative
       />
       {showAgentCustomerPrice ? (
         <BreakupRow
+          tag="E"
           label="Agent customer selling price"
           amount={agentCustomerSellingPrice}
         />
       ) : null}
       <BreakupRow
+        tag={showAgentCustomerPrice ? "F" : "E"}
+        formula="A − D"
         label="Amount payable by agent"
         amount={breakup.amountPayableByAgent}
         bold
@@ -381,6 +458,7 @@ export function FinanceKpiCard({
   actionLabel = "View details",
   compact = true,
   sub,
+  hint,
 }: {
   label: string;
   value: string;
@@ -394,6 +472,7 @@ export function FinanceKpiCard({
   actionLabel?: string;
   compact?: boolean;
   sub?: string;
+  hint?: string;
 }) {
   const content = (
     <>
@@ -452,21 +531,33 @@ export function FinanceKpiCard({
   );
 
   const cardClass = cn(
-    "border text-left shadow-sm transition",
+    "relative z-0 border text-left shadow-sm transition",
     compact ? "rounded-lg p-2" : "rounded-2xl p-3.5",
-    onClick && "group hover:-translate-y-0.5 hover:shadow-md",
+    (onClick || hint) && "group hover:z-50 hover:-translate-y-0.5 hover:shadow-md",
     tone.card,
   );
+
+  const tooltip = hint ? (
+    <span className="kpi-hint pointer-events-none absolute top-1/2 left-full z-50 ml-2 hidden w-max max-w-72 -translate-y-1/2 rounded-md bg-slate-900 px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug whitespace-pre-line text-white shadow-lg group-hover:block">
+      {hint}
+    </span>
+  ) : null;
 
   if (onClick) {
     return (
       <button type="button" onClick={onClick} className={cardClass}>
         {content}
+        {tooltip}
       </button>
     );
   }
 
-  return <div className={cardClass}>{content}</div>;
+  return (
+    <div className={cardClass}>
+      {content}
+      {tooltip}
+    </div>
+  );
 }
 
 export const FINANCE_KPI_TONES = {

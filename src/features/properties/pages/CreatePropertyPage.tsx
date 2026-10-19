@@ -298,7 +298,7 @@ function Container() {
       if (stepErrors) {
         setErrors((prev) => ({ ...prev, documentsInfo: stepErrors }));
         showToast(
-          "Please upload GST Certificate, Cancelled Cheque, and Hotel Registration before continuing.",
+          "Please upload GST Certificate, Cancelled Cheque, and Agreement before continuing.",
           "error",
         );
         return false;

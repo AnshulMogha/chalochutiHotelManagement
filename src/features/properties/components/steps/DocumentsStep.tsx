@@ -35,12 +35,11 @@ const DOCUMENT_TYPES: Array<{ value: OnboardingDocumentType; label: string }> = 
     value: "CANCELLED_CHEQUE",
     label: `${REQUIRED_ONBOARDING_DOCUMENT_LABELS.CANCELLED_CHEQUE} *`,
   },
-  {
-    value: "HOTEL_REGISTRATION",
-    label: `${REQUIRED_ONBOARDING_DOCUMENT_LABELS.HOTEL_REGISTRATION} *`,
-  },
   { value: "BANK_STATEMENT", label: "Bank Statement" },
-  { value: "AGREEMENT", label: "Agreement" },
+  {
+    value: "AGREEMENT",
+    label: `${REQUIRED_ONBOARDING_DOCUMENT_LABELS.AGREEMENT} *`,
+  },
   { value: "OTHER", label: "Other" },
 ];
 
@@ -278,7 +277,7 @@ export function DocumentsStep() {
             <div>
               <p className="font-medium">Required documents are missing</p>
               <p className="mt-1">
-                Upload GST Certificate, Cancelled Cheque, and Hotel Registration before moving to the
+                Upload GST Certificate, Cancelled Cheque, and Agreement before moving to the
                 next step.
               </p>
             </div>
@@ -292,7 +291,7 @@ export function DocumentsStep() {
             Required documents
           </h3>
           <p className="mt-1 text-xs text-gray-500">
-            GST Certificate, Cancelled Cheque, and Hotel Registration must be uploaded to continue.
+            GST Certificate, Cancelled Cheque, and Agreement must be uploaded to continue.
           </p>
           <ul className="mt-3 space-y-2">
             {REQUIRED_ONBOARDING_DOCUMENT_TYPES.map((docType) => {

@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate, useSearchParams, useLocation } from "react-router";
+import {
+  useParams,
+  useNavigate,
+  useSearchParams,
+  useLocation,
+} from "react-router";
 import {
   bookingService,
   moneyAmount,
@@ -28,12 +33,14 @@ import {
   BedDouble,
   Building2,
   CalendarDays,
+  CircleDollarSign,
   CreditCard,
   FileText,
   HandCoins,
   Landmark,
   Loader2,
   Mail,
+  Percent,
   Phone,
   Receipt,
   Scale,
@@ -260,38 +267,76 @@ function BookedByOwnerSummaryValue({
   );
 }
 
+function createCalcLetters() {
+  let i = 0;
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  return () => letters[i++] ?? `Z${i}`;
+}
+
 function CalcLine({
+  tag,
   index,
   label,
   amount,
   currency,
   negative = false,
   positive = false,
+  formula,
 }: {
+  tag?: string;
   index?: string;
   label: string;
   amount: number | undefined | null;
   currency: string;
   negative?: boolean;
   positive?: boolean;
+  formula?: string;
 }) {
+  const emphasized = Boolean(formula);
   return (
-    <div className="flex items-start justify-between gap-4 px-3 py-1.5 text-xs">
-      <span className="min-w-0 text-gray-600">
-        {index ? <span className="mr-1 text-gray-400">{index}.</span> : null}
-        {label}
-      </span>
+    <div
+      className={cn(
+        "flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2.5 text-sm last:border-b-0",
+        emphasized && "rounded-lg border-b-0 bg-blue-50 font-semibold",
+      )}
+    >
       <span
-        className={`shrink-0 font-medium tabular-nums ${
-          negative
-            ? "text-rose-600"
-            : positive
-              ? "text-emerald-600"
-              : "text-gray-900"
-        }`}
+        className={cn(
+          "min-w-0",
+          emphasized ? "text-slate-900" : "text-slate-600",
+        )}
       >
-        {negative ? "− " : positive ? "+ " : ""}
-        {formatCurrency(amount, currency)}
+        <span className="flex items-center gap-1.5">
+          {tag ? (
+            <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded bg-slate-100 px-1 text-[10px] font-bold text-slate-600">
+              {tag}
+            </span>
+          ) : index ? (
+            <span className="mr-1 text-gray-400">{index}.</span>
+          ) : null}
+          <span>{label}</span>
+        </span>
+      </span>
+      <span className="shrink-0 text-right">
+        <span
+          className={cn(
+            "block tabular-nums",
+            negative
+              ? "text-rose-600"
+              : positive
+                ? "text-emerald-600"
+                : "text-slate-900",
+            emphasized && "text-blue-700",
+          )}
+        >
+          {negative ? "− " : positive ? "+ " : ""}
+          {formatCurrency(amount, currency)}
+        </span>
+        {formula ? (
+          <span className="mt-0.5 block text-[11px] font-medium text-slate-400">
+            {formula}
+          </span>
+        ) : null}
       </span>
     </div>
   );
@@ -302,19 +347,31 @@ function CalcSubtotal({
   label,
   amount,
   currency,
+  formula,
 }: {
   letter: string;
   label: string;
   amount: number | undefined | null;
   currency: string;
+  formula?: string;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-t border-slate-100 bg-slate-50/80 px-3 py-2 text-xs font-semibold text-slate-900">
-      <span>
-        ({letter}) {label}
+    <div className="flex items-center justify-between gap-3 rounded-lg bg-blue-50 px-3 py-2.5 text-sm font-semibold">
+      <span className="flex min-w-0 items-center gap-1.5 text-slate-900">
+        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded bg-slate-100 px-1 text-[10px] font-bold text-slate-600">
+          {letter}
+        </span>
+        <span>{label}</span>
       </span>
-      <span className="shrink-0 tabular-nums">
-        {formatCurrency(amount, currency)}
+      <span className="shrink-0 text-right">
+        <span className="block tabular-nums text-blue-700">
+          {formatCurrency(amount, currency)}
+        </span>
+        {formula ? (
+          <span className="mt-0.5 block text-[11px] font-medium text-slate-400">
+            {formula}
+          </span>
+        ) : null}
       </span>
     </div>
   );
@@ -552,6 +609,11 @@ function HotelBookingDetailPage({
     isCancelledBooking ? booking.refundAmount : refundIfCancelledNow,
     originalReservationValue,
   );
+  const displayNetAcc = isCancelledBooking
+    ? (booking.hotelCancellationBase ??
+      rateBreakup?.netAccommodationAfterPromotion ??
+      rateBreakup?.roomCharges)
+    : (rateBreakup?.netAccommodationAfterPromotion ?? rateBreakup?.roomCharges);
   const isNonRefundable =
     String(booking.currentPolicyStage || "")
       .toUpperCase()
@@ -579,13 +641,13 @@ function HotelBookingDetailPage({
                     onClick={backToBookings}
                     className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                   >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  {backLabel}
-                </button>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">
-                    Booking view
-                  </p>
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    {backLabel}
+                  </button>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700">
+                      Booking view
+                    </p>
                     <h1 className="truncate text-base font-bold text-slate-900 sm:text-lg">
                       {booking.bookingId}
                     </h1>
@@ -734,9 +796,11 @@ function HotelBookingDetailPage({
             </div>
           </section>
 
-          <div className="mb-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="mb-3 grid grid-cols-2 gap-1.5 overflow-visible sm:grid-cols-3 lg:grid-cols-6 [&>*:nth-child(2n)_.kpi-hint]:left-auto [&>*:nth-child(2n)_.kpi-hint]:right-full [&>*:nth-child(2n)_.kpi-hint]:mr-2 [&>*:nth-child(2n)_.kpi-hint]:ml-0 sm:[&>*:nth-child(2n)_.kpi-hint]:left-full sm:[&>*:nth-child(2n)_.kpi-hint]:right-auto sm:[&>*:nth-child(2n)_.kpi-hint]:ml-2 sm:[&>*:nth-child(2n)_.kpi-hint]:mr-0 sm:[&>*:nth-child(3n)_.kpi-hint]:left-auto sm:[&>*:nth-child(3n)_.kpi-hint]:right-full sm:[&>*:nth-child(3n)_.kpi-hint]:mr-2 sm:[&>*:nth-child(3n)_.kpi-hint]:ml-0 lg:[&>*:nth-child(3n)_.kpi-hint]:left-full lg:[&>*:nth-child(3n)_.kpi-hint]:right-auto lg:[&>*:nth-child(3n)_.kpi-hint]:ml-2 lg:[&>*:nth-child(3n)_.kpi-hint]:mr-0 lg:[&>*:nth-child(6n)_.kpi-hint]:left-auto lg:[&>*:nth-child(6n)_.kpi-hint]:right-full lg:[&>*:nth-child(6n)_.kpi-hint]:mr-2 lg:[&>*:nth-child(6n)_.kpi-hint]:ml-0">
             <FinanceKpiCard
-              label={isCancelledBooking ? "Original value" : "Hotel Gross Charges"}
+              label={
+                isCancelledBooking ? "Original value" : "Hotel Gross Charges"
+              }
               value={formatCurrency(
                 isCancelledBooking
                   ? originalReservationValue
@@ -747,6 +811,18 @@ function HotelBookingDetailPage({
               icon={HandCoins}
               tone={FINANCE_KPI_TONES.collected}
               onClick={() => setTab("payment")}
+              actionLabel=""
+            />
+            <FinanceKpiCard
+              label={
+                isCancelledBooking
+                  ? "Net Accommodation after cancellation"
+                  : "Net Accommodation"
+              }
+              value={formatCurrency(displayNetAcc, currency)}
+              icon={Building2}
+              tone={FINANCE_KPI_TONES.hotelPayout}
+              onClick={() => setTab("roomPricing")}
               actionLabel=""
             />
             {isCancelledBooking ? (
@@ -769,6 +845,11 @@ function HotelBookingDetailPage({
             <FinanceKpiCard
               label="Payable to property"
               value={formatCurrency(payableToProperty, currency)}
+              hint={
+                payableToProperty != null
+                  ? "Hotel Base + Hotel GST − OTA Commission − GST on Commission − TCS − TDS"
+                  : undefined
+              }
               sub={
                 isCancelledBooking
                   ? "After cancellation"
@@ -781,27 +862,88 @@ function HotelBookingDetailPage({
               onClick={() => setTab("roomPricing")}
               actionLabel=""
             />
+            {showTaxDeductionBreakup ? (
+              <>
+                <FinanceKpiCard
+                  label="TDS"
+                  value={formatCurrency(rateBreakup?.tdsAmount, currency)}
+                  hint={
+                    (displayNetAcc ?? 0) > 0
+                      ? `0.1% of ${isCancelledBooking ? "Net Accommodation after cancellation" : "Net Accommodation"}`
+                      : undefined
+                  }
+                  sub={
+                    tdsPercent != null ? formatPercent(tdsPercent) : undefined
+                  }
+                  icon={Percent}
+                  tone={FINANCE_KPI_TONES.margin}
+                  onClick={() => setTab("roomPricing")}
+                  actionLabel=""
+                />
+                <FinanceKpiCard
+                  label="TCS"
+                  value={formatCurrency(rateBreakup?.tcsAmount, currency)}
+                  hint={
+                    (displayNetAcc ?? 0) > 0
+                      ? `0.5% of ${isCancelledBooking ? "Net Accommodation after cancellation" : "Net Accommodation"}`
+                      : undefined
+                  }
+                  sub={
+                    tcsPercent != null ? formatPercent(tcsPercent) : undefined
+                  }
+                  icon={Percent}
+                  tone={FINANCE_KPI_TONES.outstanding}
+                  onClick={() => setTab("roomPricing")}
+                  actionLabel=""
+                />
+              </>
+            ) : null}
             {showCommissionBreakup ? (
-              <FinanceKpiCard
-                label="Commission"
-                value={formatCurrency(rateBreakup?.commissionAmount, currency)}
-                sub={
-                  [
+              <>
+                <FinanceKpiCard
+                  label="Commission"
+                  value={formatCurrency(
+                    rateBreakup?.commissionAmount,
+                    currency,
+                  )}
+                  sub={
                     commissionPercent != null
                       ? formatPercent(commissionPercent)
-                      : null,
-                    rateBreakup?.commissionTotal != null
-                      ? `Incl. GST ${formatCurrency(rateBreakup.commissionTotal, currency)}`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || undefined
-                }
-                icon={Scale}
-                tone={FINANCE_KPI_TONES.margin}
-                onClick={() => setTab("roomPricing")}
-                actionLabel=""
-              />
+                      : undefined
+                  }
+                  icon={Scale}
+                  tone={FINANCE_KPI_TONES.margin}
+                  onClick={() => setTab("roomPricing")}
+                  actionLabel=""
+                />
+                <FinanceKpiCard
+                  label="OTA GST"
+                  value={formatCurrency(rateBreakup?.commissionGst, currency)}
+                  sub={
+                    commissionGstPercent != null
+                      ? formatPercent(commissionGstPercent)
+                      : undefined
+                  }
+                  icon={Receipt}
+                  tone={FINANCE_KPI_TONES.margin}
+                  onClick={() => setTab("roomPricing")}
+                  actionLabel=""
+                />
+                <FinanceKpiCard
+                  label="OTA Incl. GST"
+                  value={formatCurrency(rateBreakup?.commissionTotal, currency)}
+                  hint={
+                    rateBreakup?.commissionAmount != null &&
+                    rateBreakup?.commissionGst != null
+                      ? "OTA Revenue + OTA GST"
+                      : undefined
+                  }
+                  icon={CircleDollarSign}
+                  tone={FINANCE_KPI_TONES.ota}
+                  onClick={() => setTab("roomPricing")}
+                  actionLabel=""
+                />
+              </>
             ) : null}
             {isCancelledBooking &&
             (booking.refundAmount != null || booking.refundStatus) ? (
@@ -1062,159 +1204,217 @@ function HotelBookingDetailPage({
                     </span>
                   ) : null}
                 </div>
-                <CalcSectionHeader title="Property charges" />
-                <CalcLine
-                  index="1"
-                  label={
-                    promotionDiscount > 0 || appliedPromotions.length
-                      ? "Room charges (before promotion)"
-                      : "Room charges"
-                  }
-                  amount={
-                    rateBreakup?.roomChargesBeforePromotion ??
-                    rateBreakup?.roomCharges
-                  }
-                  currency={currency}
-                  positive
-                />
-                {appliedPromotions.length ? (
-                  appliedPromotions.map((promo, idx) => (
-                    <CalcLine
-                      key={`${promo.promotionName}-${idx}`}
-                      label={
-                        promo.displayLine ||
-                        `${promo.promotionName}${
-                          promo.percentLabel ? ` (${promo.percentLabel})` : ""
-                        }`
-                      }
-                      amount={promo.discountAmount}
-                      currency={currency}
-                      negative
-                    />
-                  ))
-                ) : promotionDiscount > 0 ? (
-                  <CalcLine
-                    label="Promotion discount"
-                    amount={promotionDiscount}
-                    currency={currency}
-                    negative
-                  />
-                ) : null}
-                {promotionDiscount > 0 || appliedPromotions.length ? (
-                  <CalcLine
-                    label="Net Accommodation"
-                    amount={
-                      rateBreakup?.netAccommodationAfterPromotion ??
-                      rateBreakup?.roomCharges
-                    }
-                    currency={currency}
-                    positive
-                  />
-                ) : null}
-                {extraCharges > 0 ? (
-                  <CalcLine
-                    index="2"
-                    label="Extra adult / child charges"
-                    amount={extraCharges}
-                    currency={currency}
-                    positive
-                  />
-                ) : null}
-                {showPropertyTaxLine ? (
-                  <CalcLine
-                    index={extraCharges > 0 ? "3" : "2"}
-                    label={withRate("Property taxes", gstPercent)}
-                    amount={rateBreakup?.propertyTaxes}
-                    currency={currency}
-                    positive
-                  />
-                ) : null}
-                <CalcSubtotal
-                  letter="A"
-                  label="Total property charges"
-                  amount={rateBreakup?.hotelGrossCharges}
-                  currency={currency}
-                />
-                {serviceFeeAmount > 0 ? (
-                  <CalcLine
-                    label={
-                      rateBreakup?.serviceChargePercent
-                        ? `Service fee @ ${rateBreakup.serviceChargePercent}%`
-                        : "Service fee"
-                    }
-                    amount={serviceFeeAmount}
-                    currency={currency}
-                    positive
-                  />
-                ) : null}
+                {(() => {
+                  const next = createCalcLetters();
+                  const showPromo =
+                    promotionDiscount > 0 || appliedPromotions.length > 0;
+                  const showExtra = extraCharges > 0;
+                  const roomTag = next();
+                  const promoTags = showPromo
+                    ? appliedPromotions.length
+                      ? appliedPromotions.map(() => next())
+                      : [next()]
+                    : [];
+                  const netAccTag = showPromo ? next() : null;
+                  const extraTag = showExtra ? next() : null;
+                  const taxTag = showPropertyTaxLine ? next() : null;
+                  const totalTag = next();
+                  const feeTag = serviceFeeAmount > 0 ? next() : null;
+                  const commTag = showCommissionBreakup ? next() : null;
+                  const commGstTag = showCommissionBreakup ? next() : null;
+                  const commInclTag = showCommissionBreakup ? next() : null;
+                  const tcsTag = showTaxDeductionBreakup ? next() : null;
+                  const tdsTag = showTaxDeductionBreakup ? next() : null;
+                  const taxDedTag = showTaxDeductionBreakup ? next() : null;
+                  const payableTag = next();
+                  const netAccFormula = showPromo
+                    ? `${roomTag} − ${promoTags.join(" − ")}`
+                    : undefined;
+                  const totalFormula = [netAccTag ?? roomTag, extraTag, taxTag]
+                    .filter(Boolean)
+                    .join(" + ");
+                  const payableFormula = [totalTag, commInclTag, taxDedTag]
+                    .filter(Boolean)
+                    .join(" − ");
+                  return (
+                    <>
+                      <CalcSectionHeader title="Property charges" />
+                      <CalcLine
+                        tag={roomTag}
+                        label={
+                          showPromo
+                            ? "Room charges (before promotion)"
+                            : "Room charges"
+                        }
+                        amount={
+                          rateBreakup?.roomChargesBeforePromotion ??
+                          rateBreakup?.roomCharges
+                        }
+                        currency={currency}
+                        positive
+                      />
+                      {appliedPromotions.length ? (
+                        appliedPromotions.map((promo, idx) => (
+                          <CalcLine
+                            key={`${promo.promotionName}-${idx}`}
+                            tag={promoTags[idx]}
+                            label={
+                              promo.displayLine ||
+                              `${promo.promotionName}${
+                                promo.percentLabel
+                                  ? ` (${promo.percentLabel})`
+                                  : ""
+                              }`
+                            }
+                            amount={promo.discountAmount}
+                            currency={currency}
+                            negative
+                          />
+                        ))
+                      ) : promotionDiscount > 0 ? (
+                        <CalcLine
+                          tag={promoTags[0]}
+                          label="Promotion discount"
+                          amount={promotionDiscount}
+                          currency={currency}
+                          negative
+                        />
+                      ) : null}
+                      {netAccTag ? (
+                        <CalcLine
+                          tag={netAccTag}
+                          formula={netAccFormula}
+                          label="Net Accommodation"
+                          amount={
+                            rateBreakup?.netAccommodationAfterPromotion ??
+                            rateBreakup?.roomCharges
+                          }
+                          currency={currency}
+                          positive
+                        />
+                      ) : null}
+                      {extraTag ? (
+                        <CalcLine
+                          tag={extraTag}
+                          label="Extra adult / child charges"
+                          amount={extraCharges}
+                          currency={currency}
+                          positive
+                        />
+                      ) : null}
+                      {taxTag ? (
+                        <CalcLine
+                          tag={taxTag}
+                          label={withRate("Property taxes", gstPercent)}
+                          amount={rateBreakup?.propertyTaxes}
+                          currency={currency}
+                          positive
+                        />
+                      ) : null}
+                      <CalcSubtotal
+                        letter={totalTag}
+                        formula={totalFormula}
+                        label="Total property charges"
+                        amount={rateBreakup?.hotelGrossCharges}
+                        currency={currency}
+                      />
+                      {feeTag ? (
+                        <CalcLine
+                          tag={feeTag}
+                          label={
+                            rateBreakup?.serviceChargePercent
+                              ? `Service fee @ ${rateBreakup.serviceChargePercent}%`
+                              : "Service fee"
+                          }
+                          amount={serviceFeeAmount}
+                          currency={currency}
+                          positive
+                        />
+                      ) : null}
 
-                {showCommissionBreakup ? (
-                  <>
-                    <CalcSectionHeader title="Commission" />
-                    <CalcLine
-                      index="3"
-                      label={withRate("Commission", commissionPercent)}
-                      amount={rateBreakup?.commissionAmount}
-                      currency={currency}
-                      negative
-                    />
-                    <CalcLine
-                      index="4"
-                      label={withRate(
-                        "GST on commission",
-                        commissionGstPercent,
-                      )}
-                      amount={rateBreakup?.commissionGst}
-                      currency={currency}
-                      negative
-                    />
-                    <CalcSubtotal
-                      letter="B"
-                      label="Commission inclusive of GST (3 + 4)"
-                      amount={rateBreakup?.commissionTotal}
-                      currency={currency}
-                    />
-                  </>
-                ) : null}
+                      {showCommissionBreakup ? (
+                        <>
+                          <CalcSectionHeader title="Commission" />
+                          <CalcLine
+                            tag={commTag ?? undefined}
+                            label={withRate("Commission", commissionPercent)}
+                            amount={rateBreakup?.commissionAmount}
+                            currency={currency}
+                            negative
+                          />
+                          <CalcLine
+                            tag={commGstTag ?? undefined}
+                            label={withRate(
+                              "GST on commission",
+                              commissionGstPercent,
+                            )}
+                            amount={rateBreakup?.commissionGst}
+                            currency={currency}
+                            negative
+                          />
+                          <CalcSubtotal
+                            letter={commInclTag ?? "B"}
+                            formula={
+                              commTag && commGstTag
+                                ? `${commTag} + ${commGstTag}`
+                                : undefined
+                            }
+                            label="Commission inclusive of GST"
+                            amount={rateBreakup?.commissionTotal}
+                            currency={currency}
+                          />
+                        </>
+                      ) : null}
 
-                {showTaxDeductionBreakup ? (
-                  <>
-                    <CalcSectionHeader title="Tax deduction" />
-                    <CalcLine
-                      index="5"
-                      label={withRate("TCS", tcsPercent)}
-                      amount={rateBreakup?.tcsAmount}
-                      currency={currency}
-                      negative
-                    />
-                    <CalcLine
-                      index="6"
-                      label={withRate("TDS", tdsPercent)}
-                      amount={rateBreakup?.tdsAmount}
-                      currency={currency}
-                      negative
-                    />
-                    <CalcSubtotal
-                      letter="C"
-                      label="Tax deduction (5 + 6)"
-                      amount={rateBreakup?.taxDeductions}
-                      currency={currency}
-                    />
-                  </>
-                ) : null}
+                      {showTaxDeductionBreakup ? (
+                        <>
+                          <CalcSectionHeader title="Tax deduction" />
+                          <CalcLine
+                            tag={tcsTag ?? undefined}
+                            formula={`0.5% of ${netAccTag ?? roomTag}`}
+                            label={withRate("TCS", tcsPercent)}
+                            amount={rateBreakup?.tcsAmount}
+                            currency={currency}
+                            negative
+                          />
+                          <CalcLine
+                            tag={tdsTag ?? undefined}
+                            formula={`0.1% of ${netAccTag ?? roomTag}`}
+                            label={withRate("TDS", tdsPercent)}
+                            amount={rateBreakup?.tdsAmount}
+                            currency={currency}
+                            negative
+                          />
+                          <CalcSubtotal
+                            letter={taxDedTag ?? "C"}
+                            formula={
+                              tcsTag && tdsTag
+                                ? `${tcsTag} + ${tdsTag}`
+                                : undefined
+                            }
+                            label="Tax deduction"
+                            amount={rateBreakup?.taxDeductions}
+                            currency={currency}
+                          />
+                        </>
+                      ) : null}
 
-                <div className="flex items-center justify-between gap-4 border-t border-sky-100 bg-sky-50 px-3 py-2.5 text-xs font-semibold text-sky-900">
-                  <span>
-                    {isPackageBooking &&
-                    !showCommissionBreakup &&
-                    !showTaxDeductionBreakup
-                      ? "Payable to property"
-                      : "Payable to property (A − B − C)"}
-                  </span>
-                  <span className="text-sm tabular-nums">
-                    {formatCurrency(payableToProperty, currency)}
-                  </span>
-                </div>
+                      <CalcSubtotal
+                        letter={payableTag}
+                        formula={
+                          isPackageBooking &&
+                          !showCommissionBreakup &&
+                          !showTaxDeductionBreakup
+                            ? undefined
+                            : payableFormula
+                        }
+                        label="Payable to property"
+                        amount={payableToProperty}
+                        currency={currency}
+                      />
+                    </>
+                  );
+                })()}
               </div>
             </div>
           ) : null}

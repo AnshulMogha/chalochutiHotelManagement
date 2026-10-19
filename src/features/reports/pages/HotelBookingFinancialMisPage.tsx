@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   format,
@@ -23,6 +30,7 @@ import {
   cacheFinancialMisRow,
   clearCachedFinancialMisFilters,
   getHotelFinancialMisAgentCustomerSellingPrice,
+  getHotelFinancialMisDisplayOta,
   paymentStatusTone,
   readCachedFinancialMisFilters,
   refundStatusTone,
@@ -50,6 +58,7 @@ import {
   type HotelFinancialMisRefundStatus,
   type HotelFinancialMisReportResponse,
   type HotelFinancialMisSort,
+  type HotelFinancialMisSummary,
 } from "../services/hotelBookingFinancialMisService";
 import {
   AlertCircle,
@@ -84,6 +93,22 @@ type UiDatePreset =
   | "THIS_MONTH"
   | "LAST_MONTH"
   | "CUSTOM";
+
+function hotelMisSummaryKpiHints(
+  summary: HotelFinancialMisSummary,
+): Record<string, string> {
+  return {
+    customerRevenue: "Sum of Platform selling price",
+    collected: "Customer Revenue − Agency Net Commission",
+    hotelPayout:
+      "Hotel Base + Hotel GST − OTA Commission − GST on Commission − TCS − TDS",
+    otaIncl: "OTA Revenue + OTA GST",
+    tds: "0.1% of Net Accommodation",
+    tcs: "0.5% of Net Accommodation",
+    agencyTds: "2% of Agency Commission",
+    agencyNet: "Agency Commission − Agency TDS",
+  };
+}
 
 type DetailTab =
   | "overview"
@@ -144,8 +169,7 @@ function restoreMisListState(): { filters: FilterDraft; page: number } {
   }
   return {
     filters: { ...DEFAULT_DRAFT, ...cached.filters },
-    page:
-      typeof cached.page === "number" && cached.page >= 0 ? cached.page : 0,
+    page: typeof cached.page === "number" && cached.page >= 0 ? cached.page : 0,
   };
 }
 
@@ -358,8 +382,7 @@ export default function HotelBookingFinancialMisPage() {
   const pageCaptureRef = useRef<HTMLDivElement>(null);
 
   const customInvalid =
-    filters.uiDatePreset === "CUSTOM" &&
-    (!filters.fromDate || !filters.toDate);
+    filters.uiDatePreset === "CUSTOM" && (!filters.fromDate || !filters.toDate);
   const draftCustomInvalid =
     draft.uiDatePreset === "CUSTOM" &&
     !isValidCustomDateRange(customFromText, customToText);
@@ -375,15 +398,13 @@ export default function HotelBookingFinancialMisPage() {
     if (filters.search.trim()) count += 1;
     if (filters.checkInFrom || filters.checkInTo) count += 1;
     if (filters.checkOutFrom || filters.checkOutTo) count += 1;
-    if (filters.sort !== "BOOKING_DATE" || filters.sortDir !== "desc") count += 1;
+    if (filters.sort !== "BOOKING_DATE" || filters.sortDir !== "desc")
+      count += 1;
     return count;
   }, [filters]);
 
   const loadReport = useCallback(
-    async (
-      nextFilters: FilterDraft = filters,
-      nextPage: number = page,
-    ) => {
+    async (nextFilters: FilterDraft = filters, nextPage: number = page) => {
       if (
         nextFilters.uiDatePreset === "CUSTOM" &&
         (!nextFilters.fromDate || !nextFilters.toDate)
@@ -531,7 +552,10 @@ export default function HotelBookingFinancialMisPage() {
     nextDraft.checkInFrom = checkIn.fromDate ?? "";
     nextDraft.checkInTo = checkIn.toDate ?? "";
 
-    const checkOut = validateOptionalDateRange(checkOutFromText, checkOutToText);
+    const checkOut = validateOptionalDateRange(
+      checkOutFromText,
+      checkOutToText,
+    );
     if (!checkOut.ok) {
       showToast(checkOut.message, "error");
       return;
@@ -639,26 +663,13 @@ export default function HotelBookingFinancialMisPage() {
         "Agency commission",
         formatFinanceMoney(summary.agencyCommission),
       ],
-      [
-        "Summary",
-        "Agency TDS",
-        formatFinanceMoney(summary.agentTdsAmount),
-      ],
+      ["Summary", "Agency TDS", formatFinanceMoney(summary.agentTdsAmount)],
       [
         "Summary",
         "Agency net commission",
         formatFinanceMoney(summary.agentNetCommission),
       ],
-      [
-        "Summary",
-        "Commission reversal",
-        formatFinanceMoney(summary.commissionReversal),
-      ],
-      [
-        "Summary",
-        "Cancelled bookings",
-        summary.totalCancellation,
-      ],
+      ["Summary", "Cancelled bookings", summary.totalCancellation],
       [
         "Summary",
         "Cancellation",
@@ -780,6 +791,10 @@ export default function HotelBookingFinancialMisPage() {
   };
 
   const summary = report?.summary;
+  const kpiHints = summary ? hotelMisSummaryKpiHints(summary) : null;
+  const listIsB2b = Boolean(
+    summary && Math.abs(summary.agentNetCommission.amount) > 0.009,
+  );
   const totalPages = report?.page.totalPages ?? 0;
   const totalElements = report?.page.totalElements ?? 0;
   const returnTo =
@@ -933,7 +948,7 @@ export default function HotelBookingFinancialMisPage() {
             </div>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5 lg:grid-cols-7">
+          <div className="grid grid-cols-2 gap-1.5 overflow-visible sm:grid-cols-5 lg:grid-cols-7">
             <FinanceKpiCard
               label="Total Bookings"
               value={
@@ -943,7 +958,9 @@ export default function HotelBookingFinancialMisPage() {
               tone={FINANCE_KPI_TONES.bookings}
             />
             <FinanceKpiCard
-              label="Customer Revenue"
+              label={
+                listIsB2b ? "Customer Revenue" : "Customer selling price"
+              }
               value={
                 summary
                   ? formatFinanceMoney(summary.grossBookingValue)
@@ -951,6 +968,7 @@ export default function HotelBookingFinancialMisPage() {
                     ? "…"
                     : "—"
               }
+              hint={kpiHints?.customerRevenue}
               icon={CircleDollarSign}
               tone={FINANCE_KPI_TONES.customer}
             />
@@ -963,6 +981,7 @@ export default function HotelBookingFinancialMisPage() {
                     ? "…"
                     : "—"
               }
+              hint={kpiHints?.collected}
               icon={HandCoins}
               tone={FINANCE_KPI_TONES.collected}
             />
@@ -975,30 +994,25 @@ export default function HotelBookingFinancialMisPage() {
                     ? "…"
                     : "—"
               }
+              hint={kpiHints?.hotelPayout}
               icon={Landmark}
               tone={FINANCE_KPI_TONES.hotelPayout}
             />
             <FinanceKpiCard
               label="TDS"
               value={
-                summary
-                  ? formatFinanceMoney(summary.tds)
-                  : loading
-                    ? "…"
-                    : "—"
+                summary ? formatFinanceMoney(summary.tds) : loading ? "…" : "—"
               }
+              hint={kpiHints?.tds}
               icon={Percent}
               tone={FINANCE_KPI_TONES.margin}
             />
             <FinanceKpiCard
               label="TCS"
               value={
-                summary
-                  ? formatFinanceMoney(summary.tcs)
-                  : loading
-                    ? "…"
-                    : "—"
+                summary ? formatFinanceMoney(summary.tcs) : loading ? "…" : "—"
               }
+              hint={kpiHints?.tcs}
               icon={Percent}
               tone={FINANCE_KPI_TONES.outstanding}
             />
@@ -1041,6 +1055,7 @@ export default function HotelBookingFinancialMisPage() {
                     ? "…"
                     : "—"
               }
+              hint={kpiHints?.otaIncl}
               icon={CircleDollarSign}
               tone={FINANCE_KPI_TONES.ota}
             />
@@ -1065,6 +1080,7 @@ export default function HotelBookingFinancialMisPage() {
                     ? "…"
                     : "—"
               }
+              hint={kpiHints?.agencyTds}
               icon={Percent}
               tone={FINANCE_KPI_TONES.margin}
             />
@@ -1077,20 +1093,9 @@ export default function HotelBookingFinancialMisPage() {
                     ? "…"
                     : "—"
               }
+              hint={kpiHints?.agencyNet}
               icon={Wallet}
               tone={FINANCE_KPI_TONES.outstanding}
-            />
-            <FinanceKpiCard
-              label="Comm. Reversal"
-              value={
-                summary
-                  ? formatFinanceMoney(summary.commissionReversal)
-                  : loading
-                    ? "…"
-                    : "—"
-              }
-              icon={RotateCcw}
-              tone={FINANCE_KPI_TONES.refund}
             />
             <FinanceKpiCard
               label="Cancelled Bookings"
@@ -1179,7 +1184,7 @@ export default function HotelBookingFinancialMisPage() {
                   <th className="px-4 py-3">Booking Date</th>
                   <th className="px-4 py-3">Stay</th>
                   <th className="px-4 py-3">Source</th>
-                  <th className="px-4 py-3">Customer Selling Price</th>
+                  <th className="px-4 py-3">Platform selling price</th>
                   <th className="px-4 py-3">Agent Customer Price</th>
                   <th className="px-4 py-3">Agent Selling Markup</th>
                   <th className="px-4 py-3">Hotel Payout</th>
@@ -1305,7 +1310,9 @@ export default function HotelBookingFinancialMisPage() {
                         onClick={() => openDetail(row, "otaRevenue")}
                         className="text-left font-semibold tabular-nums text-cyan-700 hover:underline"
                       >
-                        {formatFinanceMoney(row.otaRevenue)}
+                        {formatFinanceMoney(
+                          getHotelFinancialMisDisplayOta(row).otaRevenue,
+                        )}
                       </button>
                       {row.commission.rateLabel?.trim() ||
                       row.commission.ratePercent != null ? (
@@ -1315,10 +1322,17 @@ export default function HotelBookingFinancialMisPage() {
                         </p>
                       ) : null}
                       <p className="text-xs tabular-nums text-slate-500">
-                        GST {formatFinanceMoney(row.otaRevenueGst)}
+                        GST{" "}
+                        {formatFinanceMoney(
+                          getHotelFinancialMisDisplayOta(row).otaRevenueGst,
+                        )}
                       </p>
                       <p className="text-xs tabular-nums text-slate-500">
-                        Incl. {formatFinanceMoney(row.otaRevenueInclusiveGst)}
+                        Incl.{" "}
+                        {formatFinanceMoney(
+                          getHotelFinancialMisDisplayOta(row)
+                            .otaRevenueInclusiveGst,
+                        )}
                       </p>
                     </td>
                     <td className="px-4 py-3">
@@ -1437,7 +1451,9 @@ export default function HotelBookingFinancialMisPage() {
             />
             <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-slate-200 bg-white shadow-xl">
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Filters
+                </h2>
                 <button
                   type="button"
                   onClick={() => setFilterOpen(false)}

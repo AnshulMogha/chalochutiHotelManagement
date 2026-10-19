@@ -123,6 +123,21 @@ export interface HotelFinancialMisHotelPayoutBreakup {
   formula?: string | null;
 }
 
+export interface HotelFinancialMisCancellationSettlement {
+  settlementContext?: string | null;
+  cancellationAccommodationCharge: HotelFinancialMisMoney;
+  hotelGst: HotelFinancialMisMoney;
+  totalCancellationPropertyCharges: HotelFinancialMisMoney;
+  otaCommission: HotelFinancialMisMoney;
+  commissionGst: HotelFinancialMisMoney;
+  commissionInclusiveGst: HotelFinancialMisMoney;
+  tcs: HotelFinancialMisMoney;
+  tds: HotelFinancialMisMoney;
+  taxDeduction: HotelFinancialMisMoney;
+  amountPayableToProperty: HotelFinancialMisMoney;
+  customerRefund: HotelFinancialMisMoney;
+}
+
 export interface HotelFinancialMisOtaRevenueBreakup {
   commission: HotelFinancialMisMoney;
   commissionGst: HotelFinancialMisMoney;
@@ -213,6 +228,7 @@ export interface HotelFinancialMisBookingRow {
   refundAmount: HotelFinancialMisMoney;
   refundDateTime?: string | null;
   refundStatus: string;
+  cancellationSettlement: HotelFinancialMisCancellationSettlement | null;
   lastUpdated?: string | null;
   customerSellingPriceBreakup: HotelFinancialMisCustomerBreakup;
   hotelPayoutBreakup: HotelFinancialMisHotelPayoutBreakup;
@@ -455,6 +471,51 @@ function normalizePolicyLines(linesRaw: unknown, policyRaw: unknown): string[] {
     .filter(Boolean);
 }
 
+function pickCancellationSettlementRaw(record: Record<string, unknown>): unknown {
+  if (record.settlement != null) return record.settlement;
+  if (record.cancellationSettlement != null) return record.cancellationSettlement;
+  const cancellation = record.cancellation;
+  if (cancellation && typeof cancellation === "object") {
+    return (cancellation as Record<string, unknown>).settlement;
+  }
+  return null;
+}
+
+function normalizeCancellationSettlement(
+  raw: unknown,
+): HotelFinancialMisCancellationSettlement | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  const hasAny = [
+    "otaCommission",
+    "commissionGst",
+    "commissionInclusiveGst",
+    "amountPayableToProperty",
+    "cancellationAccommodationCharge",
+    "customerRefund",
+  ].some((key) => record[key] != null);
+  if (!hasAny) return null;
+  return {
+    settlementContext:
+      (record.settlementContext as string | null | undefined) ?? null,
+    cancellationAccommodationCharge: money(
+      record.cancellationAccommodationCharge,
+    ),
+    hotelGst: money(record.hotelGst),
+    totalCancellationPropertyCharges: money(
+      record.totalCancellationPropertyCharges,
+    ),
+    otaCommission: money(record.otaCommission),
+    commissionGst: money(record.commissionGst),
+    commissionInclusiveGst: money(record.commissionInclusiveGst),
+    tcs: money(record.tcs),
+    tds: money(record.tds),
+    taxDeduction: money(record.taxDeduction),
+    amountPayableToProperty: money(record.amountPayableToProperty),
+    customerRefund: money(record.customerRefund),
+  };
+}
+
 function normalizeHotelPayoutBreakup(
   raw: unknown,
 ): HotelFinancialMisHotelPayoutBreakup {
@@ -609,6 +670,9 @@ function normalizeRow(raw: unknown): HotelFinancialMisBookingRow {
     refundDateTime:
       (record.refundDateTime as string | null | undefined) ?? null,
     refundStatus: String(record.refundStatus ?? "NOT_APPLICABLE"),
+    cancellationSettlement: normalizeCancellationSettlement(
+      pickCancellationSettlementRaw(record),
+    ),
     lastUpdated: (record.lastUpdated as string | null | undefined) ?? null,
     customerSellingPriceBreakup: normalizeCustomerBreakup(
       record.customerSellingPriceBreakup,

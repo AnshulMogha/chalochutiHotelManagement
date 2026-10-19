@@ -13,6 +13,7 @@ import {
   formatBookedByLabel,
   getHotelFinancialMisAgentPrice,
   getHotelFinancialMisAgentCustomerSellingPrice,
+  getHotelFinancialMisDisplayOta,
   getHotelFinancialMisDisplaySellingPrice,
   hasHotelFinancialMisAgencyDetails,
   isHotelFinancialMisB2b,
@@ -66,9 +67,8 @@ function formatCancellationBracketLabel(
   label: string | null | undefined,
 ): string {
   if (!label) return "";
-  const converted = label.replace(
-    /(\d+(?:\.\d+)?)\s*h\b/gi,
-    (_, raw: string) => hoursToDaysLabel(Number(raw)),
+  const converted = label.replace(/(\d+(?:\.\d+)?)\s*h\b/gi, (_, raw: string) =>
+    hoursToDaysLabel(Number(raw)),
   );
   return converted
     .replace(
@@ -101,6 +101,30 @@ function formatMisPercent(value: number | null | undefined): string | null {
   return `${shown}%`;
 }
 
+function hotelMisKpiHints(
+  booking: HotelFinancialMisBookingRow,
+): Record<string, string> {
+  const isCancelled = isCancelledFinancialMisBooking(booking.bookingStatus);
+  const netAccLabel = isCancelled
+    ? "Net Accommodation after cancellation"
+    : "Net Accommodation";
+
+  return {
+    collected: isHotelFinancialMisB2b(booking)
+      ? "Agent price"
+      : "Customer selling price",
+    agentPrice: "Platform customer price − Agent net commission",
+    agentComm: "Gross commission payable to the agent",
+    agentTds: "2% of Agent commission",
+    agentNet: "Agent commission − Agent TDS",
+    tds: `0.1% of ${netAccLabel}`,
+    tcs: `0.5% of ${netAccLabel}`,
+    hotelPayout:
+      "Hotel Base + Hotel GST − OTA Commission − GST on Commission − TCS − TDS",
+    otaIncl: "OTA Revenue + Net OTA GST",
+  };
+}
+
 const TABS: { value: DetailTab; label: string }[] = [
   { value: "overview", label: "Overview" },
   { value: "bookingDetails", label: "Booking Details" },
@@ -114,9 +138,11 @@ const TABS: { value: DetailTab; label: string }[] = [
 function CustomerOrAgentPriceBreakup({
   booking,
   detailed,
+  showCalc,
 }: {
   booking: HotelFinancialMisBookingRow;
   detailed?: boolean;
+  showCalc?: boolean;
 }) {
   const isB2b = isHotelFinancialMisB2b(booking);
   const agentPrice = getHotelFinancialMisAgentPrice(booking);
@@ -143,16 +169,20 @@ function CustomerOrAgentPriceBreakup({
       }
     >
       <BreakupRow
+        tag={showCalc ? "A" : undefined}
         label={detailed ? "Hotel base fare" : "Base room rate"}
         amount={booking.customerSellingPriceBreakup.baseFare}
         positive
       />
       <BreakupRow
+        tag={showCalc ? "B" : undefined}
         label="Promotion discount"
         amount={booking.customerSellingPriceBreakup.promotionDiscount}
         negative
       />
       <BreakupRow
+        tag={showCalc ? "C" : undefined}
+        formula={showCalc ? "A − B" : undefined}
         label="Net Accommodation"
         amount={{
           amount:
@@ -163,16 +193,19 @@ function CustomerOrAgentPriceBreakup({
         positive
       />
       <BreakupRow
+        tag={showCalc ? "D" : undefined}
         label="Hotel taxes / GST"
         amount={booking.customerSellingPriceBreakup.hotelGst}
         positive
       />
       <BreakupRow
+        tag={showCalc ? "E" : undefined}
         label="Service fee"
         amount={booking.customerSellingPriceBreakup.serviceFee}
         positive
       />
       <BreakupRow
+        tag={showCalc ? "F" : undefined}
         label="Service fee GST"
         amount={booking.customerSellingPriceBreakup.serviceFeeGst}
         positive
@@ -180,11 +213,14 @@ function CustomerOrAgentPriceBreakup({
       {isB2b ? (
         <>
           <BreakupRow
+            tag={showCalc ? "G" : undefined}
+            formula={showCalc ? "C + D + E + F" : undefined}
             label="Platform customer price"
             amount={booking.customerSellingPrice}
             positive
           />
           <BreakupRow
+            tag={showCalc ? "H" : undefined}
             label="Agent net commission"
             amount={
               paymentBreakup?.netAgentCommission ?? booking.agentNetCommission
@@ -192,22 +228,28 @@ function CustomerOrAgentPriceBreakup({
             negative
           />
           <BreakupRow
+            tag={showCalc ? "I" : undefined}
+            formula={showCalc ? "G − H" : undefined}
             label="Final agent price"
             amount={agentPrice}
             bold
             highlight
           />
           <BreakupRow
+            tag={showCalc ? "J" : undefined}
             label="Agent selling markup"
             amount={agentSellingMarkupAmount}
             positive
           />
           <BreakupRow
+            tag={showCalc ? "K" : undefined}
             label="Agent selling GST"
             amount={agentSellingGst}
             positive
           />
           <BreakupRow
+            tag={showCalc ? "L" : undefined}
+            formula={showCalc ? "I + J + K" : undefined}
             label="Agent customer selling price"
             amount={
               agentCustomerSellingPrice ??
@@ -219,6 +261,8 @@ function CustomerOrAgentPriceBreakup({
         </>
       ) : (
         <BreakupRow
+          tag={showCalc ? "G" : undefined}
+          formula={showCalc ? "C + D + E + F" : undefined}
           label="Final customer payable"
           amount={booking.customerSellingPriceBreakup.finalCustomerPrice}
           bold
@@ -275,15 +319,20 @@ function CustomerOrAgentPriceBreakup({
                     : "—"
                 }
               />
-              <InfoLine
+              <BreakupRow
+                tag="A"
                 label="Gross amount"
-                value={formatFinanceMoney(incentive.grossAmount)}
+                amount={incentive.grossAmount}
                 positive
               />
-              <InfoLine label="TDS" value={formatFinanceMoney(incentive.tds)} />
-              <InfoLine
+              <BreakupRow tag="B" label="TDS" amount={incentive.tds} />
+              <BreakupRow
+                tag="C"
+                formula="A − B"
                 label="Net amount"
-                value={formatFinanceMoney(incentive.netAmount)}
+                amount={incentive.netAmount}
+                bold
+                highlight
               />
             </div>
           </Panel>
@@ -370,13 +419,12 @@ export default function HotelBookingFinancialMisDetailPage() {
   }
 
   const isB2b = isHotelFinancialMisB2b(booking);
+  const isCancelled = isCancelledFinancialMisBooking(booking.bookingStatus);
   const displaySellingPrice = getHotelFinancialMisDisplaySellingPrice(booking);
+  const displayOta = getHotelFinancialMisDisplayOta(booking);
+  const kpiHints = hotelMisKpiHints(booking);
   const agentCustomerSellingPrice =
     getHotelFinancialMisAgentCustomerSellingPrice(booking);
-  const agentSellingMarkupAmount = booking.agentSellingMarkupAmount ?? {
-    amount: 0,
-    currency: booking.customerSellingPrice.currency,
-  };
   const detailTabs = TABS.map((item) =>
     item.value === "customer"
       ? { ...item, label: isB2b ? "Agent Price" : "Customer Price" }
@@ -435,6 +483,11 @@ export default function HotelBookingFinancialMisDetailPage() {
                   status={booking.bookingSource}
                   label="Source"
                   tone="bg-sky-50 text-sky-700 ring-sky-200"
+                />
+                <StatusBadge
+                  status={booking.bookingRate || "—"}
+                  label="Rate"
+                  tone="bg-violet-50 text-violet-700 ring-violet-200"
                 />
                 <StatusBadge
                   status={booking.paymentStatus}
@@ -545,31 +598,53 @@ export default function HotelBookingFinancialMisDetailPage() {
         </section>
 
         {/* KPI cards */}
-        <div className="mb-3 grid grid-cols-3 gap-1.5 sm:grid-cols-5 lg:grid-cols-6">
+        <div className="mb-3 grid grid-cols-3 gap-1.5 overflow-visible sm:grid-cols-5 lg:grid-cols-6 [&>*:nth-child(3n)_.kpi-hint]:left-auto [&>*:nth-child(3n)_.kpi-hint]:right-full [&>*:nth-child(3n)_.kpi-hint]:mr-2 [&>*:nth-child(3n)_.kpi-hint]:ml-0 sm:[&>*:nth-child(3n)_.kpi-hint]:left-full sm:[&>*:nth-child(3n)_.kpi-hint]:right-auto sm:[&>*:nth-child(3n)_.kpi-hint]:ml-2 sm:[&>*:nth-child(3n)_.kpi-hint]:mr-0 sm:[&>*:nth-child(5n)_.kpi-hint]:left-auto sm:[&>*:nth-child(5n)_.kpi-hint]:right-full sm:[&>*:nth-child(5n)_.kpi-hint]:mr-2 sm:[&>*:nth-child(5n)_.kpi-hint]:ml-0 lg:[&>*:nth-child(5n)_.kpi-hint]:left-full lg:[&>*:nth-child(5n)_.kpi-hint]:right-auto lg:[&>*:nth-child(5n)_.kpi-hint]:ml-2 lg:[&>*:nth-child(5n)_.kpi-hint]:mr-0 lg:[&>*:nth-child(6n)_.kpi-hint]:left-auto lg:[&>*:nth-child(6n)_.kpi-hint]:right-full lg:[&>*:nth-child(6n)_.kpi-hint]:mr-2 lg:[&>*:nth-child(6n)_.kpi-hint]:ml-0">
+          {isB2b ? (
+            <FinanceKpiCard
+              label="Platform customer price"
+              value={formatFinanceMoney(booking.customerSellingPrice)}
+              icon={CircleDollarSign}
+              tone={FINANCE_KPI_TONES.customer}
+              onClick={() => setTab("customer")}
+              actionLabel=""
+            />
+          ) : null}
           <FinanceKpiCard
-            label={isB2b ? "Agent Price" : "Customer"}
+            label={isB2b ? "Agent Price" : "Customer selling price"}
             value={formatFinanceMoney(displaySellingPrice)}
+            hint={isB2b ? kpiHints.agentPrice : undefined}
             icon={CircleDollarSign}
             tone={FINANCE_KPI_TONES.customer}
             onClick={() => setTab("customer")}
             actionLabel=""
           />
           <FinanceKpiCard
-            label="Net Accommodation"
-            value={formatFinanceMoney({
-              amount:
-                booking.customerSellingPriceBreakup.baseFare.amount -
-                booking.customerSellingPriceBreakup.promotionDiscount.amount,
-              currency: booking.customerSellingPriceBreakup.baseFare.currency,
-            })}
+            label={
+              isCancelled
+                ? "Net Accommodation after cancellation"
+                : "Net Accommodation"
+            }
+            value={formatFinanceMoney(
+              isCancelled
+                ? booking.hotelPayoutBreakup.hotelBaseRate
+                : {
+                    amount:
+                      booking.customerSellingPriceBreakup.baseFare.amount -
+                      booking.customerSellingPriceBreakup.promotionDiscount
+                        .amount,
+                    currency:
+                      booking.customerSellingPriceBreakup.baseFare.currency,
+                  },
+            )}
             icon={Building2}
             tone={FINANCE_KPI_TONES.hotelPayout}
-            onClick={() => setTab("customer")}
+            onClick={() => setTab(isCancelled ? "hotelPayout" : "customer")}
             actionLabel=""
           />
           <FinanceKpiCard
             label="Collected"
             value={formatFinanceMoney(booking.amountCollected)}
+            hint={kpiHints.collected}
             icon={HandCoins}
             tone={FINANCE_KPI_TONES.collected}
             onClick={() => setTab("payment")}
@@ -588,6 +663,7 @@ export default function HotelBookingFinancialMisDetailPage() {
               <FinanceKpiCard
                 label="Agent Commission"
                 value={formatFinanceMoney(booking.agentCommission)}
+                hint={kpiHints.agentComm}
                 icon={Wallet}
                 tone={FINANCE_KPI_TONES.outstanding}
                 onClick={() => setTab("otaRevenue")}
@@ -596,6 +672,7 @@ export default function HotelBookingFinancialMisDetailPage() {
               <FinanceKpiCard
                 label="Agent TDS"
                 value={formatFinanceMoney(booking.agentTdsAmount)}
+                hint={kpiHints.agentTds}
                 icon={Wallet}
                 tone={FINANCE_KPI_TONES.margin}
                 onClick={() => setTab("customer")}
@@ -604,6 +681,7 @@ export default function HotelBookingFinancialMisDetailPage() {
               <FinanceKpiCard
                 label="Agent Net Comm."
                 value={formatFinanceMoney(booking.agentNetCommission)}
+                hint={kpiHints.agentNet}
                 icon={Wallet}
                 tone={FINANCE_KPI_TONES.outstanding}
                 onClick={() => setTab("customer")}
@@ -614,6 +692,7 @@ export default function HotelBookingFinancialMisDetailPage() {
           <FinanceKpiCard
             label="Hotel Payout"
             value={formatFinanceMoney(booking.hotelPayout)}
+            hint={kpiHints.hotelPayout}
             icon={Landmark}
             tone={FINANCE_KPI_TONES.hotelPayout}
             onClick={() => setTab("hotelPayout")}
@@ -622,6 +701,7 @@ export default function HotelBookingFinancialMisDetailPage() {
           <FinanceKpiCard
             label="TDS"
             value={formatFinanceMoney(booking.tds)}
+            hint={kpiHints.tds}
             icon={Landmark}
             tone={FINANCE_KPI_TONES.margin}
             onClick={() => setTab("hotelPayout")}
@@ -630,6 +710,7 @@ export default function HotelBookingFinancialMisDetailPage() {
           <FinanceKpiCard
             label="TCS"
             value={formatFinanceMoney(booking.tcs)}
+            hint={kpiHints.tcs}
             icon={Landmark}
             tone={FINANCE_KPI_TONES.outstanding}
             onClick={() => setTab("hotelPayout")}
@@ -637,13 +718,15 @@ export default function HotelBookingFinancialMisDetailPage() {
           />
           <FinanceKpiCard
             label="OTA Revenue"
-            value={formatFinanceMoney(booking.otaRevenue)}
+            value={formatFinanceMoney(displayOta.otaRevenue)}
             sub={
-              booking.commission.rateLabel?.trim() ||
-              booking.otaRevenueBreakup.commission.rateLabel?.trim() ||
-              (booking.commission.ratePercent != null
-                ? `${booking.commission.ratePercent}%`
-                : undefined)
+              isCancelled
+                ? "After cancellation"
+                : booking.commission.rateLabel?.trim() ||
+                  booking.otaRevenueBreakup.commission.rateLabel?.trim() ||
+                  (booking.commission.ratePercent != null
+                    ? `${booking.commission.ratePercent}%`
+                    : undefined)
             }
             icon={Target}
             tone={FINANCE_KPI_TONES.ota}
@@ -652,7 +735,7 @@ export default function HotelBookingFinancialMisDetailPage() {
           />
           <FinanceKpiCard
             label="Net OTA GST"
-            value={formatFinanceMoney(booking.otaRevenueBreakup.netOtaRevenueGst)}
+            value={formatFinanceMoney(displayOta.otaRevenueGst)}
             icon={Receipt}
             tone={FINANCE_KPI_TONES.margin}
             onClick={() => setTab("otaRevenue")}
@@ -660,7 +743,8 @@ export default function HotelBookingFinancialMisDetailPage() {
           />
           <FinanceKpiCard
             label="OTA Incl. GST"
-            value={formatFinanceMoney(booking.otaRevenueInclusiveGst)}
+            value={formatFinanceMoney(displayOta.otaRevenueInclusiveGst)}
+            hint={kpiHints.otaIncl}
             icon={CircleDollarSign}
             tone={FINANCE_KPI_TONES.margin}
             onClick={() => setTab("otaRevenue")}
@@ -801,26 +885,43 @@ export default function HotelBookingFinancialMisDetailPage() {
 
         {tab === "overview" ? (
           <div className="grid gap-4 lg:grid-cols-3">
-            <CustomerOrAgentPriceBreakup booking={booking} />
+            <CustomerOrAgentPriceBreakup booking={booking} showCalc />
             <Panel title="Hotel Payout Breakup">
               <BreakupRow
+                tag="A"
                 label="Original hotel base"
                 amount={booking.hotelPayoutBreakup.originalHotelBaseRate}
                 positive
               />
               {isCancelledFinancialMisBooking(booking.bookingStatus) ? (
                 <BreakupRow
+                  tag="B"
                   label="Original hotel GST"
                   amount={booking.hotelPayoutBreakup.originalHotelGst}
                   positive
                 />
               ) : null}
               <BreakupRow
+                tag={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "C"
+                    : "B"
+                }
                 label="Promotion discount"
                 amount={booking.promotionDiscount}
                 negative
               />
               <BreakupRow
+                tag={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "D"
+                    : "C"
+                }
+                formula={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? undefined
+                    : "A − B"
+                }
                 label={
                   isCancelledFinancialMisBooking(booking.bookingStatus)
                     ? "Net Accommodation after cancellation"
@@ -830,36 +931,91 @@ export default function HotelBookingFinancialMisDetailPage() {
                 positive
               />
               <BreakupRow
+                tag={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "E"
+                    : "D"
+                }
                 label="Hotel GST"
                 amount={booking.hotelPayoutBreakup.hotelGst}
                 positive
               />
               <BreakupRow
+                tag={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "F"
+                    : "E"
+                }
+                formula={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "D + E"
+                    : "C + D"
+                }
                 label="Total gross amount"
                 amount={booking.hotelPayoutBreakup.totalGrossAmount}
                 positive
               />
               <BreakupRow
+                tag={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "G"
+                    : "F"
+                }
                 label="OTA commission"
                 amount={booking.hotelPayoutBreakup.otaCommission}
                 negative
               />
               <BreakupRow
+                tag={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "H"
+                    : "G"
+                }
                 label="OTA commission GST"
                 amount={booking.hotelPayoutBreakup.otaCommissionGst}
                 negative
               />
               <BreakupRow
+                tag={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "I"
+                    : "H"
+                }
+                formula={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "0.1% of D"
+                    : "0.1% of C"
+                }
                 label="TDS"
                 amount={booking.hotelPayoutBreakup.tds}
                 negative
               />
               <BreakupRow
+                tag={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "J"
+                    : "I"
+                }
+                formula={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "0.5% of D"
+                    : "0.5% of C"
+                }
                 label="TCS"
                 amount={booking.hotelPayoutBreakup.tcs}
                 negative
               />
               <BreakupRow
+                tag={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "K"
+                    : "J"
+                }
+                formula={
+                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                    ? "F − G − H − I − J"
+                    : "E − F − G − H − I"
+                }
                 label="Final hotel payout"
                 amount={booking.hotelPayoutBreakup.finalHotelPayout}
                 bold
@@ -868,236 +1024,113 @@ export default function HotelBookingFinancialMisDetailPage() {
             </Panel>
             <Panel title="OTA Revenue Breakup">
               <BreakupRow
+                tag="A"
                 label="OTA Commission"
                 amount={booking.otaRevenueBreakup.commission}
                 positive
               />
               <BreakupRow
+                tag="B"
                 label="OTA Commission GST"
                 amount={booking.otaRevenueBreakup.commissionGst}
                 positive
               />
               <BreakupRow
+                tag="C"
                 label="Markup"
                 amount={booking.otaRevenueBreakup.markup}
                 positive
               />
               <BreakupRow
+                tag="D"
                 label="Service fee"
                 amount={booking.otaRevenueBreakup.serviceFee}
                 positive
               />
               <BreakupRow
+                tag="E"
                 label="Service fee GST"
                 amount={booking.otaRevenueBreakup.serviceFeeGst}
                 positive
               />
               <BreakupRow
+                tag="F"
                 label="Cancellation income"
                 amount={booking.otaRevenueBreakup.cancellationIncome}
                 positive
               />
               {isB2b ? (
                 <BreakupRow
+                  tag="G"
                   label="Agency commission"
                   amount={booking.otaRevenueBreakup.agencyCommission}
                   negative
                 />
               ) : null}
               <BreakupRow
-                label="Commission reversal"
-                amount={booking.otaRevenueBreakup.commissionReversal}
-                positive
-              />
-              <BreakupRow
+                tag={isB2b ? "H" : "G"}
                 label="Refund adjustment"
                 amount={booking.otaRevenueBreakup.refundAdjustment}
                 negative
               />
               <BreakupRow
+                tag={isB2b ? "I" : "H"}
+                formula={isB2b ? "A + C + D + F − G − H" : "A + C + D + F − G"}
                 label="Net OTA revenue"
                 amount={booking.otaRevenueBreakup.netOtaRevenue}
                 bold
                 highlight
               />
               <BreakupRow
+                tag={isB2b ? "J" : "I"}
+                formula="B + E"
                 label="Net OTA GST"
                 amount={booking.otaRevenueBreakup.netOtaRevenueGst}
                 positive
               />
               <BreakupRow
+                tag={isB2b ? "K" : "J"}
+                formula={isB2b ? "I + J" : "H + I"}
                 label="Net OTA incl. GST"
                 amount={booking.otaRevenueBreakup.netOtaRevenueInclusiveGst}
                 bold
               />
             </Panel>
-            <Panel title="Booking Summary" className="lg:col-span-2">
-              <div className="grid gap-3 p-3 sm:grid-cols-2">
-                <InfoLine
-                  label="Booking source"
-                  value={formatStatusLabel(booking.bookingSource)}
-                />
-                <InfoLine
-                  label="Booking rate"
-                  value={formatStatusLabel(booking.bookingRate || "—")}
-                />
-                <InfoLine
-                  label="Booked by"
-                  value={
-                    <BookedByOwnerDisplay
-                      owner={booking.bookingOwner}
-                      fallback={booking.bookedBy}
-                    />
-                  }
-                />
-                <InfoLine
-                  label="Payment status"
-                  value={formatStatusLabel(booking.paymentStatus)}
-                />
-                <InfoLine
-                  label="Refund status"
-                  value={formatStatusLabel(booking.refundStatus)}
-                />
-                <InfoLine
-                  label={isB2b ? "Agent price" : "Customer payable"}
-                  value={formatFinanceMoney(displaySellingPrice)}
-                />
-                <InfoLine
-                  label="Collected"
-                  value={formatFinanceMoney(booking.amountCollected)}
-                  positive
-                />
-                {isB2b ? (
-                  <>
-                    {agentCustomerSellingPrice ? (
-                      <InfoLine
-                        label="Agent customer selling price"
-                        highlight
-                        value={formatFinanceMoney(agentCustomerSellingPrice)}
-                      />
-                    ) : null}
-                    <InfoLine
-                      label="Agent selling markup"
-                      value={formatFinanceMoney(agentSellingMarkupAmount)}
-                      positive
-                    />
-                    <InfoLine
-                      label="Platform customer price"
-                      value={formatFinanceMoney(booking.customerSellingPrice)}
-                      positive
-                    />
-                  </>
-                ) : null}
-                {isB2b ? (
-                  <>
-                    <InfoLine
-                      label="Agent commission"
-                      value={formatFinanceMoney(booking.agentCommission)}
-                    />
-                    <InfoLine
-                      label="Agent TDS"
-                      value={formatFinanceMoney(booking.agentTdsAmount)}
-                    />
-                    <InfoLine
-                      label="Agent net commission"
-                      value={formatFinanceMoney(booking.agentNetCommission)}
-                    />
-                  </>
-                ) : null}
-                <InfoLine
-                  label="OTA Commission"
-                  value={formatFinanceMoney(booking.commission)}
-                  positive
-                />
-                <InfoLine
-                  label="OTA Commission GST"
-                  value={formatFinanceMoney(booking.commissionGst)}
-                  positive
-                />
-                <InfoLine
-                  label="OTA revenue incl. GST"
-                  value={formatFinanceMoney(booking.otaRevenueInclusiveGst)}
-                />
-                <InfoLine
-                  label="TDS"
-                  value={formatFinanceMoney(booking.tds)}
-                />
-                <InfoLine
-                  label="TCS"
-                  value={formatFinanceMoney(booking.tcs)}
-                />
-              </div>
-            </Panel>
-            <Panel title="Cancellation & Refund">
-              <div className="space-y-3 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-slate-600">Refund status</span>
-                  <StatusBadge
-                    status={booking.refundStatus}
-                    tone={refundStatusTone(booking.refundStatus)}
-                  />
-                </div>
-                {booking.matchedBracket?.label ? (
-                  <InfoLine
-                    label="Policy applied"
-                    value={formatCancellationBracketLabel(
-                      booking.matchedBracket.label,
-                    )}
-                  />
-                ) : null}
-                <InfoLine
-                  label="Cancellation charge"
-                  value={formatFinanceMoney(booking.cancellationCharge)}
-                  positive
-                />
-                <InfoLine
-                  label="Refund amount"
-                  value={formatFinanceMoney(booking.refundAmount)}
-                />
-              </div>
-            </Panel>
           </div>
         ) : null}
 
         {tab === "customer" ? (
-          <CustomerOrAgentPriceBreakup booking={booking} detailed />
+          <CustomerOrAgentPriceBreakup booking={booking} detailed showCalc />
         ) : null}
 
         {tab === "hotelPayout" ? (
-          <div
-            className={cn(
-              "grid gap-4",
-              hasHotelFinancialMisAgencyDetails(booking) && "lg:grid-cols-2",
-            )}
-          >
-            <Panel
-              title="Hotel Payout Breakup"
-              className={
-                hasHotelFinancialMisAgencyDetails(booking)
-                  ? undefined
-                  : "w-full"
-              }
-            >
+          <div className="w-full">
+            <Panel title="Hotel Payout Breakup" className="w-full">
               <BreakupRow
+                tag="A"
                 label="Original hotel base"
                 amount={booking.hotelPayoutBreakup.originalHotelBaseRate}
                 positive
               />
-              {isCancelledFinancialMisBooking(booking.bookingStatus) ? (
+              {isCancelled ? (
                 <BreakupRow
+                  tag="B"
                   label="Original hotel GST"
                   amount={booking.hotelPayoutBreakup.originalHotelGst}
                   positive
                 />
               ) : null}
               <BreakupRow
+                tag={isCancelled ? "C" : "B"}
                 label="Promotion discount"
                 amount={booking.promotionDiscount}
                 negative
               />
               <BreakupRow
+                tag={isCancelled ? "D" : "C"}
+                formula={isCancelled ? undefined : "A − B"}
                 label={
-                  isCancelledFinancialMisBooking(booking.bookingStatus)
+                  isCancelled
                     ? "Net Accommodation after cancellation"
                     : "Net Accommodation"
                 }
@@ -1105,109 +1138,61 @@ export default function HotelBookingFinancialMisDetailPage() {
                 positive
               />
               <BreakupRow
+                tag={isCancelled ? "E" : "D"}
                 label="Hotel GST"
                 amount={booking.hotelPayoutBreakup.hotelGst}
                 positive
               />
               <BreakupRow
+                tag={isCancelled ? "F" : "E"}
+                formula={isCancelled ? "D + E" : "C + D"}
                 label="Total gross amount"
                 amount={booking.hotelPayoutBreakup.totalGrossAmount}
                 positive
               />
               <BreakupRow
+                tag={isCancelled ? "G" : "F"}
                 label="OTA commission"
                 amount={booking.hotelPayoutBreakup.otaCommission}
                 negative
               />
               <BreakupRow
+                tag={isCancelled ? "H" : "G"}
                 label="OTA commission GST"
                 amount={booking.hotelPayoutBreakup.otaCommissionGst}
                 negative
               />
               <BreakupRow
+                tag={isCancelled ? "I" : "H"}
+                formula={isCancelled ? "G + H" : "F + G"}
                 label="Commission incl. GST"
                 amount={booking.hotelPayoutBreakup.otaCommissionInclusiveGst}
               />
               <BreakupRow
+                tag={isCancelled ? "J" : "I"}
+                formula={isCancelled ? "0.1% of D" : "0.1% of C"}
                 label="TDS"
                 amount={booking.hotelPayoutBreakup.tds}
                 negative
               />
               <BreakupRow
+                tag={isCancelled ? "K" : "J"}
+                formula={isCancelled ? "0.5% of D" : "0.5% of C"}
                 label="TCS"
                 amount={booking.hotelPayoutBreakup.tcs}
                 negative
               />
               <BreakupRow
+                tag={isCancelled ? "L" : "K"}
+                formula={
+                  isCancelled ? "F − G − H − J − K" : "E − F − G − I − J"
+                }
                 label="Final hotel payout"
                 amount={booking.hotelPayoutBreakup.finalHotelPayout}
                 bold
                 highlight
               />
             </Panel>
-            {hasHotelFinancialMisAgencyDetails(booking) ? (
-              <div className="space-y-4">
-                {booking.agencyIncentive ? (
-                  <Panel title="Agency incentive">
-                    <div className="space-y-1 p-3">
-                      <InfoLine
-                        label="Agency tier"
-                        value={
-                          booking.agencyIncentive.agencyTier
-                            ? formatStatusLabel(
-                                booking.agencyIncentive.agencyTier,
-                              )
-                            : "—"
-                        }
-                      />
-                      <InfoLine
-                        label="Incentive"
-                        value={
-                          booking.agencyIncentive.incentivePercent != null
-                            ? `${booking.agencyIncentive.incentivePercent}%`
-                            : "—"
-                        }
-                      />
-                      <InfoLine
-                        label="Category"
-                        value={
-                          booking.agencyIncentive.incentiveCategory
-                            ? formatStatusLabel(
-                                booking.agencyIncentive.incentiveCategory,
-                              )
-                            : "—"
-                        }
-                      />
-                      <InfoLine
-                        label="Gross"
-                        value={formatFinanceMoney(
-                          booking.agencyIncentive.grossAmount,
-                        )}
-                        positive
-                      />
-                      <InfoLine
-                        label="TDS"
-                        value={formatFinanceMoney(booking.agencyIncentive.tds)}
-                      />
-                      <InfoLine
-                        label="Net"
-                        value={formatFinanceMoney(
-                          booking.agencyIncentive.netAmount,
-                        )}
-                      />
-                    </div>
-                  </Panel>
-                ) : null}
-                {isB2b && booking.agentPaymentBreakup ? (
-                  <Panel title="Agent payment breakup">
-                    <AgentPaymentBreakupLedger
-                      breakup={booking.agentPaymentBreakup}
-                      agentCustomerSellingPrice={agentCustomerSellingPrice}
-                    />
-                  </Panel>
-                ) : null}
-              </div>
-            ) : null}
           </div>
         ) : null}
 
@@ -1215,69 +1200,80 @@ export default function HotelBookingFinancialMisDetailPage() {
           <div className="w-full">
             <Panel title="OTA Revenue Breakup" className="w-full">
               <BreakupRow
+                tag="A"
                 label="OTA Commission"
                 amount={booking.otaRevenueBreakup.commission}
                 positive
               />
               <BreakupRow
+                tag="B"
                 label="OTA Commission GST"
                 amount={booking.otaRevenueBreakup.commissionGst}
                 positive
               />
               <BreakupRow
+                tag="C"
+                formula="A + B"
                 label="Commission incl. GST"
                 amount={booking.otaRevenueBreakup.commissionInclusiveGst}
                 positive
               />
               <BreakupRow
+                tag="D"
                 label="OTA markup"
                 amount={booking.otaRevenueBreakup.markup}
                 positive
               />
               <BreakupRow
+                tag="E"
                 label="Service fee"
                 amount={booking.otaRevenueBreakup.serviceFee}
                 positive
               />
               <BreakupRow
+                tag="F"
                 label="Service fee GST"
                 amount={booking.otaRevenueBreakup.serviceFeeGst}
                 positive
               />
               <BreakupRow
+                tag="G"
                 label="Cancellation income"
                 amount={booking.otaRevenueBreakup.cancellationIncome}
                 positive
               />
               {isB2b ? (
                 <BreakupRow
+                  tag="H"
                   label="Agency commission"
                   amount={booking.otaRevenueBreakup.agencyCommission}
                   negative
                 />
               ) : null}
               <BreakupRow
-                label="Commission reversal"
-                amount={booking.otaRevenueBreakup.commissionReversal}
-                positive
-              />
-              <BreakupRow
+                tag={isB2b ? "I" : "H"}
                 label="Refund adjustment"
                 amount={booking.otaRevenueBreakup.refundAdjustment}
                 negative
               />
               <BreakupRow
+                tag={isB2b ? "J" : "I"}
+                formula={isB2b ? "A + D + E + G − H − I" : "A + D + E + G − H"}
                 label="Net OTA revenue"
                 amount={booking.otaRevenueBreakup.netOtaRevenue}
                 bold
                 highlight
               />
               <BreakupRow
+                tag={isB2b ? "K" : "J"}
+                formula="B + F"
                 label="Net OTA GST"
                 amount={booking.otaRevenueBreakup.netOtaRevenueGst}
                 positive
               />
               <BreakupRow
+                tag={isB2b ? "L" : "K"}
+                formula={isB2b ? "J + K" : "I + J"}
                 label="Net OTA incl. GST"
                 amount={booking.otaRevenueBreakup.netOtaRevenueInclusiveGst}
                 bold
@@ -1291,7 +1287,6 @@ export default function HotelBookingFinancialMisDetailPage() {
             className={cn(
               "grid gap-4",
               (booking.cancellationPolicyLines.length > 0 ||
-                booking.agentPaymentBreakup ||
                 booking.matchedBracket) &&
                 "lg:grid-cols-2",
             )}
@@ -1300,7 +1295,6 @@ export default function HotelBookingFinancialMisDetailPage() {
               title="Cancellation & Refund"
               className={
                 booking.cancellationPolicyLines.length > 0 ||
-                booking.agentPaymentBreakup ||
                 booking.matchedBracket
                   ? undefined
                   : "w-full"
@@ -1364,90 +1358,157 @@ export default function HotelBookingFinancialMisDetailPage() {
                   value={formatReportDateTime(booking.refundDateTime)}
                 />
               </div>
+              {booking.cancellationSettlement ? (
+                <div className="border-t border-slate-100">
+                  <div className="px-4 pt-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      Cancellation settlement
+                      {booking.cancellationSettlement.settlementContext
+                        ? ` · ${formatStatusLabel(booking.cancellationSettlement.settlementContext)}`
+                        : ""}
+                    </p>
+                  </div>
+                  <BreakupRow
+                    label="Cancellation accommodation"
+                    amount={
+                      booking.cancellationSettlement
+                        .cancellationAccommodationCharge
+                    }
+                    positive
+                  />
+                  <BreakupRow
+                    label="Hotel GST"
+                    amount={booking.cancellationSettlement.hotelGst}
+                    positive
+                  />
+                  <BreakupRow
+                    formula="Accommodation + Hotel GST"
+                    label="Property charges"
+                    amount={
+                      booking.cancellationSettlement
+                        .totalCancellationPropertyCharges
+                    }
+                    highlight
+                  />
+                  <BreakupRow
+                    label="OTA commission"
+                    amount={booking.cancellationSettlement.otaCommission}
+                    negative
+                  />
+                  <BreakupRow
+                    label="Commission GST"
+                    amount={booking.cancellationSettlement.commissionGst}
+                    negative
+                  />
+                  <BreakupRow
+                    formula="OTA commission + GST"
+                    label="Commission incl. GST"
+                    amount={
+                      booking.cancellationSettlement.commissionInclusiveGst
+                    }
+                    highlight
+                  />
+                  <BreakupRow
+                    label="TCS"
+                    amount={booking.cancellationSettlement.tcs}
+                    negative
+                  />
+                  <BreakupRow
+                    label="TDS"
+                    amount={booking.cancellationSettlement.tds}
+                    negative
+                  />
+                  <BreakupRow
+                    formula="TCS + TDS"
+                    label="Tax deduction"
+                    amount={booking.cancellationSettlement.taxDeduction}
+                  />
+                  <BreakupRow
+                    label="Payable to property"
+                    amount={
+                      booking.cancellationSettlement.amountPayableToProperty
+                    }
+                    bold
+                    highlight
+                  />
+                  <BreakupRow
+                    label="Customer refund"
+                    amount={booking.cancellationSettlement.customerRefund}
+                    bold
+                    highlight
+                  />
+                </div>
+              ) : null}
             </Panel>
-            {(isB2b && booking.agentPaymentBreakup) ||
-            booking.cancellationPolicyLines.length > 0 ||
+            {booking.cancellationPolicyLines.length > 0 ||
             booking.matchedBracket ? (
-              <div className="space-y-4">
-                {isB2b && booking.agentPaymentBreakup ? (
-                  <Panel title="Agent payment breakup">
-                    <AgentPaymentBreakupLedger
-                      breakup={booking.agentPaymentBreakup}
-                      agentCustomerSellingPrice={agentCustomerSellingPrice}
-                    />
-                  </Panel>
-                ) : null}
-                {booking.cancellationPolicyLines.length > 0 ||
-                booking.matchedBracket ? (
-                  <Panel title="Cancellation policy">
-                    <div className="space-y-3 p-4">
-                      {booking.matchedBracket ? (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-2.5 py-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                            Policy applied
-                          </p>
-                          <p className="mt-0.5 text-xs font-semibold text-slate-900">
-                            {formatCancellationBracketLabel(
-                              booking.matchedBracket.label,
-                            ) ||
-                              (booking.matchedBracket.penaltyPercent != null
-                                ? `${formatMisPercent(booking.matchedBracket.penaltyPercent)} cancellation charge`
-                                : "Matched cancellation bracket")}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-slate-600">
-                            {[
-                              booking.matchedBracket.penaltyType
-                                ? formatStatusLabel(
-                                    booking.matchedBracket.penaltyType,
-                                  )
-                                : null,
-                              formatMisPercent(
-                                booking.matchedBracket.penaltyPercent,
-                              ),
-                              booking.matchedBracket.effectiveFrom
-                                ? `From ${formatReportDate(booking.matchedBracket.effectiveFrom)}`
-                                : null,
-                              booking.matchedBracket.effectiveTo
-                                ? `to ${formatReportDate(booking.matchedBracket.effectiveTo)}`
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </p>
-                        </div>
-                      ) : null}
-                      {booking.cancellationPolicyLines.length ? (
-                        <ul className="space-y-2 text-sm text-slate-700">
-                          {booking.cancellationPolicyLines.map((line) => {
-                            const matched =
-                              booking.matchedBracket?.penaltyPercent != null &&
-                              line.includes(
-                                `${Number(booking.matchedBracket.penaltyPercent)}%`,
-                              );
-                            return (
-                              <li
-                                key={line}
-                                className={`flex gap-2 ${
-                                  matched
-                                    ? "rounded-md bg-amber-50 px-1.5 py-1 font-medium text-amber-900"
-                                    : ""
-                                }`}
-                              >
-                                <span
-                                  className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${
-                                    matched ? "bg-amber-600" : "bg-slate-400"
-                                  }`}
-                                />
-                                <span>{line}</span>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      ) : null}
+              <Panel title="Cancellation policy">
+                <div className="space-y-3 p-4">
+                  {booking.matchedBracket ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-2.5 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                        Policy applied
+                      </p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-900">
+                        {formatCancellationBracketLabel(
+                          booking.matchedBracket.label,
+                        ) ||
+                          (booking.matchedBracket.penaltyPercent != null
+                            ? `${formatMisPercent(booking.matchedBracket.penaltyPercent)} cancellation charge`
+                            : "Matched cancellation bracket")}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-600">
+                        {[
+                          booking.matchedBracket.penaltyType
+                            ? formatStatusLabel(
+                                booking.matchedBracket.penaltyType,
+                              )
+                            : null,
+                          formatMisPercent(
+                            booking.matchedBracket.penaltyPercent,
+                          ),
+                          booking.matchedBracket.effectiveFrom
+                            ? `From ${formatReportDate(booking.matchedBracket.effectiveFrom)}`
+                            : null,
+                          booking.matchedBracket.effectiveTo
+                            ? `to ${formatReportDate(booking.matchedBracket.effectiveTo)}`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
                     </div>
-                  </Panel>
-                ) : null}
-              </div>
+                  ) : null}
+                  {booking.cancellationPolicyLines.length ? (
+                    <ul className="space-y-2 text-sm text-slate-700">
+                      {booking.cancellationPolicyLines.map((line) => {
+                        const matched =
+                          booking.matchedBracket?.penaltyPercent != null &&
+                          line.includes(
+                            `${Number(booking.matchedBracket.penaltyPercent)}%`,
+                          );
+                        return (
+                          <li
+                            key={line}
+                            className={`flex gap-2 ${
+                              matched
+                                ? "rounded-md bg-amber-50 px-1.5 py-1 font-medium text-amber-900"
+                                : ""
+                            }`}
+                          >
+                            <span
+                              className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${
+                                matched ? "bg-amber-600" : "bg-slate-400"
+                              }`}
+                            />
+                            <span>{line}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+                </div>
+              </Panel>
             ) : null}
           </div>
         ) : null}
@@ -1457,7 +1518,8 @@ export default function HotelBookingFinancialMisDetailPage() {
             <div
               className={cn(
                 "grid gap-4",
-                (booking.payment?.payments?.length ?? 0) > 0 && "lg:grid-cols-2",
+                (booking.payment?.payments?.length ?? 0) > 0 &&
+                  "lg:grid-cols-2",
               )}
             >
               <Panel
@@ -1505,7 +1567,9 @@ export default function HotelBookingFinancialMisDetailPage() {
                       />
                       <InfoLine
                         label="Payment time"
-                        value={formatReportDateTime(booking.payment?.paymentTime)}
+                        value={formatReportDateTime(
+                          booking.payment?.paymentTime,
+                        )}
                       />
                     </>
                   ) : null}
