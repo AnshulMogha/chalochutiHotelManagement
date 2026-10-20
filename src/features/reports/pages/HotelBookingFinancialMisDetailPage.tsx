@@ -14,6 +14,7 @@ import {
   getHotelFinancialMisAgentPrice,
   getHotelFinancialMisAgentCustomerSellingPrice,
   getHotelFinancialMisDisplayOta,
+  getHotelFinancialMisDisplayPayout,
   getHotelFinancialMisDisplaySellingPrice,
   hasHotelFinancialMisAgencyDetails,
   isHotelFinancialMisB2b,
@@ -422,6 +423,7 @@ export default function HotelBookingFinancialMisDetailPage() {
   const isCancelled = isCancelledFinancialMisBooking(booking.bookingStatus);
   const displaySellingPrice = getHotelFinancialMisDisplaySellingPrice(booking);
   const displayOta = getHotelFinancialMisDisplayOta(booking);
+  const displayPayout = getHotelFinancialMisDisplayPayout(booking);
   const kpiHints = hotelMisKpiHints(booking);
   const agentCustomerSellingPrice =
     getHotelFinancialMisAgentCustomerSellingPrice(booking);
@@ -624,18 +626,7 @@ export default function HotelBookingFinancialMisDetailPage() {
                 ? "Net Accommodation after cancellation"
                 : "Net Accommodation"
             }
-            value={formatFinanceMoney(
-              isCancelled
-                ? booking.hotelPayoutBreakup.hotelBaseRate
-                : {
-                    amount:
-                      booking.customerSellingPriceBreakup.baseFare.amount -
-                      booking.customerSellingPriceBreakup.promotionDiscount
-                        .amount,
-                    currency:
-                      booking.customerSellingPriceBreakup.baseFare.currency,
-                  },
-            )}
+            value={formatFinanceMoney(displayPayout.netAccommodation)}
             icon={Building2}
             tone={FINANCE_KPI_TONES.hotelPayout}
             onClick={() => setTab(isCancelled ? "hotelPayout" : "customer")}
@@ -652,7 +643,7 @@ export default function HotelBookingFinancialMisDetailPage() {
           />
           <FinanceKpiCard
             label="Refund"
-            value={formatFinanceMoney(booking.refundAmount)}
+            value={formatFinanceMoney(displayPayout.refund)}
             icon={RotateCcw}
             tone={FINANCE_KPI_TONES.refund}
             onClick={() => setTab("cancellation")}
@@ -691,7 +682,7 @@ export default function HotelBookingFinancialMisDetailPage() {
           ) : null}
           <FinanceKpiCard
             label="Hotel Payout"
-            value={formatFinanceMoney(booking.hotelPayout)}
+            value={formatFinanceMoney(displayPayout.hotelPayout)}
             hint={kpiHints.hotelPayout}
             icon={Landmark}
             tone={FINANCE_KPI_TONES.hotelPayout}
@@ -700,7 +691,7 @@ export default function HotelBookingFinancialMisDetailPage() {
           />
           <FinanceKpiCard
             label="TDS"
-            value={formatFinanceMoney(booking.tds)}
+            value={formatFinanceMoney(displayPayout.tds)}
             hint={kpiHints.tds}
             icon={Landmark}
             tone={FINANCE_KPI_TONES.margin}
@@ -709,7 +700,7 @@ export default function HotelBookingFinancialMisDetailPage() {
           />
           <FinanceKpiCard
             label="TCS"
-            value={formatFinanceMoney(booking.tcs)}
+            value={formatFinanceMoney(displayPayout.tcs)}
             hint={kpiHints.tcs}
             icon={Landmark}
             tone={FINANCE_KPI_TONES.outstanding}
@@ -734,7 +725,7 @@ export default function HotelBookingFinancialMisDetailPage() {
             actionLabel=""
           />
           <FinanceKpiCard
-            label="Net OTA GST"
+            label="OTA GST"
             value={formatFinanceMoney(displayOta.otaRevenueGst)}
             icon={Receipt}
             tone={FINANCE_KPI_TONES.margin}

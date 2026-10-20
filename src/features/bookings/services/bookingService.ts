@@ -108,11 +108,13 @@ export type AdminMoneyLike = number | AdminMoney | null | undefined;
 
 export function moneyAmount(value: AdminMoneyLike): number | undefined {
   if (value == null) return undefined;
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : undefined;
+  if (typeof value === "number" || typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
   }
-  if (typeof value === "object" && typeof value.amount === "number") {
-    return Number.isFinite(value.amount) ? value.amount : undefined;
+  if (typeof value === "object" && value.amount != null) {
+    const parsed = Number(value.amount);
+    return Number.isFinite(parsed) ? parsed : undefined;
   }
   return undefined;
 }
@@ -167,6 +169,10 @@ export interface AdminBookingPricing {
   hotelPayout: number;
   otaGrossRevenue?: number;
   otaNetRevenue?: number;
+  /** Post-cancel OTA revenue (when booking is cancelled). */
+  otaRevenue?: AdminMoneyLike;
+  otaRevenueGst?: AdminMoneyLike;
+  otaRevenueInclusiveGst?: AdminMoneyLike;
   agencyCommission?: number;
   currency: string;
   rateBreakup?: RateBreakup;
@@ -220,6 +226,10 @@ export interface AdminBookingFinancials {
   hotelPayout: number;
   otaGrossRevenue: number;
   otaNetRevenue: number;
+  /** Post-cancel OTA revenue (when booking is cancelled). */
+  otaRevenue?: AdminMoneyLike;
+  otaRevenueGst?: AdminMoneyLike;
+  otaRevenueInclusiveGst?: AdminMoneyLike;
   agencyCommission?: number;
   agencyTier?: string | null;
   agentIncentiveConfigId?: string | null;
@@ -364,6 +374,10 @@ function normalizeAdminBookingFullDetail(
         pricing.serviceFeeAmount ?? fin?.serviceFeeAmount ?? undefined,
       otaGrossRevenue: pricing.otaGrossRevenue ?? fin?.otaGrossRevenue ?? 0,
       otaNetRevenue: pricing.otaNetRevenue ?? fin?.otaNetRevenue ?? 0,
+      otaRevenue: pricing.otaRevenue ?? fin?.otaRevenue,
+      otaRevenueGst: pricing.otaRevenueGst ?? fin?.otaRevenueGst,
+      otaRevenueInclusiveGst:
+        pricing.otaRevenueInclusiveGst ?? fin?.otaRevenueInclusiveGst,
       agencyCommission:
         pricing.agencyCommission ?? fin?.agencyCommission ?? undefined,
       hotelPayout: pricing.hotelPayout ?? fin?.hotelPayout ?? 0,
@@ -447,6 +461,11 @@ export interface BookingDetail {
   refundDateTime?: string | null;
   matchedBracket?: AdminCancellationMatchedBracket | null;
   cancellationEvaluatedAt?: string | null;
+  settlement?: AdminCancellationSettlement | null;
+  /** Post-cancel OTA revenue (when booking is cancelled). */
+  otaRevenue?: AdminMoneyLike;
+  otaRevenueGst?: AdminMoneyLike;
+  otaRevenueInclusiveGst?: AdminMoneyLike;
   hotelPricingComputation?: "RETAIL_RATE" | "PACKAGE_RATE" | string | null;
   hotel_pricing_computation?: "RETAIL_RATE" | "PACKAGE_RATE" | string | null;
 }
@@ -625,11 +644,20 @@ export const bookingService = {
     if (!data) {
       throw new Error("Booking not found");
     }
+    const nestedSettlement =
+      data.settlement ??
+      (
+        data as BookingDetail & {
+          cancellation?: { settlement?: AdminCancellationSettlement | null };
+        }
+      ).cancellation?.settlement ??
+      null;
     return {
       ...data,
       bookingOwner: data.bookingOwner ?? null,
       hotelPricingComputation:
         data.hotelPricingComputation ?? data.hotel_pricing_computation ?? null,
+      settlement: nestedSettlement ?? null,
     };
   },
 

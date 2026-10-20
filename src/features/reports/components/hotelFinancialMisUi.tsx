@@ -111,42 +111,66 @@ export function isHotelFinancialMisCancelled(
     .includes("CANCEL");
 }
 
-/** Cancelled bookings: OTA cards use cancellation settlement (final after cancel). */
+/**
+ * OTA summary cards always use booking.otaRevenue / otaRevenueGst /
+ * otaRevenueInclusiveGst (API already returns post-cancel values when cancelled).
+ */
 export function getHotelFinancialMisDisplayOta(
   booking: Pick<
     HotelFinancialMisBookingRow,
-    | "bookingStatus"
-    | "otaRevenue"
-    | "otaRevenueGst"
-    | "otaRevenueInclusiveGst"
-    | "cancellationSettlement"
-    | "hotelPayoutBreakup"
+    "otaRevenue" | "otaRevenueGst" | "otaRevenueInclusiveGst"
   >,
 ): {
   otaRevenue: HotelFinancialMisMoney;
   otaRevenueGst: HotelFinancialMisMoney;
   otaRevenueInclusiveGst: HotelFinancialMisMoney;
 } {
-  if (isHotelFinancialMisCancelled(booking) && booking.cancellationSettlement) {
-    const settlement = booking.cancellationSettlement;
-    return {
-      otaRevenue: settlement.otaCommission,
-      otaRevenueGst: settlement.commissionGst,
-      otaRevenueInclusiveGst: settlement.commissionInclusiveGst,
-    };
-  }
-  if (isHotelFinancialMisCancelled(booking)) {
-    return {
-      otaRevenue: booking.hotelPayoutBreakup.otaCommission,
-      otaRevenueGst: booking.hotelPayoutBreakup.otaCommissionGst,
-      otaRevenueInclusiveGst:
-        booking.hotelPayoutBreakup.otaCommissionInclusiveGst,
-    };
-  }
   return {
     otaRevenue: booking.otaRevenue,
     otaRevenueGst: booking.otaRevenueGst,
     otaRevenueInclusiveGst: booking.otaRevenueInclusiveGst,
+  };
+}
+
+/** Cancelled bookings: payout/TDS/TCS/refund cards use cancellation.settlement. */
+export function getHotelFinancialMisDisplayPayout(
+  booking: Pick<
+    HotelFinancialMisBookingRow,
+    | "bookingStatus"
+    | "hotelPayout"
+    | "tds"
+    | "tcs"
+    | "refundAmount"
+    | "cancellationSettlement"
+    | "hotelPayoutBreakup"
+    | "customerSellingPriceBreakup"
+  >,
+): {
+  netAccommodation: HotelFinancialMisMoney;
+  hotelPayout: HotelFinancialMisMoney;
+  tds: HotelFinancialMisMoney;
+  tcs: HotelFinancialMisMoney;
+  refund: HotelFinancialMisMoney;
+} {
+  const settlement = isHotelFinancialMisCancelled(booking)
+    ? booking.cancellationSettlement
+    : null;
+  const originalNetAcc = {
+    amount:
+      booking.customerSellingPriceBreakup.baseFare.amount -
+      booking.customerSellingPriceBreakup.promotionDiscount.amount,
+    currency: booking.customerSellingPriceBreakup.baseFare.currency,
+  };
+  return {
+    netAccommodation:
+      settlement?.cancellationAccommodationCharge ??
+      (isHotelFinancialMisCancelled(booking)
+        ? booking.hotelPayoutBreakup.hotelBaseRate
+        : originalNetAcc),
+    hotelPayout: settlement?.amountPayableToProperty ?? booking.hotelPayout,
+    tds: settlement?.tds ?? booking.tds,
+    tcs: settlement?.tcs ?? booking.tcs,
+    refund: settlement?.customerRefund ?? booking.refundAmount,
   };
 }
 

@@ -54,14 +54,12 @@ import {
 import { VoucherViewModal } from "../components/VoucherViewModal";
 import AdminBookingDetailPage from "./AdminBookingDetailPage";
 
-type DetailTab = "bookingSummary" | "roomPricing" | "payment" | "cancellation";
-
-const DETAIL_TABS: { value: DetailTab; label: string }[] = [
-  { value: "bookingSummary", label: "Booking Summary" },
-  { value: "roomPricing", label: "Room & Pricing" },
-  { value: "payment", label: "Payment" },
-  { value: "cancellation", label: "Cancellation" },
-];
+type DetailTab =
+  | "bookingSummary"
+  | "roomPricing"
+  | "financeAfterCancellation"
+  | "payment"
+  | "cancellation";
 
 function formatDate(value: string | undefined): string {
   if (!value) return "—";
@@ -564,12 +562,37 @@ function HotelBookingDetailPage({
     `${booking.status || ""} ${booking.paymentStatus || ""}`
       .toUpperCase()
       .includes("CANCEL");
+  const financeTab: DetailTab = isCancelledBooking
+    ? "financeAfterCancellation"
+    : "roomPricing";
+  const detailTabs: { value: DetailTab; label: string }[] = [
+    { value: "bookingSummary", label: "Booking Summary" },
+    {
+      value: "roomPricing",
+      label: isCancelledBooking ? "Original pricing" : "Room & Pricing",
+    },
+    ...(isCancelledBooking
+      ? [
+          {
+            value: "financeAfterCancellation" as const,
+            label: "Finance after cancellation",
+          },
+        ]
+      : []),
+    { value: "payment", label: "Payment" },
+    { value: "cancellation", label: "Cancellation" },
+  ];
+  const settlement = booking.settlement;
   const originalReservationValue =
     moneyAmount(booking.originalReservationValue) ?? booking.totalAmount;
   const cancellationChargeAmount =
     moneyAmount(booking.cancellationCharge) ?? booking.cancelAmount;
   const payableToProperty =
-    moneyAmount(booking.amountPayableToProperty) ?? rateBreakup?.payableToHotel;
+    (isCancelledBooking
+      ? moneyAmount(settlement?.amountPayableToProperty)
+      : undefined) ??
+    moneyAmount(booking.amountPayableToProperty) ??
+    rateBreakup?.payableToHotel;
   const cancelNowCharge = moneyAmount(booking.currentCancellationCharge);
   const refundIfCancelledNow = moneyAmount(booking.refundAmountIfCancelledNow);
   const cancellationPolicyLines = getCancellationPolicyLines(booking);
@@ -609,11 +632,42 @@ function HotelBookingDetailPage({
     isCancelledBooking ? booking.refundAmount : refundIfCancelledNow,
     originalReservationValue,
   );
-  const displayNetAcc = isCancelledBooking
-    ? (booking.hotelCancellationBase ??
-      rateBreakup?.netAccommodationAfterPromotion ??
-      rateBreakup?.roomCharges)
-    : (rateBreakup?.netAccommodationAfterPromotion ?? rateBreakup?.roomCharges);
+  const displayNetAcc =
+    (isCancelledBooking
+      ? moneyAmount(settlement?.cancellationAccommodationCharge)
+      : undefined) ??
+    (isCancelledBooking
+      ? (booking.hotelCancellationBase ??
+        rateBreakup?.netAccommodationAfterPromotion ??
+        rateBreakup?.roomCharges)
+      : (rateBreakup?.netAccommodationAfterPromotion ??
+        rateBreakup?.roomCharges));
+  const displayTds =
+    (isCancelledBooking ? moneyAmount(settlement?.tds) : undefined) ??
+    rateBreakup?.tdsAmount;
+  const displayTcs =
+    (isCancelledBooking ? moneyAmount(settlement?.tcs) : undefined) ??
+    rateBreakup?.tcsAmount;
+  const displayCommission = rateBreakup?.commissionAmount;
+  const displayOtaRevenue = isCancelledBooking
+    ? (moneyAmount(booking.otaRevenue) ??
+      moneyAmount(settlement?.otaCommission) ??
+      rateBreakup?.commissionAmount)
+    : rateBreakup?.commissionAmount;
+  const displayOtaGst = isCancelledBooking
+    ? (moneyAmount(booking.otaRevenueGst) ??
+      moneyAmount(settlement?.commissionGst) ??
+      rateBreakup?.commissionGst)
+    : rateBreakup?.commissionGst;
+  const displayOtaIncl = isCancelledBooking
+    ? (moneyAmount(booking.otaRevenueInclusiveGst) ??
+      moneyAmount(settlement?.commissionInclusiveGst) ??
+      rateBreakup?.commissionTotal)
+    : rateBreakup?.commissionTotal;
+  const displayRefund =
+    (isCancelledBooking
+      ? moneyAmount(settlement?.customerRefund)
+      : undefined) ?? booking.refundAmount;
   const isNonRefundable =
     String(booking.currentPolicyStage || "")
       .toUpperCase()
@@ -822,7 +876,7 @@ function HotelBookingDetailPage({
               value={formatCurrency(displayNetAcc, currency)}
               icon={Building2}
               tone={FINANCE_KPI_TONES.hotelPayout}
-              onClick={() => setTab("roomPricing")}
+              onClick={() => setTab(financeTab)}
               actionLabel=""
             />
             {isCancelledBooking ? (
@@ -859,14 +913,14 @@ function HotelBookingDetailPage({
               }
               icon={Landmark}
               tone={FINANCE_KPI_TONES.hotelPayout}
-              onClick={() => setTab("roomPricing")}
+              onClick={() => setTab(financeTab)}
               actionLabel=""
             />
             {showTaxDeductionBreakup ? (
               <>
                 <FinanceKpiCard
                   label="TDS"
-                  value={formatCurrency(rateBreakup?.tdsAmount, currency)}
+                  value={formatCurrency(displayTds, currency)}
                   hint={
                     (displayNetAcc ?? 0) > 0
                       ? `0.1% of ${isCancelledBooking ? "Net Accommodation after cancellation" : "Net Accommodation"}`
@@ -877,12 +931,12 @@ function HotelBookingDetailPage({
                   }
                   icon={Percent}
                   tone={FINANCE_KPI_TONES.margin}
-                  onClick={() => setTab("roomPricing")}
+                  onClick={() => setTab(financeTab)}
                   actionLabel=""
                 />
                 <FinanceKpiCard
                   label="TCS"
-                  value={formatCurrency(rateBreakup?.tcsAmount, currency)}
+                  value={formatCurrency(displayTcs, currency)}
                   hint={
                     (displayNetAcc ?? 0) > 0
                       ? `0.5% of ${isCancelledBooking ? "Net Accommodation after cancellation" : "Net Accommodation"}`
@@ -893,19 +947,46 @@ function HotelBookingDetailPage({
                   }
                   icon={Percent}
                   tone={FINANCE_KPI_TONES.outstanding}
-                  onClick={() => setTab("roomPricing")}
+                  onClick={() => setTab(financeTab)}
                   actionLabel=""
                 />
               </>
             ) : null}
-            {showCommissionBreakup ? (
+            {isCancelledBooking ? (
+              <>
+                <FinanceKpiCard
+                  label="OTA Revenue"
+                  value={formatCurrency(displayOtaRevenue, currency)}
+                  sub="After cancellation"
+                  icon={Scale}
+                  tone={FINANCE_KPI_TONES.ota}
+                  onClick={() => setTab(financeTab)}
+                  actionLabel=""
+                />
+                <FinanceKpiCard
+                  label="OTA GST"
+                  value={formatCurrency(displayOtaGst, currency)}
+                  sub="After cancellation"
+                  icon={Receipt}
+                  tone={FINANCE_KPI_TONES.margin}
+                  onClick={() => setTab(financeTab)}
+                  actionLabel=""
+                />
+                <FinanceKpiCard
+                  label="OTA Incl. GST"
+                  value={formatCurrency(displayOtaIncl, currency)}
+                  sub="After cancellation"
+                  icon={CircleDollarSign}
+                  tone={FINANCE_KPI_TONES.ota}
+                  onClick={() => setTab(financeTab)}
+                  actionLabel=""
+                />
+              </>
+            ) : showCommissionBreakup ? (
               <>
                 <FinanceKpiCard
                   label="Commission"
-                  value={formatCurrency(
-                    rateBreakup?.commissionAmount,
-                    currency,
-                  )}
+                  value={formatCurrency(displayCommission, currency)}
                   sub={
                     commissionPercent != null
                       ? formatPercent(commissionPercent)
@@ -913,12 +994,12 @@ function HotelBookingDetailPage({
                   }
                   icon={Scale}
                   tone={FINANCE_KPI_TONES.margin}
-                  onClick={() => setTab("roomPricing")}
+                  onClick={() => setTab(financeTab)}
                   actionLabel=""
                 />
                 <FinanceKpiCard
                   label="OTA GST"
-                  value={formatCurrency(rateBreakup?.commissionGst, currency)}
+                  value={formatCurrency(displayOtaGst, currency)}
                   sub={
                     commissionGstPercent != null
                       ? formatPercent(commissionGstPercent)
@@ -926,12 +1007,12 @@ function HotelBookingDetailPage({
                   }
                   icon={Receipt}
                   tone={FINANCE_KPI_TONES.margin}
-                  onClick={() => setTab("roomPricing")}
+                  onClick={() => setTab(financeTab)}
                   actionLabel=""
                 />
                 <FinanceKpiCard
                   label="OTA Incl. GST"
-                  value={formatCurrency(rateBreakup?.commissionTotal, currency)}
+                  value={formatCurrency(displayOtaIncl, currency)}
                   hint={
                     rateBreakup?.commissionAmount != null &&
                     rateBreakup?.commissionGst != null
@@ -940,21 +1021,21 @@ function HotelBookingDetailPage({
                   }
                   icon={CircleDollarSign}
                   tone={FINANCE_KPI_TONES.ota}
-                  onClick={() => setTab("roomPricing")}
+                  onClick={() => setTab(financeTab)}
                   actionLabel=""
                 />
               </>
             ) : null}
             {isCancelledBooking &&
-            (booking.refundAmount != null || booking.refundStatus) ? (
+            (displayRefund != null || booking.refundStatus) ? (
               <FinanceKpiCard
                 label="Customer refund"
                 value={
-                  booking.refundAmount == null
+                  displayRefund == null
                     ? booking.refundStatus
                       ? formatStatusLabel(booking.refundStatus)
                       : "—"
-                    : formatCurrency(booking.refundAmount, currency)
+                    : formatCurrency(displayRefund, currency)
                 }
                 sub={
                   booking.refundDateTime
@@ -1002,7 +1083,7 @@ function HotelBookingDetailPage({
 
           <div className="mb-3 overflow-x-auto rounded-lg border border-slate-200 bg-white px-1.5 py-1.5 shadow-sm">
             <div className="flex min-w-max gap-1">
-              {DETAIL_TABS.map((item) => (
+              {detailTabs.map((item) => (
                 <button
                   key={item.value}
                   type="button"
@@ -1468,6 +1549,58 @@ function HotelBookingDetailPage({
                     value={formatCurrency(booking.refundAmount, currency)}
                   />
                 ) : null}
+              </dl>
+            </SectionCard>
+          ) : null}
+
+          {tab === "financeAfterCancellation" ? (
+            <SectionCard
+              icon={Scale}
+              iconBg="bg-rose-50"
+              iconColor="bg-rose-100 text-rose-700"
+              title="Finance after cancellation"
+              className="mb-3"
+            >
+              <dl>
+                <DetailRow
+                  label="Net Accommodation after cancellation"
+                  value={formatCurrency(displayNetAcc, currency)}
+                />
+                <DetailRow
+                  label="Hotel GST"
+                  value={formatCurrency(
+                    moneyAmount(settlement?.hotelGst),
+                    currency,
+                  )}
+                />
+                <DetailRow
+                  label="OTA Revenue"
+                  value={formatCurrency(displayOtaRevenue, currency)}
+                />
+                <DetailRow
+                  label="OTA GST"
+                  value={formatCurrency(displayOtaGst, currency)}
+                />
+                <DetailRow
+                  label="OTA Incl. GST"
+                  value={formatCurrency(displayOtaIncl, currency)}
+                />
+                <DetailRow
+                  label="TDS"
+                  value={formatCurrency(displayTds, currency)}
+                />
+                <DetailRow
+                  label="TCS"
+                  value={formatCurrency(displayTcs, currency)}
+                />
+                <DetailRow
+                  label="Payable to property"
+                  value={formatCurrency(payableToProperty, currency)}
+                />
+                <DetailRow
+                  label="Customer refund"
+                  value={formatCurrency(displayRefund, currency)}
+                />
               </dl>
             </SectionCard>
           ) : null}

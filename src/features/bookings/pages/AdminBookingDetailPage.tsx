@@ -54,16 +54,9 @@ type DetailTab =
   | "bookingSummary"
   | "roomPricing"
   | "financial"
+  | "financeAfterCancellation"
   | "payment"
   | "cancellation";
-
-const DETAIL_TABS: { value: DetailTab; label: string }[] = [
-  { value: "bookingSummary", label: "Booking Summary" },
-  { value: "roomPricing", label: "Room & Pricing" },
-  { value: "financial", label: "Financial" },
-  { value: "payment", label: "Payment" },
-  { value: "cancellation", label: "Cancellation" },
-];
 
 function formatDate(value: string | undefined): string {
   if (!value) return "—";
@@ -779,6 +772,27 @@ export default function AdminBookingDetailPage({
     `${summary.bookingStatus} ${detail.payment.paymentStatus}`
       .toUpperCase()
       .includes("CANCEL");
+  const financeTab: DetailTab = isCancelledBooking
+    ? "financeAfterCancellation"
+    : "financial";
+  const detailTabs: { value: DetailTab; label: string }[] = [
+    { value: "bookingSummary", label: "Booking Summary" },
+    { value: "roomPricing", label: "Room & Pricing" },
+    {
+      value: "financial",
+      label: isCancelledBooking ? "Original finance" : "Financial",
+    },
+    ...(isCancelledBooking
+      ? [
+          {
+            value: "financeAfterCancellation" as const,
+            label: "Finance after cancellation",
+          },
+        ]
+      : []),
+    { value: "payment", label: "Payment" },
+    { value: "cancellation", label: "Cancellation" },
+  ];
   const totalRooms = detail.rooms.reduce(
     (sum, room) => sum + (room.quantity || 0),
     0,
@@ -790,6 +804,9 @@ export default function AdminBookingDetailPage({
   const outstandingAmount =
     detail.payment.customerOutstanding ?? detail.payment.pendingAmount ?? 0;
   const refundedAmount =
+    (isCancelledBooking
+      ? moneyAmount(cancellation.settlement?.customerRefund)
+      : undefined) ??
     detail.payment.refundedAmount ??
     moneyAmount(cancellation.refundAmount) ??
     moneyAmount(cancellation.settlement?.customerRefund) ??
@@ -898,24 +915,29 @@ export default function AdminBookingDetailPage({
     isCancelledBooking && moneyAmount(cancellation.settlement?.tcs) != null
       ? moneyAmount(cancellation.settlement?.tcs)
       : (rateBreakup?.tcsAmount ?? detail.financials.tcsAmount ?? 0);
-  const displayOtaNet =
-    isCancelledBooking &&
-    moneyAmount(cancellation.settlement?.otaCommission) != null
-      ? moneyAmount(cancellation.settlement?.otaCommission)
-      : (detail.pricing.otaNetRevenue ?? 0);
-  const displayOtaGst =
-    isCancelledBooking &&
-    moneyAmount(cancellation.settlement?.commissionGst) != null
-      ? moneyAmount(cancellation.settlement?.commissionGst)
-      : (rateBreakup?.commissionGst ?? detail.financials.commissionGst ?? 0);
-  const displayOtaIncl =
-    isCancelledBooking &&
-    moneyAmount(cancellation.settlement?.commissionInclusiveGst) != null
-      ? moneyAmount(cancellation.settlement?.commissionInclusiveGst)
-      : (detail.financials.commissionInclusiveGst ??
-        rateBreakup?.commissionTotal ??
-        detail.pricing.otaGrossRevenue ??
-        0);
+  // Cancelled: OTA Revenue cards use otaRevenue* (post-cancel), not commission/settlement.
+  const displayOtaNet = isCancelledBooking
+    ? (moneyAmount(detail.pricing.otaRevenue) ??
+      moneyAmount(detail.financials.otaRevenue) ??
+      detail.pricing.otaNetRevenue ??
+      detail.financials.otaNetRevenue ??
+      0)
+    : (detail.pricing.otaNetRevenue ?? detail.financials.otaNetRevenue ?? 0);
+  const displayOtaGst = isCancelledBooking
+    ? (moneyAmount(detail.pricing.otaRevenueGst) ??
+      moneyAmount(detail.financials.otaRevenueGst) ??
+      0)
+    : (rateBreakup?.commissionGst ?? detail.financials.commissionGst ?? 0);
+  const displayOtaIncl = isCancelledBooking
+    ? (moneyAmount(detail.pricing.otaRevenueInclusiveGst) ??
+      moneyAmount(detail.financials.otaRevenueInclusiveGst) ??
+      detail.pricing.otaGrossRevenue ??
+      detail.financials.otaGrossRevenue ??
+      0)
+    : (detail.financials.commissionInclusiveGst ??
+      rateBreakup?.commissionTotal ??
+      detail.pricing.otaGrossRevenue ??
+      0);
   const displayCommission =
     isCancelledBooking &&
     moneyAmount(cancellation.settlement?.otaCommission) != null
@@ -1150,7 +1172,7 @@ export default function AdminBookingDetailPage({
               sub={isCancelledBooking ? "After cancellation" : undefined}
               icon={Building2}
               tone={FINANCE_KPI_TONES.hotelPayout}
-              onClick={() => setTab("roomPricing")}
+              onClick={() => setTab(financeTab)}
               actionLabel=""
             />
             {isCancelledBooking ? (
@@ -1181,7 +1203,7 @@ export default function AdminBookingDetailPage({
               }
               icon={Landmark}
               tone={FINANCE_KPI_TONES.hotelPayout}
-              onClick={() => setTab("financial")}
+              onClick={() => setTab(financeTab)}
               actionLabel=""
             />
             <FinanceKpiCard
@@ -1191,7 +1213,7 @@ export default function AdminBookingDetailPage({
               sub={tdsPercent != null ? formatPercent(tdsPercent) : undefined}
               icon={Percent}
               tone={FINANCE_KPI_TONES.margin}
-              onClick={() => setTab("financial")}
+              onClick={() => setTab(financeTab)}
               actionLabel=""
             />
             <FinanceKpiCard
@@ -1201,14 +1223,14 @@ export default function AdminBookingDetailPage({
               sub={tcsPercent != null ? formatPercent(tcsPercent) : undefined}
               icon={Percent}
               tone={FINANCE_KPI_TONES.outstanding}
-              onClick={() => setTab("financial")}
+              onClick={() => setTab(financeTab)}
               actionLabel=""
             />
             <FinanceKpiCard
-              label="OTA net revenue"
+              label="OTA Revenue"
               value={formatCurrency(displayOtaNet, currency)}
               sub={
-                isCancelledBooking && cancellation.settlement
+                isCancelledBooking
                   ? "After cancellation"
                   : isPackageBooking
                     ? "Package rate"
@@ -1216,46 +1238,49 @@ export default function AdminBookingDetailPage({
               }
               icon={Target}
               tone={FINANCE_KPI_TONES.ota}
-              onClick={() => setTab("financial")}
+              onClick={() => setTab(financeTab)}
               actionLabel=""
             />
             <FinanceKpiCard
               label="OTA GST"
               value={formatCurrency(displayOtaGst, currency)}
               sub={
-                commissionGstPercent != null
-                  ? formatPercent(commissionGstPercent)
-                  : undefined
+                isCancelledBooking
+                  ? "After cancellation"
+                  : commissionGstPercent != null
+                    ? formatPercent(commissionGstPercent)
+                    : undefined
               }
               icon={Receipt}
               tone={FINANCE_KPI_TONES.margin}
-              onClick={() => setTab("financial")}
+              onClick={() => setTab(financeTab)}
               actionLabel=""
             />
             <FinanceKpiCard
               label="OTA Incl. GST"
               value={formatCurrency(displayOtaIncl, currency)}
-              hint={kpiHints.otaIncl}
+              hint={isCancelledBooking ? undefined : kpiHints.otaIncl}
+              sub={isCancelledBooking ? "After cancellation" : undefined}
               icon={CircleDollarSign}
               tone={FINANCE_KPI_TONES.ota}
-              onClick={() => setTab("financial")}
+              onClick={() => setTab(financeTab)}
               actionLabel=""
             />
-            <FinanceKpiCard
-              label="Commission"
-              value={formatCurrency(displayCommission, currency)}
-              sub={
-                isCancelledBooking && cancellation.settlement
-                  ? "After cancellation"
-                  : commissionPercent != null
+            {!isCancelledBooking ? (
+              <FinanceKpiCard
+                label="Commission"
+                value={formatCurrency(displayCommission, currency)}
+                sub={
+                  commissionPercent != null
                     ? formatPercent(commissionPercent)
                     : undefined
-              }
-              icon={Scale}
-              tone={FINANCE_KPI_TONES.margin}
-              onClick={() => setTab("roomPricing")}
-              actionLabel=""
-            />
+                }
+                icon={Scale}
+                tone={FINANCE_KPI_TONES.margin}
+                onClick={() => setTab(financeTab)}
+                actionLabel=""
+              />
+            ) : null}
             {isAgentBooking ? (
               <>
                 <FinanceKpiCard
@@ -1347,7 +1372,7 @@ export default function AdminBookingDetailPage({
           {/* Tabs */}
           <div className="mb-3 overflow-x-auto rounded-lg border border-slate-200 bg-white px-1.5 py-1.5 shadow-sm">
             <div className="flex min-w-max gap-1">
-              {DETAIL_TABS.map((item) => (
+              {detailTabs.map((item) => (
                 <button
                   key={item.value}
                   type="button"
@@ -2137,7 +2162,11 @@ export default function AdminBookingDetailPage({
                   icon={TrendingUp}
                   iconBg="bg-amber-50"
                   iconColor="bg-amber-100 text-amber-600"
-                  title="Financial overview"
+                  title={
+                    isCancelledBooking
+                      ? "Original finance"
+                      : "Financial overview"
+                  }
                 >
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-0 md:divide-x md:divide-slate-100">
                     <dl className="min-w-0 md:pr-6">
@@ -2596,6 +2625,298 @@ export default function AdminBookingDetailPage({
             </>
           ) : null}
 
+          {tab === "financeAfterCancellation" ? (
+            <>
+              <SectionCard
+                compact
+                icon={Scale}
+                iconBg="bg-rose-50"
+                iconColor="bg-rose-100 text-rose-700"
+                title="Finance after cancellation"
+                className="mb-3"
+              >
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-0 md:divide-x md:divide-slate-100">
+                  <dl className="min-w-0 md:pr-6">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      Property charges
+                    </p>
+                    <DetailRow
+                      compact
+                      label="Net Accommodation after cancellation"
+                      value={formatCurrency(displayNetAcc, currency)}
+                      positive
+                    />
+                    <DetailRow
+                      compact
+                      label="Hotel GST"
+                      value={formatCurrency(
+                        moneyAmount(cancellation.settlement?.hotelGst),
+                        currency,
+                      )}
+                      positive
+                    />
+                    <DetailRow
+                      compact
+                      label="Total property charges"
+                      value={formatCurrency(
+                        moneyAmount(
+                          cancellation.settlement
+                            ?.totalCancellationPropertyCharges,
+                        ),
+                        currency,
+                      )}
+                    />
+                  </dl>
+                  <dl className="min-w-0 md:px-6">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      OTA revenue after cancel
+                    </p>
+                    <DetailRow
+                      compact
+                      label="OTA Revenue"
+                      value={formatCurrency(displayOtaNet, currency)}
+                    />
+                    <DetailRow
+                      compact
+                      label="OTA GST"
+                      value={formatCurrency(displayOtaGst, currency)}
+                    />
+                    <DetailRow
+                      compact
+                      label="OTA Incl. GST"
+                      value={formatCurrency(displayOtaIncl, currency)}
+                    />
+                  </dl>
+                  <dl className="min-w-0 md:pl-6">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      Tax, payout & refund
+                    </p>
+                    <DetailRow
+                      compact
+                      label={tdsLabel}
+                      value={formatCurrency(displayTds, currency)}
+                    />
+                    <DetailRow
+                      compact
+                      label={tcsLabel}
+                      value={formatCurrency(displayTcs, currency)}
+                    />
+                    <DetailRow
+                      compact
+                      label="Payable to property"
+                      value={formatCurrency(payableToProperty, currency)}
+                    />
+                    <DetailRow
+                      compact
+                      label={
+                        cancellation.cancelledBy?.toUpperCase() === "AGENT"
+                          ? "Agent refund"
+                          : "Customer refund"
+                      }
+                      value={formatCurrency(refundedAmount, currency)}
+                    />
+                  </dl>
+                </div>
+              </SectionCard>
+              {cancellation.settlement ? (
+                <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-rose-50/80 px-3 py-2">
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      Cancellation settlement
+                    </h3>
+                    {cancellation.settlement.settlementContext ? (
+                      <StatusBadge
+                        status={cancellation.settlement.settlementContext}
+                        tone="bg-rose-50 text-rose-700 ring-rose-200"
+                      />
+                    ) : null}
+                  </div>
+                  {(() => {
+                    const next = createCalcLetters();
+                    const showHotelGst = !(
+                      isPackageBooking &&
+                      !(moneyAmount(cancellation.settlement.hotelGst) ?? 0)
+                    );
+                    const showComm = !(
+                      isPackageBooking &&
+                      !(
+                        moneyAmount(
+                          cancellation.settlement.commissionInclusiveGst,
+                        ) ?? 0
+                      )
+                    );
+                    const showTaxDed = !(
+                      isPackageBooking &&
+                      !(moneyAmount(cancellation.settlement.taxDeduction) ?? 0)
+                    );
+                    const accTag = next();
+                    const gstTag = showHotelGst ? next() : null;
+                    const totalTag = next();
+                    const commTag = showComm ? next() : null;
+                    const commGstTag = showComm ? next() : null;
+                    const commInclTag = showComm ? next() : null;
+                    const tcsTag = showTaxDed ? next() : null;
+                    const tdsTag = showTaxDed ? next() : null;
+                    const taxDedTag = showTaxDed ? next() : null;
+                    const payableTag = next();
+                    const refundTag = next();
+                    return (
+                      <>
+                        <CalcSectionHeader title="Property charges" />
+                        <CalcLine
+                          tag={accTag}
+                          label={withRate(
+                            "Cancellation accommodation charge",
+                            cancellationChargePercent,
+                          )}
+                          amount={moneyAmount(
+                            cancellation.settlement
+                              .cancellationAccommodationCharge,
+                          )}
+                          currency={currency}
+                          positive
+                        />
+                        {gstTag ? (
+                          <CalcLine
+                            tag={gstTag}
+                            label={withRate("Hotel GST", gstPercent)}
+                            amount={moneyAmount(
+                              cancellation.settlement.hotelGst,
+                            )}
+                            currency={currency}
+                            positive
+                          />
+                        ) : null}
+                        <CalcSubtotal
+                          letter={totalTag}
+                          formula={gstTag ? `${accTag} + ${gstTag}` : accTag}
+                          label={withRate(
+                            "Total cancellation property charges",
+                            ratePercent(
+                              moneyAmount(
+                                cancellation.settlement
+                                  .totalCancellationPropertyCharges,
+                              ),
+                              originalReservationValue,
+                            ),
+                          )}
+                          amount={moneyAmount(
+                            cancellation.settlement
+                              .totalCancellationPropertyCharges,
+                          )}
+                          currency={currency}
+                        />
+                        {showComm ? (
+                          <>
+                            <CalcSectionHeader title="Commission" />
+                            <CalcLine
+                              tag={commTag ?? undefined}
+                              label={withRate(
+                                "OTA commission",
+                                commissionPercent,
+                              )}
+                              amount={moneyAmount(
+                                cancellation.settlement.otaCommission,
+                              )}
+                              currency={currency}
+                              negative
+                            />
+                            <CalcLine
+                              tag={commGstTag ?? undefined}
+                              label={
+                                commissionGstPercent != null
+                                  ? withRate(
+                                      "GST on commission",
+                                      commissionGstPercent,
+                                    )
+                                  : commissionGstLabel
+                              }
+                              amount={moneyAmount(
+                                cancellation.settlement.commissionGst,
+                              )}
+                              currency={currency}
+                              negative
+                            />
+                            <CalcSubtotal
+                              letter={commInclTag ?? "B"}
+                              formula={
+                                commTag && commGstTag
+                                  ? `${commTag} + ${commGstTag}`
+                                  : undefined
+                              }
+                              label="Commission inclusive of GST"
+                              amount={moneyAmount(
+                                cancellation.settlement.commissionInclusiveGst,
+                              )}
+                              currency={currency}
+                            />
+                          </>
+                        ) : null}
+                        {showTaxDed ? (
+                          <>
+                            <CalcSectionHeader title="Tax deductions" />
+                            <CalcLine
+                              tag={tcsTag ?? undefined}
+                              formula={`0.5% of ${accTag}`}
+                              label={withRate("TCS", tcsPercent)}
+                              amount={moneyAmount(cancellation.settlement.tcs)}
+                              currency={currency}
+                              negative
+                            />
+                            <CalcLine
+                              tag={tdsTag ?? undefined}
+                              formula={`0.1% of ${accTag}`}
+                              label={withRate("TDS", tdsPercent)}
+                              amount={moneyAmount(cancellation.settlement.tds)}
+                              currency={currency}
+                              negative
+                            />
+                            <CalcSubtotal
+                              letter={taxDedTag ?? "C"}
+                              formula={
+                                tcsTag && tdsTag
+                                  ? `${tcsTag} + ${tdsTag}`
+                                  : undefined
+                              }
+                              label="Tax deduction"
+                              amount={moneyAmount(
+                                cancellation.settlement.taxDeduction,
+                              )}
+                              currency={currency}
+                            />
+                          </>
+                        ) : null}
+                        <CalcSubtotal
+                          letter={payableTag}
+                          formula={[totalTag, commInclTag, taxDedTag]
+                            .filter(Boolean)
+                            .join(" − ")}
+                          label="Payable to property"
+                          amount={moneyAmount(
+                            cancellation.settlement.amountPayableToProperty,
+                          )}
+                          currency={currency}
+                        />
+                        <CalcSubtotal
+                          letter={refundTag}
+                          label="Customer refund"
+                          amount={moneyAmount(
+                            cancellation.settlement.customerRefund,
+                          )}
+                          currency={currency}
+                        />
+                      </>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                  Cancellation settlement is not available for this booking.
+                </p>
+              )}
+            </>
+          ) : null}
+
           {tab === "cancellation" ? (
             <>
               <div className="mb-3 grid gap-3 lg:grid-cols-2">
@@ -2821,198 +3142,6 @@ export default function AdminBookingDetailPage({
                   </dl>
                 </SectionCard>
               </div>
-              {isCancelledBooking && cancellation.settlement ? (
-                <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                  <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-rose-50/80 px-3 py-2">
-                    <h3 className="text-sm font-semibold text-slate-900">
-                      Cancellation settlement
-                    </h3>
-                    {cancellation.settlement.settlementContext ? (
-                      <StatusBadge
-                        status={cancellation.settlement.settlementContext}
-                        tone="bg-rose-50 text-rose-700 ring-rose-200"
-                      />
-                    ) : null}
-                  </div>
-                  {(() => {
-                    const next = createCalcLetters();
-                    const showHotelGst = !(
-                      isPackageBooking &&
-                      !(moneyAmount(cancellation.settlement.hotelGst) ?? 0)
-                    );
-                    const showComm = !(
-                      isPackageBooking &&
-                      !(
-                        moneyAmount(
-                          cancellation.settlement.commissionInclusiveGst,
-                        ) ?? 0
-                      )
-                    );
-                    const showTaxDed = !(
-                      isPackageBooking &&
-                      !(moneyAmount(cancellation.settlement.taxDeduction) ?? 0)
-                    );
-                    const accTag = next();
-                    const gstTag = showHotelGst ? next() : null;
-                    const totalTag = next();
-                    const commTag = showComm ? next() : null;
-                    const commGstTag = showComm ? next() : null;
-                    const commInclTag = showComm ? next() : null;
-                    const tcsTag = showTaxDed ? next() : null;
-                    const tdsTag = showTaxDed ? next() : null;
-                    const taxDedTag = showTaxDed ? next() : null;
-                    const payableTag = next();
-                    const refundTag = next();
-                    return (
-                      <>
-                        <CalcSectionHeader title="Property charges" />
-                        <CalcLine
-                          tag={accTag}
-                          label={withRate(
-                            "Cancellation accommodation charge",
-                            cancellationChargePercent,
-                          )}
-                          amount={moneyAmount(
-                            cancellation.settlement
-                              .cancellationAccommodationCharge,
-                          )}
-                          currency={currency}
-                          positive
-                        />
-                        {gstTag ? (
-                          <CalcLine
-                            tag={gstTag}
-                            label={withRate("Hotel GST", gstPercent)}
-                            amount={moneyAmount(
-                              cancellation.settlement.hotelGst,
-                            )}
-                            currency={currency}
-                            positive
-                          />
-                        ) : null}
-                        <CalcSubtotal
-                          letter={totalTag}
-                          formula={gstTag ? `${accTag} + ${gstTag}` : accTag}
-                          label={withRate(
-                            "Total cancellation property charges",
-                            ratePercent(
-                              moneyAmount(
-                                cancellation.settlement
-                                  .totalCancellationPropertyCharges,
-                              ),
-                              originalReservationValue,
-                            ),
-                          )}
-                          amount={moneyAmount(
-                            cancellation.settlement
-                              .totalCancellationPropertyCharges,
-                          )}
-                          currency={currency}
-                        />
-                        {showComm ? (
-                          <>
-                            <CalcSectionHeader title="Commission" />
-                            <CalcLine
-                              tag={commTag ?? undefined}
-                              label={withRate(
-                                "OTA commission",
-                                commissionPercent,
-                              )}
-                              amount={moneyAmount(
-                                cancellation.settlement.otaCommission,
-                              )}
-                              currency={currency}
-                              negative
-                            />
-                            <CalcLine
-                              tag={commGstTag ?? undefined}
-                              label={
-                                commissionGstPercent != null
-                                  ? withRate(
-                                      "GST on commission",
-                                      commissionGstPercent,
-                                    )
-                                  : commissionGstLabel
-                              }
-                              amount={moneyAmount(
-                                cancellation.settlement.commissionGst,
-                              )}
-                              currency={currency}
-                              negative
-                            />
-                            <CalcSubtotal
-                              letter={commInclTag ?? "B"}
-                              formula={
-                                commTag && commGstTag
-                                  ? `${commTag} + ${commGstTag}`
-                                  : undefined
-                              }
-                              label="Commission inclusive of GST"
-                              amount={moneyAmount(
-                                cancellation.settlement.commissionInclusiveGst,
-                              )}
-                              currency={currency}
-                            />
-                          </>
-                        ) : null}
-                        {showTaxDed ? (
-                          <>
-                            <CalcSectionHeader title="Tax deductions" />
-                            <CalcLine
-                              tag={tcsTag ?? undefined}
-                              formula={`0.5% of ${accTag}`}
-                              label={withRate("TCS", tcsPercent)}
-                              amount={moneyAmount(cancellation.settlement.tcs)}
-                              currency={currency}
-                              negative
-                            />
-                            <CalcLine
-                              tag={tdsTag ?? undefined}
-                              formula={`0.1% of ${accTag}`}
-                              label={withRate("TDS", tdsPercent)}
-                              amount={moneyAmount(cancellation.settlement.tds)}
-                              currency={currency}
-                              negative
-                            />
-                            <CalcSubtotal
-                              letter={taxDedTag ?? "C"}
-                              formula={
-                                tcsTag && tdsTag
-                                  ? `${tcsTag} + ${tdsTag}`
-                                  : undefined
-                              }
-                              label="Tax deduction"
-                              amount={moneyAmount(
-                                cancellation.settlement.taxDeduction,
-                              )}
-                              currency={currency}
-                            />
-                          </>
-                        ) : null}
-                        <CalcSubtotal
-                          letter={payableTag}
-                          formula={[totalTag, commInclTag, taxDedTag]
-                            .filter(Boolean)
-                            .join(" − ")}
-                          label="Payable to property"
-                          amount={moneyAmount(
-                            cancellation.settlement.amountPayableToProperty,
-                          )}
-                          currency={currency}
-                        />
-                        <CalcSubtotal
-                          letter={refundTag}
-                          label="Customer refund"
-                          amount={moneyAmount(
-                            cancellation.settlement.customerRefund,
-                          )}
-                          currency={currency}
-                        />
-                      </>
-                    );
-                  })()}
-                </div>
-              ) : null}
             </>
           ) : null}
 
