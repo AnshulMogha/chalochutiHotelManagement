@@ -151,6 +151,7 @@ export interface PreviewParams {
   fromDate?: string;
   toDate?: string;
   cycle?: string;
+  bookingReferences?: string[];
 }
 
 export interface GenerateSettlementRequest {
@@ -160,6 +161,7 @@ export interface GenerateSettlementRequest {
   toDate?: string | null;
   cycle?: string | null;
   previewFingerprint: string;
+  bookingReferences?: string[];
 }
 
 export interface SettlementSummary {

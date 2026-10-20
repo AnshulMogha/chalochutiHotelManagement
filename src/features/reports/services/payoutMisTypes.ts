@@ -25,6 +25,8 @@ export type PayoutMisSortField =
 
 export type PayoutMisSortDir = "asc" | "desc";
 
+export type PayoutMisDateAxis = "SETTLED_AT" | "CHECK_IN";
+
 export interface PayoutMoney {
   amount: number;
   currency: string;
@@ -65,6 +67,7 @@ export interface PayoutMisPageMeta {
 
 export interface PayoutMisDashboardResponse {
   dateRange: PayoutMisDateRange;
+  dateAxis?: string | null;
   summary: PayoutMisSummary;
   payments: PayoutMisPaymentRow[];
   page: PayoutMisPageMeta;
@@ -104,6 +107,7 @@ export interface PayoutMisListParams {
   sort?: PayoutMisSortField;
   sortDir?: PayoutMisSortDir;
   datePreset?: PayoutMisDatePreset;
+  dateAxis?: PayoutMisDateAxis;
   fromDate?: string;
   toDate?: string;
   search?: string;

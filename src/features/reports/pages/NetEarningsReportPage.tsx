@@ -34,6 +34,7 @@ import {
   type NetEarningsBookingStatus,
   type NetEarningsBookingType,
   type NetEarningsChargeGroup,
+  type NetEarningsDateAxis,
   type NetEarningsDatePreset,
   type NetEarningsPaymentStatus,
   type NetEarningsReportResponse,
@@ -87,9 +88,16 @@ const PAYMENT_STATUS_OPTIONS: {
   { value: "SETTLED", label: "Settled" },
 ];
 
+const DATE_AXIS_OPTIONS: { value: "" | NetEarningsDateAxis; label: string }[] = [
+  { value: "", label: "Default" },
+  { value: "CHECK_IN", label: "Check-in" },
+  { value: "SETTLED_AT", label: "Settled at" },
+];
+
 type FilterDraft = {
   propertyIds: string[];
   datePreset: NetEarningsDatePreset;
+  dateAxis: "" | NetEarningsDateAxis;
   bookingStatuses: NetEarningsBookingStatus[];
   bookingType: NetEarningsBookingType;
   paymentStatus: NetEarningsPaymentStatus | "ALL";
@@ -101,6 +109,7 @@ type FilterDraft = {
 const DEFAULT_DRAFT: FilterDraft = {
   propertyIds: [],
   datePreset: DEFAULT_DATE_PRESET,
+  dateAxis: "",
   bookingStatuses: DEFAULT_BOOKING_STATUSES,
   bookingType: DEFAULT_BOOKING_TYPE,
   paymentStatus: DEFAULT_PAYMENT_STATUS,
@@ -428,6 +437,9 @@ export default function NetEarningsReportPage() {
   const showPaymentsTabs = showNetEarningsTab || showPayoutsTab;
 
   const [datePreset, setDatePreset] = useState<NetEarningsDatePreset>(DEFAULT_DATE_PRESET);
+  const [dateAxis, setDateAxis] = useState<"" | NetEarningsDateAxis>(
+    DEFAULT_DRAFT.dateAxis,
+  );
   const [propertyIds, setPropertyIds] = useState<string[]>([]);
   const [bookingStatuses, setBookingStatuses] = useState<NetEarningsBookingStatus[]>(
     DEFAULT_BOOKING_STATUSES,
@@ -465,6 +477,7 @@ export default function NetEarningsReportPage() {
   const activeFilterCount =
     (propertyIds.length ? 1 : 0) +
     (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
+    (dateAxis ? 1 : 0) +
     (bookingStatuses.length > 0 ? 1 : 0) +
     (bookingType !== DEFAULT_BOOKING_TYPE ? 1 : 0) +
     (paymentStatus !== DEFAULT_PAYMENT_STATUS ? 1 : 0) +
@@ -474,6 +487,7 @@ export default function NetEarningsReportPage() {
     setDraft({
       propertyIds,
       datePreset,
+      dateAxis,
       bookingStatuses,
       bookingType,
       paymentStatus,
@@ -502,6 +516,7 @@ export default function NetEarningsReportPage() {
     }
     setPropertyIds(nextDraft.propertyIds);
     setDatePreset(nextDraft.datePreset);
+    setDateAxis(nextDraft.dateAxis);
     setBookingStatuses(nextDraft.bookingStatuses);
     setBookingType(nextDraft.bookingType);
     setPaymentStatus(nextDraft.paymentStatus);
@@ -518,6 +533,7 @@ export default function NetEarningsReportPage() {
     setCustomToText("");
     setPropertyIds(DEFAULT_DRAFT.propertyIds);
     setDatePreset(DEFAULT_DRAFT.datePreset);
+    setDateAxis(DEFAULT_DRAFT.dateAxis);
     setBookingStatuses(DEFAULT_DRAFT.bookingStatuses);
     setBookingType(DEFAULT_DRAFT.bookingType);
     setPaymentStatus(DEFAULT_DRAFT.paymentStatus);
@@ -540,6 +556,7 @@ export default function NetEarningsReportPage() {
             ? [hotelId]
             : [],
         datePreset,
+        dateAxis: dateAxis || undefined,
         fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
         toDate: datePreset === "CUSTOM" ? toDate : undefined,
         bookingStatuses: bookingStatuses.length ? bookingStatuses : undefined,
@@ -564,6 +581,7 @@ export default function NetEarningsReportPage() {
     propertyIds,
     customRangeInvalid,
     datePreset,
+    dateAxis,
     fromDate,
     toDate,
     bookingStatuses,
@@ -606,6 +624,7 @@ export default function NetEarningsReportPage() {
               ? [hotelId]
               : [],
           datePreset,
+          dateAxis: dateAxis || undefined,
           fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
           toDate: datePreset === "CUSTOM" ? toDate : undefined,
           bookingStatuses: bookingStatuses.length ? bookingStatuses : undefined,
@@ -706,6 +725,9 @@ export default function NetEarningsReportPage() {
                   <p className="text-xl font-extrabold tabular-nums text-slate-900">
                     {summary.netBookings}
                   </p>
+                  <p className="text-[11px] text-slate-400">
+                    {summary.settledCount} settled · {summary.pendingCount} pending
+                  </p>
                 </div>
                 <div className="hidden h-10 w-px bg-slate-200 sm:block" />
                 <div>
@@ -736,6 +758,15 @@ export default function NetEarningsReportPage() {
                   </p>
                   <p className="text-xl font-extrabold tabular-nums text-amber-700">
                     {formatReportCurrency(summary.paymentPending)}
+                  </p>
+                </div>
+                <div className="hidden h-10 w-px bg-slate-200 xl:block" />
+                <div className="hidden xl:block">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Hotel GST
+                  </p>
+                  <p className="text-xl font-extrabold tabular-nums text-slate-900">
+                    {formatReportCurrency(summary.hotelGst)}
                   </p>
                 </div>
                 <div className="hidden h-10 w-px bg-slate-200 xl:block" />
@@ -784,6 +815,15 @@ export default function NetEarningsReportPage() {
                   <CalendarDays className="h-3.5 w-3.5" />
                   {formatReportDate(report.dateRange.fromDate)} –{" "}
                   {formatReportDate(report.dateRange.toDate)}
+                  {report.dateAxis || dateAxis
+                    ? ` · ${
+                        DATE_AXIS_OPTIONS.find(
+                          (option) =>
+                            option.value === (dateAxis || report.dateAxis),
+                        )?.label ??
+                        formatStatusLabel(dateAxis || report.dateAxis)
+                      }`
+                    : ""}
                 </p>
               ) : null}
             </div>
@@ -808,6 +848,7 @@ export default function NetEarningsReportPage() {
                       "Booking Status",
                       "Booking Type",
                       "Booking Amount",
+                      "Hotel GST",
                       "Payable To Property",
                       "Commission incl. GST",
                       "TCS",
@@ -830,13 +871,13 @@ export default function NetEarningsReportPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={16} className="px-4 py-16 text-center">
+                      <td colSpan={17} className="px-4 py-16 text-center">
                         <Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-600" />
                       </td>
                     </tr>
                   ) : !report?.bookings.length ? (
                     <tr>
-                      <td colSpan={16} className="px-4 py-16 text-center text-slate-400">
+                      <td colSpan={17} className="px-4 py-16 text-center text-slate-400">
                         No rows found.
                       </td>
                     </tr>
@@ -874,6 +915,14 @@ export default function NetEarningsReportPage() {
                         <td className="px-3 py-2.5">{formatStatusLabel(row.bookingSource)}</td>
                         <td className="px-3 py-2.5">
                           {formatReportCurrency(row.bookingAmount)}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {formatReportCurrency(row.hotelGst)}
+                          {row.hotelGstLabel ? (
+                            <div className="text-[11px] text-slate-500">
+                              {row.hotelGstLabel}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="px-3 py-2.5">
                           {formatReportCurrency(row.payableToProperty)}
@@ -975,6 +1024,23 @@ export default function NetEarningsReportPage() {
               ) : null}
               <section>
                 <h3 className="mb-2 text-sm font-bold text-slate-900">Date range</h3>
+                <label className="mb-1 block text-xs text-slate-500">Date axis</label>
+                <select
+                  value={draft.dateAxis}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      dateAxis: e.target.value as "" | NetEarningsDateAxis,
+                    }))
+                  }
+                  className="mb-3 w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                >
+                  {DATE_AXIS_OPTIONS.map((option) => (
+                    <option key={option.value || "default"} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
                 <label className="mb-1 block text-xs text-slate-500">Time period</label>
                 <select
                   value={draft.datePreset}

@@ -19,6 +19,7 @@ import type { SettlementPreview } from "../services/settlementTypes";
 import {
   SettlementMoney,
   SettlementPageShell,
+  previewBookingReference,
   SettlementPreviewBookingsTable,
   SettlementRefreshButton,
   SettlementReportSection,
@@ -76,6 +77,7 @@ export default function SettlementPreviewPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generateConfirmOpen, setGenerateConfirmOpen] = useState(false);
+  const [selectedRefs, setSelectedRefs] = useState<Set<string>>(new Set());
 
   const period = useMemo(
     () =>
@@ -101,9 +103,15 @@ export default function SettlementPreviewPage() {
         toDate: toDate || undefined,
       });
       setPreview(result.data);
+      setSelectedRefs(
+        new Set(
+          result.data.bookings.map(previewBookingReference).filter(Boolean),
+        ),
+      );
     } catch (error) {
       showToast(extractErrorMessage(error), "error");
       setPreview(null);
+      setSelectedRefs(new Set());
     } finally {
       setLoading(false);
     }
@@ -113,12 +121,43 @@ export default function SettlementPreviewPage() {
     void loadPreview();
   }, [loadPreview]);
 
+  const previewBookingRefs = useMemo(
+    () =>
+      preview
+        ? preview.bookings.map(previewBookingReference).filter(Boolean)
+        : [],
+    [preview],
+  );
+  const allSelected =
+    previewBookingRefs.length > 0 &&
+    selectedRefs.size === previewBookingRefs.length &&
+    previewBookingRefs.every((ref) => selectedRefs.has(ref));
+
   const canGenerateNow =
     canGenerate &&
     !!preview?.previewFingerprint &&
     preview.bankVerified &&
     settlementReady &&
-    !existingDraft;
+    !existingDraft &&
+    selectedRefs.size > 0;
+
+  const toggleBookingRef = (bookingRef: string) => {
+    setSelectedRefs((prev) => {
+      const next = new Set(prev);
+      if (next.has(bookingRef)) next.delete(bookingRef);
+      else next.add(bookingRef);
+      return next;
+    });
+  };
+
+  const toggleAllBookings = () => {
+    setSelectedRefs((prev) => {
+      const allChosen =
+        previewBookingRefs.length > 0 &&
+        previewBookingRefs.every((ref) => prev.has(ref));
+      return allChosen ? new Set() : new Set(previewBookingRefs);
+    });
+  };
 
   const blockReason = !preview
     ? null
@@ -136,15 +175,35 @@ export default function SettlementPreviewPage() {
 
   const handleGenerate = async () => {
     if (!preview || !canGenerateNow) return;
+    const bookingReferences = previewBookingRefs.filter((ref) =>
+      selectedRefs.has(ref),
+    );
+    if (!bookingReferences.length) {
+      showToast("Select at least one booking to generate a settlement.", "error");
+      return;
+    }
     setGenerating(true);
     try {
+      let fingerprint = preview.previewFingerprint;
+      if (!allSelected) {
+        const refreshed = await settlementService.getPreview({
+          supplierId,
+          component,
+          cycle: cycle || undefined,
+          fromDate: fromDate || undefined,
+          toDate: toDate || undefined,
+          bookingReferences,
+        });
+        fingerprint = refreshed.data.previewFingerprint;
+      }
       const result = await settlementService.generateSettlement({
         supplierId,
         component,
         cycle: cycle || null,
         fromDate: fromDate || null,
         toDate: toDate || null,
-        previewFingerprint: preview.previewFingerprint,
+        previewFingerprint: fingerprint,
+        bookingReferences,
       });
       const settlementNo =
         result.data.settlementNo || result.data.settlementId;
@@ -358,8 +417,19 @@ export default function SettlementPreviewPage() {
 
             <SettlementReportSection
               title="Booking line items"
-              description={`${preview.bookings.length} booking(s) in this immutable snapshot`}
+              description={`${selectedRefs.size} of ${preview.bookings.length} booking(s) selected`}
               flush
+              action={
+                canGenerate ? (
+                  <button
+                    type="button"
+                    onClick={toggleAllBookings}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    {allSelected ? "Clear all" : "Select all"}
+                  </button>
+                ) : null
+              }
             >
               <SettlementPreviewBookingsTable
                 bookings={preview.bookings}
@@ -372,6 +442,10 @@ export default function SettlementPreviewPage() {
                 }
                 variant="report"
                 returnTo={bookingReturnTo}
+                selectable={canGenerate}
+                selectedRefs={selectedRefs}
+                onToggleRef={toggleBookingRef}
+                onToggleAll={toggleAllBookings}
               />
             </SettlementReportSection>
 
@@ -383,10 +457,16 @@ export default function SettlementPreviewPage() {
                       <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <span>{blockReason}</span>
                     </p>
+                  ) : canGenerate && selectedRefs.size === 0 ? (
+                    <p className="text-rose-700">
+                      Select at least one booking to generate a settlement.
+                    </p>
                   ) : canGenerate ? (
                     <p>
-                      Creates a PENDING settlement. A different user must
-                      approve it (maker-checker).
+                      Creates a PENDING settlement for {selectedRefs.size}{" "}
+                      selected booking
+                      {selectedRefs.size === 1 ? "" : "s"}. A different user
+                      must approve it (maker-checker).
                     </p>
                   ) : (
                     <p>View-only access for this settlement preview.</p>
@@ -437,6 +517,7 @@ export default function SettlementPreviewPage() {
           preview?.payableAmount
             ? `Payable: ${formatFinanceMoney(preview.payableAmount)}`
             : "",
+          `${selectedRefs.size} booking${selectedRefs.size === 1 ? "" : "s"} selected`,
           period ? `Period: ${formatSettlementPeriod(period)}` : "",
         ].filter(Boolean)}
         busy={generating}

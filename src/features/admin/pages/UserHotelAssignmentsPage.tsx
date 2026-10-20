@@ -32,6 +32,7 @@ import {
 } from "@/constants/roles";
 import { useAuth } from "@/hooks";
 import { cn } from "@/lib/utils";
+import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
   ArrowLeft,
   Building2,
@@ -46,6 +47,8 @@ import {
   EyeOff,
   Lock,
   Unlock,
+  Loader2,
+  Send,
 } from "lucide-react";
 
 type HotelOption = {
@@ -743,6 +746,7 @@ export default function UserHotelAssignmentsPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
   const [bdPermModalOpen, setBdPermModalOpen] = useState(false);
+  const [resendingHotelId, setResendingHotelId] = useState<string | null>(null);
   const { toast, showToast, hideToast } = useToast();
 
   const goBack = useCallback(() => {
@@ -905,6 +909,34 @@ export default function UserHotelAssignmentsPage() {
 
   const isTargetHotelBd = !!(user?.roles || []).includes("HOTEL_BD");
   const showHotelBdUserPermissions = isAdminContext && isTargetHotelBd;
+  const canResendOwnerCredentials =
+    isAdminContext &&
+    !!(user?.roles || []).includes("HOTEL_OWNER") &&
+    !!user?.firstLoginRequired;
+
+  const handleResendOwnerCredentials = async (hotelId?: string) => {
+    const id = hotelId?.trim();
+    if (!id) {
+      showToast("Hotel id is missing, so credentials cannot be resent.", "error");
+      return;
+    }
+    if (!user?.firstLoginRequired) {
+      showToast(
+        "This owner has already signed in and changed the password. Ask them to use Forgot password.",
+        "error",
+      );
+      return;
+    }
+    setResendingHotelId(id);
+    try {
+      await adminService.resendOwnerCredentials(id);
+      showToast("Temporary credentials were sent again.", "success");
+    } catch (e) {
+      showToast(extractErrorMessage(e), "error");
+    } finally {
+      setResendingHotelId(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -1097,19 +1129,46 @@ export default function UserHotelAssignmentsPage() {
                         : "—"}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="gap-2 text-red-700 border-red-200 hover:bg-red-50"
-                        disabled={isRevoking}
-                        onClick={() => {
-                          setRevokeError(null);
-                          setRevokeTarget(row);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Revoke
-                      </Button>
+                      <div className="inline-flex flex-wrap items-center justify-end gap-2">
+                        {canResendOwnerCredentials ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="gap-2"
+                            disabled={
+                              isRevoking ||
+                              resendingHotelId === String(row.hotelId ?? "")
+                            }
+                            onClick={() =>
+                              void handleResendOwnerCredentials(
+                                row.hotelId != null
+                                  ? String(row.hotelId)
+                                  : undefined,
+                              )
+                            }
+                          >
+                            {resendingHotelId === String(row.hotelId ?? "") ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Send className="w-4 h-4" />
+                            )}
+                            Resend credentials
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="gap-2 text-red-700 border-red-200 hover:bg-red-50"
+                          disabled={isRevoking}
+                          onClick={() => {
+                            setRevokeError(null);
+                            setRevokeTarget(row);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Revoke
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -12,6 +12,7 @@ import {
 } from "@/constants/roles";
 import {
   exportStatusLabel,
+  formatReportDate,
   formatStatusLabel,
   getHotelOnboardingLink,
   getHotelOnboardingReadOnlyLink,
@@ -116,6 +117,12 @@ const DEFAULT_DRAFT: FilterDraft = {
   direction: "DESC",
   bdUserId: [],
 };
+
+function formatPipelineDate(value?: string | null): string {
+  if (!value) return "—";
+  const isoDate = value.includes("T") ? value.slice(0, 10) : value;
+  return formatReportDate(isoDate);
+}
 
 function withPipelineOrigin(url: string): string {
   return `${url}${url.includes("?") ? "&" : "?"}from=pipeline`;
@@ -415,34 +422,46 @@ export default function HotelBdPipelineReportPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-100 text-sm">
+          <table className="w-max min-w-[88rem] divide-y divide-slate-100 text-sm">
             <thead className="bg-slate-50/80">
               <tr>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="sticky left-0 z-10 min-w-[14rem] bg-slate-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
                   Hotel
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="min-w-[9rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
                   Hotel BD
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="min-w-[9rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
                   Zonal Manager
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="min-w-[8rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
                   Status
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="min-w-[8rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
                   Current Step
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="min-w-[12rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
                   Steps
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="min-w-[6.5rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
                   Done / Left
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="min-w-[6.5rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
                   Days Stuck
                 </th>
-                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="min-w-[7.5rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
+                  Created At
+                </th>
+                <th className="min-w-[7.5rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
+                  Updated At
+                </th>
+                <th className="min-w-[8.5rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
+                  QC Reviewed At
+                </th>
+                <th className="min-w-[9rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
+                  Zonal Reviewed At
+                </th>
+                <th className="min-w-[5.5rem] px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
                   Action
                 </th>
               </tr>
@@ -450,13 +469,13 @@ export default function HotelBdPipelineReportPage() {
             <tbody className="divide-y divide-slate-100 bg-white">
               {loading && !report ? (
                 <tr>
-                  <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
+                  <td colSpan={13} className="px-3 py-8 text-center text-slate-500">
                     <Loader2 className="mx-auto h-5 w-5 animate-spin text-indigo-600" />
                   </td>
                 </tr>
               ) : !report?.rows.length ? (
                 <tr>
-                  <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
+                  <td colSpan={13} className="px-3 py-8 text-center text-slate-500">
                     No pipeline rows match your filters.
                   </td>
                 </tr>
@@ -469,9 +488,9 @@ export default function HotelBdPipelineReportPage() {
                   return (
                     <tr
                       key={`${row.hotelId ?? row.hotelCode}-${index}`}
-                      className="hover:bg-slate-50/70"
+                      className="group hover:bg-slate-50/70"
                     >
-                      <td className="px-3 py-2">
+                      <td className="sticky left-0 z-10 min-w-[14rem] bg-white px-3 py-2 group-hover:bg-slate-50">
                         <div className="font-medium text-slate-900">
                           {row.hotelName}
                         </div>
@@ -482,13 +501,13 @@ export default function HotelBdPipelineReportPage() {
                           {row.locked ? " · Locked" : ""}
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-slate-700">
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
                         {row.hotelBd || "—"}
                       </td>
-                      <td className="px-3 py-2 text-slate-700">
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
                         {row.zonalManager || "—"}
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="whitespace-nowrap px-3 py-2">
                         <span
                           className={cn(
                             "inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
@@ -498,7 +517,7 @@ export default function HotelBdPipelineReportPage() {
                           {formatStatusLabel(row.status)}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-slate-700">
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
                         {row.currentStep
                           ? formatStatusLabel(row.currentStep)
                           : "—"}
@@ -526,13 +545,25 @@ export default function HotelBdPipelineReportPage() {
                           })}
                         </div>
                       </td>
-                      <td className="px-3 py-2 tabular-nums text-slate-700">
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
                         {row.completedSteps} / {row.incompleteSteps}
                       </td>
-                      <td className="px-3 py-2 tabular-nums text-slate-700">
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
                         {row.daysStuck != null ? row.daysStuck : "—"}
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
+                        {formatPipelineDate(row.createdAt)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
+                        {formatPipelineDate(row.updatedAt)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
+                        {formatPipelineDate(row.qcReviewedAt)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
+                        {formatPipelineDate(row.zonalApprovedAt)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
                         {link ? (
                           <Link
                             to={link}

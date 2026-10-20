@@ -127,6 +127,12 @@ function normalizeDashboardResponse(
       fromDate: String(dateRangeRaw.fromDate ?? dateRangeRaw.from ?? ""),
       toDate: String(dateRangeRaw.toDate ?? dateRangeRaw.to ?? ""),
     },
+    dateAxis:
+      data.dateAxis != null
+        ? String(data.dateAxis)
+        : dateRangeRaw.dateAxis != null
+          ? String(dateRangeRaw.dateAxis)
+          : null,
     summary: normalizeSummary(summaryRaw),
     payments: paymentsRaw.map((row) =>
       normalizePaymentRow(row as Record<string, unknown>),
@@ -209,6 +215,7 @@ function buildSearchParams(
 ): URLSearchParams {
   const search = new URLSearchParams();
   search.set("datePreset", params.datePreset ?? "THIS_MONTH");
+  if (params.dateAxis) search.set("dateAxis", params.dateAxis);
   if (!forExport) {
     search.set("page", String(params.page ?? 0));
     search.set("size", String(params.size ?? 20));

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Button, LoadingSpinner } from "@/components/ui";
+import { Toast, useToast } from "@/components/ui/Toast";
 import { adminService, type User } from "../services/adminService";
 import { ROUTES } from "@/constants";
 import { isSuperAdminExcludedFromUserEdit } from "@/constants/roles";
 import { RoleBadge } from "@/components/ui/badges/RoleBadge";
+import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
   ArrowLeft,
   Mail,
@@ -18,6 +20,8 @@ import {
   XCircle,
   AlertCircle,
   Building2,
+  Loader2,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -77,6 +81,8 @@ export default function UserDetailsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isResendingCredentials, setIsResendingCredentials] = useState(false);
+  const { toast, showToast, hideToast } = useToast();
 
   const numericUserId = Number(userId);
   const isValidUserId = Number.isFinite(numericUserId);
@@ -109,6 +115,34 @@ export default function UserDetailsPage() {
   }, [user]);
 
   const staffExcludedFromEdit = isSuperAdminExcludedFromUserEdit(user?.roles);
+  const isHotelOwner = (user?.roles || []).includes("HOTEL_OWNER");
+
+  const handleResendOwnerCredentials = async () => {
+    if (!user) return;
+    if (!user.firstLoginRequired) {
+      showToast(
+        "This owner has already signed in and changed the password. Ask them to use Forgot password.",
+        "error",
+      );
+      return;
+    }
+    setIsResendingCredentials(true);
+    try {
+      const count = await adminService.resendOwnerCredentialsForUser(
+        user.userId,
+      );
+      showToast(
+        count === 1
+          ? "Temporary credentials were sent again."
+          : `Temporary credentials were sent again for ${count} hotels.`,
+        "success",
+      );
+    } catch (e) {
+      showToast(extractErrorMessage(e), "error");
+    } finally {
+      setIsResendingCredentials(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -157,6 +191,21 @@ export default function UserDetailsPage() {
           >
             {staffExcludedFromEdit ? "Edit status" : "Edit user"}
           </Button>
+          {isHotelOwner && user.firstLoginRequired ? (
+            <Button
+              variant="outline"
+              className="gap-2"
+              disabled={isResendingCredentials}
+              onClick={() => void handleResendOwnerCredentials()}
+            >
+              {isResendingCredentials ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              Resend credentials
+            </Button>
+          ) : null}
           {(user.roles || []).some(
             (r) => r === "HOTEL_OWNER" || r === "HOTEL_BD",
           ) && (
@@ -249,6 +298,12 @@ export default function UserDetailsPage() {
               </div>
               <div className="text-sm text-gray-700 rounded-lg bg-white/80 border border-violet-100 px-3 py-2">
                 First Login Required: {user.firstLoginRequired ? "Yes" : "No"}
+                {isHotelOwner && !user.firstLoginRequired ? (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Temporary credentials were already used. Ask the owner to
+                    use Forgot password.
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -301,6 +356,13 @@ export default function UserDetailsPage() {
           </div>
         </div>
       </div>
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+        duration={4000}
+      />
     </div>
   );
 }

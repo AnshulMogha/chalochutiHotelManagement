@@ -1467,6 +1467,32 @@ export const adminService = {
     }
     return [];
   },
+  resendOwnerCredentials: async (hotelId: string): Promise<void> => {
+    await apiClient.post<ApiSuccessResponse<unknown>>(
+      API_ENDPOINTS.ADMIN.RESEND_OWNER_CREDENTIALS(hotelId),
+    );
+  },
+  resendOwnerCredentialsForUser: async (
+    userId: string | number,
+  ): Promise<number> => {
+    const assignments = await adminService.getUserHotelAssignments(userId);
+    const hotelIds = [
+      ...new Set(
+        assignments
+          .map((row) => (row.hotelId != null ? String(row.hotelId).trim() : ""))
+          .filter(Boolean),
+      ),
+    ];
+    if (hotelIds.length === 0) {
+      throw new Error(
+        "No hotel is assigned to this owner, so temporary credentials cannot be resent.",
+      );
+    }
+    for (const hotelId of hotelIds) {
+      await adminService.resendOwnerCredentials(hotelId);
+    }
+    return hotelIds.length;
+  },
   // Hotel Management
   getHotelBasicInfo: async (
     hotelId: string,

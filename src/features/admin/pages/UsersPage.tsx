@@ -34,6 +34,7 @@ import {
   Filter,
   Shield,
   Search,
+  Send,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
 import { isSuperAdminExcludedFromUserEdit } from "@/constants/roles";
@@ -567,6 +568,8 @@ export default function UsersPage() {
   const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
     null,
   );
+  const [resendingUserId, setResendingUserId] = useState<number | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -599,6 +602,33 @@ export default function UsersPage() {
       setRowCount(0);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendOwnerCredentials = async (user: User) => {
+    if (!user.firstLoginRequired) {
+      setSuccessMessage(null);
+      setActionError(
+        "This owner has already signed in and changed the password. Ask them to use Forgot password.",
+      );
+      return;
+    }
+    setResendingUserId(user.userId);
+    setActionError(null);
+    setSuccessMessage(null);
+    try {
+      const count = await adminService.resendOwnerCredentialsForUser(
+        user.userId,
+      );
+      setSuccessMessage(
+        count === 1
+          ? "Temporary credentials were sent again."
+          : `Temporary credentials were sent again for ${count} hotels.`,
+      );
+    } catch (err) {
+      setActionError(extractErrorMessage(err));
+    } finally {
+      setResendingUserId(null);
     }
   };
 
@@ -807,7 +837,7 @@ export default function UsersPage() {
       field: "actions",
       headerName: "Actions",
       flex: 1,
-      minWidth: 240,
+      minWidth: 340,
       sortable: false,
       filterable: false,
       renderHeader: () => <UserColumnHeader icon={Edit} label="Actions" />,
@@ -835,6 +865,27 @@ export default function UsersPage() {
                 <Edit className="w-4 h-4" />
                 {staffExcluded ? "Status" : "Edit"}
               </Button>
+              {(params.row.roles || []).includes("HOTEL_OWNER") &&
+                params.row.firstLoginRequired && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleResendOwnerCredentials(params.row);
+                    }}
+                    disabled={resendingUserId === params.row.userId}
+                    className="gap-2 whitespace-nowrap"
+                    title="Resend temporary login credentials"
+                  >
+                    {resendingUserId === params.row.userId ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                    Resend credentials
+                  </Button>
+                )}
               {(params.row.roles || []).some(
                 (r: string) => r === "HOTEL_OWNER" || r === "HOTEL_BD",
               ) && (
@@ -933,6 +984,19 @@ export default function UsersPage() {
               className="text-green-700 hover:text-green-900"
               onClick={() => setSuccessMessage(null)}
               aria-label="Dismiss success message"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        {actionError && (
+          <div className="mb-2 flex shrink-0 items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <span>{actionError}</span>
+            <button
+              type="button"
+              className="text-red-700 hover:text-red-900"
+              onClick={() => setActionError(null)}
+              aria-label="Dismiss error message"
             >
               <X className="h-4 w-4" />
             </button>

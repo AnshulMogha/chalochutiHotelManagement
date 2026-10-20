@@ -22,14 +22,18 @@ export type NetEarningsBookingStatus = "CONFIRMED" | "CANCELLED";
 
 export type NetEarningsBookingType = "ALL" | "HOTEL" | "PACKAGE";
 export type NetEarningsPaymentStatus = "PENDING" | "SETTLED";
+export type NetEarningsDateAxis = "SETTLED_AT" | "CHECK_IN";
 
 export interface NetEarningsSummary {
   netBookings: number;
+  settledCount: number;
+  pendingCount: number;
   payableToProperty: number;
   paymentSettled: number;
   amountTransferred: number;
   amountAdjusted: number;
   paymentPending: number;
+  hotelGst: number;
   totalCommission: number;
   totalTcs: number;
   totalTds: number;
@@ -48,6 +52,8 @@ export interface NetEarningsBookingRow {
   bookingStatus: string;
   bookingSource: string;
   bookingAmount: number;
+  hotelGst: number;
+  hotelGstLabel?: string;
   payableToProperty: number;
   amountTransferred: number;
   amountAdjusted: number;
@@ -113,6 +119,7 @@ export interface NetEarningsReportResponse {
     fromDate: string;
     toDate: string;
   };
+  dateAxis?: string | null;
   summary: NetEarningsSummary;
   bookings: NetEarningsBookingRow[];
   page: {
@@ -126,6 +133,7 @@ export interface NetEarningsReportResponse {
 export interface NetEarningsReportParams {
   propertyIds: string[];
   datePreset?: NetEarningsDatePreset;
+  dateAxis?: NetEarningsDateAxis;
   fromDate?: string;
   toDate?: string;
   bookingStatuses?: NetEarningsBookingStatus[];
@@ -157,12 +165,19 @@ function toMoney(value: unknown): number {
   return Number(value ?? 0);
 }
 
+function pickRateLabel(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const label = String((value as { rateLabel?: unknown }).rateLabel ?? "").trim();
+  return label || undefined;
+}
+
 function buildSearchParams(
   params: NetEarningsReportParams,
   forExport = false,
 ): URLSearchParams {
   const search = new URLSearchParams();
   search.set("datePreset", params.datePreset ?? "THIS_MONTH");
+  if (params.dateAxis) search.set("dateAxis", params.dateAxis);
   if (params.bookingStatuses?.length) {
     search.set("bookingStatus", params.bookingStatuses.join(","));
   }
@@ -191,11 +206,14 @@ function buildSearchParams(
 function normalizeSummary(raw: Record<string, unknown> | undefined): NetEarningsSummary {
   return {
     netBookings: Number(raw?.netBookings ?? 0),
+    settledCount: Number(raw?.settledCount ?? 0),
+    pendingCount: Number(raw?.pendingCount ?? 0),
     payableToProperty: toMoney(raw?.payableToProperty),
     paymentSettled: toMoney(raw?.paymentSettled),
     amountTransferred: toMoney(raw?.amountTransferred),
     amountAdjusted: toMoney(raw?.amountAdjusted),
     paymentPending: toMoney(raw?.paymentPending),
+    hotelGst: toMoney(raw?.hotelGst),
     totalCommission: toMoney(raw?.totalCommission),
     totalTcs: toMoney(raw?.totalTcs),
     totalTds: toMoney(raw?.totalTds),
@@ -226,6 +244,8 @@ function normalizeBookingRow(raw: Record<string, unknown>): NetEarningsBookingRo
     bookingStatus: String(raw.bookingStatus ?? "—"),
     bookingSource: String(raw.bookingSource ?? raw.bookingType ?? "—"),
     bookingAmount: toMoney(raw.bookingAmount),
+    hotelGst: toMoney(raw.hotelGst),
+    hotelGstLabel: pickRateLabel(raw.hotelGst),
     payableToProperty: toMoney(raw.payableToProperty),
     amountTransferred: toMoney(raw.amountTransferred),
     amountAdjusted: toMoney(raw.amountAdjusted),
@@ -256,6 +276,7 @@ function normalizeReportResponse(
       fromDate: "",
       toDate: "",
     },
+    dateAxis: data.dateAxis != null ? String(data.dateAxis) : null,
     summary: normalizeSummary(data.summary as Record<string, unknown> | undefined),
     bookings: bookings.map((row) => normalizeBookingRow(row)),
     page: {

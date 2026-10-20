@@ -13,6 +13,7 @@ import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
   exportStatusLabel,
   formatReportDate,
+  formatStatusLabel,
   isoToReportDateText,
   ReportPageHeader,
   validateCustomDateRange,
@@ -29,6 +30,7 @@ import {
 import { hotelPayoutMisService } from "../services/payoutMisService";
 import type {
   PayoutMisDashboardResponse,
+  PayoutMisDateAxis,
   PayoutMisDatePreset,
   PayoutMisDetailResponse,
   PayoutMisSortField,
@@ -61,9 +63,16 @@ const DATE_PRESET_OPTIONS: { value: PayoutMisDatePreset; label: string }[] = [
   { value: "CUSTOM", label: "Custom" },
 ];
 
+const DATE_AXIS_OPTIONS: { value: "" | PayoutMisDateAxis; label: string }[] = [
+  { value: "", label: "Default" },
+  { value: "CHECK_IN", label: "Check-in" },
+  { value: "SETTLED_AT", label: "Settled at" },
+];
+
 type FilterDraft = {
   propertyIds: string[];
   datePreset: PayoutMisDatePreset;
+  dateAxis: "" | PayoutMisDateAxis;
   fromDate: string;
   toDate: string;
   search: string;
@@ -72,6 +81,7 @@ type FilterDraft = {
 const DEFAULT_DRAFT: FilterDraft = {
   propertyIds: [],
   datePreset: DEFAULT_DATE_PRESET,
+  dateAxis: "",
   fromDate: "",
   toDate: "",
   search: "",
@@ -89,6 +99,9 @@ export default function PayoutMisPage() {
     canViewPaymentReport(user?.roles) || canViewModule(user, "PAYMENTS");
 
   const [datePreset, setDatePreset] = useState<PayoutMisDatePreset>(DEFAULT_DATE_PRESET);
+  const [dateAxis, setDateAxis] = useState<"" | PayoutMisDateAxis>(
+    DEFAULT_DRAFT.dateAxis,
+  );
   const [propertyIds, setPropertyIds] = useState<string[]>([]);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -120,6 +133,7 @@ export default function PayoutMisPage() {
   const activeFilterCount =
     (propertyIds.length ? 1 : 0) +
     (datePreset !== DEFAULT_DATE_PRESET ? 1 : 0) +
+    (dateAxis ? 1 : 0) +
     (search.trim() ? 1 : 0);
 
   const listParams = useMemo(
@@ -129,6 +143,7 @@ export default function PayoutMisPage() {
       sort: sortField,
       sortDir,
       datePreset,
+      dateAxis: dateAxis || undefined,
       fromDate: datePreset === "CUSTOM" ? fromDate : undefined,
       toDate: datePreset === "CUSTOM" ? toDate : undefined,
       search: search.trim() || undefined,
@@ -143,6 +158,7 @@ export default function PayoutMisPage() {
       sortField,
       sortDir,
       datePreset,
+      dateAxis,
       fromDate,
       toDate,
       search,
@@ -293,6 +309,7 @@ export default function PayoutMisPage() {
     }
     setPropertyIds(nextDraft.propertyIds);
     setDatePreset(nextDraft.datePreset);
+    setDateAxis(nextDraft.dateAxis);
     setFromDate(nextDraft.fromDate);
     setToDate(nextDraft.toDate);
     setSearch(nextDraft.search.trim());
@@ -301,7 +318,7 @@ export default function PayoutMisPage() {
   };
 
   const openFilters = () => {
-    setDraft({ propertyIds, datePreset, fromDate, toDate, search });
+    setDraft({ propertyIds, datePreset, dateAxis, fromDate, toDate, search });
     setCustomFromText(isoToReportDateText(fromDate));
     setCustomToText(isoToReportDateText(toDate));
     setFilterOpen(true);
@@ -313,6 +330,7 @@ export default function PayoutMisPage() {
     setCustomToText("");
     setPropertyIds(DEFAULT_DRAFT.propertyIds);
     setDatePreset(DEFAULT_DRAFT.datePreset);
+    setDateAxis(DEFAULT_DRAFT.dateAxis);
     setFromDate(DEFAULT_DRAFT.fromDate);
     setToDate(DEFAULT_DRAFT.toDate);
     setSearch(DEFAULT_DRAFT.search);
@@ -430,6 +448,15 @@ export default function PayoutMisPage() {
                   <CalendarDays className="h-3.5 w-3.5" />
                   {formatReportDate(report.dateRange.fromDate)} –{" "}
                   {formatReportDate(report.dateRange.toDate)}
+                  {report.dateAxis || dateAxis
+                    ? ` · ${
+                        DATE_AXIS_OPTIONS.find(
+                          (option) =>
+                            option.value === (dateAxis || report.dateAxis),
+                        )?.label ??
+                        formatStatusLabel(dateAxis || report.dateAxis)
+                      }`
+                    : ""}
                 </p>
               ) : null}
             </div>
@@ -520,6 +547,23 @@ export default function PayoutMisPage() {
               ) : null}
               <section>
                 <h3 className="mb-2 text-sm font-bold text-slate-900">Payment date range</h3>
+                <label className="mb-1 block text-xs text-slate-500">Date axis</label>
+                <select
+                  value={draft.dateAxis}
+                  onChange={(event) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      dateAxis: event.target.value as "" | PayoutMisDateAxis,
+                    }))
+                  }
+                  className="mb-3 w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                >
+                  {DATE_AXIS_OPTIONS.map((option) => (
+                    <option key={option.value || "default"} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
                 <label className="mb-1 block text-xs text-slate-500">Time period</label>
                 <select
                   value={draft.datePreset}

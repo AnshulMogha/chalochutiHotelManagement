@@ -18,11 +18,20 @@ const DOCUMENT_TYPES: Array<{ value: DocumentType; label: string }> = [
   { value: "GST_CERTIFICATE", label: "GST Certificate" },
   { value: "PAN_CARD", label: "PAN Card" },
   { value: "CANCELLED_CHEQUE", label: "Cancelled Cheque" },
-  { value: "HOTEL_REGISTRATION", label: "Hotel Registration" },
   { value: "BANK_STATEMENT", label: "Bank Statement" },
   { value: "AGREEMENT", label: "Agreement" },
   { value: "OTHER", label: "Other" },
 ];
+
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  GST_CERTIFICATE: "GST Certificate",
+  PAN_CARD: "PAN Card",
+  CANCELLED_CHEQUE: "Cancelled Cheque",
+  HOTEL_REGISTRATION: "Hotel Registration",
+  BANK_STATEMENT: "Bank Statement",
+  AGREEMENT: "Agreement",
+  OTHER: "Other",
+};
 
 const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_DOCUMENT_MIME_TYPES = new Set([
@@ -205,7 +214,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
   };
 
   const getDocTypeLabel = (docType: DocumentType) => {
-    return DOCUMENT_TYPES.find((type) => type.value === docType)?.label || docType;
+    return DOCUMENT_TYPE_LABELS[docType] || docType;
   };
 
   const availableDocTypes = getAvailableDocTypes();
@@ -228,7 +237,7 @@ export function DocumentTab({ hotelId }: DocumentTabProps) {
             <div>
               <p className="text-sm font-semibold text-slate-900">Documents</p>
               <p className="text-xs text-slate-500">
-                GST, PAN, registration & other hotel files
+                GST, PAN & other hotel files
               </p>
             </div>
           </div>

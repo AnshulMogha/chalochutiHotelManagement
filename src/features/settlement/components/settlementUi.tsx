@@ -697,6 +697,10 @@ export function captureSettlementApiError(err: unknown): Record<string, unknown>
   return { message: String(err || "Request failed") };
 }
 
+export function previewBookingReference(line: PreviewBookingLine): string {
+  return String(line.bookingRef || line.bookingId || "").trim();
+}
+
 export function SettlementPreviewBookingsTable({
   bookings,
   hotelId,
@@ -704,6 +708,10 @@ export function SettlementPreviewBookingsTable({
   limit,
   variant = "default",
   returnTo,
+  selectable = false,
+  selectedRefs,
+  onToggleRef,
+  onToggleAll,
 }: {
   bookings: PreviewBookingLine[];
   /** Hotel supplier id — required so Bookings top-bar selector has a hotel. */
@@ -713,12 +721,25 @@ export function SettlementPreviewBookingsTable({
   variant?: "default" | "report";
   /** Where booking detail/list should return on Back (e.g. settlement detail URL). */
   returnTo?: string | null;
+  selectable?: boolean;
+  selectedRefs?: ReadonlySet<string>;
+  onToggleRef?: (bookingRef: string) => void;
+  onToggleAll?: () => void;
 }) {
   const visible = limit ? bookings.slice(0, limit) : bookings;
   const isReport = variant === "report";
   const resolvedHotelId = hotelId?.trim() || null;
   const isTransport =
     String(component || "").toUpperCase() === "TRANSPORT";
+  const selectableRefs = visible
+    .map(previewBookingReference)
+    .filter(Boolean);
+  const selectedCount = selectable
+    ? selectableRefs.filter((ref) => selectedRefs?.has(ref)).length
+    : 0;
+  const allVisibleSelected =
+    selectable && selectableRefs.length > 0 && selectedCount === selectableRefs.length;
+  const someVisibleSelected = selectable && selectedCount > 0 && !allVisibleSelected;
 
   if (!visible.length) {
     return (
@@ -750,6 +771,25 @@ export function SettlementPreviewBookingsTable({
                   : "bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500",
               )}
             >
+              {selectable ? (
+                <th
+                  className={cn(
+                    "w-10 text-left font-semibold",
+                    isReport ? "px-3 py-2.5" : "px-2 py-2",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    ref={(node) => {
+                      if (node) node.indeterminate = someVisibleSelected;
+                    }}
+                    onChange={() => onToggleAll?.()}
+                    aria-label="Select all bookings"
+                    className="h-4 w-4 rounded border-slate-300 text-[#2f3d95] focus:ring-[#2f3d95]"
+                  />
+                </th>
+              ) : null}
               <th
                 className={cn(
                   "text-left font-semibold uppercase tracking-wide",
@@ -805,7 +845,9 @@ export function SettlementPreviewBookingsTable({
               const bookingKey = String(
                 line.bookingId || line.bookingRef || idx,
               );
+              const bookingRef = previewBookingReference(line);
               const bookingLabel = line.bookingRef || line.bookingId || "—";
+              const isSelected = Boolean(bookingRef && selectedRefs?.has(bookingRef));
               const bookingHref = isTransport
                 ? transportBookingMisUrl(line.bookingId, line.bookingRef)
                 : settlementBookingUrl(
@@ -826,6 +868,20 @@ export function SettlementPreviewBookingsTable({
                     isReport && "transition hover:bg-slate-50/80",
                   )}
                 >
+                  {selectable ? (
+                    <td className={cn(isReport ? "px-3 py-3" : "px-2 py-2")}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={!bookingRef}
+                        onChange={() => {
+                          if (bookingRef) onToggleRef?.(bookingRef);
+                        }}
+                        aria-label={`Select ${bookingLabel}`}
+                        className="h-4 w-4 rounded border-slate-300 text-[#2f3d95] focus:ring-[#2f3d95]"
+                      />
+                    </td>
+                  ) : null}
                   <td className={cn(isReport ? "px-3 py-3" : "px-2 py-2")}>
                     {bookingHref && isTransport ? (
                       <a

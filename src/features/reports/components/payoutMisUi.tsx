@@ -235,6 +235,29 @@ function creditStatusBadge(status?: string | null) {
   );
 }
 
+function paymentStatusBadge(status?: string | null) {
+  if (!status) return <span className="text-slate-400">—</span>;
+  const normalized = status.trim().toUpperCase();
+  const tone =
+    normalized === "PAID" || normalized.includes("SETTLED") || normalized.includes("CREDIT")
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+      : normalized.includes("PENDING") || normalized.includes("PROCESS")
+        ? "bg-amber-50 text-amber-700 ring-amber-200"
+        : normalized.includes("FAIL") || normalized.includes("REJECT")
+          ? "bg-rose-50 text-rose-700 ring-rose-200"
+          : "bg-slate-100 text-slate-700 ring-slate-200";
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1",
+        tone,
+      )}
+    >
+      {formatStatusLabel(status)}
+    </span>
+  );
+}
+
 export function PayoutDetailDrawer({
   open,
   loading,
@@ -298,6 +321,11 @@ export function PayoutDetailDrawer({
                   Payment Transaction Details
                 </h3>
                 <dl className="grid gap-3 sm:grid-cols-2">
+                  <DetailItem
+                    label="Settlement No"
+                    value={detail.settlementNo}
+                    mono
+                  />
                   <DetailItem label="Payment status" value={formatStatusLabel(detail.paymentStatus)} />
                   <DetailItem
                     label="Payment reference number / UTR"
@@ -500,6 +528,9 @@ export function PayoutPaymentsTable({
               </span>
             </th>
             <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+              Settlement No
+            </th>
+            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
               Hotel Name
             </th>
             <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
@@ -548,6 +579,9 @@ export function PayoutPaymentsTable({
               />
             </th>
             <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+              Status
+            </th>
+            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
               Export
             </th>
           </tr>
@@ -555,13 +589,13 @@ export function PayoutPaymentsTable({
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={8} className="px-4 py-16 text-center">
+              <td colSpan={10} className="px-4 py-16 text-center">
                 <Loader2 className="mx-auto h-6 w-6 animate-spin text-blue-600" />
               </td>
             </tr>
           ) : !rows.length ? (
             <tr>
-              <td colSpan={8} className="px-4 py-16 text-center text-slate-400">
+              <td colSpan={10} className="px-4 py-16 text-center text-slate-400">
                 No payout records found for the selected filters.
               </td>
             </tr>
@@ -579,6 +613,9 @@ export function PayoutPaymentsTable({
                   >
                     {row.paymentReferenceNumber}
                   </button>
+                </td>
+                <td className="px-3 py-2.5 font-mono text-xs text-slate-700">
+                  {row.settlementNo || "—"}
                 </td>
                 <td className="max-w-56 px-3 py-2.5">
                   <span
@@ -603,6 +640,7 @@ export function PayoutPaymentsTable({
                 <td className="px-3 py-2.5 tabular-nums text-slate-800">
                   {formatReportMoney(row.amountAdjusted)}
                 </td>
+                <td className="px-3 py-2.5">{paymentStatusBadge(row.paymentStatus)}</td>
                 <td className="px-3 py-2.5">
                   <button
                     type="button"
