@@ -713,21 +713,29 @@ export default function AdminBookingDetailPage({
     detail.financials.agencyIncentiveCategory ??
     rateBreakup?.agencyIncentiveCategory ??
     null;
-  const agencyCommissionAmount =
+  const originalAgencyCommissionAmount =
     detail.financials.agencyCommission ??
     detail.pricing.agencyCommission ??
     rateBreakup?.agencyCommission ??
     rateBreakup?.agentCommission ??
     0;
-  const agentTdsPercent =
-    detail.financials.agentTdsPercent ?? rateBreakup?.agentTdsPercent ?? null;
-  const agentTdsAmount =
+  const originalAgentTdsAmount =
     detail.financials.agentTdsAmount ?? rateBreakup?.agentTdsAmount ?? null;
-  const agentNetCommission =
+  const originalAgentNetCommission =
     detail.financials.agentNetCommission ??
     rateBreakup?.agentNetCommission ??
     null;
-  const agentPayable = rateBreakup?.agentPayable ?? null;
+  const agentTdsPercent =
+    detail.financials.agentTdsPercent ?? rateBreakup?.agentTdsPercent ?? null;
+  const agencyCommissionAmount = originalAgencyCommissionAmount;
+  const agentTdsAmount = originalAgentTdsAmount;
+  const agentNetCommission = originalAgentNetCommission;
+  const agentPayable =
+    originalAgentNetCommission != null
+      ? (rateBreakup?.hotelGrossCharges ??
+          detail.financials.customerSellingPrice ??
+          0) - originalAgentNetCommission
+      : (rateBreakup?.agentPayable ?? null);
   const isPackageBooking = [
     detail.financials.selectedPricingSource,
     detail.financials.selectedCustomerType,
@@ -745,8 +753,8 @@ export default function AdminBookingDetailPage({
       .includes("PACKAGE");
   const isAgentBooking =
     isAgentBookingOwnerType(detail.bookingOwner?.type) ||
-    agencyCommissionAmount > 0 ||
-    (agentNetCommission ?? 0) > 0 ||
+    originalAgencyCommissionAmount > 0 ||
+    (originalAgentNetCommission ?? 0) > 0 ||
     Boolean(agencyTier);
   // Direct (B2C) package bookings must not show Agency / Agent payable.
   const showAgencyBlock = isAgentBooking;
@@ -917,59 +925,42 @@ export default function AdminBookingDetailPage({
       : (rateBreakup?.tcsAmount ?? detail.financials.tcsAmount ?? 0);
   const settlement = cancellation.settlement;
   const displayHotelGst = isCancelledBooking
-    ? (moneyAmount(settlement?.hotelGst) ??
-      detail.financials.gstAmount ??
-      0)
+    ? (moneyAmount(settlement?.hotelGst) ?? 0)
     : (detail.financials.gst?.amount ?? detail.financials.gstAmount ?? 0);
-  // Cancelled: OTA cards use cancellation.settlement otaNetRevenue* (post-cancel).
   const displayOtaNet = isCancelledBooking
-    ? (moneyAmount(settlement?.otaNetRevenue) ??
-      moneyAmount(settlement?.otaCommission) ??
-      0)
+    ? (moneyAmount(settlement?.otaNetRevenue) ?? 0)
     : (detail.pricing.otaNetRevenue ?? detail.financials.otaNetRevenue ?? 0);
   const displayOtaGst = isCancelledBooking
-    ? (moneyAmount(settlement?.otaNetRevenueGst) ??
-      moneyAmount(settlement?.commissionGst) ??
-      0)
+    ? (moneyAmount(settlement?.otaNetRevenueGst) ?? 0)
     : (rateBreakup?.commissionGst ?? detail.financials.commissionGst ?? 0);
   const displayOtaIncl = isCancelledBooking
-    ? (moneyAmount(settlement?.otaNetRevenueInclusiveGst) ??
-      moneyAmount(settlement?.commissionInclusiveGst) ??
-      0)
+    ? (moneyAmount(settlement?.otaNetRevenueInclusiveGst) ?? 0)
     : (detail.financials.commissionInclusiveGst ??
       rateBreakup?.commissionTotal ??
       detail.pricing.otaGrossRevenue ??
       0);
-  const displayCommission =
-    isCancelledBooking &&
-    moneyAmount(cancellation.settlement?.otaCommission) != null
-      ? moneyAmount(cancellation.settlement?.otaCommission)
-      : (detail.pricing.commissionAmount ?? 0);
+  const displayCommission = isCancelledBooking
+    ? (moneyAmount(settlement?.otaCommission) ?? 0)
+    : (detail.pricing.commissionAmount ?? 0);
   const collectedAmount =
     isCancelledBooking && !isAgentBooking
       ? originalReservationValue
       : guestPaidAmount;
-  const agencyNetAmount = agentNetCommission ?? 0;
-  const agencyTdsDisplay =
-    agentTdsAmount ??
-    (agencyCommissionAmount > 0 ? agencyCommissionAmount * 0.02 : 0);
-  const kpiHints = {
-    collected:
-      isAgentBooking && agentNetCommission != null
-        ? "Customer Revenue − Agency Net Comm."
-        : undefined,
-    payable:
-      "Hotel Base + Hotel GST − OTA Commission − GST on Commission − TCS − TDS",
-    tds: `0.1% of ${isCancelledBooking ? "Net Accommodation after cancellation" : "Net Accommodation"}`,
-    tcs: `0.5% of ${isCancelledBooking ? "Net Accommodation after cancellation" : "Net Accommodation"}`,
-    otaIncl: "OTA Revenue + OTA GST",
-    agencyTds:
-      agencyCommissionAmount > 0 ? "2% of Agency Commission" : undefined,
-    agencyNet:
-      agentNetCommission != null
-        ? "Agency Commission − Agency TDS"
-        : undefined,
-  };
+  const displayAgencyCommission = isCancelledBooking
+    ? (moneyAmount(settlement?.retainedAgencyCommission) ?? 0)
+    : originalAgencyCommissionAmount;
+  const displayAgencyTds = isCancelledBooking
+    ? (moneyAmount(settlement?.retainedAgentTds) ?? 0)
+    : (originalAgentTdsAmount ??
+      (originalAgencyCommissionAmount > 0
+        ? originalAgencyCommissionAmount * 0.02
+        : 0));
+  const displayAgencyNet = isCancelledBooking
+    ? (moneyAmount(settlement?.retainedAgentNetCommission) ?? 0)
+    : (originalAgentNetCommission ?? 0);
+  const displayServiceFee = isCancelledBooking
+    ? (moneyAmount(settlement?.serviceFee) ?? 0)
+    : serviceFeeExclGst;
 
   return (
     <>
@@ -1157,7 +1148,6 @@ export default function AdminBookingDetailPage({
                     : "Hotel Gross Charges"
               }
               value={formatCurrency(collectedAmount, currency)}
-              hint={kpiHints.collected}
               sub={
                 isCancelledBooking && isAgentBooking
                   ? `Reservation ${formatCurrency(originalReservationValue, currency)}`
@@ -1208,7 +1198,7 @@ export default function AdminBookingDetailPage({
             <FinanceKpiCard
               label="Payable to property"
               value={formatCurrency(payableToProperty, currency)}
-              hint={kpiHints.payable}
+              hint="Hotel Base + Hotel GST − OTA Commission − GST on Commission − TCS − TDS"
               sub={
                 isCancelledBooking
                   ? "After cancellation"
@@ -1222,7 +1212,7 @@ export default function AdminBookingDetailPage({
             <FinanceKpiCard
               label="TDS"
               value={formatCurrency(displayTds, currency)}
-              hint={kpiHints.tds}
+              hint={`0.1% of ${isCancelledBooking ? "Net Accommodation after cancellation" : "Net Accommodation"}`}
               sub={tdsPercent != null ? formatPercent(tdsPercent) : undefined}
               icon={Percent}
               tone={FINANCE_KPI_TONES.margin}
@@ -1232,7 +1222,7 @@ export default function AdminBookingDetailPage({
             <FinanceKpiCard
               label="TCS"
               value={formatCurrency(displayTcs, currency)}
-              hint={kpiHints.tcs}
+              hint={`0.5% of ${isCancelledBooking ? "Net Accommodation after cancellation" : "Net Accommodation"}`}
               sub={tcsPercent != null ? formatPercent(tcsPercent) : undefined}
               icon={Percent}
               tone={FINANCE_KPI_TONES.outstanding}
@@ -1240,7 +1230,7 @@ export default function AdminBookingDetailPage({
               actionLabel=""
             />
             <FinanceKpiCard
-              label="OTA Revenue"
+              label="OTA Net Revenue"
               value={formatCurrency(displayOtaNet, currency)}
               sub={
                 isCancelledBooking
@@ -1255,7 +1245,7 @@ export default function AdminBookingDetailPage({
               actionLabel=""
             />
             <FinanceKpiCard
-              label="OTA GST"
+              label={isCancelledBooking ? "OTA Net GST" : "OTA GST"}
               value={formatCurrency(displayOtaGst, currency)}
               sub={
                 isCancelledBooking
@@ -1270,81 +1260,103 @@ export default function AdminBookingDetailPage({
               actionLabel=""
             />
             <FinanceKpiCard
-              label="OTA Incl. GST"
+              label={isCancelledBooking ? "OTA Net Incl. GST" : "OTA Incl. GST"}
               value={formatCurrency(displayOtaIncl, currency)}
-              hint={isCancelledBooking ? undefined : kpiHints.otaIncl}
+              hint="Commission + OTA GST"
               sub={isCancelledBooking ? "After cancellation" : undefined}
               icon={CircleDollarSign}
               tone={FINANCE_KPI_TONES.ota}
               onClick={() => setTab(financeTab)}
               actionLabel=""
             />
-            {!isCancelledBooking ? (
-              <FinanceKpiCard
-                label="Commission"
-                value={formatCurrency(displayCommission, currency)}
-                sub={
-                  commissionPercent != null
+            <FinanceKpiCard
+              label={isCancelledBooking ? "OTA Commission" : "Commission"}
+              value={formatCurrency(displayCommission, currency)}
+              sub={
+                isCancelledBooking
+                  ? "After cancellation"
+                  : commissionPercent != null
                     ? formatPercent(commissionPercent)
                     : undefined
-                }
-                icon={Scale}
-                tone={FINANCE_KPI_TONES.margin}
-                onClick={() => setTab(financeTab)}
-                actionLabel=""
-              />
-            ) : null}
+              }
+              icon={Scale}
+              tone={FINANCE_KPI_TONES.margin}
+              onClick={() => setTab(financeTab)}
+              actionLabel=""
+            />
             {isAgentBooking ? (
               <>
                 <FinanceKpiCard
-                  label="Agency commission"
-                  value={formatCurrency(agencyCommissionAmount, currency)}
+                  label={
+                    isCancelledBooking
+                      ? "Retained agency commission"
+                      : "Agency commission"
+                  }
+                  value={formatCurrency(displayAgencyCommission, currency)}
                   sub={
-                    [
-                      agencyTier,
-                      agencyIncentivePercent != null
-                        ? formatPercent(agencyIncentivePercent)
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || undefined
+                    isCancelledBooking
+                      ? "After cancellation"
+                      : [
+                          agencyTier,
+                          agencyIncentivePercent != null
+                            ? formatPercent(agencyIncentivePercent)
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || undefined
                   }
                   icon={Sparkles}
                   tone={FINANCE_KPI_TONES.refund}
-                  onClick={() => setTab("financial")}
+                  onClick={() =>
+                    setTab(isCancelledBooking ? financeTab : "financial")
+                  }
                   actionLabel=""
                 />
                 <FinanceKpiCard
-                  label="Agency TDS"
-                  value={formatCurrency(agencyTdsDisplay, currency)}
-                  hint={kpiHints.agencyTds}
+                  label={
+                    isCancelledBooking ? "Retained agent TDS" : "Agency TDS"
+                  }
+                  value={formatCurrency(displayAgencyTds, currency)}
+                  sub={isCancelledBooking ? "After cancellation" : undefined}
                   icon={Percent}
                   tone={FINANCE_KPI_TONES.margin}
-                  onClick={() => setTab("financial")}
+                  onClick={() =>
+                    setTab(isCancelledBooking ? financeTab : "financial")
+                  }
                   actionLabel=""
                 />
                 <FinanceKpiCard
-                  label="Agency Net Comm."
-                  value={formatCurrency(agencyNetAmount, currency)}
-                  hint={kpiHints.agencyNet}
+                  label={
+                    isCancelledBooking
+                      ? "Retained agent net comm."
+                      : "Agency Net Comm."
+                  }
+                  value={formatCurrency(displayAgencyNet, currency)}
+                  sub={isCancelledBooking ? "After cancellation" : undefined}
                   icon={Wallet}
                   tone={FINANCE_KPI_TONES.outstanding}
-                  onClick={() => setTab("financial")}
+                  onClick={() =>
+                    setTab(isCancelledBooking ? financeTab : "financial")
+                  }
                   actionLabel=""
                 />
               </>
             ) : (
               <FinanceKpiCard
                 label="Service fee"
-                value={formatCurrency(serviceFeeExclGst, currency)}
+                value={formatCurrency(displayServiceFee, currency)}
                 sub={
-                  serviceFeeInclGst > 0
-                    ? `Incl. GST ${formatCurrency(serviceFeeInclGst, currency)}`
-                    : undefined
+                  isCancelledBooking
+                    ? "After cancellation"
+                    : serviceFeeInclGst > 0
+                      ? `Incl. GST ${formatCurrency(serviceFeeInclGst, currency)}`
+                      : undefined
                 }
                 icon={Sparkles}
                 tone={FINANCE_KPI_TONES.refund}
-                onClick={() => setTab("roomPricing")}
+                onClick={() =>
+                  setTab(isCancelledBooking ? financeTab : "roomPricing")
+                }
                 actionLabel=""
               />
             )}
@@ -1758,6 +1770,19 @@ export default function AdminBookingDetailPage({
                     showAgencyBlock && agentNetCommission != null
                       ? next()
                       : null;
+                  const agentPayableTag = showAgencyBlock ? next() : null;
+                  const totalPropertyCharges =
+                    rateBreakup?.hotelGrossCharges ??
+                    detail.financials.customerSellingPrice ??
+                    0;
+                  const agentPayableAmount =
+                    agentNetCommission != null
+                      ? totalPropertyCharges - agentNetCommission
+                      : agentPayable;
+                  const agentPayableFormula =
+                    totalTag && agentNetTag
+                      ? `${totalTag} − ${agentNetTag}`
+                      : totalTag;
                   const extraCountLabel =
                     extraAdultCount != null && extraAdultCount > 0
                       ? ` (${extraAdultCount})`
@@ -2047,12 +2072,29 @@ export default function AdminBookingDetailPage({
                               currency={currency}
                             />
                           ) : null}
-                          {agentPayable != null && isCancelledBooking ? (
+                          {agentPayableAmount != null && isCancelledBooking ? (
                             <div className="border-t border-rose-100 bg-rose-50/80 px-3 py-2.5 text-xs">
                               <div className="flex items-center justify-between gap-4 font-semibold text-slate-500">
-                                <span>Agent payable</span>
-                                <span className="text-sm tabular-nums line-through decoration-slate-400">
-                                  {formatCurrency(agentPayable, currency)}
+                                <span className="flex items-center gap-1.5">
+                                  {agentPayableTag ? (
+                                    <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded bg-slate-100 px-1 text-[10px] font-bold text-slate-600">
+                                      {agentPayableTag}
+                                    </span>
+                                  ) : null}
+                                  Agent payable
+                                </span>
+                                <span className="shrink-0 text-right">
+                                  <span className="text-sm tabular-nums line-through decoration-slate-400">
+                                    {formatCurrency(
+                                      agentPayableAmount,
+                                      currency,
+                                    )}
+                                  </span>
+                                  {agentPayableFormula ? (
+                                    <span className="mt-0.5 block text-[11px] font-medium text-slate-400">
+                                      {agentPayableFormula}
+                                    </span>
+                                  ) : null}
                                 </span>
                               </div>
                               <div className="mt-1.5 flex items-center justify-between gap-4 font-semibold text-rose-900">
@@ -2062,13 +2104,14 @@ export default function AdminBookingDetailPage({
                                 </span>
                               </div>
                             </div>
-                          ) : agentPayable != null ? (
-                            <div className="flex items-center justify-between gap-4 border-t border-violet-100 bg-violet-50/80 px-3 py-2.5 text-xs font-semibold text-violet-900">
-                              <span>Agent payable</span>
-                              <span className="text-sm tabular-nums">
-                                {formatCurrency(agentPayable, currency)}
-                              </span>
-                            </div>
+                          ) : agentPayableAmount != null ? (
+                            <CalcSubtotal
+                              letter={agentPayableTag ?? "P"}
+                              formula={agentPayableFormula}
+                              label="Agent payable"
+                              amount={agentPayableAmount}
+                              currency={currency}
+                            />
                           ) : null}
                         </>
                       ) : null}
@@ -2682,28 +2725,46 @@ export default function AdminBookingDetailPage({
                   </dl>
                   <dl className="min-w-0 md:px-6">
                     <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                      OTA revenue after cancel
+                      OTA after cancellation
                     </p>
                     <DetailRow
                       compact
-                      label="OTA Revenue"
+                      label="OTA Net Revenue"
                       value={formatCurrency(displayOtaNet, currency)}
                     />
                     <DetailRow
                       compact
-                      label="OTA GST"
+                      label="OTA Net GST"
                       value={formatCurrency(displayOtaGst, currency)}
                     />
                     <DetailRow
                       compact
-                      label="OTA Incl. GST"
+                      label="OTA Net Incl. GST"
                       value={formatCurrency(displayOtaIncl, currency)}
                     />
                     <DetailRow
                       compact
-                      label="OTA commission"
+                      label="OTA Commission"
                       value={formatCurrency(
                         moneyAmount(cancellation.settlement?.otaCommission),
+                        currency,
+                      )}
+                    />
+                    <DetailRow
+                      compact
+                      label="Commission GST"
+                      value={formatCurrency(
+                        moneyAmount(cancellation.settlement?.commissionGst),
+                        currency,
+                      )}
+                    />
+                    <DetailRow
+                      compact
+                      label="Commission incl. GST"
+                      value={formatCurrency(
+                        moneyAmount(
+                          cancellation.settlement?.commissionInclusiveGst,
+                        ),
                         currency,
                       )}
                     />
@@ -2767,6 +2828,14 @@ export default function AdminBookingDetailPage({
                         moneyAmount(
                           cancellation.settlement?.retainedAgencyCommission,
                         ),
+                        currency,
+                      )}
+                    />
+                    <DetailRow
+                      compact
+                      label="Retained agent TDS"
+                      value={formatCurrency(
+                        moneyAmount(cancellation.settlement?.retainedAgentTds),
                         currency,
                       )}
                     />
@@ -2918,31 +2987,21 @@ export default function AdminBookingDetailPage({
                               )}
                               currency={currency}
                             />
-                            <CalcSectionHeader title="OTA revenue after cancel" />
+                            <CalcSectionHeader title="OTA net revenue after cancel" />
                             <CalcLine
                               tag={otaNetTag ?? undefined}
-                              label="OTA Revenue"
-                              amount={
-                                moneyAmount(
-                                  cancellation.settlement.otaNetRevenue,
-                                ) ??
-                                moneyAmount(
-                                  cancellation.settlement.otaCommission,
-                                )
-                              }
+                              label="OTA Net Revenue"
+                              amount={moneyAmount(
+                                cancellation.settlement.otaNetRevenue,
+                              )}
                               currency={currency}
                             />
                             <CalcLine
                               tag={otaGstTag ?? undefined}
-                              label="OTA GST"
-                              amount={
-                                moneyAmount(
-                                  cancellation.settlement.otaNetRevenueGst,
-                                ) ??
-                                moneyAmount(
-                                  cancellation.settlement.commissionGst,
-                                )
-                              }
+                              label="OTA Net GST"
+                              amount={moneyAmount(
+                                cancellation.settlement.otaNetRevenueGst,
+                              )}
                               currency={currency}
                             />
                             <CalcSubtotal
@@ -2952,17 +3011,11 @@ export default function AdminBookingDetailPage({
                                   ? `${otaNetTag} + ${otaGstTag}`
                                   : undefined
                               }
-                              label="OTA Incl. GST"
-                              amount={
-                                moneyAmount(
-                                  cancellation.settlement
-                                    .otaNetRevenueInclusiveGst,
-                                ) ??
-                                moneyAmount(
-                                  cancellation.settlement
-                                    .commissionInclusiveGst,
-                                )
-                              }
+                              label="OTA Net Incl. GST"
+                              amount={moneyAmount(
+                                cancellation.settlement
+                                  .otaNetRevenueInclusiveGst,
+                              )}
                               currency={currency}
                             />
                           </>

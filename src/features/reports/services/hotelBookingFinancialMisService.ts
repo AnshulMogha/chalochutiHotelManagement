@@ -245,6 +245,7 @@ export interface HotelFinancialMisSummary {
   otaRevenue: HotelFinancialMisMoney;
   otaRevenueGst: HotelFinancialMisMoney;
   otaRevenueInclusiveGst: HotelFinancialMisMoney;
+  commission: HotelFinancialMisMoney;
   agencyCommission: HotelFinancialMisMoney;
   agentTdsAmount: HotelFinancialMisMoney;
   agentNetCommission: HotelFinancialMisMoney;
@@ -712,6 +713,9 @@ function normalizeResponse(
       otaRevenue: money(summaryRaw.otaRevenue),
       otaRevenueGst: money(summaryRaw.otaRevenueGst),
       otaRevenueInclusiveGst: money(summaryRaw.otaRevenueInclusiveGst),
+      commission: money(
+        summaryRaw.commission ?? summaryRaw.otaCommission,
+      ),
       agencyCommission: money(summaryRaw.agencyCommission),
       agentTdsAmount: money(summaryRaw.agentTdsAmount ?? summaryRaw.agentTds),
       agentNetCommission: money(summaryRaw.agentNetCommission),

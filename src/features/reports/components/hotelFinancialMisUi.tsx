@@ -112,24 +112,50 @@ export function isHotelFinancialMisCancelled(
 }
 
 /**
- * OTA summary cards always use booking.otaRevenue / otaRevenueGst /
- * otaRevenueInclusiveGst (API already returns post-cancel values when cancelled).
+ * OTA summary cards: Net OTA uses booking.otaRevenue* (API already returns
+ * post-cancel values when cancelled). OTA Commission uses settlement when cancelled.
  */
 export function getHotelFinancialMisDisplayOta(
   booking: Pick<
     HotelFinancialMisBookingRow,
-    "otaRevenue" | "otaRevenueGst" | "otaRevenueInclusiveGst"
+    | "bookingStatus"
+    | "commission"
+    | "otaRevenue"
+    | "otaRevenueGst"
+    | "otaRevenueInclusiveGst"
+    | "otaRevenueBreakup"
+    | "cancellationSettlement"
   >,
 ): {
+  otaCommission: HotelFinancialMisMoney;
   otaRevenue: HotelFinancialMisMoney;
   otaRevenueGst: HotelFinancialMisMoney;
   otaRevenueInclusiveGst: HotelFinancialMisMoney;
 } {
+  const cancelled = isHotelFinancialMisCancelled(booking);
   return {
+    otaCommission: cancelled
+      ? (booking.cancellationSettlement?.otaCommission ??
+        booking.commission)
+      : (booking.otaRevenueBreakup?.commission ?? booking.commission),
     otaRevenue: booking.otaRevenue,
     otaRevenueGst: booking.otaRevenueGst,
     otaRevenueInclusiveGst: booking.otaRevenueInclusiveGst,
   };
+}
+
+const NET_OTA_REVENUE_FORMULA_B2C =
+  "OTA Commission + Markup + Service fee + Cancellation income − Refund adjustment";
+const NET_OTA_REVENUE_FORMULA_B2B =
+  "OTA Commission + Markup + Service fee + Cancellation income − Agency commission − Refund adjustment";
+
+/** Net OTA Revenue breakup: B2C omits agency commission; B2B subtracts it. */
+export function getHotelFinancialMisNetOtaRevenueFormula(
+  isB2b?: boolean,
+): string {
+  if (isB2b === true) return `B2B: ${NET_OTA_REVENUE_FORMULA_B2B}`;
+  if (isB2b === false) return `B2C: ${NET_OTA_REVENUE_FORMULA_B2C}`;
+  return `B2C: ${NET_OTA_REVENUE_FORMULA_B2C}\nB2B: ${NET_OTA_REVENUE_FORMULA_B2B}`;
 }
 
 /** Cancelled bookings: payout/TDS/TCS/refund cards use cancellation.settlement. */

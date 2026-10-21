@@ -16,6 +16,7 @@ import {
   getHotelFinancialMisDisplayOta,
   getHotelFinancialMisDisplayPayout,
   getHotelFinancialMisDisplaySellingPrice,
+  getHotelFinancialMisNetOtaRevenueFormula,
   hasHotelFinancialMisAgencyDetails,
   isHotelFinancialMisB2b,
   paymentStatusTone,
@@ -40,6 +41,7 @@ import {
   MapPin,
   Receipt,
   RotateCcw,
+  Scale,
   Target,
   User,
   Wallet,
@@ -122,7 +124,10 @@ function hotelMisKpiHints(
     tcs: `0.5% of ${netAccLabel}`,
     hotelPayout:
       "Hotel Base + Hotel GST − OTA Commission − GST on Commission − TCS − TDS",
-    otaIncl: "OTA Revenue + Net OTA GST",
+    otaNet: getHotelFinancialMisNetOtaRevenueFormula(
+      isHotelFinancialMisB2b(booking),
+    ),
+    otaIncl: "Commission + OTA GST",
   };
 }
 
@@ -131,7 +136,7 @@ const TABS: { value: DetailTab; label: string }[] = [
   { value: "bookingDetails", label: "Booking Details" },
   { value: "customer", label: "Customer Price" },
   { value: "hotelPayout", label: "Hotel Payout" },
-  { value: "otaRevenue", label: "OTA Revenue" },
+  { value: "otaRevenue", label: "Net OTA Revenue" },
   { value: "cancellation", label: "Cancellation & Refund" },
   { value: "payment", label: "Payment Details" },
 ];
@@ -708,17 +713,27 @@ export default function HotelBookingFinancialMisDetailPage() {
             actionLabel=""
           />
           <FinanceKpiCard
-            label="OTA Revenue"
-            value={formatFinanceMoney(displayOta.otaRevenue)}
+            label="OTA Commission"
+            value={formatFinanceMoney(displayOta.otaCommission)}
             sub={
               isCancelled
                 ? "After cancellation"
                 : booking.commission.rateLabel?.trim() ||
                   booking.otaRevenueBreakup.commission.rateLabel?.trim() ||
                   (booking.commission.ratePercent != null
-                    ? `${booking.commission.ratePercent}%`
+                    ? `Commission @ ${booking.commission.ratePercent}%`
                     : undefined)
             }
+            icon={Scale}
+            tone={FINANCE_KPI_TONES.margin}
+            onClick={() => setTab("otaRevenue")}
+            actionLabel=""
+          />
+          <FinanceKpiCard
+            label="Net OTA Revenue"
+            value={formatFinanceMoney(displayOta.otaRevenue)}
+            hint={kpiHints.otaNet}
+            sub={isCancelled ? "After cancellation" : undefined}
             icon={Target}
             tone={FINANCE_KPI_TONES.ota}
             onClick={() => setTab("otaRevenue")}

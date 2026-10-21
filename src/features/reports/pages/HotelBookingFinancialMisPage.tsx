@@ -31,6 +31,7 @@ import {
   clearCachedFinancialMisFilters,
   getHotelFinancialMisAgentCustomerSellingPrice,
   getHotelFinancialMisDisplayOta,
+  getHotelFinancialMisNetOtaRevenueFormula,
   paymentStatusTone,
   readCachedFinancialMisFilters,
   refundStatusTone,
@@ -81,6 +82,7 @@ import {
   RotateCcw,
   Target,
   Percent,
+  Scale,
   Wallet,
   X,
 } from "lucide-react";
@@ -102,7 +104,8 @@ function hotelMisSummaryKpiHints(
     collected: "Customer Revenue − Agency Net Commission",
     hotelPayout:
       "Hotel Base + Hotel GST − OTA Commission − GST on Commission − TCS − TDS",
-    otaIncl: "OTA Revenue + OTA GST",
+    otaNet: getHotelFinancialMisNetOtaRevenueFormula(),
+    otaIncl: "Commission + OTA GST",
     tds: "0.1% of Net Accommodation",
     tcs: "0.5% of Net Accommodation",
     agencyTds: "2% of Agency Commission",
@@ -651,7 +654,12 @@ export default function HotelBookingFinancialMisPage() {
       ["Summary", "Hotel payout", formatFinanceMoney(summary.hotelPayout)],
       ["Summary", "TDS", formatFinanceMoney(summary.tds)],
       ["Summary", "TCS", formatFinanceMoney(summary.tcs)],
-      ["Summary", "OTA revenue", formatFinanceMoney(summary.otaRevenue)],
+      [
+        "Summary",
+        "OTA commission",
+        formatFinanceMoney(summary.commission),
+      ],
+      ["Summary", "Net OTA revenue", formatFinanceMoney(summary.otaRevenue)],
       ["Summary", "OTA GST", formatFinanceMoney(summary.otaRevenueGst)],
       [
         "Summary",
@@ -1017,7 +1025,25 @@ export default function HotelBookingFinancialMisPage() {
               tone={FINANCE_KPI_TONES.outstanding}
             />
             <FinanceKpiCard
-              label="OTA Revenue"
+              label="OTA Commission"
+              value={
+                summary
+                  ? formatFinanceMoney(summary.commission)
+                  : loading
+                    ? "…"
+                    : "—"
+              }
+              sub={
+                summary?.commission.rateLabel?.trim() ||
+                (summary?.commission.ratePercent != null
+                  ? `Commission @ ${summary.commission.ratePercent}%`
+                  : undefined)
+              }
+              icon={Scale}
+              tone={FINANCE_KPI_TONES.margin}
+            />
+            <FinanceKpiCard
+              label="Net OTA Revenue"
               value={
                 summary
                   ? formatFinanceMoney(summary.otaRevenue)
@@ -1025,6 +1051,7 @@ export default function HotelBookingFinancialMisPage() {
                     ? "…"
                     : "—"
               }
+              hint={kpiHints?.otaNet}
               sub={
                 summary?.otaRevenue.rateLabel?.trim() ||
                 (summary?.otaRevenue.ratePercent != null
@@ -1189,7 +1216,7 @@ export default function HotelBookingFinancialMisPage() {
                   <th className="px-4 py-3">Agent Selling Markup</th>
                   <th className="px-4 py-3">Hotel Payout</th>
                   <th className="px-4 py-3">TDS / TCS</th>
-                  <th className="px-4 py-3">OTA Revenue</th>
+                  <th className="px-4 py-3">Net OTA Revenue</th>
                   <th className="px-4 py-3">Booking status</th>
                   <th className="px-4 py-3">Payment status</th>
                   <th className="px-4 py-3">Cancel / Refund</th>
