@@ -830,8 +830,9 @@ export default function UsersPage() {
     {
       field: "actions",
       headerName: "Actions",
-      flex: 1,
-      minWidth: 340,
+      flex: 0,
+      width: 390,
+      minWidth: 390,
       sortable: false,
       filterable: false,
       renderHeader: () => <UserColumnHeader icon={Edit} label="Actions" />,
@@ -839,71 +840,67 @@ export default function UsersPage() {
         const staffExcluded = isSuperAdminExcludedFromUserEdit(
           params.row.roles,
         );
+        const showResend =
+          (params.row.roles || []).includes("HOTEL_OWNER") &&
+          params.row.firstLoginRequired;
+        const showManage = (params.row.roles || []).some(
+          (r: string) => r === "HOTEL_OWNER" || r === "HOTEL_BD",
+        );
+        const pill =
+          "inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[11px] font-semibold shadow-sm transition-colors disabled:opacity-50";
         return (
-          <div className="flex items-center h-full w-full overflow-visible">
-            <div className="flex flex-nowrap gap-2 py-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(ROUTES.ADMIN.USER_EDIT(params.row.userId));
-                }}
-                className="gap-2"
+          <div
+            className="flex flex-nowrap items-center gap-1.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => navigate(ROUTES.ADMIN.USER_EDIT(params.row.userId))}
+              className={`${pill} bg-blue-600 text-white hover:bg-blue-700`}
+              title={
+                staffExcluded
+                  ? "Only account status can be updated for hotel staff"
+                  : "Edit user"
+              }
+            >
+              <Edit className="h-3 w-3" />
+              {staffExcluded ? "Status" : "Edit"}
+            </button>
+            {showResend ? (
+              <button
+                type="button"
+                onClick={() => void handleResendOwnerCredentials(params.row)}
+                disabled={resendingUserId === params.row.userId}
+                className={`${pill} bg-amber-500 text-white hover:bg-amber-600`}
+                title="Resend temporary login credentials"
+              >
+                {resendingUserId === params.row.userId ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Send className="h-3 w-3" />
+                )}
+                Resend credentials
+              </button>
+            ) : null}
+            {showManage ? (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(ROUTES.ADMIN.USER_MANAGE_HOTELS(params.row.userId), {
+                    state: { user: params.row },
+                  })
+                }
+                className={`${pill} bg-[#2f3d95] text-white hover:bg-[#263578]`}
                 title={
-                  staffExcluded
-                    ? "Only account status can be updated for hotel staff"
-                    : undefined
+                  (params.row.roles || []).includes("HOTEL_BD")
+                    ? "Hotels & permissions"
+                    : "Manage Hotel"
                 }
               >
-                <Edit className="w-4 h-4" />
-                {staffExcluded ? "Status" : "Edit"}
-              </Button>
-              {(params.row.roles || []).includes("HOTEL_OWNER") &&
-                params.row.firstLoginRequired && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleResendOwnerCredentials(params.row);
-                    }}
-                    disabled={resendingUserId === params.row.userId}
-                    className="gap-2 whitespace-nowrap"
-                    title="Resend temporary login credentials"
-                  >
-                    {resendingUserId === params.row.userId ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                    Resend credentials
-                  </Button>
-                )}
-              {(params.row.roles || []).some(
-                (r: string) => r === "HOTEL_OWNER" || r === "HOTEL_BD",
-              ) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(
-                      ROUTES.ADMIN.USER_MANAGE_HOTELS(params.row.userId),
-                      {
-                        state: { user: params.row },
-                      },
-                    );
-                  }}
-                  className="gap-2 whitespace-nowrap"
-                >
-                  <Building2 className="w-4 h-4" />
-                  {(params.row.roles || []).includes("HOTEL_BD")
-                    ? "Hotels & permissions"
-                    : "Manage Hotel"}
-                </Button>
-              )}
-            </div>
+                <Building2 className="h-3 w-3" />
+                Manage
+              </button>
+            ) : null}
           </div>
         );
       },
@@ -1125,6 +1122,7 @@ export default function UsersPage() {
               disableRowSelectionOnClick
               showToolbar
               fillContainer
+              allowHorizontalScroll
               slots={{ toolbar: UserTableToolbar }}
               slotProps={{
                 toolbar: {

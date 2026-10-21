@@ -7,6 +7,8 @@ export interface DataTableProps extends Omit<DataGridProps, "sx"> {
   exportFileName?: string;
   /** Fill parent height; only row area scrolls (header/footer stay fixed). */
   fillContainer?: boolean;
+  /** Allow the grid body to scroll sideways so trailing action columns are not clipped. */
+  allowHorizontalScroll?: boolean;
   sx?: SxProps<Theme>;
 }
 
@@ -165,6 +167,7 @@ export function DataTable({
   showToolbar = true,
   exportFileName,
   fillContainer = false,
+  allowHorizontalScroll = false,
   sx,
   slots,
   slotProps,
@@ -207,7 +210,7 @@ export function DataTable({
         width: "100%",
         height: fillContainer ? "100%" : "auto",
         borderRadius: "12px",
-        overflow: "hidden",
+        overflow: allowHorizontalScroll ? "auto" : "hidden",
         display: fillContainer ? "flex" : "block",
         flexDirection: fillContainer ? "column" : undefined,
         minHeight: fillContainer ? 0 : undefined,
@@ -222,6 +225,14 @@ export function DataTable({
         sx={{
           ...defaultSx,
           ...(fillContainer ? fillContainerSx : {}),
+          ...(allowHorizontalScroll
+            ? {
+                "& .MuiDataGrid-main": { overflow: "hidden" },
+                "& .MuiDataGrid-virtualScroller": {
+                  overflowX: "auto !important",
+                },
+              }
+            : {}),
           ...sx,
         }}
       />

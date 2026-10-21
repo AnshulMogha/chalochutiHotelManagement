@@ -39,6 +39,7 @@ import {
   Percent,
   Phone,
   Receipt,
+  RotateCcw,
   Scale,
   Shield,
   Sparkles,
@@ -958,6 +959,8 @@ export default function AdminBookingDetailPage({
   const displayAgencyNet = isCancelledBooking
     ? (moneyAmount(settlement?.retainedAgentNetCommission) ?? 0)
     : (originalAgentNetCommission ?? 0);
+  const displayCommissionReversal = moneyAmount(settlement?.commissionReversal);
+  const refundLabel = isAgentBooking ? "Agent refund" : "Customer refund";
   const displayServiceFee = isCancelledBooking
     ? (moneyAmount(settlement?.serviceFee) ?? 0)
     : serviceFeeExclGst;
@@ -1286,6 +1289,17 @@ export default function AdminBookingDetailPage({
             />
             {isAgentBooking ? (
               <>
+                {isCancelledBooking ? (
+                  <FinanceKpiCard
+                    label="Commission reversal"
+                    value={formatCurrency(displayCommissionReversal, currency)}
+                    sub="After cancellation"
+                    icon={RotateCcw}
+                    tone={FINANCE_KPI_TONES.cancellation}
+                    onClick={() => setTab(financeTab)}
+                    actionLabel=""
+                  />
+                ) : null}
                 <FinanceKpiCard
                   label={
                     isCancelledBooking
@@ -1362,11 +1376,7 @@ export default function AdminBookingDetailPage({
             )}
             {isCancelledBooking ? (
               <FinanceKpiCard
-                label={
-                  cancellation.cancelledBy?.toUpperCase() === "AGENT"
-                    ? "Agent refund"
-                    : "Customer refund"
-                }
+                label={refundLabel}
                 value={formatCurrency(refundedAmount, currency)}
                 sub={
                   cancellation.refundStatus
@@ -1379,19 +1389,6 @@ export default function AdminBookingDetailPage({
                 actionLabel=""
               />
             ) : null}
-            <FinanceKpiCard
-              label="Final payable"
-              value={formatCurrency(detail.pricing.finalPayable, currency)}
-              sub={
-                outstandingAmount > 0
-                  ? `Outstanding ${formatCurrency(outstandingAmount, currency)}`
-                  : undefined
-              }
-              icon={Wallet}
-              tone={FINANCE_KPI_TONES.outstanding}
-              onClick={() => setTab("payment")}
-              actionLabel=""
-            />
           </div>
 
           {/* Tabs */}
@@ -2067,7 +2064,11 @@ export default function AdminBookingDetailPage({
                                     ? agencyCommTag
                                     : undefined
                               }
-                              label="Agent net commission"
+                              label={
+                                isCancelledBooking
+                                  ? "Original Agent Net Commission"
+                                  : "Agent net commission"
+                              }
                               amount={agentNetCommission}
                               currency={currency}
                             />
@@ -2458,7 +2459,11 @@ export default function AdminBookingDetailPage({
                           {agentNetCommission != null ? (
                             <DetailRow
                               compact
-                              label="Agent net commission"
+                              label={
+                                isCancelledBooking
+                                  ? "Original Agent Net Commission"
+                                  : "Agent net commission"
+                              }
                               value={formatCurrency(
                                 agentNetCommission,
                                 currency,
@@ -2806,11 +2811,7 @@ export default function AdminBookingDetailPage({
                     />
                     <DetailRow
                       compact
-                      label={
-                        cancellation.cancelledBy?.toUpperCase() === "AGENT"
-                          ? "Agent refund"
-                          : "Customer refund"
-                      }
+                      label={refundLabel}
                       value={formatCurrency(refundedAmount, currency)}
                     />
                     <DetailRow
@@ -2818,6 +2819,16 @@ export default function AdminBookingDetailPage({
                       label="Tax deduction"
                       value={formatCurrency(
                         moneyAmount(cancellation.settlement?.taxDeduction),
+                        currency,
+                      )}
+                    />
+                    <DetailRow
+                      compact
+                      label="Commission reversal"
+                      value={formatCurrency(
+                        moneyAmount(
+                          cancellation.settlement?.commissionReversal,
+                        ),
                         currency,
                       )}
                     />
@@ -3067,12 +3078,22 @@ export default function AdminBookingDetailPage({
                         />
                         <CalcSubtotal
                           letter={refundTag}
-                          label="Customer refund"
+                          label={refundLabel}
                           amount={moneyAmount(
                             cancellation.settlement.customerRefund,
                           )}
                           currency={currency}
                         />
+                        {isAgentBooking ? (
+                          <CalcLine
+                            label="Commission reversal"
+                            amount={moneyAmount(
+                              cancellation.settlement.commissionReversal,
+                            )}
+                            currency={currency}
+                            negative
+                          />
+                        ) : null}
                       </>
                     );
                   })()}
@@ -3273,10 +3294,7 @@ export default function AdminBookingDetailPage({
                           compact
                           label={
                             isCancelledBooking
-                              ? cancellation.cancelledBy?.toUpperCase() ===
-                                "AGENT"
-                                ? "Agent refund"
-                                : "Customer refund"
+                              ? refundLabel
                               : "Refund if cancelled now"
                           }
                           value={formatCurrency(

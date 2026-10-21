@@ -341,8 +341,16 @@ export const userTableGridSx = {
     overflow: "hidden",
     py: "6px !important",
   },
+  "& .MuiDataGrid-main": {
+    overflow: "hidden",
+  },
+  "& .MuiDataGrid-virtualScroller": {
+    overflowX: "auto !important",
+  },
   "& .MuiDataGrid-cell[data-field='actions']": {
     overflow: "visible",
+    paddingLeft: "8px !important",
+    paddingRight: "12px !important",
   },
   "& .MuiDataGrid-cell[data-field='roles']": {
     alignItems: "flex-start",

@@ -162,6 +162,7 @@ function CustomerOrAgentPriceBreakup({
     amount: 0,
     currency: booking.customerSellingPrice.currency,
   };
+  const isCancelled = isCancelledFinancialMisBooking(booking.bookingStatus);
   const paymentBreakup = isB2b ? booking.agentPaymentBreakup : null;
   const incentive = hasHotelFinancialMisAgencyDetails(booking)
     ? booking.agencyIncentive
@@ -227,7 +228,11 @@ function CustomerOrAgentPriceBreakup({
           />
           <BreakupRow
             tag={showCalc ? "H" : undefined}
-            label="Agent net commission"
+            label={
+              isCancelled
+                ? "Original Agent Net Commission"
+                : "Agent net commission"
+            }
             amount={
               paymentBreakup?.netAgentCommission ?? booking.agentNetCommission
             }
@@ -675,7 +680,11 @@ export default function HotelBookingFinancialMisDetailPage() {
                 actionLabel=""
               />
               <FinanceKpiCard
-                label="Agent Net Comm."
+                label={
+                  isCancelled
+                    ? "Original Agent Net Commission"
+                    : "Agent Net Comm."
+                }
                 value={formatFinanceMoney(booking.agentNetCommission)}
                 hint={kpiHints.agentNet}
                 icon={Wallet}

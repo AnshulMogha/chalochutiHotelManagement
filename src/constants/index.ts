@@ -246,7 +246,7 @@ export const API_ENDPOINTS = {
     UPDATE_HOTEL_ADDRESS: (hotelId: string) =>
       `/admin/hotel/${hotelId}/address`,
     RESEND_OWNER_CREDENTIALS: (userId: string | number) =>
-      `/admin/hotels/${userId}/owner-credentials/resend`,
+      `/admin/hotels/owners/${userId}/credentials/resend`,
     GET_USERS: "/admin/users",
     GET_USER_BY_ID: (userId: string | number) => `/admin/users/${userId}`,
     CREATE_USER: "/admin/users",
