@@ -245,8 +245,8 @@ export const API_ENDPOINTS = {
     GET_HOTEL_ADDRESS: (hotelId: string) => `/admin/hotel/${hotelId}/address`,
     UPDATE_HOTEL_ADDRESS: (hotelId: string) =>
       `/admin/hotel/${hotelId}/address`,
-    RESEND_OWNER_CREDENTIALS: (hotelId: string) =>
-      `/admin/hotels/${hotelId}/owner-credentials/resend`,
+    RESEND_OWNER_CREDENTIALS: (userId: string | number) =>
+      `/admin/hotels/${userId}/owner-credentials/resend`,
     GET_USERS: "/admin/users",
     GET_USER_BY_ID: (userId: string | number) => `/admin/users/${userId}`,
     CREATE_USER: "/admin/users",
@@ -673,6 +673,11 @@ export const API_ENDPOINTS = {
     WORKBENCH_EXPORT_DOWNLOAD: (jobId: string) =>
       `/admin/settlements/workbench/export/${jobId}/download`,
     PREVIEW: "/admin/settlements/preview",
+    PREVIEW_EXPORT: "/admin/settlements/preview/export",
+    PREVIEW_EXPORT_JOB: (jobId: string) =>
+      `/admin/settlements/preview/export/${jobId}`,
+    PREVIEW_EXPORT_DOWNLOAD: (jobId: string) =>
+      `/admin/settlements/preview/export/${jobId}/download`,
     GENERATE: "/admin/settlements",
     PENDING: "/admin/settlements/pending",
     PENDING_EXPORT: "/admin/settlements/pending/export",

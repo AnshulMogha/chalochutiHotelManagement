@@ -746,7 +746,7 @@ export default function UserHotelAssignmentsPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
   const [bdPermModalOpen, setBdPermModalOpen] = useState(false);
-  const [resendingHotelId, setResendingHotelId] = useState<string | null>(null);
+  const [isResendingCredentials, setIsResendingCredentials] = useState(false);
   const { toast, showToast, hideToast } = useToast();
 
   const goBack = useCallback(() => {
@@ -914,12 +914,7 @@ export default function UserHotelAssignmentsPage() {
     !!(user?.roles || []).includes("HOTEL_OWNER") &&
     !!user?.firstLoginRequired;
 
-  const handleResendOwnerCredentials = async (hotelId?: string) => {
-    const id = hotelId?.trim();
-    if (!id) {
-      showToast("Hotel id is missing, so credentials cannot be resent.", "error");
-      return;
-    }
+  const handleResendOwnerCredentials = async () => {
     if (!user?.firstLoginRequired) {
       showToast(
         "This owner has already signed in and changed the password. Ask them to use Forgot password.",
@@ -927,14 +922,14 @@ export default function UserHotelAssignmentsPage() {
       );
       return;
     }
-    setResendingHotelId(id);
+    setIsResendingCredentials(true);
     try {
-      await adminService.resendOwnerCredentials(id);
+      await adminService.resendOwnerCredentials(userId);
       showToast("Temporary credentials were sent again.", "success");
     } catch (e) {
       showToast(extractErrorMessage(e), "error");
     } finally {
-      setResendingHotelId(null);
+      setIsResendingCredentials(false);
     }
   };
 
@@ -1032,6 +1027,22 @@ export default function UserHotelAssignmentsPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-start">
+          {canResendOwnerCredentials ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
+              disabled={isResendingCredentials}
+              onClick={() => void handleResendOwnerCredentials()}
+            >
+              {isResendingCredentials ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              Resend credentials
+            </Button>
+          ) : null}
           {showHotelBdUserPermissions && (
             <Button
               type="button"
@@ -1129,46 +1140,19 @@ export default function UserHotelAssignmentsPage() {
                         : "—"}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="inline-flex flex-wrap items-center justify-end gap-2">
-                        {canResendOwnerCredentials ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="gap-2"
-                            disabled={
-                              isRevoking ||
-                              resendingHotelId === String(row.hotelId ?? "")
-                            }
-                            onClick={() =>
-                              void handleResendOwnerCredentials(
-                                row.hotelId != null
-                                  ? String(row.hotelId)
-                                  : undefined,
-                              )
-                            }
-                          >
-                            {resendingHotelId === String(row.hotelId ?? "") ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Send className="w-4 h-4" />
-                            )}
-                            Resend credentials
-                          </Button>
-                        ) : null}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="gap-2 text-red-700 border-red-200 hover:bg-red-50"
-                          disabled={isRevoking}
-                          onClick={() => {
-                            setRevokeError(null);
-                            setRevokeTarget(row);
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Revoke
-                        </Button>
-                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="gap-2 text-red-700 border-red-200 hover:bg-red-50"
+                        disabled={isRevoking}
+                        onClick={() => {
+                          setRevokeError(null);
+                          setRevokeTarget(row);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Revoke
+                      </Button>
                     </td>
                   </tr>
                 ))}

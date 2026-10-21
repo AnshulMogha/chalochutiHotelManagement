@@ -8,12 +8,18 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { canGenerateSupplierSettlement } from "@/constants/roles";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
+  exportStatusLabel,
   formatFinanceMoney,
   formatReportDateTime,
   formatStatusLabel,
 } from "@/features/reports/components/reportUiHelpers";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
 import { settlementService } from "../services/settlementService";
 import type { SettlementPreview } from "../services/settlementTypes";
 import {
@@ -76,6 +82,10 @@ export default function SettlementPreviewPage() {
   const [preview, setPreview] = useState<SettlementPreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
+    null,
+  );
   const [generateConfirmOpen, setGenerateConfirmOpen] = useState(false);
   const [selectedRefs, setSelectedRefs] = useState<Set<string>>(new Set());
 
@@ -172,6 +182,40 @@ export default function SettlementPreviewPage() {
                 : ""
             }. Resolve before generating.`
           : null;
+
+  const handleExport = async (format: ReportExportFormat) => {
+    if (!supplierId || !component) return;
+    const bookingReferences = previewBookingRefs.filter((ref) =>
+      selectedRefs.has(ref),
+    );
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await settlementService.exportPreview({
+        params: {
+          supplierId,
+          component,
+          cycle: cycle || undefined,
+          fromDate: fromDate || undefined,
+          toDate: toDate || undefined,
+          bookingReferences:
+            bookingReferences.length &&
+            bookingReferences.length < previewBookingRefs.length
+              ? bookingReferences
+              : undefined,
+        },
+        format,
+        defaultFileName: `settlement-preview-${supplierId}`,
+        onStatus: setExportStatus,
+      });
+      showToast("Preview export downloaded", "success");
+    } catch (error) {
+      showToast(extractErrorMessage(error), "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!preview || !canGenerateNow) return;
@@ -275,6 +319,15 @@ export default function SettlementPreviewPage() {
               <ArrowLeft className="h-4 w-4" />
               {listBackLabel}
             </Link>
+            <ExportButton
+              iconOnly
+              disabled={!preview || loading}
+              exporting={exporting}
+              exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+              onExportExcel={() => void handleExport("EXCEL")}
+              onExportCSV={() => void handleExport("CSV")}
+              onExportPDF={() => void handleExport("PDF")}
+            />
             <SettlementRefreshButton
               loading={loading}
               onClick={() => void loadPreview()}

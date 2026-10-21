@@ -617,14 +617,8 @@ export default function UsersPage() {
     setActionError(null);
     setSuccessMessage(null);
     try {
-      const count = await adminService.resendOwnerCredentialsForUser(
-        user.userId,
-      );
-      setSuccessMessage(
-        count === 1
-          ? "Temporary credentials were sent again."
-          : `Temporary credentials were sent again for ${count} hotels.`,
-      );
+      await adminService.resendOwnerCredentials(user.userId);
+      setSuccessMessage("Temporary credentials were sent again.");
     } catch (err) {
       setActionError(extractErrorMessage(err));
     } finally {

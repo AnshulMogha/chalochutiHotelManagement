@@ -461,6 +461,28 @@ export const settlementService = {
     return toResult(response, normalizePreview);
   },
 
+  async exportPreview(options: {
+    params: PreviewParams;
+    format?: ReportExportFormat;
+    defaultFileName?: string;
+    onStatus?: (status: ExportJobStatus) => void;
+  }): Promise<void> {
+    const format = options.format ?? "EXCEL";
+    const query = buildQuery({
+      ...options.params,
+      format,
+    });
+
+    await runReportExportJob({
+      startUrl: `${API_ENDPOINTS.SETTLEMENT.PREVIEW_EXPORT}${query}`,
+      statusUrl: API_ENDPOINTS.SETTLEMENT.PREVIEW_EXPORT_JOB,
+      downloadUrl: API_ENDPOINTS.SETTLEMENT.PREVIEW_EXPORT_DOWNLOAD,
+      defaultFileName: options.defaultFileName ?? "settlement-preview",
+      format,
+      onStatus: options.onStatus,
+    });
+  },
+
   async generateSettlement(
     body: GenerateSettlementRequest,
   ): Promise<SettlementApiResult<SettlementSummary>> {

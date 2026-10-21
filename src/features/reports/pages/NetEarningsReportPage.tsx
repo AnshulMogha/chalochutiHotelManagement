@@ -763,15 +763,6 @@ export default function NetEarningsReportPage() {
                 <div className="hidden h-10 w-px bg-slate-200 xl:block" />
                 <div className="hidden xl:block">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Hotel GST
-                  </p>
-                  <p className="text-xl font-extrabold tabular-nums text-slate-900">
-                    {formatReportCurrency(summary.hotelGst)}
-                  </p>
-                </div>
-                <div className="hidden h-10 w-px bg-slate-200 xl:block" />
-                <div className="hidden xl:block">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                     Total Commission incl. GST
                   </p>
                   <p className="text-xl font-extrabold tabular-nums text-slate-900">

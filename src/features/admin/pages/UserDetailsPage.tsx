@@ -128,15 +128,8 @@ export default function UserDetailsPage() {
     }
     setIsResendingCredentials(true);
     try {
-      const count = await adminService.resendOwnerCredentialsForUser(
-        user.userId,
-      );
-      showToast(
-        count === 1
-          ? "Temporary credentials were sent again."
-          : `Temporary credentials were sent again for ${count} hotels.`,
-        "success",
-      );
+      await adminService.resendOwnerCredentials(user.userId);
+      showToast("Temporary credentials were sent again.", "success");
     } catch (e) {
       showToast(extractErrorMessage(e), "error");
     } finally {
