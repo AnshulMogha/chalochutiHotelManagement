@@ -915,24 +915,26 @@ export default function AdminBookingDetailPage({
     isCancelledBooking && moneyAmount(cancellation.settlement?.tcs) != null
       ? moneyAmount(cancellation.settlement?.tcs)
       : (rateBreakup?.tcsAmount ?? detail.financials.tcsAmount ?? 0);
-  // Cancelled: OTA Revenue cards use otaRevenue* (post-cancel), not commission/settlement.
+  const settlement = cancellation.settlement;
+  const displayHotelGst = isCancelledBooking
+    ? (moneyAmount(settlement?.hotelGst) ??
+      detail.financials.gstAmount ??
+      0)
+    : (detail.financials.gst?.amount ?? detail.financials.gstAmount ?? 0);
+  // Cancelled: OTA cards use cancellation.settlement otaNetRevenue* (post-cancel).
   const displayOtaNet = isCancelledBooking
-    ? (moneyAmount(detail.pricing.otaRevenue) ??
-      moneyAmount(detail.financials.otaRevenue) ??
-      detail.pricing.otaNetRevenue ??
-      detail.financials.otaNetRevenue ??
+    ? (moneyAmount(settlement?.otaNetRevenue) ??
+      moneyAmount(settlement?.otaCommission) ??
       0)
     : (detail.pricing.otaNetRevenue ?? detail.financials.otaNetRevenue ?? 0);
   const displayOtaGst = isCancelledBooking
-    ? (moneyAmount(detail.pricing.otaRevenueGst) ??
-      moneyAmount(detail.financials.otaRevenueGst) ??
+    ? (moneyAmount(settlement?.otaNetRevenueGst) ??
+      moneyAmount(settlement?.commissionGst) ??
       0)
     : (rateBreakup?.commissionGst ?? detail.financials.commissionGst ?? 0);
   const displayOtaIncl = isCancelledBooking
-    ? (moneyAmount(detail.pricing.otaRevenueInclusiveGst) ??
-      moneyAmount(detail.financials.otaRevenueInclusiveGst) ??
-      detail.pricing.otaGrossRevenue ??
-      detail.financials.otaGrossRevenue ??
+    ? (moneyAmount(settlement?.otaNetRevenueInclusiveGst) ??
+      moneyAmount(settlement?.commissionInclusiveGst) ??
       0)
     : (detail.financials.commissionInclusiveGst ??
       rateBreakup?.commissionTotal ??
@@ -1175,6 +1177,17 @@ export default function AdminBookingDetailPage({
               onClick={() => setTab(financeTab)}
               actionLabel=""
             />
+            {isCancelledBooking ? (
+              <FinanceKpiCard
+                label="Hotel GST"
+                value={formatCurrency(displayHotelGst, currency)}
+                sub="After cancellation"
+                icon={Receipt}
+                tone={FINANCE_KPI_TONES.margin}
+                onClick={() => setTab(financeTab)}
+                actionLabel=""
+              />
+            ) : null}
             {isCancelledBooking ? (
               <FinanceKpiCard
                 label="Cancellation charge"
@@ -2686,6 +2699,30 @@ export default function AdminBookingDetailPage({
                       label="OTA Incl. GST"
                       value={formatCurrency(displayOtaIncl, currency)}
                     />
+                    <DetailRow
+                      compact
+                      label="OTA commission"
+                      value={formatCurrency(
+                        moneyAmount(cancellation.settlement?.otaCommission),
+                        currency,
+                      )}
+                    />
+                    <DetailRow
+                      compact
+                      label="Service fee"
+                      value={formatCurrency(
+                        moneyAmount(cancellation.settlement?.serviceFee),
+                        currency,
+                      )}
+                    />
+                    <DetailRow
+                      compact
+                      label="Service fee GST"
+                      value={formatCurrency(
+                        moneyAmount(cancellation.settlement?.serviceFeeGst),
+                        currency,
+                      )}
+                    />
                   </dl>
                   <dl className="min-w-0 md:pl-6">
                     <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
@@ -2714,6 +2751,34 @@ export default function AdminBookingDetailPage({
                           : "Customer refund"
                       }
                       value={formatCurrency(refundedAmount, currency)}
+                    />
+                    <DetailRow
+                      compact
+                      label="Tax deduction"
+                      value={formatCurrency(
+                        moneyAmount(cancellation.settlement?.taxDeduction),
+                        currency,
+                      )}
+                    />
+                    <DetailRow
+                      compact
+                      label="Retained agency commission"
+                      value={formatCurrency(
+                        moneyAmount(
+                          cancellation.settlement?.retainedAgencyCommission,
+                        ),
+                        currency,
+                      )}
+                    />
+                    <DetailRow
+                      compact
+                      label="Retained agent net commission"
+                      value={formatCurrency(
+                        moneyAmount(
+                          cancellation.settlement?.retainedAgentNetCommission,
+                        ),
+                        currency,
+                      )}
                     />
                   </dl>
                 </div>
@@ -2755,6 +2820,9 @@ export default function AdminBookingDetailPage({
                     const commTag = showComm ? next() : null;
                     const commGstTag = showComm ? next() : null;
                     const commInclTag = showComm ? next() : null;
+                    const otaNetTag = showComm ? next() : null;
+                    const otaGstTag = showComm ? next() : null;
+                    const otaInclTag = showComm ? next() : null;
                     const tcsTag = showTaxDed ? next() : null;
                     const tdsTag = showTaxDed ? next() : null;
                     const taxDedTag = showTaxDed ? next() : null;
@@ -2848,6 +2916,53 @@ export default function AdminBookingDetailPage({
                               amount={moneyAmount(
                                 cancellation.settlement.commissionInclusiveGst,
                               )}
+                              currency={currency}
+                            />
+                            <CalcSectionHeader title="OTA revenue after cancel" />
+                            <CalcLine
+                              tag={otaNetTag ?? undefined}
+                              label="OTA Revenue"
+                              amount={
+                                moneyAmount(
+                                  cancellation.settlement.otaNetRevenue,
+                                ) ??
+                                moneyAmount(
+                                  cancellation.settlement.otaCommission,
+                                )
+                              }
+                              currency={currency}
+                            />
+                            <CalcLine
+                              tag={otaGstTag ?? undefined}
+                              label="OTA GST"
+                              amount={
+                                moneyAmount(
+                                  cancellation.settlement.otaNetRevenueGst,
+                                ) ??
+                                moneyAmount(
+                                  cancellation.settlement.commissionGst,
+                                )
+                              }
+                              currency={currency}
+                            />
+                            <CalcSubtotal
+                              letter={otaInclTag ?? "OTA"}
+                              formula={
+                                otaNetTag && otaGstTag
+                                  ? `${otaNetTag} + ${otaGstTag}`
+                                  : undefined
+                              }
+                              label="OTA Incl. GST"
+                              amount={
+                                moneyAmount(
+                                  cancellation.settlement
+                                    .otaNetRevenueInclusiveGst,
+                                ) ??
+                                moneyAmount(
+                                  cancellation.settlement
+                                    .commissionInclusiveGst,
+                                )
+                              }
                               currency={currency}
                             />
                           </>

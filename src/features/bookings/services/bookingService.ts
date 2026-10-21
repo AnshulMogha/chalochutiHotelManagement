@@ -292,6 +292,15 @@ export interface AdminCancellationSettlement {
   amountPayableToProperty?: AdminMoney | null;
   customerRefund?: AdminMoney | null;
   recalculatedFromFinancials?: boolean | null;
+  commissionReversal?: AdminMoney | null;
+  retainedAgencyCommission?: AdminMoney | null;
+  retainedAgentTds?: AdminMoney | null;
+  retainedAgentNetCommission?: AdminMoney | null;
+  serviceFee?: AdminMoney | null;
+  serviceFeeGst?: AdminMoney | null;
+  otaNetRevenue?: AdminMoney | null;
+  otaNetRevenueGst?: AdminMoney | null;
+  otaNetRevenueInclusiveGst?: AdminMoney | null;
 }
 
 export interface AdminCancellationMatchedBracket {

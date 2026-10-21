@@ -649,18 +649,24 @@ function HotelBookingDetailPage({
     (isCancelledBooking ? moneyAmount(settlement?.tcs) : undefined) ??
     rateBreakup?.tcsAmount;
   const displayCommission = rateBreakup?.commissionAmount;
+  const displayHotelGst = isCancelledBooking
+    ? (moneyAmount(settlement?.hotelGst) ?? rateBreakup?.propertyTaxes)
+    : rateBreakup?.propertyTaxes;
   const displayOtaRevenue = isCancelledBooking
-    ? (moneyAmount(booking.otaRevenue) ??
+    ? (moneyAmount(settlement?.otaNetRevenue) ??
+      moneyAmount(booking.otaRevenue) ??
       moneyAmount(settlement?.otaCommission) ??
       rateBreakup?.commissionAmount)
     : rateBreakup?.commissionAmount;
   const displayOtaGst = isCancelledBooking
-    ? (moneyAmount(booking.otaRevenueGst) ??
+    ? (moneyAmount(settlement?.otaNetRevenueGst) ??
+      moneyAmount(booking.otaRevenueGst) ??
       moneyAmount(settlement?.commissionGst) ??
       rateBreakup?.commissionGst)
     : rateBreakup?.commissionGst;
   const displayOtaIncl = isCancelledBooking
-    ? (moneyAmount(booking.otaRevenueInclusiveGst) ??
+    ? (moneyAmount(settlement?.otaNetRevenueInclusiveGst) ??
+      moneyAmount(booking.otaRevenueInclusiveGst) ??
       moneyAmount(settlement?.commissionInclusiveGst) ??
       rateBreakup?.commissionTotal)
     : rateBreakup?.commissionTotal;
@@ -879,6 +885,17 @@ function HotelBookingDetailPage({
               onClick={() => setTab(financeTab)}
               actionLabel=""
             />
+            {isCancelledBooking ? (
+              <FinanceKpiCard
+                label="Hotel GST"
+                value={formatCurrency(displayHotelGst, currency)}
+                sub="After cancellation"
+                icon={Receipt}
+                tone={FINANCE_KPI_TONES.margin}
+                onClick={() => setTab(financeTab)}
+                actionLabel=""
+              />
+            ) : null}
             {isCancelledBooking ? (
               <FinanceKpiCard
                 label="Cancellation charge"
@@ -1586,6 +1603,13 @@ function HotelBookingDetailPage({
                   value={formatCurrency(displayOtaIncl, currency)}
                 />
                 <DetailRow
+                  label="OTA commission"
+                  value={formatCurrency(
+                    moneyAmount(settlement?.otaCommission),
+                    currency,
+                  )}
+                />
+                <DetailRow
                   label="TDS"
                   value={formatCurrency(displayTds, currency)}
                 />
@@ -1594,12 +1618,33 @@ function HotelBookingDetailPage({
                   value={formatCurrency(displayTcs, currency)}
                 />
                 <DetailRow
+                  label="Tax deduction"
+                  value={formatCurrency(
+                    moneyAmount(settlement?.taxDeduction),
+                    currency,
+                  )}
+                />
+                <DetailRow
                   label="Payable to property"
                   value={formatCurrency(payableToProperty, currency)}
                 />
                 <DetailRow
                   label="Customer refund"
                   value={formatCurrency(displayRefund, currency)}
+                />
+                <DetailRow
+                  label="Service fee"
+                  value={formatCurrency(
+                    moneyAmount(settlement?.serviceFee),
+                    currency,
+                  )}
+                />
+                <DetailRow
+                  label="Service fee GST"
+                  value={formatCurrency(
+                    moneyAmount(settlement?.serviceFeeGst),
+                    currency,
+                  )}
                 />
               </dl>
             </SectionCard>
