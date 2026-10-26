@@ -42,6 +42,8 @@ export interface HotelBdPipelineRow {
   state?: string | null;
   hotelBd?: string | null;
   hotelBdUserId?: number | null;
+  qc?: string | null;
+  qcUserId?: number | null;
   zonalManager?: string | null;
   zonalManagerUserId?: number | null;
   status: string;
@@ -137,6 +139,8 @@ function normalizeRow(raw: Record<string, unknown>): HotelBdPipelineRow {
     hotelBd: (raw.hotelBd as string | null | undefined)?.trim() || null,
     hotelBdUserId:
       raw.hotelBdUserId != null ? toNumber(raw.hotelBdUserId) : null,
+    qc: (raw.qc as string | null | undefined)?.trim() || null,
+    qcUserId: raw.qcUserId != null ? toNumber(raw.qcUserId) : null,
     zonalManager:
       (raw.zonalManager as string | null | undefined)?.trim() || null,
     zonalManagerUserId:

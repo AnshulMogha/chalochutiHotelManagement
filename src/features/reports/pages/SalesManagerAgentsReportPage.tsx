@@ -85,8 +85,6 @@ const SORT_OPTIONS: { value: SalesManagerAgentsSortField; label: string }[] = [
   { value: "REVENUE", label: "Revenue" },
   { value: "COLLECTION_PERCENT", label: "Collection %" },
   { value: "LAST_BOOKING", label: "Last booking" },
-  { value: "LAST_LOGIN", label: "Last login" },
-  { value: "ACTIVE_DAYS", label: "Active days" },
   { value: "AGENCY_NAME", label: "Agency name" },
 ];
 
@@ -1118,22 +1116,10 @@ function AgentRow({ row }: { row: SalesManagerAgentPortfolioRow }) {
         <p className="text-xs">
           Last booking: {formatReportDateTime(row.activity.lastBookingAt)}
         </p>
-        <p className="text-xs">
-          Last login: {formatReportDateTime(row.activity.lastLoginAt)}
-        </p>
-        <p className="text-xs text-slate-500">
-          Active {row.activity.activeDays} days
-          {row.activity.daysSinceLastBooking != null
-            ? ` · ${row.activity.daysSinceLastBooking}d since booking`
-            : ""}
-        </p>
       </td>
       <td className="px-4 py-3 tabular-nums text-slate-700">
         <p className="text-xs">
           Cancel {row.quality.cancellationPercent.toFixed(1)}%
-        </p>
-        <p className="text-xs">
-          Refund {row.quality.refundPercent.toFixed(1)}%
         </p>
       </td>
     </tr>

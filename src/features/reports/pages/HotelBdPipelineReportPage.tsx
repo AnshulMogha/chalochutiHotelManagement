@@ -422,14 +422,17 @@ export default function HotelBdPipelineReportPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-max min-w-[88rem] divide-y divide-slate-100 text-sm">
+          <table className="w-max min-w-[96rem] divide-y divide-slate-100 text-sm">
             <thead className="bg-slate-50/80">
               <tr>
                 <th className="sticky left-0 z-10 min-w-[14rem] bg-slate-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
                   Hotel
                 </th>
+                <th className="min-w-[10rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
+                  Hotel BD / Owner
+                </th>
                 <th className="min-w-[9rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Hotel BD
+                  QC
                 </th>
                 <th className="min-w-[9rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
                   Zonal Manager
@@ -469,13 +472,13 @@ export default function HotelBdPipelineReportPage() {
             <tbody className="divide-y divide-slate-100 bg-white">
               {loading && !report ? (
                 <tr>
-                  <td colSpan={13} className="px-3 py-8 text-center text-slate-500">
+                  <td colSpan={14} className="px-3 py-8 text-center text-slate-500">
                     <Loader2 className="mx-auto h-5 w-5 animate-spin text-indigo-600" />
                   </td>
                 </tr>
               ) : !report?.rows.length ? (
                 <tr>
-                  <td colSpan={13} className="px-3 py-8 text-center text-slate-500">
+                  <td colSpan={14} className="px-3 py-8 text-center text-slate-500">
                     No pipeline rows match your filters.
                   </td>
                 </tr>
@@ -503,6 +506,9 @@ export default function HotelBdPipelineReportPage() {
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-slate-700">
                         {row.hotelBd || "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+                        {row.qc || "—"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-slate-700">
                         {row.zonalManager || "—"}
