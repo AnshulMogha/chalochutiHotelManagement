@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { ROUTES } from "@/constants";
 import { cn } from "@/lib/utils";
 import { Toast, useToast } from "@/components/ui/Toast";
@@ -21,12 +21,22 @@ import { formatTicketPriority, ticketPriorityTone } from "../components/ticketUi
 import {
   ArrowLeft,
   CheckCircle2,
+  Eye,
   Link2,
   Loader2,
   Search,
   Ticket,
   UserRound,
 } from "lucide-react";
+
+type FromBookingState = {
+  bookingRef: string;
+  bookingType?: string | null;
+  productName?: string | null;
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+};
 
 const fieldClass =
   "w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#2f3d95] focus:bg-white focus:ring-2 focus:ring-[#2f3d95]/15";
@@ -75,7 +85,17 @@ function SectionTitle({
 
 export default function HelpdeskTicketCreatePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { toast, showToast, hideToast } = useToast();
+  const bootstrappedRef = useRef(false);
+
+  const fromBooking = (
+    location.state as { fromBooking?: FromBookingState } | null
+  )?.fromBooking;
+  const bookingRefFromQuery = searchParams.get("bookingRef")?.trim() || "";
+  const sourceBookingRef =
+    fromBooking?.bookingRef?.trim() || bookingRefFromQuery || "";
 
   const [raisedByType, setRaisedByType] =
     useState<HelpdeskRaisedByType>("CUSTOMER");
@@ -110,8 +130,54 @@ export default function HelpdeskTicketCreatePage() {
   // TODO(later): manual more-references add
   // const addReference = () => { ... };
 
-  const lookupBooking = async () => {
-    const value = bookingLookup.trim();
+  const applyBookingAttachment = ({
+    key,
+    type,
+    name,
+    customerName,
+    customerEmail,
+    customerPhone,
+    quiet,
+  }: {
+    key: string;
+    type: HelpdeskReferenceType;
+    name?: string | null;
+    customerName?: string | null;
+    customerEmail?: string | null;
+    customerPhone?: string | null;
+    quiet?: boolean;
+  }) => {
+    setReferences((prev) => {
+      if (
+        prev.some(
+          (item) =>
+            item.referenceType === type &&
+            item.referenceKey.toLowerCase() === key.toLowerCase(),
+        )
+      ) {
+        return prev;
+      }
+      return [
+        ...prev,
+        { referenceType: type, referenceKey: key, referenceName: name ?? null },
+      ];
+    });
+
+    setRaisedByName((prev) => prev.trim() || customerName?.trim() || "");
+    setRaisedByEmail((prev) => prev.trim() || customerEmail?.trim() || "");
+    setRaisedByPhone((prev) => prev.trim() || customerPhone?.trim() || "");
+    setSubject((prev) =>
+      prev.trim()
+        ? prev
+        : `Support for ${key}${name ? ` — ${name}` : ""}`.slice(0, 120),
+    );
+    if (!quiet) {
+      showToast(`Attached ${key}`, "success");
+    }
+  };
+
+  const lookupBooking = async (rawValue?: string, quiet = false) => {
+    const value = (rawValue ?? bookingLookup).trim();
     if (!value) {
       showToast("Enter a booking / package reference", "error");
       return;
@@ -130,37 +196,15 @@ export default function HelpdeskTicketCreatePage() {
         detail.financial?.packageName ||
         null;
 
-      setReferences((prev) => {
-        if (
-          prev.some(
-            (item) =>
-              item.referenceType === type &&
-              item.referenceKey.toLowerCase() === key.toLowerCase(),
-          )
-        ) {
-          return prev;
-        }
-        return [
-          ...prev,
-          { referenceType: type, referenceKey: key, referenceName: name },
-        ];
+      applyBookingAttachment({
+        key,
+        type,
+        name,
+        customerName: detail.customer?.name,
+        customerEmail: detail.customer?.email,
+        customerPhone: detail.customer?.phone,
+        quiet,
       });
-
-      if (!raisedByName.trim() && detail.customer?.name) {
-        setRaisedByName(detail.customer.name);
-      }
-      if (!raisedByEmail.trim() && detail.customer?.email) {
-        setRaisedByEmail(detail.customer.email);
-      }
-      if (!raisedByPhone.trim() && detail.customer?.phone) {
-        setRaisedByPhone(detail.customer.phone);
-      }
-      if (!subject.trim()) {
-        setSubject(
-          `Support for ${key}${name ? ` — ${name}` : ""}`.slice(0, 120),
-        );
-      }
-      showToast(`Attached ${key}`, "success");
       setBookingLookup("");
     } catch (error) {
       showToast(extractErrorMessage(error), "error");
@@ -168,6 +212,32 @@ export default function HelpdeskTicketCreatePage() {
       setLookupLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (bootstrappedRef.current || !sourceBookingRef) return;
+    bootstrappedRef.current = true;
+
+    if (fromBooking?.bookingRef) {
+      const type: HelpdeskReferenceType =
+        String(fromBooking.bookingType || "").toUpperCase() === "PACKAGE"
+          ? "PACKAGE_BOOKING"
+          : "BOOKING";
+      applyBookingAttachment({
+        key: fromBooking.bookingRef,
+        type,
+        name: fromBooking.productName,
+        customerName: fromBooking.customerName,
+        customerEmail: fromBooking.customerEmail,
+        customerPhone: fromBooking.customerPhone,
+        quiet: true,
+      });
+      return;
+    }
+
+    void lookupBooking(sourceBookingRef, true);
+    // Bootstrap once when opened from order detail.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceBookingRef]);
 
   const submit = async () => {
     if (!canSubmit) {
@@ -231,13 +301,24 @@ export default function HelpdeskTicketCreatePage() {
                   </p>
                 </div>
               </div>
-              <Link
-                to={ROUTES.HELPDESK.TICKETS}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/20"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to inbox
-              </Link>
+              <div className="flex flex-wrap items-center gap-2">
+                {sourceBookingRef ? (
+                  <Link
+                    to={ROUTES.HELPDESK.DETAIL(sourceBookingRef)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/20"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Back to order
+                  </Link>
+                ) : null}
+                <Link
+                  to={ROUTES.HELPDESK.TICKETS}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/20"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to inbox
+                </Link>
+              </div>
             </div>
           </div>
 
@@ -247,7 +328,11 @@ export default function HelpdeskTicketCreatePage() {
               <SectionTitle
                 icon={Search}
                 title="Attach booking"
-                subtitle="Optional — look up a booking or package ref to prefill contact details"
+                subtitle={
+                  sourceBookingRef
+                    ? `Order ${sourceBookingRef} is attached from order lookup. You can still change it below.`
+                    : "Optional — look up a booking or package ref to prefill contact details"
+                }
               />
               <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 sm:p-4">
                 <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">

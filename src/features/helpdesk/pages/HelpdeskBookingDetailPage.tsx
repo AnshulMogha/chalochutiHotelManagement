@@ -34,6 +34,7 @@ import {
   HelpdeskPackageTransportPanel,
 } from "../components/HelpdeskPackageSections";
 import { HelpdeskPackageItineraryPanel } from "../components/HelpdeskPackageItineraryPanel";
+import { HelpdeskCreateTicketPanel } from "../components/HelpdeskCreateTicketPanel";
 import {
   Activity,
   ArrowLeft,
@@ -50,9 +51,11 @@ import {
   RotateCcw,
   Shield,
   Tag,
+  Ticket,
   User,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 
 type DetailTab =
@@ -71,11 +74,13 @@ export default function HelpdeskBookingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<HelpdeskBookingDetail | null>(null);
   const [activeTab, setActiveTab] = useState<DetailTab>("overview");
+  const [createTicketOpen, setCreateTicketOpen] = useState(false);
 
   useEffect(() => {
     if (!bookingRef.trim()) return;
     let cancelled = false;
     setLoading(true);
+    setCreateTicketOpen(false);
     helpdeskBookingService
       .getBookingByReference(bookingRef)
       .then((data) => {
@@ -174,12 +179,35 @@ export default function HelpdeskBookingDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           Help Desk
         </Link>
-        <HelpdeskStatusGroup
-          bookingStatus={support.bookingStatus}
-          paymentStatus={support.paymentStatus}
-          refundStatus={fin.refundStatus}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <HelpdeskStatusGroup
+            bookingStatus={support.bookingStatus}
+            paymentStatus={support.paymentStatus}
+            refundStatus={fin.refundStatus}
+          />
+          <button
+            type="button"
+            onClick={() => setCreateTicketOpen((open) => !open)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#2f3d95] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#252d73] sm:text-sm"
+          >
+            {createTicketOpen ? (
+              <X className="h-3.5 w-3.5" />
+            ) : (
+              <Ticket className="h-3.5 w-3.5" />
+            )}
+            {createTicketOpen ? "Close ticket form" : "Create ticket"}
+          </button>
+        </div>
       </div>
+
+      <div
+        className={
+          createTicketOpen
+            ? "grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]"
+            : undefined
+        }
+      >
+        <div className="min-w-0">
 
       <div className="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 bg-gradient-to-r from-[#2f3d95] to-[#3d4fa8] px-4 py-3 text-white sm:px-5">
@@ -606,10 +634,16 @@ export default function HelpdeskBookingDetailPage() {
                 />
               </div>
               <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                <HelpdeskActionButton
+                  icon={Ticket}
+                  variant="primary"
+                  onClick={() => setCreateTicketOpen(true)}
+                >
+                  Create ticket
+                </HelpdeskActionButton>
                 {isPackage ? (
                   <HelpdeskActionButton
                     icon={GitBranch}
-                    variant="primary"
                     onClick={() =>
                       navigate(ROUTES.HELPDESK.ITINERARY(detail.bookingRef), {
                         state: {
@@ -664,6 +698,30 @@ export default function HelpdeskBookingDetailPage() {
           </HelpdeskPanel>
         </div>
       ) : null}
+        </div>
+
+        {createTicketOpen ? (
+          <>
+            <button
+              type="button"
+              aria-label="Close create ticket overlay"
+              className="fixed inset-0 z-40 bg-slate-900/30 xl:hidden"
+              onClick={() => setCreateTicketOpen(false)}
+            />
+            <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md p-3 xl:sticky xl:inset-auto xl:top-3 xl:z-auto xl:max-h-[calc(100vh-1.5rem)] xl:w-auto xl:max-w-none xl:p-0">
+              <div className="h-full xl:h-[calc(100vh-1.5rem)]">
+                <HelpdeskCreateTicketPanel
+                  booking={detail}
+                  onClose={() => setCreateTicketOpen(false)}
+                  onToast={(message, type = "success") =>
+                    showToast(message, type)
+                  }
+                />
+              </div>
+            </div>
+          </>
+        ) : null}
+      </div>
 
       <Toast toast={toast} onClose={hideToast} />
     </HelpdeskPageShell>
