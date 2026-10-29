@@ -177,9 +177,10 @@ export default function SalesManagerAgentsReportPage() {
   const [managerOptions, setManagerOptions] = useState<
     Array<{ id: string; label: string }>
   >([]);
-  const [states, setStates] = useState<Array<{ id: string; label: string }>>(
-    [],
-  );
+  const [states, setStates] = useState<
+    Array<{ id: string; label: string; name: string }>
+  >([]);
+  const [loadingStates, setLoadingStates] = useState(false);
 
   const customRangeInvalid = datePreset === "CUSTOM" && (!fromDate || !toDate);
   const draftCustomInvalid =
@@ -194,7 +195,6 @@ export default function SalesManagerAgentsReportPage() {
     (sort !== DEFAULT_SORT || sortDir !== "DESC" ? 1 : 0) +
     (search.trim() ? 1 : 0) +
     (stateId ? 1 : 0) +
-    (state.trim() ? 1 : 0) +
     (agencyTier ? 1 : 0) +
     (salesManagerId ? 1 : 0) +
     (onboardedFrom || onboardedTo ? 1 : 0) +
@@ -231,19 +231,26 @@ export default function SalesManagerAgentsReportPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoadingStates(true);
     adminService
       .getStates()
       .then((stateList) => {
         if (cancelled) return;
         setStates(
-          stateList.map((item) => ({
-            id: String(item.id),
-            label: item.name,
-          })),
+          (stateList || [])
+            .filter((item) => item.active)
+            .map((item) => ({
+              id: String(item.id),
+              label: item.name,
+              name: item.name,
+            })),
         );
       })
       .catch(() => {
         if (!cancelled) setStates([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingStates(false);
       });
     return () => {
       cancelled = true;
@@ -864,34 +871,32 @@ export default function SalesManagerAgentsReportPage() {
               <FilterField label="State">
                 <select
                   value={draft.stateId}
-                  onChange={(event) =>
+                  disabled={loadingStates}
+                  onChange={(event) => {
+                    const nextId = event.target.value;
+                    const selected = states.find((item) => item.id === nextId);
                     setDraft((prev) => ({
                       ...prev,
-                      stateId: event.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      stateId: nextId,
+                      // Same masters list as agent onboarding; send name too for API compatibility.
+                      state: selected?.name ?? "",
+                    }));
+                  }}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
                 >
-                  <option value="">All states</option>
+                  <option value="">
+                    {loadingStates
+                      ? "Loading states..."
+                      : states.length
+                        ? "All states"
+                        : "No states available"}
+                  </option>
                   {states.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.label}
                     </option>
                   ))}
                 </select>
-              </FilterField>
-              <FilterField label="State name / code">
-                <input
-                  type="text"
-                  value={draft.state}
-                  onChange={(event) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      state: event.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
               </FilterField>
               <FilterField label="Agency tier">
                 <select
