@@ -7,6 +7,7 @@ import {
   SummaryCard,
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportJsonPanel } from "@/features/reports/components/ReportJsonPanel";
+import { ReportFilterActions } from "@/features/reports/components/ReportFilterDrawer";
 import type {
   PreviewBookingLine,
   SettlementDetail,
@@ -1130,23 +1131,11 @@ export function SettlementFilterDrawer({
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
           {children}
         </div>
-        <div className="flex gap-2 border-t border-slate-100 bg-white px-4 py-3">
-          <button
-            type="button"
-            onClick={onReset}
-            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            onClick={onApply}
-            disabled={applyDisabled}
-            className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-          >
-            Apply
-          </button>
-        </div>
+        <ReportFilterActions
+          onReset={onReset}
+          onApply={onApply}
+          applyDisabled={applyDisabled}
+        />
       </aside>
     </>
   );

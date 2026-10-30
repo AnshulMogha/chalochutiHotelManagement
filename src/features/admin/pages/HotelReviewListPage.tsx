@@ -30,11 +30,17 @@ import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
 import { useAuth } from "@/hooks/useAuth";
 import { isZonalHotelReviewerRole, isQcReviewerRole } from "@/constants/roles";
 import { cn } from "@/lib/utils";
+import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import {
   ReportAppliedRange,
+  ReportFilterActions,
   ReportFilterButton,
   ReportRefreshButton,
 } from "@/features/reports/components/ReportFilterDrawer";
+import {
+  isoToReportDateText,
+  parseOptionalReportDate,
+} from "@/features/reports/components/reportUiHelpers";
 import {
   HotelReviewBadge,
   getRemarkTone,
@@ -203,13 +209,14 @@ export default function HotelReviewListPage() {
     refreshNonce,
   ]);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return "—";
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+    if (Number.isNaN(date.getTime())) return dateString;
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = String(date.getFullYear());
+    return `${dd}/${mm}/${yyyy}`;
   };
 
   const getLatestReviewRemark = (
@@ -227,19 +234,28 @@ export default function HotelReviewListPage() {
   const truncateRemark = (remark: string, max = 52) =>
     remark.length > max ? `${remark.slice(0, max)}...` : remark;
 
+  const [submittedDateError, setSubmittedDateError] = useState("");
+
   const applyFilters = () => {
+    const submittedAtIso = parseOptionalReportDate(draftFilters.submittedAt);
+    if (draftFilters.submittedAt.trim() && !submittedAtIso) {
+      setSubmittedDateError("Enter submitted date as dd/mm/yyyy");
+      return;
+    }
+    setSubmittedDateError("");
     setAppliedFilters({
       city: draftFilters.city.trim(),
       hotelName: draftFilters.hotelName.trim(),
       hotelCode: draftFilters.hotelCode.trim(),
       submittedBy: draftFilters.submittedBy.trim(),
-      submittedAt: draftFilters.submittedAt,
+      submittedAt: submittedAtIso || "",
     });
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
     setFilterOpen(false);
   };
 
   const resetFilters = () => {
+    setSubmittedDateError("");
     setDraftFilters(DEFAULT_FILTERS);
     setAppliedFilters(DEFAULT_FILTERS);
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
@@ -671,7 +687,11 @@ export default function HotelReviewListPage() {
               />
               <ReportFilterButton
                 onClick={() => {
-                  setDraftFilters(appliedFilters);
+                  setSubmittedDateError("");
+                  setDraftFilters({
+                    ...appliedFilters,
+                    submittedAt: isoToReportDateText(appliedFilters.submittedAt),
+                  });
                   setFilterOpen(true);
                 }}
                 activeCount={activeFilterCount}
@@ -802,38 +822,29 @@ export default function HotelReviewListPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">
-                    Submitted date
-                  </label>
-                  <input
-                    type="date"
-                    value={draftFilters.submittedAt}
-                    onChange={(event) =>
+                  <ReportCustomDateFields
+                    singleDate
+                    singleLabel="Submitted date"
+                    fromText={draftFilters.submittedAt}
+                    onFromTextChange={(value) => {
+                      setSubmittedDateError("");
                       setDraftFilters((prev) => ({
                         ...prev,
-                        submittedAt: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                        submittedAt: value,
+                      }));
+                    }}
                   />
+                  {submittedDateError ? (
+                    <p className="mt-1 text-xs text-rose-600">
+                      {submittedDateError}
+                    </p>
+                  ) : null}
                 </div>
               </div>
-              <div className="flex gap-2 border-t border-slate-200 px-4 py-3">
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Reset
-                </button>
-                <button
-                  type="button"
-                  onClick={applyFilters}
-                  className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                >
-                  Apply
-                </button>
-              </div>
+              <ReportFilterActions
+                onReset={resetFilters}
+                onApply={applyFilters}
+              />
             </aside>
           </div>
         ) : null}

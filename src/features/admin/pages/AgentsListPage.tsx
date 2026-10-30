@@ -36,6 +36,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import { ReportFilterActions } from "@/features/reports/components/ReportFilterDrawer";
 import {
   isoToReportDateText,
   parseOptionalReportDate,
@@ -1194,22 +1195,7 @@ export default function AgentsListPage() {
                 }
               />
             </div>
-            <div className="flex gap-2 border-t border-slate-200 px-4 py-3">
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                onClick={applyFilters}
-                className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-              >
-                Apply
-              </button>
-            </div>
+            <ReportFilterActions onReset={resetFilters} onApply={applyFilters} />
           </aside>
         </div>
       ) : null}

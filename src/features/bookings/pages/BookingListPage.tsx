@@ -1218,8 +1218,6 @@ export default function BookingListPage() {
         }}
         onApply={applyHotelFilter}
         title="Booking Filters"
-        resetLabel="Clear All"
-        applyLabel="Apply Filter"
       >
         {seesAllBookings ? (
           <HotelLookupMultiSelectField

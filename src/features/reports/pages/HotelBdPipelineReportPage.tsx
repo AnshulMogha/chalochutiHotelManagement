@@ -26,6 +26,7 @@ import {
 import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
   ReportAppliedRange,
+  ReportFilterActions,
   ReportFilterButton,
   ReportRefreshButton,
 } from "../components/ReportFilterDrawer";
@@ -855,22 +856,7 @@ export default function HotelBdPipelineReportPage() {
                 </div>
               ) : null}
             </div>
-            <div className="flex gap-2 border-t border-slate-200 px-4 py-3">
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                onClick={applyFilters}
-                className="flex-1 rounded-lg bg-[#2f3d95] px-3 py-2 text-sm font-medium text-white hover:bg-[#263578]"
-              >
-                Apply
-              </button>
-            </div>
+            <ReportFilterActions onReset={resetFilters} onApply={applyFilters} />
           </aside>
         </div>
       ) : null}

@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { ReportFilterActions } from "@/features/reports/components/ReportFilterDrawer";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Check,
@@ -529,22 +530,7 @@ export function ReviewFilterDrawer({
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
           {children}
         </div>
-        <div className="flex gap-2 border-t border-slate-100 px-4 py-3">
-          <button
-            type="button"
-            onClick={onReset}
-            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            onClick={onApply}
-            className="flex-1 rounded-lg bg-[#2f3d95] px-3 py-2 text-sm font-semibold text-white hover:bg-[#263578]"
-          >
-            Apply
-          </button>
-        </div>
+        <ReportFilterActions onReset={onReset} onApply={onApply} />
       </aside>
     </>
   );

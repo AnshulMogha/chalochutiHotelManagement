@@ -16,6 +16,7 @@ import {
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
   ReportAppliedRange,
+  ReportFilterActions,
   ReportFilterButton,
   ReportRefreshButton,
 } from "../components/ReportFilterDrawer";
@@ -905,23 +906,11 @@ export default function InventoryAllocationReportPage() {
               />
             </div>
 
-            <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-4">
-              <button
-                type="button"
-                onClick={clearAll}
-                className="cursor-pointer text-sm font-semibold text-[#2f3d95] hover:underline"
-              >
-                Clear All
-              </button>
-              <button
-                type="button"
-                onClick={applyFilters}
-                disabled={draftCustomInvalid || loading}
-                className="cursor-pointer rounded-lg bg-[#2f3d95] px-6 py-2 text-sm font-semibold text-white transition hover:bg-[#26317a] disabled:opacity-50"
-              >
-                Apply Filter
-              </button>
-            </div>
+            <ReportFilterActions
+              onReset={clearAll}
+              onApply={applyFilters}
+              applyDisabled={draftCustomInvalid || loading}
+            />
           </div>
         </div>
       ) : null}

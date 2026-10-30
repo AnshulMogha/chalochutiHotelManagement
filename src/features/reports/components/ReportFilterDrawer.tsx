@@ -97,6 +97,42 @@ export function ReportRefreshButton({
   );
 }
 
+export const filterResetButtonClass =
+  "cursor-pointer text-sm font-semibold text-[#2f3d95] hover:underline";
+
+export const filterApplyButtonClass =
+  "cursor-pointer rounded-lg bg-[#2f3d95] px-6 py-2 text-sm font-semibold text-white transition hover:bg-[#26317a] disabled:cursor-not-allowed disabled:opacity-50";
+
+export function ReportFilterActions({
+  onReset,
+  onApply,
+  applyDisabled,
+  resetLabel = "Reset",
+  applyLabel = "Apply",
+}: {
+  onReset: () => void;
+  onApply: () => void;
+  applyDisabled?: boolean;
+  resetLabel?: string;
+  applyLabel?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-4">
+      <button type="button" onClick={onReset} className={filterResetButtonClass}>
+        {resetLabel}
+      </button>
+      <button
+        type="button"
+        onClick={onApply}
+        disabled={applyDisabled}
+        className={filterApplyButtonClass}
+      >
+        {applyLabel}
+      </button>
+    </div>
+  );
+}
+
 export function ReportFilterDrawer({
   open,
   onClose,
@@ -104,8 +140,8 @@ export function ReportFilterDrawer({
   onApply,
   applyDisabled,
   title = "Filter",
-  resetLabel = "Clear All",
-  applyLabel = "Apply Filter",
+  resetLabel = "Reset",
+  applyLabel = "Apply",
   children,
 }: {
   open: boolean;
@@ -144,23 +180,13 @@ export function ReportFilterDrawer({
           {children}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-4">
-          <button
-            type="button"
-            onClick={onReset}
-            className="cursor-pointer text-sm font-semibold text-[#2f3d95] hover:underline"
-          >
-            {resetLabel}
-          </button>
-          <button
-            type="button"
-            onClick={onApply}
-            disabled={applyDisabled}
-            className="cursor-pointer rounded-lg bg-[#2f3d95] px-6 py-2 text-sm font-semibold text-white transition hover:bg-[#26317a] disabled:opacity-50"
-          >
-            {applyLabel}
-          </button>
-        </div>
+        <ReportFilterActions
+          onReset={onReset}
+          onApply={onApply}
+          applyDisabled={applyDisabled}
+          resetLabel={resetLabel}
+          applyLabel={applyLabel}
+        />
       </div>
     </div>
   );

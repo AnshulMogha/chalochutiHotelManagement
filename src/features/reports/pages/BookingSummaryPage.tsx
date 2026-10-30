@@ -39,7 +39,9 @@ import {
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
   ReportAppliedRange,
+  ReportFilterActions,
   ReportFilterButton,
+  filterApplyButtonClass,
 } from "../components/ReportFilterDrawer";
 import { ROLES, hasAnyRole } from "@/constants/roles";
 import { useAuth } from "@/hooks";
@@ -921,7 +923,7 @@ export default function BookingSummaryPage() {
                             setCustomToText(formatReportDate(parsed.toDate));
                             setDateOpen(false);
                           }}
-                          className="w-full rounded-lg bg-[#2f3d95] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                          className={filterApplyButtonClass + " w-full"}
                         >
                           Apply
                         </button>
@@ -1100,22 +1102,11 @@ export default function BookingSummaryPage() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3">
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="text-sm font-semibold text-[#2f3d95] hover:underline"
-              >
-                Clear all
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(false)}
-                className="rounded-lg bg-[#2f3d95] px-6 py-2 text-sm font-semibold text-white hover:bg-[#26317a]"
-              >
-                Done
-              </button>
-            </div>
+            <ReportFilterActions
+              onReset={clearFilters}
+              onApply={() => setFilterOpen(false)}
+              applyLabel="Done"
+            />
           </aside>
         </>
       ) : null}
