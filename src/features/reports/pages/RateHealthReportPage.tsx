@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { cn } from "@/lib/utils";
 import { inventoryService } from "@/features/inventory/services/inventoryService";
 import { rateService } from "@/features/inventory/services/rateService";
@@ -26,20 +28,148 @@ import {
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportRefreshButton,
+} from "../components/ReportFilterDrawer";
+import {
   rateHealthReportService,
   type RateHealthDatePreset,
   type RateHealthReportResponse,
+  type RateHealthRow,
 } from "../services/rateHealthReportService";
 import type { ExportJobStatus } from "../services/reportExportService";
+
+const RATE_HEALTH_PAGE_SIZE = 20;
+
+const rateHealthColumns: GridColDef<RateHealthRow>[] = [
+  {
+    field: "stayDate",
+    headerName: "Stay Date",
+    width: 120,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="whitespace-nowrap text-slate-800">
+        {formatReportDate(params.row.stayDate)}
+      </span>
+    ),
+  },
+  {
+    field: "hotelName",
+    headerName: "Hotel Name",
+    flex: 1,
+    minWidth: 180,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="truncate text-slate-700" title={params.row.hotelName || undefined}>
+        {params.row.hotelName || "—"}
+      </span>
+    ),
+  },
+  {
+    field: "roomType",
+    headerName: "Room Type",
+    flex: 1,
+    minWidth: 140,
+    sortable: false,
+  },
+  {
+    field: "ratePlan",
+    headerName: "Rate Plan",
+    flex: 1,
+    minWidth: 140,
+    sortable: false,
+  },
+  {
+    field: "totalRooms",
+    headerName: "Total Rooms",
+    width: 120,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums text-slate-700">{params.row.totalRooms}</span>
+    ),
+  },
+  {
+    field: "allocated",
+    headerName: "Allocated",
+    width: 110,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums text-slate-700">{params.row.allocated}</span>
+    ),
+  },
+  {
+    field: "sold",
+    headerName: "Sold",
+    width: 90,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums text-slate-700">{params.row.sold}</span>
+    ),
+  },
+  {
+    field: "b2cRate",
+    headerName: "B2C Rate",
+    width: 120,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums text-slate-700">
+        {formatReportCurrency(params.row.b2cRate)}
+      </span>
+    ),
+  },
+  {
+    field: "b2bRate",
+    headerName: "B2B Rate",
+    width: 120,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums text-slate-700">
+        {formatReportCurrency(params.row.b2bRate)}
+      </span>
+    ),
+  },
+  {
+    field: "bundleRate",
+    headerName: "Bundle Rate",
+    width: 130,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums text-slate-700">
+        {formatReportCurrency(params.row.bundleRate)}
+      </span>
+    ),
+  },
+  {
+    field: "healthStatus",
+    headerName: "Health Status",
+    width: 150,
+    sortable: false,
+    renderCell: (params) => (
+      <span
+        className={cn(
+          "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold leading-tight ring-1 ring-inset",
+          healthStatusTone(params.row.healthStatus),
+        )}
+      >
+        {params.row.healthStatus.toUpperCase().includes("DISPAR")
+          ? "Rate Variance"
+          : formatStatusLabel(params.row.healthStatus)}
+      </span>
+    ),
+  },
+];
 import {
+  BadgeCheck,
+  Ban,
   BedDouble,
   Building2,
-  CalendarDays,
+  CircleAlert,
   Download,
-  Filter,
   HeartPulse,
   Layers,
   Loader2,
+  Scale,
   X,
 } from "lucide-react";
 
@@ -103,7 +233,7 @@ export default function RateHealthReportPage() {
   const [roomOptions, setRoomOptions] = useState<ReportIdOption[]>([]);
   const [ratePlanOptions, setRatePlanOptions] = useState<ReportIdOption[]>([]);
   const [page, setPage] = useState(0);
-  const [pageSize] = useState(20);
+  const [pageSize] = useState(RATE_HEALTH_PAGE_SIZE);
   const [filterOpen, setFilterOpen] = useState(false);
   const [customFromText, setCustomFromText] = useState("");
   const [customToText, setCustomToText] = useState("");
@@ -111,6 +241,7 @@ export default function RateHealthReportPage() {
 
   const [report, setReport] = useState<RateHealthReportResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
     null,
@@ -181,6 +312,7 @@ export default function RateHealthReportPage() {
     page,
     pageSize,
     customRangeInvalid,
+    refreshNonce,
     showToast,
   ]);
 
@@ -407,53 +539,34 @@ export default function RateHealthReportPage() {
                 <h1 className="truncate text-lg font-bold text-slate-900">
                   Rate Variance
                 </h1>
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                  <span className="inline-flex items-center gap-1.5">
-                    <CalendarDays className="h-3.5 w-3.5 text-rose-500" />
-                    <span className="font-semibold text-slate-700">
-                      {presetLabel}
-                    </span>
-                    {report?.dateRange.fromDate ? (
-                      <span>
-                        {formatReportDate(report.dateRange.fromDate)} –{" "}
-                        {formatReportDate(report.dateRange.toDate)}
+                {selectedRoomTypeName || selectedRatePlanName ? (
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                    {selectedRoomTypeName ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700 ring-1 ring-rose-200">
+                        <BedDouble className="h-3 w-3" />
+                        {selectedRoomTypeName}
                       </span>
                     ) : null}
-                  </span>
-                  {selectedRoomTypeName ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700 ring-1 ring-rose-200">
-                      <BedDouble className="h-3 w-3" />
-                      {selectedRoomTypeName}
-                    </span>
-                  ) : null}
-                  {selectedRatePlanName ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 font-medium text-orange-700 ring-1 ring-orange-200">
-                      <Layers className="h-3 w-3" />
-                      {selectedRatePlanName}
-                    </span>
-                  ) : null}
-                </p>
+                    {selectedRatePlanName ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 font-medium text-orange-700 ring-1 ring-orange-200">
+                        <Layers className="h-3 w-3" />
+                        {selectedRatePlanName}
+                      </span>
+                    ) : null}
+                  </p>
+                ) : null}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
+            <div className="flex flex-wrap items-center gap-2">
+              <ReportAppliedRange
+                from={report?.dateRange.fromDate}
+                to={report?.dateRange.toDate}
+                detail={presetLabel}
+              />
+              <ReportFilterButton
                 onClick={openFilters}
-                className={cn(
-                  "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition",
-                  activeFilterCount
-                    ? "border-rose-200 bg-rose-50 text-rose-800"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-rose-200 hover:bg-rose-50",
-                )}
-              >
-                <Filter className="h-4 w-4" />
-                Filter
-                {activeFilterCount ? (
-                  <span className="rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">
-                    {activeFilterCount}
-                  </span>
-                ) : null}
-              </button>
+                activeCount={activeFilterCount}
+              />
               <button
                 type="button"
                 onClick={handleExport}
@@ -468,7 +581,7 @@ export default function RateHealthReportPage() {
                     ? exportStatusLabel(exportStatus) || "Exporting…"
                     : "Download"
                 }
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-800 transition hover:bg-rose-100 disabled:opacity-60"
+                className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
               >
                 {exporting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -476,6 +589,11 @@ export default function RateHealthReportPage() {
                   <Download className="h-4 w-4" />
                 )}
               </button>
+              <ReportRefreshButton
+                onClick={() => setRefreshNonce((n) => n + 1)}
+                loading={loading}
+                disabled={customRangeInvalid}
+              />
             </div>
           </div>
 
@@ -487,173 +605,79 @@ export default function RateHealthReportPage() {
 
           {summary ? (
             <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              <SummaryCard label="Room types" value={summary.roomTypes} />
-              <SummaryCard label="Rate plans" value={summary.ratePlans} />
+              <SummaryCard
+                label="Room types"
+                value={summary.roomTypes}
+                tone="sky"
+                icon={BedDouble}
+              />
+              <SummaryCard
+                label="Rate plans"
+                value={summary.ratePlans}
+                tone="indigo"
+                icon={Layers}
+              />
               <SummaryCard
                 label="Healthy"
                 value={summary.healthy}
                 tone="success"
+                icon={BadgeCheck}
               />
               <SummaryCard
                 label="Missing rates"
                 value={summary.missingRates}
                 tone="warning"
+                icon={CircleAlert}
               />
               <SummaryCard
                 label="Rate variance"
                 value={summary.highDisparities}
                 tone="danger"
+                icon={Scale}
               />
               <SummaryCard
                 label="Not saleable"
                 value={summary.notSaleable}
-                tone="danger"
+                tone="orange"
+                icon={Ban}
               />
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-4 py-2.5">
-              <p className="text-xs font-medium text-slate-600">
-                {(report?.page.totalElements ?? 0).toLocaleString("en-IN")} rows
-                <span className="font-normal text-slate-400">
+          <DataTable
+            subtitle={
+              <>
+                <span className="font-medium text-slate-600">
+                  {formatListCount(report?.page.totalElements ?? 0, "row")}
+                </span>
+                <span className="text-slate-400">
                   {" "}
                   · Page {page + 1} of {Math.max(totalPages, 1)}
                 </span>
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80">
-                    {[
-                      "Stay Date",
-                      "Hotel Name",
-                      "Room Type",
-                      "Rate Plan",
-                      "Total Rooms",
-                      "Allocated",
-                      "Sold",
-                      "B2C Rate",
-                      "B2B Rate",
-                      "Bundle Rate",
-                      "Health Status",
-                    ].map((heading) => (
-                      <th
-                        key={heading}
-                        className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
-                      >
-                        {heading}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={11} className="px-4 py-16 text-center">
-                        <Loader2 className="mx-auto h-6 w-6 animate-spin text-rose-600" />
-                      </td>
-                    </tr>
-                  ) : !report?.rates.length ? (
-                    <tr>
-                      <td
-                        colSpan={11}
-                        className="px-4 py-16 text-center text-slate-400"
-                      >
-                        No rate health rows for this period.
-                      </td>
-                    </tr>
-                  ) : (
-                    report.rates.map((row, index) => (
-                      <tr
-                        key={`${row.stayDate}-${row.roomType}-${row.ratePlan}-${index}`}
-                        className="border-b border-slate-50 hover:bg-slate-50/60"
-                      >
-                        <td className="px-3 py-2.5 whitespace-nowrap text-slate-800">
-                          {formatReportDate(row.stayDate)}
-                        </td>
-                        <td className="max-w-56 px-3 py-2.5">
-                          <span
-                            className="block truncate text-slate-700"
-                            title={row.hotelName || undefined}
-                          >
-                            {row.hotelName || "—"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-slate-700">
-                          {row.roomType}
-                        </td>
-                        <td className="px-3 py-2.5 text-slate-700">
-                          {row.ratePlan}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
-                          {row.totalRooms}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
-                          {row.allocated}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
-                          {row.sold}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
-                          {formatReportCurrency(row.b2cRate)}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
-                          {formatReportCurrency(row.b2bRate)}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
-                          {formatReportCurrency(row.bundleRate)}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span
-                            className={cn(
-                              "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset",
-                              healthStatusTone(row.healthStatus),
-                            )}
-                          >
-                            {row.healthStatus.toUpperCase().includes("DISPAR")
-                              ? "Rate Variance"
-                              : formatStatusLabel(row.healthStatus)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {totalPages > 1 ? (
-              <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-600">
-                <span>
-                  {(report?.page.totalElements ?? 0).toLocaleString("en-IN")} rows
-                  {" · "}
-                  Page {page + 1} of {Math.max(totalPages, 1)}
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                    disabled={page === 0 || loading}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPage((p) => Math.min(totalPages - 1, p + 1))
-                    }
-                    disabled={page >= totalPages - 1 || loading}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
+              </>
+            }
+            rows={report?.rates ?? []}
+            columns={rateHealthColumns}
+            getRowId={(row) =>
+              `${row.stayDate}-${row.hotelName}-${row.roomType}-${row.ratePlan}`
+            }
+            loading={loading}
+            paginationMode="server"
+            rowCount={report?.page.totalElements ?? 0}
+            paginationModel={{ page, pageSize }}
+            onPaginationModelChange={(model) => {
+              if (model.page !== page) setPage(model.page);
+            }}
+            pageSizeOptions={[RATE_HEALTH_PAGE_SIZE]}
+            disableRowSelectionOnClick
+            disableColumnFilter
+            showToolbar
+            showExport={false}
+            allowHorizontalScroll
+            localeText={{
+              noRowsLabel: "No rate health rows for this period.",
+            }}
+          />
         </div>
       </div>
 

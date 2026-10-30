@@ -589,7 +589,7 @@ export function AgencyIncentiveRulesPanel({
                     return (
                       <tr
                         key={row.id}
-                        className="transition-colors even:bg-slate-50/60 hover:bg-violet-50/50"
+                        className="transition-colors even:bg-slate-50/60 hover:bg-slate-50/80"
                       >
                         <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-700 first:pl-4">
                           <span className="inline-flex items-center gap-2">

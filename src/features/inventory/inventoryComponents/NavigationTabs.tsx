@@ -36,7 +36,7 @@ export const NavigationTabs = ({ tabs, activeTab, onTabChange }: NavigationTabsP
               border-r border-gray-200 last:border-r-0 outline-none
               focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2A3170] focus-visible:z-10
               ${isActive 
-                ? 'bg-blue-600 text-white shadow-lg scale-[1.01]' 
+                ? 'bg-[#2f3d95] text-white shadow-lg scale-[1.01]' 
                 : 'bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-800'
               }
             `}
@@ -49,7 +49,7 @@ export const NavigationTabs = ({ tabs, activeTab, onTabChange }: NavigationTabsP
                 className="absolute -bottom-[8px] left-1/2 -translate-x-1/2 w-0 h-0 
                            border-l-[8px] border-l-transparent 
                            border-r-[8px] border-r-transparent 
-                           border-t-[8px] border-t-blue-600  
+                           border-t-[8px] border-t-[#2f3d95]  
                            z-10 drop-shadow-md" 
               />
             )}

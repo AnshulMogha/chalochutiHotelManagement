@@ -1,21 +1,5 @@
-import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReviewRemark } from "../services/adminService";
-
-export function HotelReviewColumnHeader({
-  icon: Icon,
-  label,
-}: {
-  icon: LucideIcon;
-  label: string;
-}) {
-  return (
-    <span className="flex items-center gap-1.5 text-[0.68rem] font-bold uppercase tracking-wide text-white">
-      <Icon className="h-3.5 w-3.5 shrink-0 text-sky-200" strokeWidth={2.25} />
-      {label}
-    </span>
-  );
-}
 
 export function HotelReviewBadge({
   children,
@@ -30,7 +14,7 @@ export function HotelReviewBadge({
     <span
       title={title}
       className={cn(
-        "inline-flex max-w-full items-center truncate rounded-md px-2 py-0.5 text-xs font-semibold ring-1",
+        "inline-flex h-auto max-w-full items-center self-center truncate rounded-md px-2 py-0.5 text-[11px] font-semibold leading-tight ring-1",
         className,
       )}
     >
@@ -73,17 +57,24 @@ export function getRemarkTone(remark?: ReviewRemark | null): {
   };
 }
 
-/** Layout-only overrides for data rows; header/footer use default DataTable styles. */
+/** Layout-only overrides; header and footer stay on the shared DataTable styles. */
 export const hotelReviewTableGridSx = {
+  "& .MuiDataGrid-columnHeader": {
+    padding: "8px 10px !important",
+  },
+  "& .MuiDataGrid-columnHeader[data-field='actions']": {
+    paddingRight: "12px !important",
+  },
   "& .MuiDataGrid-cell": {
     display: "flex",
     alignItems: "center",
     overflow: "hidden",
+    lineHeight: "1.25 !important",
+    padding: "6px 10px !important",
   },
   "& .MuiDataGrid-cell[data-field='actions']": {
     overflow: "visible",
-  },
-  "& .MuiDataGrid-cell[data-field='qcRemarks']": {
-    alignItems: "flex-start",
+    justifyContent: "flex-end",
+    paddingRight: "12px !important",
   },
 };

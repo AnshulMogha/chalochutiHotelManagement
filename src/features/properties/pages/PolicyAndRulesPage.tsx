@@ -1,9 +1,9 @@
 import { useSearchParams } from "react-router";
+import { Building2 } from "lucide-react";
 import { PolicyAndRulesTab } from "../components/property-info/PolicyAndRulesTab";
 import { useAuth } from "@/hooks";
 import { canEditModule } from "@/lib/permissions";
 import { ReadOnlySection } from "@/components/ui/ReadOnlySection";
-import { PolicySectionCard } from "../components/property-info/policyRulesUi";
 
 export default function PolicyAndRulesPage() {
   const [searchParams] = useSearchParams();
@@ -13,30 +13,33 @@ export default function PolicyAndRulesPage() {
 
   if (!selectedHotelId) {
     return (
-      <div className="container mx-auto px-4 py-4">
-        <div className="mb-4">
-          <h1 className="text-xl font-bold tracking-tight text-gray-900">
-            Policy and Rules
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Please select a hotel from the dropdown above to view policies and
-            rules
-          </p>
-        </div>
-        <PolicySectionCard>
-          <div className="flex min-h-[400px] items-center justify-center">
-            <p className="text-gray-500">No hotel selected</p>
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+          <div className="flex min-h-60 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white">
+            <div className="text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200">
+                <Building2 className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-medium text-slate-700">
+                No hotel selected
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Select a hotel from the top bar to manage policies and rules
+              </p>
+            </div>
           </div>
-        </PolicySectionCard>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 pb-4">
-      <ReadOnlySection isReadOnly={isReadOnly}>
-        <PolicyAndRulesTab hotelId={selectedHotelId} />
-      </ReadOnlySection>
+    <div className="min-h-full bg-slate-50">
+      <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+        <ReadOnlySection isReadOnly={isReadOnly}>
+          <PolicyAndRulesTab hotelId={selectedHotelId} />
+        </ReadOnlySection>
+      </div>
     </div>
   );
 }

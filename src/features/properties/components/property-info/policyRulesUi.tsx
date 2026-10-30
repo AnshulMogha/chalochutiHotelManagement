@@ -15,39 +15,27 @@ export const POLICY_TABS = [
     value: "policy",
     label: "Policy",
     icon: FileText,
-    active: "bg-blue-600 text-white font-semibold shadow-sm",
-    idle: "text-slate-700 hover:bg-blue-100 hover:text-blue-800",
-    iconActive: "text-white",
-    iconIdle: "text-slate-500 group-hover:text-blue-600",
   },
   {
     value: "cancellation",
     label: "Cancellation Policy",
     icon: CalendarClock,
-    active: "bg-cyan-600 text-white font-semibold shadow-sm",
-    idle: "text-slate-700 hover:bg-cyan-100 hover:text-cyan-800",
-    iconActive: "text-white",
-    iconIdle: "text-slate-500 group-hover:text-cyan-600",
   },
   {
     value: "child",
     label: "Child Policy",
     icon: UserCircle2,
-    active: "bg-violet-600 text-white font-semibold shadow-sm",
-    idle: "text-slate-700 hover:bg-violet-100 hover:text-violet-800",
-    iconActive: "text-white",
-    iconIdle: "text-slate-500 group-hover:text-violet-600",
   },
   {
     value: "payment",
     label: "Payment Policy",
     icon: CreditCard,
-    active: "bg-teal-600 text-white font-semibold shadow-sm",
-    idle: "text-slate-700 hover:bg-teal-100 hover:text-teal-800",
-    iconActive: "text-white",
-    iconIdle: "text-slate-500 group-hover:text-teal-600",
   },
 ] as const;
+
+const POLICY_TAB_ACTIVE = "bg-[#2f3d95] text-white";
+const POLICY_TAB_IDLE =
+  "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800";
 
 const SECTION_THEMES = {
   blue: "bg-blue-50 text-blue-600 ring-blue-100",
@@ -135,7 +123,7 @@ export function PolicySectionCard({
   return (
     <div
       className={cn(
-        "rounded-xl border border-slate-200/90 bg-white p-5 shadow-sm sm:p-6",
+        "rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6",
         theme && "border-l-4",
         theme && SECTION_ACCENTS[theme],
         className,
@@ -143,6 +131,20 @@ export function PolicySectionCard({
     >
       {children}
     </div>
+  );
+}
+
+export function PolicyTabTriggerClass(isActive: boolean) {
+  return cn(
+    "group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition",
+    isActive ? POLICY_TAB_ACTIVE : POLICY_TAB_IDLE,
+  );
+}
+
+export function PolicyTabIconClass(isActive: boolean) {
+  return cn(
+    "h-3.5 w-3.5 shrink-0",
+    isActive ? "text-white" : "text-slate-500 group-hover:text-slate-700",
   );
 }
 

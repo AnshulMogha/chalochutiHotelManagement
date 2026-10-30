@@ -38,6 +38,8 @@ import {
   PolicySaveBar,
   PolicySectionCard,
   PolicySectionHeader,
+  PolicyTabIconClass,
+  PolicyTabTriggerClass,
   PolicyTimeField,
   PolicyToggleOption,
   BoundedHourSelect,
@@ -1683,42 +1685,35 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-      <div className="mx-auto max-w-5xl space-y-4">
+      <div className="space-y-4">
         <Tabs
           defaultValue="policy"
           value={activeTab}
           onValueChange={setActiveTab}
           className="w-full"
         >
-          <div className="sticky top-0 z-20 -mx-4 mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 bg-gray-50 px-4 py-3">
-            <h1 className="shrink-0 text-xl font-bold tracking-tight text-gray-900">
-              Policy and Rules
-            </h1>
-            <TabsList className="inline-flex h-auto w-full flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 sm:w-auto">
-              {POLICY_TABS.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.value;
-                return (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    className={cn(
-                      "group gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
-                      isActive ? tab.active : tab.idle,
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "h-4 w-4 shrink-0",
-                        isActive ? tab.iconActive : tab.iconIdle,
-                      )}
-                      strokeWidth={2.25}
-                    />
-                    {tab.label}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+          <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+              <TabsList className="inline-flex h-auto w-full flex-wrap gap-1 bg-transparent p-0 sm:w-auto">
+                {POLICY_TABS.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.value;
+                  return (
+                    <TabsTrigger
+                      key={tab.value}
+                      value={tab.value}
+                      className={PolicyTabTriggerClass(isActive)}
+                    >
+                      <Icon
+                        className={PolicyTabIconClass(isActive)}
+                        strokeWidth={2.25}
+                      />
+                      {tab.label}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </div>
           </div>
 
           <TabsContent value="policy">

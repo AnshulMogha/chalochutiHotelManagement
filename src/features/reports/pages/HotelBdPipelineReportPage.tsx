@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,6 +24,11 @@ import {
   SummaryCard,
 } from "../components/reportUiHelpers";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportRefreshButton,
+} from "../components/ReportFilterDrawer";
 import { hotelBdDashboardReportService } from "../services/hotelBdDashboardReportService";
 import {
   hotelBdPipelineReportService,
@@ -34,15 +41,20 @@ import {
 import type { ExportJobStatus } from "../services/reportExportService";
 import {
   AlertCircle,
+  BadgeCheck,
+  Ban,
   Building2,
-  ChevronLeft,
   ChevronRight,
+  CircleX,
+  ClipboardCheck,
   Download,
-  Filter,
+  FilePen,
   GitBranch,
   LayoutDashboard,
   Loader2,
+  MapPinned,
   X,
+  type LucideIcon,
 } from "lucide-react";
 
 const DEFAULT_STATUS: HotelBdPipelineStatus = "ALL";
@@ -64,30 +76,52 @@ const STATUS_OPTIONS: { value: HotelBdPipelineStatus; label: string }[] = [
 const FUNNEL_CARDS: {
   status: HotelBdPipelineStatus;
   label: string;
-  tone: "default" | "success" | "warning" | "danger";
+  tone: "sky" | "indigo" | "success" | "warning" | "danger" | "orange";
+  icon: LucideIcon;
   valueKey: keyof NonNullable<HotelBdPipelineReportResponse["funnel"]>;
 }[] = [
-  { status: "DRAFT", label: "Draft", tone: "default", valueKey: "draft" },
-  { status: "UNDER_QC", label: "Under QC", tone: "warning", valueKey: "underQc" },
+  {
+    status: "DRAFT",
+    label: "Draft",
+    tone: "sky",
+    icon: FilePen,
+    valueKey: "draft",
+  },
+  {
+    status: "UNDER_QC",
+    label: "Under QC",
+    tone: "warning",
+    icon: ClipboardCheck,
+    valueKey: "underQc",
+  },
   {
     status: "QC_REJECTED",
     label: "QC Rejected",
     tone: "danger",
+    icon: Ban,
     valueKey: "qcRejected",
   },
   {
     status: "UNDER_ZONAL_REVIEW",
     label: "Under Zonal",
-    tone: "warning",
+    tone: "indigo",
+    icon: MapPinned,
     valueKey: "underZonalReview",
   },
   {
     status: "ZONAL_REJECTED",
     label: "Zonal Rejected",
-    tone: "danger",
+    tone: "orange",
+    icon: CircleX,
     valueKey: "zonalRejected",
   },
-  { status: "LIVE", label: "Live", tone: "success", valueKey: "live" },
+  {
+    status: "LIVE",
+    label: "Live",
+    tone: "success",
+    icon: BadgeCheck,
+    valueKey: "live",
+  },
 ];
 
 const SORT_OPTIONS: { value: HotelBdPipelineSort; label: string }[] = [
@@ -324,6 +358,197 @@ export default function HotelBdPipelineReportPage() {
 
   const totalPages = report?.page.totalPages ?? 1;
   const totalElements = report?.page.totalElements ?? 0;
+  const pipelineRows = (report?.rows ?? []).map((row, index) => ({
+    ...row,
+    id: `${row.hotelId ?? row.hotelCode}-${index}`,
+  }));
+  const pipelineColumns: GridColDef<(typeof pipelineRows)[number]>[] = [
+    {
+      field: "hotelName",
+      headerName: "Hotel",
+      flex: 1.4,
+      minWidth: 220,
+      sortable: false,
+      renderCell: (params) => (
+        <div className="min-w-0 py-1 leading-tight">
+          <div className="truncate font-medium text-slate-900">
+            {params.row.hotelName}
+          </div>
+          <div className="truncate text-xs text-slate-500">
+            {params.row.hotelCode}
+            {params.row.city ? ` · ${params.row.city}` : ""}
+            {params.row.state ? `, ${params.row.state}` : ""}
+            {params.row.locked ? " · Locked" : ""}
+          </div>
+        </div>
+      ),
+    },
+    {
+      field: "hotelBd",
+      headerName: "Hotel BD / Owner",
+      width: 160,
+      sortable: false,
+      renderCell: (params) => params.row.hotelBd || "—",
+    },
+    {
+      field: "qc",
+      headerName: "QC",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => params.row.qc || "—",
+    },
+    {
+      field: "zonalManager",
+      headerName: "Zonal Manager",
+      width: 160,
+      sortable: false,
+      renderCell: (params) => params.row.zonalManager || "—",
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <span
+          className={cn(
+            "inline-flex h-auto items-center self-center rounded-full px-2 py-0.5 text-xs font-medium leading-tight ring-1 ring-inset",
+            hotelStatusTone(params.row.status),
+          )}
+        >
+          {formatStatusLabel(params.row.status)}
+        </span>
+      ),
+    },
+    {
+      field: "currentStep",
+      headerName: "Current Step",
+      width: 150,
+      sortable: false,
+      renderCell: (params) =>
+        params.row.currentStep ? formatStatusLabel(params.row.currentStep) : "—",
+    },
+    {
+      field: "steps",
+      headerName: "Steps",
+      width: 220,
+      sortable: false,
+      renderCell: (params) => {
+        const stepMap = new Map(
+          params.row.steps.map((step) => [step.step, step.status]),
+        );
+        return (
+          <div className="flex max-w-xs flex-wrap gap-1 py-1">
+            {STEP_ORDER.map((stepKey) => {
+              const stepStatus = stepMap.get(stepKey) ?? "NOT_STARTED";
+              return (
+                <span
+                  key={stepKey}
+                  title={`${formatStatusLabel(stepKey)}: ${formatStatusLabel(stepStatus)}`}
+                  className={cn(
+                    "inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium leading-tight ring-1 ring-inset",
+                    stepTone(stepStatus),
+                  )}
+                >
+                  {stepKey
+                    .split("_")
+                    .map((part) => part[0])
+                    .join("")}
+                </span>
+              );
+            })}
+          </div>
+        );
+      },
+    },
+    {
+      field: "completedSteps",
+      headerName: "Done / Left",
+      width: 110,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">
+          {params.row.completedSteps} / {params.row.incompleteSteps}
+        </span>
+      ),
+    },
+    {
+      field: "daysStuck",
+      headerName: "Days Stuck",
+      width: 110,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">
+          {params.row.daysStuck != null ? params.row.daysStuck : "—"}
+        </span>
+      ),
+    },
+    {
+      field: "createdAt",
+      headerName: "Created At",
+      width: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">{formatPipelineDate(params.row.createdAt)}</span>
+      ),
+    },
+    {
+      field: "updatedAt",
+      headerName: "Updated At",
+      width: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">{formatPipelineDate(params.row.updatedAt)}</span>
+      ),
+    },
+    {
+      field: "qcReviewedAt",
+      headerName: "QC Reviewed At",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">
+          {formatPipelineDate(params.row.qcReviewedAt)}
+        </span>
+      ),
+    },
+    {
+      field: "zonalApprovedAt",
+      headerName: "Zonal Reviewed At",
+      width: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">
+          {formatPipelineDate(params.row.zonalApprovedAt)}
+        </span>
+      ),
+    },
+    {
+      field: "actions",
+      headerName: "",
+      width: 88,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params) => {
+        const link = getHotelLink(params.row, isAdmin);
+        if (!link) return <span className="text-slate-400">—</span>;
+        return (
+          <Link
+            to={link}
+            className="inline-flex items-center gap-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            {isAdmin || !isHotelOnboardingEditable(params.row.status)
+              ? "View"
+              : "Edit"}
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        );
+      },
+    },
+  ];
 
   return (
     <div className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4">
@@ -331,27 +556,29 @@ export default function HotelBdPipelineReportPage() {
 
       <ReportPageHeader
         icon={GitBranch}
-        iconClassName="bg-gradient-to-br from-violet-500 to-indigo-600"
+        iconClassName="bg-[#2f3d95]"
         title="Onboarding Pipeline"
         description="Paginated onboarding pipeline with steps and days stuck"
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
+          <div className="flex flex-wrap items-center gap-2">
+            <ReportAppliedRange
+              detail={[
+                STATUS_OPTIONS.find((option) => option.value === status)?.label ??
+                  status,
+                search.trim() || null,
+                [city.trim(), stateFilter.trim()].filter(Boolean).join(", ") ||
+                  null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            />
+            <ReportFilterButton
               onClick={() => {
                 setDraft({ status, search, city, state: stateFilter, sort, direction, bdUserId });
                 setFilterOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 ? (
-                <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {activeFilterCount}
-                </span>
-              ) : null}
-            </button>
+              activeCount={activeFilterCount}
+            />
             <button
               type="button"
               onClick={() => void handleExport()}
@@ -366,7 +593,7 @@ export default function HotelBdPipelineReportPage() {
                   ? exportStatusLabel(exportStatus)
                   : "Download report"
               }
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
             >
               {exporting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -374,10 +601,14 @@ export default function HotelBdPipelineReportPage() {
                 <Download className="h-4 w-4" />
               )}
             </button>
+            <ReportRefreshButton
+              onClick={() => void loadReport()}
+              loading={loading}
+            />
             {hideDashboardLink ? null : (
               <Link
                 to={ROUTES.REPORTS.HOTEL_BD_DASHBOARD}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#2f3d95] px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-[#263578]"
               >
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
@@ -401,6 +632,7 @@ export default function HotelBdPipelineReportPage() {
               key={card.status}
               label={card.label}
               tone={card.tone}
+              icon={card.icon}
               value={report.funnel[card.valueKey]}
               active={status === card.status}
               onClick={() => applyStatusFilter(card.status)}
@@ -409,226 +641,44 @@ export default function HotelBdPipelineReportPage() {
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-          <div className="flex items-center gap-2 text-sm text-slate-600">
+      <DataTable
+        subtitle={
+          <span className="inline-flex items-center gap-2">
             <Building2 className="h-4 w-4" />
-            <span>
-              {loading && !report
-                ? "Loading…"
-                : `${totalElements} hotel${totalElements === 1 ? "" : "s"} · Page ${page + 1} of ${Math.max(totalPages, 1)}`}
-            </span>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-max min-w-[96rem] divide-y divide-slate-100 text-sm">
-            <thead className="bg-slate-50/80">
-              <tr>
-                <th className="sticky left-0 z-10 min-w-[14rem] bg-slate-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Hotel
-                </th>
-                <th className="min-w-[10rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Hotel BD / Owner
-                </th>
-                <th className="min-w-[9rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  QC
-                </th>
-                <th className="min-w-[9rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Zonal Manager
-                </th>
-                <th className="min-w-[8rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Status
-                </th>
-                <th className="min-w-[8rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Current Step
-                </th>
-                <th className="min-w-[12rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Steps
-                </th>
-                <th className="min-w-[6.5rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Done / Left
-                </th>
-                <th className="min-w-[6.5rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Days Stuck
-                </th>
-                <th className="min-w-[7.5rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Created At
-                </th>
-                <th className="min-w-[7.5rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Updated At
-                </th>
-                <th className="min-w-[8.5rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  QC Reviewed At
-                </th>
-                <th className="min-w-[9rem] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Zonal Reviewed At
-                </th>
-                <th className="min-w-[5.5rem] px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-slate-500">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {loading && !report ? (
-                <tr>
-                  <td colSpan={14} className="px-3 py-8 text-center text-slate-500">
-                    <Loader2 className="mx-auto h-5 w-5 animate-spin text-indigo-600" />
-                  </td>
-                </tr>
-              ) : !report?.rows.length ? (
-                <tr>
-                  <td colSpan={14} className="px-3 py-8 text-center text-slate-500">
-                    No pipeline rows match your filters.
-                  </td>
-                </tr>
-              ) : (
-                report.rows.map((row, index) => {
-                  const link = getHotelLink(row, isAdmin);
-                  const stepMap = new Map(
-                    row.steps.map((step) => [step.step, step.status]),
-                  );
-                  return (
-                    <tr
-                      key={`${row.hotelId ?? row.hotelCode}-${index}`}
-                      className="group hover:bg-slate-50/70"
-                    >
-                      <td className="sticky left-0 z-10 min-w-[14rem] bg-white px-3 py-2 group-hover:bg-slate-50">
-                        <div className="font-medium text-slate-900">
-                          {row.hotelName}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {row.hotelCode}
-                          {row.city ? ` · ${row.city}` : ""}
-                          {row.state ? `, ${row.state}` : ""}
-                          {row.locked ? " · Locked" : ""}
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                        {row.hotelBd || "—"}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                        {row.qc || "—"}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                        {row.zonalManager || "—"}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2">
-                        <span
-                          className={cn(
-                            "inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
-                            hotelStatusTone(row.status),
-                          )}
-                        >
-                          {formatStatusLabel(row.status)}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                        {row.currentStep
-                          ? formatStatusLabel(row.currentStep)
-                          : "—"}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex max-w-xs flex-wrap gap-1">
-                          {STEP_ORDER.map((stepKey) => {
-                            const status =
-                              stepMap.get(stepKey) ?? "NOT_STARTED";
-                            return (
-                              <span
-                                key={stepKey}
-                                title={`${formatStatusLabel(stepKey)}: ${formatStatusLabel(status)}`}
-                                className={cn(
-                                  "inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium ring-1 ring-inset",
-                                  stepTone(status),
-                                )}
-                              >
-                                {stepKey
-                                  .split("_")
-                                  .map((part) => part[0])
-                                  .join("")}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
-                        {row.completedSteps} / {row.incompleteSteps}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
-                        {row.daysStuck != null ? row.daysStuck : "—"}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
-                        {formatPipelineDate(row.createdAt)}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
-                        {formatPipelineDate(row.updatedAt)}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
-                        {formatPipelineDate(row.qcReviewedAt)}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-700">
-                        {formatPipelineDate(row.zonalApprovedAt)}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right">
-                        {link ? (
-                          <Link
-                            to={link}
-                            className="inline-flex items-center gap-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-800"
-                          >
-                            {isAdmin || !isHotelOnboardingEditable(row.status)
-                              ? "View"
-                              : "Edit"}
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </Link>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {totalPages > 1 ? (
-          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-            <p className="text-xs text-slate-500">
-              {totalElements} hotel{totalElements === 1 ? "" : "s"} · Page{" "}
-              {page + 1} of {Math.max(totalPages, 1)}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 0 || loading}
-                onClick={() => {
-                  const nextPage = page - 1;
-                  setPage(nextPage);
-                  void loadReport({ page: nextPage });
-                }}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Previous
-              </button>
-              <button
-                type="button"
-                disabled={page + 1 >= totalPages || loading}
-                onClick={() => {
-                  const nextPage = page + 1;
-                  setPage(nextPage);
-                  void loadReport({ page: nextPage });
-                }}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-              >
-                Next
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </div>
+            {loading && !report
+              ? "Loading…"
+              : `${formatListCount(totalElements, "hotel")} · Page ${page + 1} of ${Math.max(totalPages, 1)}`}
+          </span>
+        }
+        rows={pipelineRows}
+        columns={pipelineColumns}
+        getRowId={(row) => row.id}
+        loading={loading && !report}
+        paginationMode="server"
+        rowCount={totalElements}
+        paginationModel={{ page, pageSize: PAGE_SIZE }}
+        onPaginationModelChange={(model) => {
+          if (model.page !== page) {
+            setPage(model.page);
+            void loadReport({ page: model.page });
+          }
+        }}
+        pageSizeOptions={[PAGE_SIZE]}
+        disableRowSelectionOnClick
+        disableColumnFilter
+        showToolbar
+        showExport={false}
+        allowHorizontalScroll
+        getRowHeight={() => "auto"}
+        sx={{
+          "& .MuiDataGrid-cell": {
+            alignItems: "flex-start",
+            whiteSpace: "normal",
+            py: "8px",
+          },
+        }}
+        localeText={{ noRowsLabel: "No pipeline rows match your filters." }}
+      />
 
       {filterOpen ? (
         <div className="fixed inset-0 z-50 flex">
@@ -816,7 +866,7 @@ export default function HotelBdPipelineReportPage() {
               <button
                 type="button"
                 onClick={applyFilters}
-                className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                className="flex-1 rounded-lg bg-[#2f3d95] px-3 py-2 text-sm font-medium text-white hover:bg-[#263578]"
               >
                 Apply
               </button>

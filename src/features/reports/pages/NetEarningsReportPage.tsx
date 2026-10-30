@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -14,6 +17,12 @@ import { setStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 import { cn } from "@/lib/utils";
 import { PaymentsTabNav } from "../components/payoutMisUi";
 import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportFilterDrawer,
+  ReportRefreshButton,
+} from "../components/ReportFilterDrawer";
+import {
   exportStatusLabel,
   formatFinanceCurrency,
   formatReportCurrency,
@@ -22,7 +31,6 @@ import {
   formatStatusLabel,
   isoToReportDateText,
   isValidCustomDateRange,
-  ReportPageHeader,
   validateCustomDateRange,
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
@@ -31,6 +39,7 @@ import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
   netEarningsReportService,
   type NetEarningsBookingDetail,
+  type NetEarningsBookingRow,
   type NetEarningsBookingStatus,
   type NetEarningsBookingType,
   type NetEarningsChargeGroup,
@@ -44,16 +53,191 @@ import {
   BedDouble,
   Building2,
   CalendarDays,
-  Download,
-  Filter,
   Loader2,
   Search,
   User,
-  Wallet,
   X,
 } from "lucide-react";
 
+const NET_EARNINGS_PAGE_SIZE = 20;
 const DEFAULT_DATE_PRESET: NetEarningsDatePreset = "THIS_MONTH";
+
+function netEarningsColumns(
+  openDetail: (bookingRef: string) => void,
+): GridColDef<NetEarningsBookingRow>[] {
+  return [
+    {
+      field: "bookingRef",
+      headerName: "Booking ID",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <button
+          type="button"
+          onClick={() => openDetail(params.row.bookingRef)}
+          className="font-semibold text-[#2f3d95] hover:underline"
+        >
+          {params.row.bookingRef || params.row.bookingId}
+        </button>
+      ),
+    },
+    {
+      field: "hotelName",
+      headerName: "Hotel Name",
+      flex: 1,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="truncate text-slate-700" title={params.row.hotelName || undefined}>
+          {params.row.hotelName || "—"}
+        </span>
+      ),
+    },
+    {
+      field: "guestName",
+      headerName: "Guest Name",
+      width: 150,
+      sortable: false,
+    },
+    {
+      field: "stay",
+      headerName: "Stay Duration",
+      width: 180,
+      sortable: false,
+      valueGetter: (_v, row) => row.checkInDate,
+      renderCell: (params) => (
+        <div className="leading-tight">
+          <p>Check-in: {formatReportDate(params.row.checkInDate)}</p>
+          <p className="text-xs text-slate-500">
+            Checkout: {formatReportDate(params.row.checkOutDate)}
+          </p>
+        </div>
+      ),
+    },
+    {
+      field: "bookingStatus",
+      headerName: "Booking Status",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => formatStatusLabel(params.row.bookingStatus),
+    },
+    {
+      field: "bookingSource",
+      headerName: "Booking Type",
+      width: 130,
+      sortable: false,
+      renderCell: (params) => formatStatusLabel(params.row.bookingSource),
+    },
+    {
+      field: "bookingAmount",
+      headerName: "Booking Amount",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">{formatReportCurrency(params.row.bookingAmount)}</span>
+      ),
+    },
+    {
+      field: "hotelGst",
+      headerName: "Hotel GST",
+      width: 130,
+      sortable: false,
+      renderCell: (params) => (
+        <div className="leading-tight">
+          <p className="tabular-nums">{formatReportCurrency(params.row.hotelGst)}</p>
+          {params.row.hotelGstLabel ? (
+            <p className="text-[11px] text-slate-500">{params.row.hotelGstLabel}</p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      field: "payableToProperty",
+      headerName: "Payable To Property",
+      width: 160,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">{formatReportCurrency(params.row.payableToProperty)}</span>
+      ),
+    },
+    {
+      field: "totalCommission",
+      headerName: "Commission incl. GST",
+      width: 160,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">{formatReportCurrency(params.row.totalCommission)}</span>
+      ),
+    },
+    {
+      field: "totalTcs",
+      headerName: "TCS",
+      width: 110,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">{formatReportCurrency(params.row.totalTcs)}</span>
+      ),
+    },
+    {
+      field: "totalTds",
+      headerName: "TDS",
+      width: 110,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">{formatReportCurrency(params.row.totalTds)}</span>
+      ),
+    },
+    {
+      field: "amountTransferred",
+      headerName: "Transferred",
+      width: 130,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">{formatReportCurrency(params.row.amountTransferred)}</span>
+      ),
+    },
+    {
+      field: "amountAdjusted",
+      headerName: "Adjusted",
+      width: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">{formatReportCurrency(params.row.amountAdjusted)}</span>
+      ),
+    },
+    {
+      field: "dueDate",
+      headerName: "Due Date",
+      width: 120,
+      sortable: false,
+      renderCell: (params) => formatReportDate(params.row.dueDate),
+    },
+    {
+      field: "settledAt",
+      headerName: "Settled At",
+      width: 150,
+      sortable: false,
+      renderCell: (params) =>
+        params.row.settledAt ? formatReportDateTime(params.row.settledAt) : "—",
+    },
+    {
+      field: "paymentStatus",
+      headerName: "Payment Status",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <span
+          className={cn(
+            "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold leading-tight ring-1 ring-inset",
+            paymentStatusTone(params.row.paymentStatus),
+          )}
+        >
+          {formatStatusLabel(params.row.paymentStatus)}
+        </span>
+      ),
+    },
+  ];
+}
 const DEFAULT_BOOKING_STATUSES: NetEarningsBookingStatus[] = [];
 const DEFAULT_BOOKING_TYPE: NetEarningsBookingType = "ALL";
 const DEFAULT_PAYMENT_STATUS: NetEarningsPaymentStatus | "ALL" = "ALL";
@@ -452,7 +636,7 @@ export default function NetEarningsReportPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(0);
-  const pageSize = 20;
+  const pageSize = NET_EARNINGS_PAGE_SIZE;
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [customFromText, setCustomFromText] = useState("");
@@ -657,7 +841,7 @@ export default function NetEarningsReportPage() {
 
   const summary = report?.summary;
   const totalPages = report?.page.totalPages ?? 0;
-
+  const totalElements = report?.page.totalElements ?? 0;
   return (
     <>
       <Toast
@@ -672,151 +856,127 @@ export default function NetEarningsReportPage() {
         loading={loadingDetail}
         onClose={() => setActiveBookingRef(null)}
       />
-      <div className="min-h-full bg-[#f7f8fa]">
-        <div className="container mx-auto px-4 py-4">
-          <ReportPageHeader
-            icon={Wallet}
-            iconClassName="bg-linear-to-br from-emerald-600 to-teal-500"
-            borderClassName="border-emerald-100"
-            title="Payments"
-            description="Net earnings and settlement details"
-            actions={
-              <button
-                type="button"
-                onClick={downloadExport}
-                disabled={exporting || loading || customRangeInvalid}
-                aria-label={
-                  exporting
-                    ? exportStatusLabel(exportStatus) || "Exporting"
-                    : "Download report"
-                }
-                title={
-                  exporting
-                    ? exportStatusLabel(exportStatus) || "Exporting…"
-                    : "Download report"
-                }
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-60"
-              >
-                {exporting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-              </button>
-            }
-          />
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+          <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5">
+              <div className="flex flex-wrap items-center gap-3">
+                {showPaymentsTabs ? (
+                  <PaymentsTabNav
+                    active="net-earnings"
+                    showNetEarnings={showNetEarningsTab}
+                    showPayouts={showPayoutsTab}
+                    hotelId={hotelId}
+                  />
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <ReportAppliedRange
+                  from={report?.dateRange.fromDate}
+                  to={report?.dateRange.toDate}
+                  detail={
+                    report?.dateAxis || dateAxis
+                      ? (DATE_AXIS_OPTIONS.find(
+                          (option) =>
+                            option.value === (report?.dateAxis || dateAxis),
+                        )?.label ??
+                        formatStatusLabel(report?.dateAxis || dateAxis))
+                      : null
+                  }
+                />
+                <ReportFilterButton
+                  onClick={openFilters}
+                  activeCount={activeFilterCount}
+                />
+                <ExportButton
+                  iconOnly
+                  disabled={exporting || loading || customRangeInvalid}
+                  exporting={exporting}
+                  exportingLabel={
+                    exportStatusLabel(exportStatus) || "Exporting…"
+                  }
+                  onExportExcel={() => void downloadExport()}
+                  onExportCSV={() => void downloadExport()}
+                  onExportPDF={() => void downloadExport()}
+                />
+                <ReportRefreshButton
+                  onClick={() => void loadReport()}
+                  loading={loading}
+                  disabled={customRangeInvalid}
+                />
+              </div>
+            </div>
 
-          {showPaymentsTabs ? (
-            <PaymentsTabNav
-              active="net-earnings"
-              showNetEarnings={showNetEarningsTab}
-              showPayouts={showPayoutsTab}
-              hotelId={hotelId}
-            />
-          ) : null}
-
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 shadow-sm">
-            {summary ? (
-              <div className="flex flex-wrap items-center gap-5">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Net Bookings
-                  </p>
-                  <p className="text-xl font-extrabold tabular-nums text-slate-900">
-                    {summary.netBookings}
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    {summary.settledCount} settled · {summary.pendingCount} pending
-                  </p>
-                </div>
-                <div className="hidden h-10 w-px bg-slate-200 sm:block" />
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Payable To Property
-                  </p>
-                  <p className="text-xl font-extrabold tabular-nums text-emerald-700">
-                    {formatReportCurrency(summary.payableToProperty)}
-                  </p>
-                </div>
-                <div className="hidden h-10 w-px bg-slate-200 md:block" />
-                <div className="hidden md:block">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Payment Settled
-                  </p>
-                  <p className="text-xl font-extrabold tabular-nums text-slate-900">
-                    {formatReportCurrency(summary.paymentSettled)}
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    Transferred {formatReportCurrency(summary.amountTransferred)} + Adjusted{" "}
-                    {formatReportCurrency(summary.amountAdjusted)}
-                  </p>
-                </div>
-                <div className="hidden h-10 w-px bg-slate-200 lg:block" />
-                <div className="hidden lg:block">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Payment Pending
-                  </p>
-                  <p className="text-xl font-extrabold tabular-nums text-amber-700">
-                    {formatReportCurrency(summary.paymentPending)}
-                  </p>
-                </div>
-                <div className="hidden h-10 w-px bg-slate-200 xl:block" />
-                <div className="hidden xl:block">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Total Commission incl. GST
-                  </p>
-                  <p className="text-xl font-extrabold tabular-nums text-slate-900">
-                    {formatReportCurrency(summary.totalCommission)}
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">
-                      TCS {formatReportCurrency(summary.totalTcs)}
-                    </span>
-                    <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-800 ring-1 ring-blue-200">
-                      TDS {formatReportCurrency(summary.totalTds)}
-                    </span>
+            <div className="px-4 py-3">
+              {summary ? (
+                <div className="flex flex-wrap items-center gap-5">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      Net Bookings
+                    </p>
+                    <p className="text-xl font-extrabold tabular-nums text-slate-900">
+                      {summary.netBookings}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      {summary.settledCount} settled · {summary.pendingCount}{" "}
+                      pending
+                    </p>
+                  </div>
+                  <div className="hidden h-10 w-px bg-slate-200 sm:block" />
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      Payable To Property
+                    </p>
+                    <p className="text-xl font-extrabold tabular-nums text-emerald-700">
+                      {formatReportCurrency(summary.payableToProperty)}
+                    </p>
+                  </div>
+                  <div className="hidden h-10 w-px bg-slate-200 sm:block" />
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      Payment Settled
+                    </p>
+                    <p className="text-xl font-extrabold tabular-nums text-slate-900">
+                      {formatReportCurrency(summary.paymentSettled)}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Transferred{" "}
+                      {formatReportCurrency(summary.amountTransferred)} +
+                      Adjusted {formatReportCurrency(summary.amountAdjusted)}
+                    </p>
+                  </div>
+                  <div className="hidden h-10 w-px bg-slate-200 sm:block" />
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      Payment Pending
+                    </p>
+                    <p className="text-xl font-extrabold tabular-nums text-amber-700">
+                      {formatReportCurrency(summary.paymentPending)}
+                    </p>
+                  </div>
+                  <div className="hidden h-10 w-px bg-slate-200 sm:block" />
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      Total Commission incl. GST
+                    </p>
+                    <p className="text-xl font-extrabold tabular-nums text-slate-900">
+                      {formatReportCurrency(summary.totalCommission)}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">
+                        TCS {formatReportCurrency(summary.totalTcs)}
+                      </span>
+                      <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-800 ring-1 ring-blue-200">
+                        TDS {formatReportCurrency(summary.totalTds)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <p className="text-sm text-slate-400">Open Filter to load report</p>
-            )}
-
-            <div className="flex flex-col items-start gap-1 sm:items-end">
-              <button
-                type="button"
-                onClick={openFilters}
-                className={cn(
-                  "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition",
-                  activeFilterCount
-                    ? "border-indigo-200 bg-indigo-50 text-indigo-700"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300",
-                )}
-              >
-                <Filter className="h-4 w-4" />
-                Filter
-                {activeFilterCount ? (
-                  <span className="rounded-full bg-indigo-600 px-1.5 text-[11px] font-bold text-white">
-                    {activeFilterCount}
-                  </span>
-                ) : null}
-              </button>
-              {report?.dateRange.fromDate ? (
-                <p className="inline-flex items-center gap-1 text-[11px] text-slate-400">
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  {formatReportDate(report.dateRange.fromDate)} –{" "}
-                  {formatReportDate(report.dateRange.toDate)}
-                  {report.dateAxis || dateAxis
-                    ? ` · ${
-                        DATE_AXIS_OPTIONS.find(
-                          (option) =>
-                            option.value === (dateAxis || report.dateAxis),
-                        )?.label ??
-                        formatStatusLabel(dateAxis || report.dateAxis)
-                      }`
-                    : ""}
+              ) : (
+                <p className="text-sm text-slate-400">
+                  Open Filter to load report
                 </p>
-              ) : null}
+              )}
             </div>
           </div>
 
@@ -826,359 +986,206 @@ export default function NetEarningsReportPage() {
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80">
-                    {[
-                      "Booking ID",
-                      "Hotel Name",
-                      "Guest Name",
-                      "Stay Duration",
-                      "Booking Status",
-                      "Booking Type",
-                      "Booking Amount",
-                      "Hotel GST",
-                      "Payable To Property",
-                      "Commission incl. GST",
-                      "TCS",
-                      "TDS",
-                      "Transferred",
-                      "Adjusted",
-                      "Due Date",
-                      "Settled At",
-                      "Payment Status",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={17} className="px-4 py-16 text-center">
-                        <Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-600" />
-                      </td>
-                    </tr>
-                  ) : !report?.bookings.length ? (
-                    <tr>
-                      <td colSpan={17} className="px-4 py-16 text-center text-slate-400">
-                        No rows found.
-                      </td>
-                    </tr>
-                  ) : (
-                    report.bookings.map((row) => (
-                      <tr
-                        key={row.bookingRef}
-                        className="border-b border-slate-50 hover:bg-slate-50/60"
-                      >
-                        <td className="px-3 py-2.5">
-                          <button
-                            type="button"
-                            onClick={() => openDetail(row.bookingRef)}
-                            className="font-semibold text-[#2f3d95] hover:underline"
-                          >
-                            {row.bookingRef || row.bookingId}
-                          </button>
-                        </td>
-                        <td className="max-w-56 px-3 py-2.5">
-                          <span
-                            className="block truncate text-slate-700"
-                            title={row.hotelName || undefined}
-                          >
-                            {row.hotelName || "—"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5">{row.guestName}</td>
-                        <td className="px-3 py-2.5">
-                          Check-in: {formatReportDate(row.checkInDate)}
-                          <div className="text-xs text-slate-500">
-                            Checkout: {formatReportDate(row.checkOutDate)}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5">{formatStatusLabel(row.bookingStatus)}</td>
-                        <td className="px-3 py-2.5">{formatStatusLabel(row.bookingSource)}</td>
-                        <td className="px-3 py-2.5">
-                          {formatReportCurrency(row.bookingAmount)}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {formatReportCurrency(row.hotelGst)}
-                          {row.hotelGstLabel ? (
-                            <div className="text-[11px] text-slate-500">
-                              {row.hotelGstLabel}
-                            </div>
-                          ) : null}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {formatReportCurrency(row.payableToProperty)}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {formatReportCurrency(row.totalCommission)}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {formatReportCurrency(row.totalTcs)}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {formatReportCurrency(row.totalTds)}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {formatReportCurrency(row.amountTransferred)}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {formatReportCurrency(row.amountAdjusted)}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {formatReportDate(row.dueDate)}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {row.settledAt ? formatReportDateTime(row.settledAt) : "—"}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span
-                            className={cn(
-                              "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset",
-                              paymentStatusTone(row.paymentStatus),
-                            )}
-                          >
-                            {formatStatusLabel(row.paymentStatus)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {totalPages > 1 ? (
-              <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-600">
-                <span>
-                  Page {page + 1} of {totalPages}
+          <DataTable
+            subtitle={
+              <>
+                <span className="font-medium text-slate-600">
+                  {formatListCount(totalElements, "booking")}
                 </span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                    disabled={page === 0 || loading}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold disabled:opacity-50"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                    disabled={page >= totalPages - 1 || loading}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold disabled:opacity-50"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
+                <span className="text-slate-400">
+                  {" "}
+                  · Page {page + 1} of {Math.max(totalPages, 1)}
+                </span>
+              </>
+            }
+            rows={report?.bookings ?? []}
+            columns={netEarningsColumns(openDetail)}
+            getRowId={(row) => row.bookingRef || row.bookingId}
+            loading={loading}
+            paginationMode="server"
+            rowCount={totalElements}
+            paginationModel={{ page, pageSize }}
+            onPaginationModelChange={(model) => {
+              if (model.page !== page) setPage(model.page);
+            }}
+            pageSizeOptions={[NET_EARNINGS_PAGE_SIZE]}
+            disableRowSelectionOnClick
+            disableColumnFilter
+            showToolbar
+            showExport={false}
+            allowHorizontalScroll
+            rowHeight={64}
+            localeText={{ noRowsLabel: "No rows found." }}
+          />
         </div>
       </div>
 
-      {filterOpen ? (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <button
-            type="button"
-            aria-label="Close filters"
-            onClick={() => setFilterOpen(false)}
-            className="absolute inset-0 cursor-pointer bg-slate-900/40"
+      <ReportFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onReset={clearAll}
+        onApply={applyFilters}
+        applyDisabled={draftCustomInvalid}
+      >
+        {canFilterHotels ? (
+          <HotelLookupMultiSelectField
+            value={draft.propertyIds}
+            onChange={(ids) =>
+              setDraft((prev) => ({ ...prev, propertyIds: ids }))
+            }
           />
-          <div className="relative flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <h2 className="text-lg font-bold text-slate-900">Filter</h2>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(false)}
-                className="cursor-pointer rounded-lg p-1 text-slate-500 hover:bg-slate-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+        ) : null}
+        <section>
+          <h3 className="mb-2 text-sm font-bold text-slate-900">Date range</h3>
+          <label className="mb-1 block text-xs text-slate-500">Date axis</label>
+          <select
+            value={draft.dateAxis}
+            onChange={(e) =>
+              setDraft((prev) => ({
+                ...prev,
+                dateAxis: e.target.value as "" | NetEarningsDateAxis,
+              }))
+            }
+            className="mb-3 w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+          >
+            {DATE_AXIS_OPTIONS.map((option) => (
+              <option key={option.value || "default"} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <label className="mb-1 block text-xs text-slate-500">
+            Time period
+          </label>
+          <select
+            value={draft.datePreset}
+            onChange={(e) =>
+              setDraft((prev) => ({
+                ...prev,
+                datePreset: e.target.value as NetEarningsDatePreset,
+              }))
+            }
+            className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+          >
+            {DATE_PRESET_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
 
-            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
-              {canFilterHotels ? (
-                <HotelLookupMultiSelectField
-                  value={draft.propertyIds}
-                  onChange={(ids) =>
-                    setDraft((prev) => ({ ...prev, propertyIds: ids }))
+          {draft.datePreset === "CUSTOM" ? (
+            <ReportCustomDateFields
+              className="mt-3"
+              fromText={customFromText}
+              toText={customToText}
+              onFromTextChange={setCustomFromText}
+              onToTextChange={setCustomToText}
+            />
+          ) : null}
+        </section>
+
+        <section className="border-t border-slate-100 pt-5">
+          <h3 className="mb-2 text-sm font-bold text-slate-900">
+            Booking status
+          </h3>
+          <p className="mb-2 text-xs text-slate-500">
+            Leave unchecked to include all statuses.
+          </p>
+          <div className="space-y-2">
+            {BOOKING_STATUS_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-slate-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={draft.bookingStatuses.includes(option.value)}
+                  onChange={(event) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      bookingStatuses: event.target.checked
+                        ? [...prev.bookingStatuses, option.value]
+                        : prev.bookingStatuses.filter(
+                            (status) => status !== option.value,
+                          ),
+                    }))
                   }
                 />
-              ) : null}
-              <section>
-                <h3 className="mb-2 text-sm font-bold text-slate-900">Date range</h3>
-                <label className="mb-1 block text-xs text-slate-500">Date axis</label>
-                <select
-                  value={draft.dateAxis}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      dateAxis: e.target.value as "" | NetEarningsDateAxis,
-                    }))
-                  }
-                  className="mb-3 w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
-                >
-                  {DATE_AXIS_OPTIONS.map((option) => (
-                    <option key={option.value || "default"} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <label className="mb-1 block text-xs text-slate-500">Time period</label>
-                <select
-                  value={draft.datePreset}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      datePreset: e.target.value as NetEarningsDatePreset,
-                    }))
-                  }
-                  className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
-                >
-                  {DATE_PRESET_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-
-                {draft.datePreset === "CUSTOM" ? (
-                  <ReportCustomDateFields
-                    className="mt-3"
-                    fromText={customFromText}
-                    toText={customToText}
-                    onFromTextChange={setCustomFromText}
-                    onToTextChange={setCustomToText}
-                  />
-                ) : null}
-              </section>
-
-              <section className="border-t border-slate-100 pt-5">
-                <h3 className="mb-2 text-sm font-bold text-slate-900">Booking status</h3>
-                <p className="mb-2 text-xs text-slate-500">
-                  Leave unchecked to include all statuses.
-                </p>
-                <div className="space-y-2">
-                  {BOOKING_STATUS_OPTIONS.map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-slate-50"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={draft.bookingStatuses.includes(option.value)}
-                        onChange={(event) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            bookingStatuses: event.target.checked
-                              ? [...prev.bookingStatuses, option.value]
-                              : prev.bookingStatuses.filter(
-                                  (status) => status !== option.value,
-                                ),
-                          }))
-                        }
-                      />
-                      <span className="text-sm text-slate-700">{option.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </section>
-
-              <section className="border-t border-slate-100 pt-5">
-                <h3 className="mb-2 text-sm font-bold text-slate-900">Booking type</h3>
-                <div className="space-y-2">
-                  {BOOKING_TYPE_OPTIONS.map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-slate-50"
-                    >
-                      <input
-                        type="radio"
-                        name="bookingType"
-                        checked={draft.bookingType === option.value}
-                        onChange={() =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            bookingType: option.value,
-                          }))
-                        }
-                      />
-                      <span className="text-sm text-slate-700">{option.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </section>
-
-              <section className="border-t border-slate-100 pt-5">
-                <h3 className="mb-2 text-sm font-bold text-slate-900">Payment status</h3>
-                <div className="space-y-2">
-                  {PAYMENT_STATUS_OPTIONS.map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-slate-50"
-                    >
-                      <input
-                        type="radio"
-                        name="paymentStatus"
-                        checked={draft.paymentStatus === option.value}
-                        onChange={() =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            paymentStatus: option.value,
-                          }))
-                        }
-                      />
-                      <span className="text-sm text-slate-700">{option.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </section>
-
-              <section className="border-t border-slate-100 pt-5">
-                <h3 className="mb-2 text-sm font-bold text-slate-900">Search</h3>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={draft.search}
-                    onChange={(e) =>
-                      setDraft((prev) => ({ ...prev, search: e.target.value }))
-                    }
-                    placeholder="Search booking / guest / pnr"
-                    className="w-full rounded-lg border border-slate-200 py-2 pr-3 pl-8 text-sm focus:border-indigo-400 focus:outline-none"
-                  />
-                </div>
-              </section>
-            </div>
-
-            <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-4">
-              <button
-                type="button"
-                onClick={clearAll}
-                className="cursor-pointer text-sm font-semibold text-[#2f3d95] hover:underline"
-              >
-                Clear All
-              </button>
-              <button
-                type="button"
-                onClick={applyFilters}
-                disabled={draftCustomInvalid}
-                className="cursor-pointer rounded-lg bg-[#2f3d95] px-6 py-2 text-sm font-semibold text-white transition hover:bg-[#26317a] disabled:opacity-50"
-              >
-                Apply Filter
-              </button>
-            </div>
+                <span className="text-sm text-slate-700">{option.label}</span>
+              </label>
+            ))}
           </div>
-        </div>
-      ) : null}
+        </section>
+
+        <section className="border-t border-slate-100 pt-5">
+          <h3 className="mb-2 text-sm font-bold text-slate-900">Booking type</h3>
+          <div className="space-y-2">
+            {BOOKING_TYPE_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-slate-50"
+              >
+                <input
+                  type="radio"
+                  name="bookingType"
+                  checked={draft.bookingType === option.value}
+                  onChange={() =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      bookingType: option.value,
+                    }))
+                  }
+                />
+                <span className="text-sm text-slate-700">{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </section>
+
+        <section className="border-t border-slate-100 pt-5">
+          <h3 className="mb-2 text-sm font-bold text-slate-900">
+            Payment status
+          </h3>
+          <div className="space-y-2">
+            {PAYMENT_STATUS_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-slate-50"
+              >
+                <input
+                  type="radio"
+                  name="paymentStatus"
+                  checked={draft.paymentStatus === option.value}
+                  onChange={() =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      paymentStatus: option.value,
+                    }))
+                  }
+                />
+                <span className="text-sm text-slate-700">{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </section>
+
+        <section className="border-t border-slate-100 pt-5">
+          <h3 className="mb-2 text-sm font-bold text-slate-900">Search</h3>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={draft.search}
+              onChange={(e) =>
+                setDraft((prev) => ({ ...prev, search: e.target.value }))
+              }
+              placeholder="Search booking / guest / pnr"
+              className="w-full rounded-lg border border-slate-200 py-2 pr-3 pl-8 text-sm focus:border-indigo-400 focus:outline-none"
+            />
+          </div>
+        </section>
+      </ReportFilterDrawer>
     </>
   );
 }

@@ -10,8 +10,8 @@ export function TravelPartnerColumnHeader({
   label: string;
 }) {
   return (
-    <span className="flex items-center gap-1.5 text-[0.68rem] font-bold uppercase tracking-wide text-white">
-      <Icon className="h-3.5 w-3.5 shrink-0 text-sky-200" strokeWidth={2.25} />
+    <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-normal text-slate-500">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2.25} />
       {label}
     </span>
   );
@@ -30,7 +30,7 @@ export function TravelPartnerBadge({
     <span
       title={title}
       className={cn(
-        "inline-flex max-w-full items-center truncate rounded-md px-2 py-0.5 text-xs font-semibold ring-1",
+        "inline-flex h-auto max-w-full items-center self-center truncate rounded-md px-2 py-0.5 text-[11px] font-semibold leading-tight ring-1",
         className,
       )}
     >
@@ -66,6 +66,27 @@ export function getTravelPartnerRemarkTone(status: string): string {
   return "bg-slate-100 text-slate-600 ring-slate-200";
 }
 
+export const travelPartnerTableGridSx = {
+  "& .MuiDataGrid-columnHeader": {
+    padding: "8px 10px !important",
+  },
+  "& .MuiDataGrid-columnHeader[data-field='actions']": {
+    paddingRight: "12px !important",
+  },
+  "& .MuiDataGrid-cell": {
+    display: "flex",
+    alignItems: "center",
+    overflow: "hidden",
+    lineHeight: "1.25 !important",
+    padding: "6px 10px !important",
+  },
+  "& .MuiDataGrid-cell[data-field='actions']": {
+    overflow: "visible",
+    justifyContent: "flex-end",
+    paddingRight: "12px !important",
+  },
+};
+
 export const TRAVEL_PARTNER_TAB_STYLES = {
   PENDING: {
     active: "bg-amber-500 text-white shadow-sm",
@@ -86,18 +107,3 @@ export const TRAVEL_PARTNER_TAB_STYLES = {
     iconIdle: "text-rose-600",
   },
 } as const;
-
-/** Layout-only overrides; header/footer use default DataTable styles. */
-export const travelPartnerTableGridSx = {
-  "& .MuiDataGrid-cell": {
-    display: "flex",
-    alignItems: "center",
-    overflow: "hidden",
-  },
-  "& .MuiDataGrid-cell[data-field='actions']": {
-    overflow: "visible",
-  },
-  "& .MuiDataGrid-cell[data-field='remarks']": {
-    alignItems: "flex-start",
-  },
-};

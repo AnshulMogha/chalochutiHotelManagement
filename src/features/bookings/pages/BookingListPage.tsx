@@ -18,9 +18,14 @@ import {
   type BookingListExportParams,
 } from "../services/bookingService";
 import { Toast, useToast } from "@/components/ui/Toast";
-import { HotelLookupMultiSelectField } from "@/features/reports/components/HotelLookupFilterField";
 import { DataTable } from "@/components/ui";
+import { ExportButton } from "@/components/ui/ExportButton";
 import type { GridColDef } from "@mui/x-data-grid";
+import { HotelLookupMultiSelectField } from "@/features/reports/components/HotelLookupFilterField";
+import {
+  ReportFilterButton,
+  ReportFilterDrawer,
+} from "@/features/reports/components/ReportFilterDrawer";
 import type {
   ExportJobStatus,
   ReportExportFormat,
@@ -29,36 +34,19 @@ import {
   exportStatusLabel,
   formatReportDate,
 } from "@/features/reports/components/reportUiHelpers";
+import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
-  BookOpen,
   Building2,
-  Calendar,
   CalendarDays,
-  Download,
-  Hash,
   Layers,
   Loader2,
   RefreshCw,
-  Filter,
-  X,
   FileText,
-  User,
-  BedDouble,
-  UtensilsCrossed,
   Radio,
-  IndianRupee,
-  LogIn,
-  LogOut,
 } from "lucide-react";
 import { VoucherViewModal } from "../components/VoucherViewModal";
-import { BookingTableToolbar } from "../components/BookingTableToolbar";
-import {
-  BookingCellChip,
-  BookingColumnHeader,
-  bookingTableGridSx,
-  getStatusConfig,
-} from "../components/bookingTableUi";
+import { getStatusConfig } from "../components/bookingTableUi";
 
 const TEXT_FILTER_DEBOUNCE_MS = 400;
 
@@ -392,12 +380,10 @@ export default function BookingListPage() {
   });
   const [voucherBookingId, setVoucherBookingId] = useState<number | null>(null);
   const [voucherBookingRef, setVoucherBookingRef] = useState<string>("");
-  const [downloadOpen, setDownloadOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
     null,
   );
-  const downloadMenuRef = useRef<HTMLDivElement>(null);
 
   // Date/status filters double as drill-down targets from Booking Summary,
   // so they seed from the URL and stay editable afterwards.
@@ -519,26 +505,6 @@ export default function BookingListPage() {
     return () => clearTimeout(t);
   }, [guestName, bookingId]);
 
-  useEffect(() => {
-    if (!downloadOpen) return;
-    const onPointerDown = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node | null;
-      if (
-        target &&
-        downloadMenuRef.current &&
-        !downloadMenuRef.current.contains(target)
-      ) {
-        setDownloadOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("touchstart", onPointerDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("touchstart", onPointerDown);
-    };
-  }, [downloadOpen]);
-
   const listExportParams = useMemo((): BookingListExportParams | null => {
     if (!seesAllBookings && !selectedHotelId) return null;
     return {
@@ -578,7 +544,6 @@ export default function BookingListPage() {
 
   const handleExport = async (format: ReportExportFormat) => {
     if (!listExportParams) return;
-    setDownloadOpen(false);
     setExporting(true);
     setExportStatus("QUEUED");
     try {
@@ -656,6 +621,20 @@ export default function BookingListPage() {
     sortDir !== "desc" ||
     !!drillView;
 
+  const activeFilterCount =
+    (seesAllBookings && selectedHotelIds.length > 0 ? 1 : 0) +
+    (guestName.trim() ? 1 : 0) +
+    (bookingId.trim() ? 1 : 0) +
+    (hasDateFilter ? 1 : 0) +
+    (bookingStatus.trim() ? 1 : 0) +
+    (orderBy !== "bookingDate" || sortDir !== "desc" ? 1 : 0) +
+    (drillView ? 1 : 0);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(rowCount / Math.max(1, paginationModel.pageSize)),
+  );
+
   const clearFilters = () => {
     setGuestName("");
     setDebouncedGuestName("");
@@ -714,276 +693,6 @@ export default function BookingListPage() {
     );
     setBookingFilterOpen(false);
   };
-
-  const columns: GridColDef<BookingListItem>[] = useMemo(
-    () => [
-      {
-        field: "bookingId",
-        headerName: "Booking ID",
-        flex: 0.9,
-        minWidth: 150,
-        renderHeader: () => (
-          <BookingColumnHeader icon={Hash} label="Booking ID" />
-        ),
-        renderCell: (params) => (
-          <div className="flex w-full min-w-0 items-center gap-2">
-            <BookingCellChip icon={Hash} theme="indigo" />
-            <span
-              className="truncate font-mono text-sm font-semibold text-[#2f3d95]"
-              title={params.value}
-            >
-              {params.value}
-            </span>
-          </div>
-        ),
-      },
-      ...(seesAllBookings
-        ? [
-            {
-              field: "hotelName",
-              headerName: "Hotel",
-              flex: 1,
-              minWidth: 160,
-              renderHeader: () => (
-                <BookingColumnHeader icon={Building2} label="Hotel" />
-              ),
-              renderCell: (params: { value?: string }) => (
-                <span className="truncate text-sm text-gray-700">
-                  {params.value || "—"}
-                </span>
-              ),
-            } satisfies GridColDef,
-          ]
-        : []),
-      {
-        field: "guestName",
-        headerName: "Guest",
-        flex: 1,
-        minWidth: 170,
-        renderHeader: () => <BookingColumnHeader icon={User} label="Guest" />,
-        renderCell: (params) => {
-          const row = params.row;
-          const displayName =
-            row.guestName?.trim() || row.guestContact?.trim() || "—";
-          const showContactBelow =
-            !!row.guestName?.trim() &&
-            !!row.guestContact?.trim() &&
-            row.guestContact.trim() !== row.guestName?.trim();
-          const metaLine = [
-            showContactBelow ? row.guestContact : null,
-            `${row.numberOfGuests} guest${row.numberOfGuests !== 1 ? "s" : ""}`,
-          ]
-            .filter(Boolean)
-            .join(" · ");
-
-          return (
-            <div className="flex h-full w-full min-w-0 items-center py-1">
-              <div className="min-w-0 flex-1 overflow-hidden leading-snug">
-                <p
-                  className="truncate text-sm font-medium text-gray-900"
-                  title={displayName !== "—" ? displayName : undefined}
-                >
-                  {displayName}
-                </p>
-                {metaLine ? (
-                  <p
-                    className="truncate text-xs text-gray-500"
-                    title={metaLine}
-                  >
-                    {metaLine}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          );
-        },
-      },
-      {
-        field: "bookingDate",
-        headerName: "Booking date",
-        flex: 0.65,
-        minWidth: 120,
-        renderHeader: () => (
-          <BookingColumnHeader icon={Calendar} label="Booking date" />
-        ),
-        renderCell: (params) => (
-          <span className="whitespace-nowrap text-sm text-gray-700">
-            {formatDate(params.value)}
-          </span>
-        ),
-      },
-      {
-        field: "checkInDate",
-        headerName: "Check-in",
-        flex: 0.65,
-        minWidth: 120,
-        renderHeader: () => (
-          <BookingColumnHeader icon={LogIn} label="Check-in" />
-        ),
-        renderCell: (params) => (
-          <span className="whitespace-nowrap text-sm text-gray-700">
-            {formatDate(params.value)}
-          </span>
-        ),
-      },
-      {
-        field: "checkOutDate",
-        headerName: "Check-out",
-        flex: 0.65,
-        minWidth: 120,
-        renderHeader: () => (
-          <BookingColumnHeader icon={LogOut} label="Check-out" />
-        ),
-        renderCell: (params) => (
-          <span className="whitespace-nowrap text-sm text-gray-700">
-            {formatDate(params.value)}
-          </span>
-        ),
-      },
-      {
-        field: "roomDisplay",
-        headerName: "Room",
-        flex: 1.2,
-        minWidth: 160,
-        renderHeader: () => (
-          <BookingColumnHeader icon={BedDouble} label="Room" />
-        ),
-        renderCell: (params) => (
-          <span
-            className="text-sm text-gray-700 wrap-break-word"
-            style={{ wordBreak: "break-word" }}
-          >
-            {params.value || "—"}
-          </span>
-        ),
-      },
-      {
-        field: "mealPlan",
-        headerName: "Meal",
-        flex: 0.5,
-        minWidth: 88,
-        renderHeader: () => (
-          <BookingColumnHeader icon={UtensilsCrossed} label="Meal" />
-        ),
-        renderCell: (params) => (
-          <span
-            className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ${getMealPlanStyle(params.value)}`}
-            title={params.value || undefined}
-          >
-            {params.value || "—"}
-          </span>
-        ),
-      },
-      {
-        field: "bookingSource",
-        headerName: "Source",
-        flex: 0.5,
-        minWidth: 88,
-        renderHeader: () => <BookingColumnHeader icon={Radio} label="Source" />,
-        renderCell: (params) => (
-          <span
-            className="inline-flex items-center gap-1.5 truncate rounded-md bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
-            title={params.value || undefined}
-          >
-            <Radio className="h-3 w-3 shrink-0 text-cyan-600" />
-            {params.value || "—"}
-          </span>
-        ),
-      },
-      {
-        field: "bookingMode",
-        headerName: "Mode",
-        flex: 0.55,
-        minWidth: 92,
-        renderHeader: () => (
-          <BookingColumnHeader icon={Layers} label="Booking mode" />
-        ),
-        renderCell: (params) => {
-          const label = formatBookingModeLabel(params.value);
-          if (label === "—") {
-            return <span className="text-sm text-gray-400">—</span>;
-          }
-          return (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ${getBookingModeStyle(params.value)}`}
-              title={params.value || undefined}
-            >
-              <Layers className="h-3 w-3 shrink-0 opacity-70" />
-              {label}
-            </span>
-          );
-        },
-      },
-      {
-        field: "status",
-        headerName: "Booking status",
-        flex: 0.7,
-        minWidth: 120,
-        renderHeader: () => (
-          <BookingColumnHeader icon={BookOpen} label="Booking status" />
-        ),
-        renderCell: (params) => {
-          const statusStyle = getStatusConfig(params.value);
-          return (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${statusStyle.className}`}
-            >
-              <span
-                className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusStyle.dotClass}`}
-              />
-              {params.value}
-            </span>
-          );
-        },
-      },
-      {
-        field: "netAmount",
-        headerName: "Net amount",
-        flex: 0.8,
-        minWidth: 130,
-        align: "right",
-        headerAlign: "right",
-        renderHeader: () => (
-          <BookingColumnHeader icon={IndianRupee} label="Net amount" />
-        ),
-        renderCell: (params) => (
-          <div className="flex w-full items-center justify-end gap-1.5">
-            <span className="tabular-nums text-sm font-bold text-emerald-700">
-              {formatCurrency(params.value)}
-            </span>
-          </div>
-        ),
-      },
-      {
-        field: "actions",
-        headerName: "Voucher",
-        flex: 0.5,
-        minWidth: 108,
-        sortable: false,
-        filterable: false,
-        align: "center",
-        headerAlign: "center",
-        renderHeader: () => (
-          <BookingColumnHeader icon={FileText} label="Voucher" />
-        ),
-        renderCell: (params) => (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setVoucherBookingId(params.row.id);
-              setVoucherBookingRef(params.row.bookingId || "");
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#2f3d95]/20 bg-[#2f3d95]/10 px-2.5 py-1.5 text-xs font-semibold text-[#2f3d95] transition-colors hover:border-[#2f3d95]/35 hover:bg-[#2f3d95]/20"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Voucher
-          </button>
-        ),
-      },
-    ],
-    [seesAllBookings],
-  );
 
   const fetchBookings = async () => {
     if (!seesAllBookings && !selectedHotelId) return;
@@ -1083,22 +792,17 @@ export default function BookingListPage() {
 
   if (!seesAllBookings && !selectedHotelId) {
     return (
-      <div className="container mx-auto px-4 py-4">
-        <div className="mb-3">
-          <h1 className="text-xl font-bold text-gray-900">Bookings</h1>
-          <p className="mt-0.5 text-sm text-gray-500">
-            Please select a hotel from the dropdown above to view booking list
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-350 px-3 py-8 sm:px-5">
+          <h1 className="text-lg font-semibold text-slate-900">Bookings</h1>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Select a hotel from the top bar to view bookings.
           </p>
-        </div>
-        <div className="rounded-xl border border-gray-200/80 bg-white p-8 shadow-sm">
-          <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 rounded-2xl bg-[#2f3d95]/10 flex items-center justify-center mb-4">
-              <Building2 className="w-8 h-8 text-[#2f3d95]" />
+          <div className="mt-6 flex min-h-70 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white">
+            <div className="text-center">
+              <Building2 className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+              <p className="text-sm font-medium text-slate-600">No hotel selected</p>
             </div>
-            <p className="text-gray-500 font-medium">No hotel selected</p>
-            <p className="text-sm text-gray-400 mt-1">
-              Use the hotel selector in the top bar to choose a property
-            </p>
           </div>
         </div>
       </div>
@@ -1122,6 +826,223 @@ export default function BookingListPage() {
     );
   }
 
+  const columns: GridColDef<BookingListItem>[] = [
+    {
+      field: "bookingId",
+      headerName: "Booking ID",
+      width: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <p
+          className="truncate font-mono text-xs font-semibold text-[#2f3d95]"
+          title={params.row.bookingId}
+        >
+          {params.row.bookingId}
+        </p>
+      ),
+    },
+    ...(seesAllBookings
+      ? [
+          {
+            field: "hotelName",
+            headerName: "Hotel",
+            width: 180,
+            sortable: false,
+            renderCell: (params) => (
+              <p className="truncate text-sm text-slate-700">
+                {params.row.hotelName || "—"}
+              </p>
+            ),
+          } satisfies GridColDef<BookingListItem>,
+        ]
+      : []),
+    {
+      field: "guestName",
+      headerName: "Guest",
+      flex: 1,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (params) => {
+        const row = params.row;
+        const displayName =
+          row.guestName?.trim() || row.guestContact?.trim() || "—";
+        const showContactBelow =
+          !!row.guestName?.trim() &&
+          !!row.guestContact?.trim() &&
+          row.guestContact.trim() !== row.guestName?.trim();
+        const metaLine = [
+          showContactBelow ? row.guestContact : null,
+          `${row.numberOfGuests} guest${row.numberOfGuests !== 1 ? "s" : ""}`,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        return (
+          <div className="min-w-0">
+            <p
+              className="truncate text-sm font-medium text-slate-900"
+              title={displayName !== "—" ? displayName : undefined}
+            >
+              {displayName}
+            </p>
+            {metaLine ? (
+              <p className="truncate text-xs text-slate-500" title={metaLine}>
+                {metaLine}
+              </p>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
+      field: "bookingDate",
+      headerName: "Booking date",
+      width: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="whitespace-nowrap text-xs text-slate-600">
+          {formatDate(params.row.bookingDate)}
+        </span>
+      ),
+    },
+    {
+      field: "checkInDate",
+      headerName: "Check-in",
+      width: 110,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="whitespace-nowrap text-xs text-slate-600">
+          {formatDate(params.row.checkInDate)}
+        </span>
+      ),
+    },
+    {
+      field: "checkOutDate",
+      headerName: "Check-out",
+      width: 110,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="whitespace-nowrap text-xs text-slate-600">
+          {formatDate(params.row.checkOutDate)}
+        </span>
+      ),
+    },
+    {
+      field: "roomDisplay",
+      headerName: "Room",
+      width: 160,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="line-clamp-2 text-sm text-slate-700">
+          {params.row.roomDisplay || "—"}
+        </span>
+      ),
+    },
+    {
+      field: "mealPlan",
+      headerName: "Meal",
+      width: 90,
+      sortable: false,
+      renderCell: (params) => (
+        <span
+          className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ${getMealPlanStyle(params.row.mealPlan)}`}
+          title={params.row.mealPlan || undefined}
+        >
+          {params.row.mealPlan || "—"}
+        </span>
+      ),
+    },
+    {
+      field: "bookingSource",
+      headerName: "Source",
+      width: 110,
+      sortable: false,
+      renderCell: (params) => (
+        <span
+          className="inline-flex items-center gap-1 truncate rounded-md bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800 ring-1 ring-sky-200"
+          title={params.row.bookingSource || undefined}
+        >
+          <Radio className="h-3 w-3 shrink-0" />
+          {params.row.bookingSource || "—"}
+        </span>
+      ),
+    },
+    {
+      field: "bookingMode",
+      headerName: "Booking type",
+      width: 130,
+      sortable: false,
+      renderCell: (params) => {
+        const modeLabel = formatBookingModeLabel(params.row.bookingMode);
+        if (modeLabel === "—") {
+          return <span className="text-sm text-slate-400">—</span>;
+        }
+        return (
+          <span
+            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ${getBookingModeStyle(params.row.bookingMode)}`}
+            title={params.row.bookingMode || undefined}
+          >
+            <Layers className="h-3 w-3 shrink-0 opacity-70" />
+            {modeLabel}
+          </span>
+        );
+      },
+    },
+    {
+      field: "status",
+      headerName: "Booking status",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => {
+        const statusStyle = getStatusConfig(params.row.status);
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusStyle.className}`}
+          >
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${statusStyle.dotClass}`}
+            />
+            {params.row.status}
+          </span>
+        );
+      },
+    },
+    {
+      field: "netAmount",
+      headerName: "Net amount",
+      width: 120,
+      sortable: false,
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params) => (
+        <span className="tabular-nums text-sm font-bold text-emerald-700">
+          {formatCurrency(params.row.netAmount)}
+        </span>
+      ),
+    },
+    {
+      field: "voucher",
+      headerName: "Voucher",
+      width: 120,
+      sortable: false,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params) => (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setVoucherBookingId(params.row.id);
+            setVoucherBookingRef(params.row.bookingId || "");
+          }}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Voucher
+        </button>
+      ),
+    },
+  ];
+
   return (
     <>
       <Toast
@@ -1130,128 +1051,77 @@ export default function BookingListPage() {
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-      <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="container mx-auto flex h-full min-h-0 flex-1 flex-col px-4 py-4">
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
           {returnTo ? (
             <button
               type="button"
               onClick={() => navigate(returnTo)}
-              className="mb-2 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+              className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               {backLabel}
             </button>
           ) : null}
-          <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <h1 className="text-xl font-bold tracking-tight text-gray-900">
-                Bookings
-                {listData != null && (
-                  <span className="ml-1.5 font-bold text-gray-900">
-                    ({rowCount} booking{rowCount !== 1 ? "s" : ""})
-                  </span>
-                )}
-              </h1>
-              {drillViewLabel ? (
-                <span className="rounded-full bg-[#2f3d95]/10 px-2.5 py-0.5 text-xs font-semibold text-[#2f3d95]">
-                  {drillViewLabel}
-                </span>
-              ) : null}
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {(seesAllBookings || selectedHotelId) ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={openBookingFilters}
-                    className="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-[#2f3d95]/20 bg-[#2f3d95]/10 px-2.5 text-xs font-semibold uppercase tracking-wide text-[#2f3d95] transition-colors hover:border-[#2f3d95]/35 hover:bg-[#2f3d95]/20"
-                  >
-                    <Filter className="h-3.5 w-3.5" />
-                    Filters
-                    {hasActiveFilters ? (
-                      <span className="rounded-full bg-[#2f3d95] px-1.5 py-0.5 text-[9px] text-white">
-                        Active
-                      </span>
-                    ) : null}
-                  </button>
-                  {hasActiveFilters ? (
-                    <button
-                      type="button"
-                      onClick={clearFilters}
-                      className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-lg border border-gray-200 px-2.5 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      Clear
-                    </button>
+
+          <div className="relative z-20 mb-3 overflow-visible rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+              <div className="min-w-0">
+                <h1 className="text-sm font-semibold text-slate-900">
+                  Bookings
+                  {listData != null ? (
+                    <span className="ml-1.5 font-semibold text-slate-500">
+                      ({rowCount.toLocaleString("en-IN")} booking
+                      {rowCount !== 1 ? "s" : ""})
+                    </span>
                   ) : null}
-                </>
-              ) : null}
-              <div className="relative" ref={downloadMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setDownloadOpen((open) => !open)}
-                  disabled={exporting || loading}
-                  title={
-                    exporting
-                      ? exportStatusLabel(exportStatus) || "Exporting…"
-                      : "Download bookings"
-                  }
-                  aria-label={
-                    exporting
-                      ? exportStatusLabel(exportStatus) || "Exporting bookings"
-                      : "Download bookings"
-                  }
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#2f3d95]/20 bg-[#2f3d95]/10 text-[#2f3d95] shadow-sm transition-colors hover:border-[#2f3d95]/35 hover:bg-[#2f3d95]/20 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {exporting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                </button>
-                {downloadOpen && !exporting ? (
-                  <div className="absolute right-0 z-30 mt-1 w-52 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                    <button
-                      type="button"
-                      onClick={() => void handleExport("EXCEL")}
-                      className="flex w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      Download Excel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleExport("CSV")}
-                      className="flex w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      Download CSV
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleExport("PDF")}
-                      className="flex w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      Download PDF
-                    </button>
-                  </div>
+                </h1>
+                {drillViewLabel ? (
+                  <p className="mt-0.5 text-xs text-slate-500">{drillViewLabel}</p>
                 ) : null}
               </div>
-              <button
-                type="button"
-                onClick={fetchBookings}
-                disabled={loading}
-                title="Refresh"
-                aria-label="Refresh bookings"
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 shadow-sm transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              <div className="flex flex-wrap items-center gap-2">
+                <ReportFilterButton
+                  onClick={openBookingFilters}
+                  activeCount={activeFilterCount}
+                  label="Filters"
                 />
-              </button>
+                {hasActiveFilters ? (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+                <ExportButton
+                  iconOnly
+                  disabled={exporting || loading || !listExportParams}
+                  exporting={exporting}
+                  exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+                  onExportExcel={() => void handleExport("EXCEL")}
+                  onExportCSV={() => void handleExport("CSV")}
+                  onExportPDF={() => void handleExport("PDF")}
+                />
+                <button
+                  type="button"
+                  onClick={() => void fetchBookings()}
+                  disabled={loading}
+                  title="Refresh"
+                  aria-label="Refresh bookings"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  <RefreshCw
+                    className={cn("h-4 w-4", loading && "animate-spin")}
+                  />
+                </button>
+              </div>
             </div>
           </div>
 
           {drillView ? (
-            <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-sm text-indigo-900">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-sm text-indigo-900">
               <span className="flex flex-wrap items-center gap-2">
                 Filters applied from Booking Summary
                 {drillViewLabel ? (
@@ -1266,13 +1136,10 @@ export default function BookingListPage() {
                       aria-label="Remove drill-down view"
                       className="cursor-pointer rounded-full p-0.5 hover:bg-indigo-50"
                     >
-                      <X className="h-3 w-3" />
+                      ×
                     </button>
                   </span>
                 ) : null}
-                <span className="text-xs text-indigo-700/80">
-                  Edit them below to refine the list.
-                </span>
               </span>
               <button
                 type="button"
@@ -1284,278 +1151,234 @@ export default function BookingListPage() {
             </div>
           ) : null}
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm">
-            {loading ? (
-              <div className="flex flex-1 flex-col items-center justify-center px-4">
-                <Loader2 className="mb-3 h-9 w-9 animate-spin text-[#2f3d95]" />
-                <p className="text-sm font-medium text-gray-600">
-                  Loading bookings...
-                </p>
-              </div>
-            ) : rows.length === 0 ? (
-              <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
-                  <BookOpen className="w-8 h-8 text-gray-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  No bookings found
-                </h3>
-                <p className="text-sm text-gray-500 max-w-sm">
-                  {hasActiveFilters
-                    ? "Try adjusting or clearing the applied filters."
-                    : "There are no bookings for this hotel."}
-                </p>
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="mt-4 inline-flex items-center gap-2 py-2 px-4 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    <X className="w-4 h-4" />
-                    Clear filters
-                  </button>
-                )}
-              </div>
-            ) : (
-              <DataTable
-                rows={rows}
-                columns={columns}
-                getRowId={(row) => String(row.id)}
-                rowCount={rowCount}
-                rowHeight={64}
-                paginationMode="server"
-                paginationModel={paginationModel}
-                onPaginationModelChange={setPaginationModel}
-                pageSizeOptions={[10, 20, 50]}
-                showToolbar
-                fillContainer
-                slots={{ toolbar: BookingTableToolbar }}
-                slotProps={{
-                  toolbar: {
-                    showQuickFilter: false,
-                  },
-                }}
-                exportFileName={`bookings-${selectedHotelId ?? "export"}`}
-                disableRowSelectionOnClick
-                onRowClick={(params) => {
-                  openBookingDetail(params.row.id);
-                }}
-                sx={bookingTableGridSx}
-                className="h-full rounded-none border-0 shadow-none"
-              />
-            )}
-          </div>
+          <DataTable
+            subtitle={
+              loading && rows.length === 0 ? (
+                "Loading…"
+              ) : (
+                <>
+                  <span className="font-medium text-slate-600">
+                    {rowCount.toLocaleString("en-IN")} booking
+                    {rowCount === 1 ? "" : "s"}
+                  </span>
+                  <span className="text-slate-400">
+                    {" "}
+                    · Page {paginationModel.page + 1} of {totalPages}
+                  </span>
+                </>
+              )
+            }
+            rows={rows}
+            columns={columns}
+            getRowId={(row) => row.id}
+            loading={loading}
+            paginationMode="server"
+            rowCount={rowCount}
+            paginationModel={paginationModel}
+            onPaginationModelChange={(model) => {
+              if (model.pageSize !== paginationModel.pageSize) {
+                setPaginationModel({ page: 0, pageSize: model.pageSize });
+                return;
+              }
+              if (model.page !== paginationModel.page) {
+                setPaginationModel((prev) => ({ ...prev, page: model.page }));
+              }
+            }}
+            pageSizeOptions={[10, 20, 50]}
+            disableRowSelectionOnClick
+            disableColumnFilter
+            showToolbar
+            showExport={false}
+            allowHorizontalScroll
+            getRowHeight={() => "auto"}
+            onRowClick={(params) => openBookingDetail(params.row.id)}
+            localeText={{
+              noRowsLabel: hasActiveFilters
+                ? "No bookings match the current filters."
+                : "There are no bookings for this hotel.",
+            }}
+            sx={{
+              "& .MuiDataGrid-cell": {
+                alignItems: "center",
+                whiteSpace: "normal",
+                py: "8px",
+                cursor: "pointer",
+              },
+            }}
+          />
         </div>
       </div>
 
-      {bookingFilterOpen ? (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <button
-            type="button"
-            aria-label="Close booking filters"
-            onClick={() => setBookingFilterOpen(false)}
-            className="absolute inset-0 cursor-pointer bg-slate-900/40"
+      <ReportFilterDrawer
+        open={bookingFilterOpen}
+        onClose={() => setBookingFilterOpen(false)}
+        onReset={() => {
+          setDraftHotelIds([]);
+          clearFilters();
+        }}
+        onApply={applyHotelFilter}
+        title="Booking Filters"
+        resetLabel="Clear All"
+        applyLabel="Apply Filter"
+      >
+        {seesAllBookings ? (
+          <HotelLookupMultiSelectField
+            label="Hotels"
+            allLabel="All hotels"
+            value={draftHotelIds}
+            onChange={setDraftHotelIds}
           />
-          <div className="relative flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <h2 className="text-lg font-bold text-slate-900">Booking Filters</h2>
-              <button
-                type="button"
-                onClick={() => setBookingFilterOpen(false)}
-                className="cursor-pointer rounded-lg p-1 text-slate-500 hover:bg-slate-100"
-                aria-label="Close filters"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+        ) : null}
 
-            <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-              {seesAllBookings ? (
-                <HotelLookupMultiSelectField
-                  label="Hotels"
-                  allLabel="All hotels"
-                  value={draftHotelIds}
-                  onChange={setDraftHotelIds}
-                />
-              ) : null}
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-600">
+            Guest name
+          </span>
+          <input
+            type="text"
+            value={guestName}
+            onChange={(event) => setGuestName(event.target.value)}
+            placeholder="Search by guest name"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-100"
+          />
+        </label>
 
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-600">
+            Booking ID
+          </span>
+          <input
+            type="text"
+            value={bookingId}
+            onChange={(event) => setBookingId(event.target.value)}
+            placeholder="Search by booking ID"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-100"
+          />
+        </label>
+
+        <section className="space-y-3 border-t border-slate-100 pt-5">
+          <h3 className="text-sm font-bold text-slate-900">Date range</h3>
+          <label className="block">
+            <span className="mb-1 block text-xs text-slate-500">Date field</span>
+            <select
+              value={dateAxis}
+              onChange={(event) => {
+                const nextAxis = event.target.value as BookingDateAxis;
+                setDateAxis(nextAxis);
+                setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                if (nextAxis !== "NONE" && (!customFrom || !customTo)) {
+                  applyPresetRange(
+                    datePreset === "CUSTOM" ? "THIS_MONTH" : datePreset,
+                  );
+                }
+              }}
+              className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-violet-300 focus:outline-none"
+            >
+              {DATE_AXIS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {dateAxis !== "NONE" ? (
+            <>
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">
-                  Guest name
-                </span>
-                <input
-                  type="text"
-                  value={guestName}
-                  onChange={(event) => setGuestName(event.target.value)}
-                  placeholder="Search by guest name"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/20"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">
-                  Booking ID
-                </span>
-                <input
-                  type="text"
-                  value={bookingId}
-                  onChange={(event) => setBookingId(event.target.value)}
-                  placeholder="Search by booking ID"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/20"
-                />
-              </label>
-
-              <section className="space-y-3">
-                <h3 className="text-sm font-bold text-slate-900">Date range</h3>
-                <label className="block">
-                  <span className="mb-1 block text-xs text-slate-500">Date field</span>
-                  <select
-                    value={dateAxis}
-                    onChange={(event) => {
-                      const nextAxis = event.target.value as BookingDateAxis;
-                      setDateAxis(nextAxis);
-                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                      if (
-                        nextAxis !== "NONE" &&
-                        (!customFrom || !customTo)
-                      ) {
-                        applyPresetRange(
-                          datePreset === "CUSTOM" ? "THIS_MONTH" : datePreset,
-                        );
-                      }
-                    }}
-                    className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none"
-                  >
-                    {DATE_AXIS_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {dateAxis !== "NONE" ? (
-                  <>
-                    <label className="block">
-                      <span className="mb-1 block text-xs text-slate-500">
-                        Quick range
-                      </span>
-                      <select
-                        value={datePreset}
-                        onChange={(event) =>
-                          applyPresetRange(
-                            event.target.value as BookingDatePreset,
-                          )
-                        }
-                        className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none"
-                      >
-                        {DATE_PRESET_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <CalendarDateField
-                        label="From"
-                        value={customFrom}
-                        onChange={handleFromDateChange}
-                        inputRef={fromDateInputRef}
-                      />
-                      <CalendarDateField
-                        label="To"
-                        value={customTo}
-                        min={customFrom || undefined}
-                        onChange={handleToDateChange}
-                        inputRef={toDateInputRef}
-                      />
-                    </div>
-                  </>
-                ) : null}
-              </section>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-600">
-                  Booking status
+                <span className="mb-1 block text-xs text-slate-500">
+                  Quick range
                 </span>
                 <select
-                  value={bookingStatus}
-                  onChange={(event) => {
-                    setBookingStatus(event.target.value);
-                    setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                  }}
-                  className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none"
+                  value={datePreset}
+                  onChange={(event) =>
+                    applyPresetRange(event.target.value as BookingDatePreset)
+                  }
+                  className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-violet-300 focus:outline-none"
                 >
-                  {BOOKING_STATUS_OPTIONS.map((option) => (
+                  {DATE_PRESET_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
-                      {option.label || "All statuses"}
+                      {option.label}
                     </option>
                   ))}
                 </select>
               </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-600">
-                    Sort by
-                  </span>
-                  <select
-                    value={orderBy}
-                    onChange={(event) => {
-                      setOrderBy(event.target.value as BookingListOrderBy);
-                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                    }}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none"
-                  >
-                    {BOOKING_ORDER_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-600">
-                    Direction
-                  </span>
-                  <select
-                    value={sortDir}
-                    onChange={(event) => {
-                      setSortDir(event.target.value as BookingListSortDir);
-                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                    }}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#2f3d95] focus:outline-none"
-                  >
-                    <option value="desc">Newest first</option>
-                    <option value="asc">Oldest first</option>
-                  </select>
-                </label>
+              <div className="grid grid-cols-2 gap-2">
+                <CalendarDateField
+                  label="From"
+                  value={customFrom}
+                  onChange={handleFromDateChange}
+                  inputRef={fromDateInputRef}
+                />
+                <CalendarDateField
+                  label="To"
+                  value={customTo}
+                  min={customFrom || undefined}
+                  onChange={handleToDateChange}
+                  inputRef={toDateInputRef}
+                />
               </div>
-            </div>
+            </>
+          ) : null}
+        </section>
 
-            <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-5 py-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setDraftHotelIds([]);
-                  clearFilters();
-                }}
-                className="cursor-pointer rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Clear All
-              </button>
-              <button
-                type="button"
-                onClick={applyHotelFilter}
-                className="cursor-pointer rounded-lg bg-[#2f3d95] px-4 py-2 text-sm font-semibold text-white hover:bg-[#253178]"
-              >
-                Apply Filter
-              </button>
-            </div>
-          </div>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-slate-600">
+            Booking status
+          </span>
+          <select
+            value={bookingStatus}
+            onChange={(event) => {
+              setBookingStatus(event.target.value);
+              setPaginationModel((prev) => ({ ...prev, page: 0 }));
+            }}
+            className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-violet-300 focus:outline-none"
+          >
+            {BOOKING_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label || "All statuses"}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Sort by
+            </span>
+            <select
+              value={orderBy}
+              onChange={(event) => {
+                setOrderBy(event.target.value as BookingListOrderBy);
+                setPaginationModel((prev) => ({ ...prev, page: 0 }));
+              }}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-violet-300 focus:outline-none"
+            >
+              {BOOKING_ORDER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Direction
+            </span>
+            <select
+              value={sortDir}
+              onChange={(event) => {
+                setSortDir(event.target.value as BookingListSortDir);
+                setPaginationModel((prev) => ({ ...prev, page: 0 }));
+              }}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-violet-300 focus:outline-none"
+            >
+              <option value="desc">Newest first</option>
+              <option value="asc">Oldest first</option>
+            </select>
+          </label>
         </div>
-      ) : null}
+      </ReportFilterDrawer>
 
       <VoucherViewModal
         open={voucherBookingId != null}

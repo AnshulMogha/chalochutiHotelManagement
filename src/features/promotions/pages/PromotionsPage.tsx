@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/Button";
+import { DataTable } from "@/components/ui";
 import { Input } from "@/components/ui/Input";
+import type { GridColDef } from "@mui/x-data-grid";
 import {
   adminService,
   type PromotionListItem,
@@ -14,14 +16,21 @@ import {
   Clock,
   Bird,
   Calendar,
-  Loader2,
   Crown,
   Eye,
   Search,
   ArrowLeft,
   Tag,
-  Sparkles,
+  Plus,
 } from "lucide-react";
+
+const PROMO_STATUS_TABS = [
+  { value: "all", label: "All" },
+  { value: "draft", label: "Draft" },
+  { value: "active", label: "Active" },
+  { value: "paused", label: "Paused" },
+  { value: "expired", label: "Expired" },
+] as const;
 
 interface PromotionType {
   id: string;
@@ -199,7 +208,7 @@ export default function PromotionsPage() {
       case "ACTIVE":
         return "border-emerald-200 bg-emerald-50 text-emerald-800";
       case "DRAFT":
-        return "border-slate-200 bg-slate-50 text-slate-700";
+        return "border-sky-200 bg-sky-50 text-sky-800";
       case "PAUSED":
         return "border-amber-200 bg-amber-50 text-amber-800";
       case "EXPIRED":
@@ -245,32 +254,32 @@ export default function PromotionsPage() {
       case "BASIC":
         return {
           icon: <Percent className="h-3 w-3" />,
-          className: "border-sky-200 bg-sky-50 text-sky-800",
+          className: "bg-sky-50 text-sky-800 ring-sky-200",
         };
       case "LAST_MINUTE":
         return {
           icon: <Clock className="h-3 w-3" />,
-          className: "border-violet-200 bg-violet-50 text-violet-800",
+          className: "bg-violet-50 text-violet-800 ring-violet-200",
         };
       case "EARLY_BIRD":
         return {
           icon: <Bird className="h-3 w-3" />,
-          className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+          className: "bg-emerald-50 text-emerald-800 ring-emerald-200",
         };
       case "LONG_STAY":
         return {
           icon: <Calendar className="h-3 w-3" />,
-          className: "border-orange-200 bg-orange-50 text-orange-800",
+          className: "bg-orange-50 text-orange-800 ring-orange-200",
         };
       case "SPECIAL_AUDIENCE":
         return {
           icon: <Crown className="h-3 w-3" />,
-          className: "border-indigo-200 bg-indigo-50 text-indigo-800",
+          className: "bg-indigo-50 text-indigo-800 ring-indigo-200",
         };
       default:
         return {
           icon: <Tag className="h-3 w-3" />,
-          className: "border-slate-200 bg-slate-50 text-slate-700",
+          className: "bg-slate-100 text-slate-700 ring-slate-200",
         };
     }
   };
@@ -314,51 +323,175 @@ export default function PromotionsPage() {
     });
   }, [promotions, promotionSearch]);
 
+  const columns: GridColDef<PromotionListItem>[] = [
+    {
+      field: "promotionName",
+      headerName: "Promotion Name",
+      flex: 1,
+      minWidth: 160,
+      sortable: false,
+      renderCell: (params) => (
+        <p className="font-medium text-slate-900">{params.row.promotionName}</p>
+      ),
+    },
+    {
+      field: "promotionType",
+      headerName: "Type",
+      width: 160,
+      sortable: false,
+      renderCell: (params) => {
+        const typeMeta = getPromotionTypeMeta(params.row.promotionType);
+        return (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1",
+              typeMeta.className,
+            )}
+          >
+            {typeMeta.icon}
+            {getPromotionTypeLabel(params.row.promotionType)}
+          </span>
+        );
+      },
+    },
+    {
+      field: "applyChannel",
+      headerName: "Channel",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="inline-flex items-center rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-800 ring-1 ring-sky-200">
+          {getApplyChannelLabel(params.row.applyChannel)}
+        </span>
+      ),
+    },
+    {
+      field: "discountAllUsers",
+      headerName: "Discount",
+      width: 130,
+      sortable: false,
+      renderCell: (params) => {
+        const promotion = params.row;
+        const discountText = `${
+          promotion.offerType === "FIXED" ? "₹" : ""
+        }${promotion.discountAllUsers}${
+          promotion.offerType === "PERCENTAGE" ? "%" : ""
+        }`;
+        const extraDiscount =
+          promotion.extraLoggedDiscount > 0
+            ? `+${promotion.offerType === "FIXED" ? "₹" : ""}${
+                promotion.extraLoggedDiscount
+              }${promotion.offerType === "PERCENTAGE" ? "%" : ""}`
+            : null;
+        return (
+          <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold tabular-nums text-emerald-800 ring-1 ring-emerald-200">
+              {discountText}
+            </span>
+            {extraDiscount ? (
+              <span className="text-xs font-medium text-emerald-600">
+                {extraDiscount}
+              </span>
+            ) : null}
+          </span>
+        );
+      },
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <select
+          aria-label={`Status for ${params.row.promotionName}`}
+          value={params.row.status}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) =>
+            void handleStatusChange(params.row.id, event.target.value)
+          }
+          className={cn(
+            "h-8 cursor-pointer rounded-full border px-2.5 text-xs font-semibold outline-none transition focus:ring-2 focus:ring-[#2f3d95]/25",
+            getStatusSelectClass(params.row.status),
+          )}
+        >
+          {statusOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ),
+    },
+    {
+      field: "expiringLabel",
+      headerName: "Valid Until",
+      width: 150,
+      sortable: false,
+      renderCell: (params) =>
+        params.row.expiringLabel ? (
+          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+            <Calendar className="h-3 w-3" />
+            {params.row.expiringLabel}
+          </span>
+        ) : (
+          <span className="text-sm text-slate-400">No end date</span>
+        ),
+    },
+    {
+      field: "lastModified",
+      headerName: "Last Modified",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-700 ring-1 ring-slate-200">
+          {new Date(params.row.lastModified).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          })}
+        </span>
+      ),
+    },
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 110,
+      sortable: false,
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params) => (
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
+          onClick={(event) => {
+            event.stopPropagation();
+            const url = hotelId
+              ? `/promotions/edit/${params.row.id}?hotelId=${hotelId}&mode=view`
+              : `/promotions/edit/${params.row.id}?mode=view`;
+            navigate(url);
+          }}
+        >
+          <Eye className="h-3.5 w-3.5" />
+          View
+        </button>
+      ),
+    },
+  ];
+
   const subTabCount =
     myPromotionsSubTab === "all" ? totalElements : undefined;
 
   return (
-    <div className="min-h-screen bg-[#f7f8fb]">
-      <div className="container mx-auto max-w-7xl px-4 py-6 sm:py-8">
+    <div className="min-h-full bg-slate-50">
+      <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
       <Tabs
         defaultValue="create"
         value={activeTab}
         onValueChange={setActiveTab}
         className="w-full"
       >
-        {activeTab === "my-promotions" && (
-          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-[#2f3d95] text-white shadow-sm">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                  Promotions
-                </h1>
-                <p className="mt-1 max-w-xl text-sm text-slate-500">
-                  One-stop solution to offer the best promotions & coupons to
-                  guests.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {myPromotionsSubTab === "active" && totalElements > 0 ? (
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                  {totalElements} active
-                </span>
-              ) : null}
-              <Button
-                className="bg-[#2f3d95] hover:bg-[#263578] text-white font-medium"
-                onClick={() => setActiveTab("create")}
-              >
-                Create New Promotion
-              </Button>
-            </div>
-          </div>
-        )}
-
-        <TabsContent value="create" className="mt-2">
+        <TabsContent value="create" className="mt-0">
           <button
             type="button"
             onClick={() => setActiveTab("my-promotions")}
@@ -368,7 +501,7 @@ export default function PromotionsPage() {
             Back
           </button>
           <div className="mb-4">
-            <h2 className="text-xl font-semibold text-slate-900">
+            <h2 className="text-lg font-semibold text-slate-900">
               Choose a promotion type
             </h2>
             <p className="mt-1 text-sm text-slate-500">
@@ -442,302 +575,132 @@ export default function PromotionsPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="my-promotions" className="mt-2">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <Tabs
-              value={myPromotionsSubTab}
-              onValueChange={(value) =>
-                setMyPromotionsSubTab(
-                  value as "all" | "draft" | "active" | "paused" | "expired",
-                )
-              }
-              className="w-fit"
-            >
-              <TabsList className="h-auto gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-                {(
-                  [
-                    ["all", "All"],
-                    ["draft", "Draft"],
-                    ["active", "Active"],
-                    ["paused", "Paused"],
-                    ["expired", "Expired"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <TabsTrigger
-                    key={value}
-                    value={value}
-                    className="rounded-lg px-3 py-1.5 text-sm data-[state=active]:bg-[#eef2ff] data-[state=active]:text-[#2f3d95] data-[state=active]:shadow-none"
-                  >
-                    {label}
-                    {value === "all" && subTabCount !== undefined
-                      ? ` (${subTabCount})`
-                      : myPromotionsSubTab === value && value !== "all"
-                        ? ` (${totalElements})`
-                        : ""}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-            {loading ? (
-              <div className="flex min-h-[360px] items-center justify-center">
-                <Loader2 className="h-7 w-7 animate-spin text-[#2f3d95]" />
-              </div>
-            ) : promotions.length === 0 ? (
-              <div className="px-6 py-14 text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef2ff] text-[#2f3d95]">
-                  <Tag className="h-5 w-5" />
-                </div>
-                <p className="font-medium text-slate-800">
-                  {myPromotionsSubTab === "all"
-                    ? "No promotions yet"
-                    : `No ${myPromotionsSubTab} promotions`}
-                </p>
-                <p className="mt-1 text-sm text-slate-500">
-                  Create an offer to boost bookings for this property.
-                </p>
-                {myPromotionsSubTab === "all" ? (
-                  <Button
-                    onClick={() => setActiveTab("create")}
-                    className="mt-4 bg-[#2f3d95] hover:bg-[#263578]"
-                  >
-                    Create Your First Promotion
-                  </Button>
-                ) : null}
-              </div>
-            ) : (
-              <>
-                <div className="border-b border-slate-100 px-4 py-3">
-                  <div className="relative w-full max-w-md">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <Input
-                      type="text"
-                      placeholder="Search promotions..."
-                      value={promotionSearch}
-                      onChange={(e) => setPromotionSearch(e.target.value)}
-                      className="h-9 border-slate-200 bg-slate-50/80 pl-9 focus:bg-white"
-                    />
-                  </div>
-                </div>
-                {filteredPromotions.length === 0 ? (
-                  <div className="px-6 py-12 text-center">
-                    <p className="text-sm text-slate-500">
-                      No promotions match your search.
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="mt-3"
-                      onClick={() => setPromotionSearch("")}
+        <TabsContent value="my-promotions" className="mt-0">
+          <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+              <div className="flex flex-wrap items-center gap-1">
+                {PROMO_STATUS_TABS.map((tab) => {
+                  const isActive = myPromotionsSubTab === tab.value;
+                  const count =
+                    tab.value === "all"
+                      ? subTabCount
+                      : isActive
+                        ? totalElements
+                        : undefined;
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => setMyPromotionsSubTab(tab.value)}
+                      className={cn(
+                        "cursor-pointer rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition",
+                        isActive
+                          ? "bg-[#2f3d95] text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                      )}
                     >
-                      Clear search
-                    </Button>
-                  </div>
-                ) : (
-                <>
-                <div className="overflow-x-auto">
-                <table className="w-full min-w-[920px]">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/90">
-                      {[
-                        "Promotion Name",
-                        "Type",
-                        "Channel",
-                        "Discount",
-                        "Status",
-                        "Valid Until",
-                        "Last Modified",
-                        "Actions",
-                      ].map((label) => (
-                        <th
-                          key={label}
-                          className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-400"
+                      {tab.label}
+                      {count !== undefined ? (
+                        <span
+                          className={cn(
+                            "ml-1.5 rounded-full px-1.5 py-px text-[10px] font-bold",
+                            isActive
+                              ? "bg-white/20 text-white"
+                              : "bg-white text-slate-500",
+                          )}
                         >
-                          {label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredPromotions.map((promotion) => {
-                      const typeMeta = getPromotionTypeMeta(
-                        promotion.promotionType,
-                      );
-                      const discountText = `${
-                        promotion.offerType === "FIXED" ? "₹" : ""
-                      }${promotion.discountAllUsers}${
-                        promotion.offerType === "PERCENTAGE" ? "%" : ""
-                      }`;
-                      const extraDiscount =
-                        promotion.extraLoggedDiscount > 0
-                          ? `+${promotion.offerType === "FIXED" ? "₹" : ""}${
-                              promotion.extraLoggedDiscount
-                            }${
-                              promotion.offerType === "PERCENTAGE" ? "%" : ""
-                            }`
-                          : null;
-
-                      return (
-                      <tr
-                        key={promotion.id}
-                        className="transition-colors hover:bg-slate-50/80"
-                      >
-                        <td className="px-4 py-3">
-                          <span className="text-sm font-semibold text-slate-900">
-                            {promotion.promotionName}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium",
-                              typeMeta.className,
-                            )}
-                          >
-                            {typeMeta.icon}
-                            {getPromotionTypeLabel(promotion.promotionType)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="inline-flex items-center rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-800">
-                            {getApplyChannelLabel(promotion.applyChannel)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm font-semibold tabular-nums text-slate-800">
-                            {discountText}
-                          </span>
-                          {extraDiscount ? (
-                            <span className="ml-1 text-xs text-slate-400">
-                              {extraDiscount}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <select
-                            aria-label={`Status for ${promotion.promotionName}`}
-                            value={promotion.status}
-                            onChange={(e) =>
-                              handleStatusChange(
-                                promotion.id,
-                                e.target.value,
-                              )
-                            }
-                            className={cn(
-                              "h-8 cursor-pointer rounded-lg border px-2.5 text-xs font-semibold outline-none transition focus:ring-2 focus:ring-[#2f3d95]/25",
-                              getStatusSelectClass(promotion.status),
-                            )}
-                          >
-                            {statusOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span
-                            className={cn(
-                              "text-sm",
-                              promotion.expiringLabel
-                                ? "text-slate-700"
-                                : "text-slate-400",
-                            )}
-                          >
-                            {promotion.expiringLabel || "No end date"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm tabular-nums text-slate-500">
-                            {new Date(
-                              promotion.lastModified,
-                            ).toLocaleDateString("en-GB", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-[#2f3d95] transition-colors hover:border-[#2f3d95]/30 hover:bg-[#eef2ff]"
-                            onClick={() => {
-                              const url = hotelId
-                                ? `/promotions/edit/${promotion.id}?hotelId=${hotelId}&mode=view`
-                                : `/promotions/edit/${promotion.id}?mode=view`;
-                              navigate(url);
-                            }}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            View
-                          </button>
-                        </td>
-                      </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                </div>
-                <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm text-slate-500">
-                  {promotionSearch.trim() ? (
-                    <>
-                      Showing {filteredPromotions.length} of {promotions.length}{" "}
-                      on this page ({totalElements} total)
-                    </>
-                  ) : (
-                    <>
-                      Page {totalPages === 0 ? 0 : page + 1} of {totalPages} ·{" "}
-                      {totalElements} total
-                    </>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <label
-                    htmlFor="promotions-page-size"
-                    className="text-sm text-slate-500"
-                  >
-                    Rows
-                  </label>
-                  <select
-                    id="promotions-page-size"
-                    className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700"
-                    value={pageSize}
-                    onChange={(e) => {
-                      const nextSize = Number(e.target.value);
-                      setPageSize(nextSize);
-                      setPage(0);
-                    }}
-                  >
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                  </select>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!hasPrevious || loading}
-                    onClick={() => setPage((prev) => Math.max(0, prev - 1))}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!hasNext || loading}
-                    onClick={() => setPage((prev) => prev + 1)}
-                  >
-                    Next
-                  </Button>
-                </div>
-                </div>
-                </>
-                )}
-              </>
-            )}
+                          {count}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              <Button
+                size="sm"
+                className="gap-1.5 bg-[#2f3d95] text-white hover:bg-[#263578]"
+                onClick={() => setActiveTab("create")}
+              >
+                <Plus className="h-4 w-4" />
+                Create New Promotion
+              </Button>
+            </div>
           </div>
+
+          <DataTable
+            subtitle={
+              loading && promotions.length === 0 ? (
+                "Loading…"
+              ) : promotionSearch.trim() ? (
+                `Showing ${filteredPromotions.length} of ${promotions.length} on this page · ${totalElements.toLocaleString("en-IN")} total`
+              ) : (
+                <>
+                  <span className="font-medium text-slate-600">
+                    {totalElements.toLocaleString("en-IN")}{" "}
+                    {totalElements === 1 ? "promotion" : "promotions"}
+                  </span>
+                  <span className="text-slate-400">
+                    {" "}
+                    · Page {totalPages === 0 ? 0 : page + 1} of{" "}
+                    {Math.max(totalPages, 1)}
+                  </span>
+                </>
+              )
+            }
+            afterHeader={
+              <div className="border-b border-slate-100 px-3 py-2">
+                <div className="relative w-full max-w-md">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search promotions..."
+                    value={promotionSearch}
+                    onChange={(e) => setPromotionSearch(e.target.value)}
+                    className="h-9 border-slate-200 bg-slate-50/80 pl-9 focus:bg-white"
+                  />
+                </div>
+              </div>
+            }
+            rows={filteredPromotions}
+            columns={columns}
+            getRowId={(row) => row.id}
+            loading={loading}
+            paginationMode="server"
+            rowCount={totalElements}
+            paginationModel={{ page, pageSize }}
+            onPaginationModelChange={(model) => {
+              if (model.pageSize !== pageSize) {
+                setPageSize(model.pageSize);
+                setPage(0);
+                return;
+              }
+              if (model.page === page) return;
+              if (model.page < page && !hasPrevious) return;
+              if (model.page > page && !hasNext) return;
+              setPage(model.page);
+            }}
+            pageSizeOptions={[10, 20, 50]}
+            disableRowSelectionOnClick
+            disableColumnFilter
+            showToolbar
+            showExport={false}
+            allowHorizontalScroll
+            localeText={{
+              noRowsLabel:
+                promotions.length === 0
+                  ? myPromotionsSubTab === "all"
+                    ? "No promotions yet. Create an offer to boost bookings."
+                    : `No ${myPromotionsSubTab} promotions.`
+                  : "No promotions match your search.",
+            }}
+            sx={{
+              "& .MuiDataGrid-cell": {
+                alignItems: "center",
+                whiteSpace: "normal",
+                py: "8px",
+              },
+            }}
+          />
         </TabsContent>
       </Tabs>
       </div>

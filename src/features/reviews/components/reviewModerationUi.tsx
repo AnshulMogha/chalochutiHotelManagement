@@ -30,13 +30,33 @@ import type { ReviewStatus } from "../services/reviewModerationTypes";
 
 const STAT_TONE: Record<
   "navy" | "amber" | "rose" | "emerald" | "slate",
-  string
+  { card: string; label: string; icon: string }
 > = {
-  navy: "bg-[#2f3d95]",
-  amber: "bg-amber-500",
-  rose: "bg-rose-500",
-  emerald: "bg-emerald-600",
-  slate: "bg-slate-500",
+  navy: {
+    card: "border-indigo-100 bg-gradient-to-br from-indigo-50 to-white",
+    label: "text-indigo-700",
+    icon: "bg-indigo-600",
+  },
+  amber: {
+    card: "border-amber-100 bg-gradient-to-br from-amber-50 to-white",
+    label: "text-amber-700",
+    icon: "bg-amber-500",
+  },
+  rose: {
+    card: "border-rose-100 bg-gradient-to-br from-rose-50 to-white",
+    label: "text-rose-700",
+    icon: "bg-rose-500",
+  },
+  emerald: {
+    card: "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white",
+    label: "text-emerald-700",
+    icon: "bg-emerald-600",
+  },
+  slate: {
+    card: "border-cyan-100 bg-gradient-to-br from-cyan-50 to-white",
+    label: "text-cyan-700",
+    icon: "bg-cyan-600",
+  },
 };
 
 export function ReviewModerationPageShell({
@@ -543,37 +563,42 @@ export function ReviewModerationStatCard({
   icon: LucideIcon;
   tone?: keyof typeof STAT_TONE;
 }) {
+  const palette = STAT_TONE[tone];
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            {label}
-          </p>
-          <div className="mt-0.5 text-lg font-bold tabular-nums tracking-tight text-slate-900">
-            {value}
-          </div>
-          {sub ? (
-            <p className="mt-0.5 text-[11px] text-slate-500">{sub}</p>
-          ) : null}
-        </div>
-        <div
+    <div className={cn("rounded-lg border px-3 py-2 text-left shadow-sm", palette.card)}>
+      <div className="flex items-center gap-2">
+        <span
           className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
-            STAT_TONE[tone],
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
+            palette.icon,
           )}
         >
-          <Icon className="h-4 w-4 text-white" strokeWidth={2.25} aria-hidden />
-        </div>
+          <Icon className="h-3.5 w-3.5 text-white" strokeWidth={2.25} aria-hidden />
+        </span>
+        <p
+          className={cn(
+            "min-w-0 truncate text-xs font-medium uppercase tracking-wide",
+            palette.label,
+          )}
+        >
+          {label}
+        </p>
       </div>
+      <div className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
+        {value}
+      </div>
+      {sub ? <p className="mt-0.5 text-[11px] text-slate-500">{sub}</p> : null}
     </div>
   );
 }
 
 export function ReviewModerationFlowStrip({
   currentStatus,
+  embedded = false,
 }: {
   currentStatus?: string;
+  /** Inline legend without its own card chrome (for toolbars). */
+  embedded?: boolean;
 } = {}) {
   const normalized = String(currentStatus || "").toUpperCase();
   const highlightCurrent = Boolean(normalized);
@@ -601,7 +626,14 @@ export function ReviewModerationFlowStrip({
   ];
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-1.5",
+        embedded
+          ? "min-w-0"
+          : "mb-3 rounded-xl border border-slate-200/80 bg-white px-3 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+      )}
+    >
       <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.04em] text-slate-400">
         {highlightCurrent ? "Status" : "Flow"}
       </span>

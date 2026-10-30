@@ -10,10 +10,10 @@ import { Link } from "react-router";
 import { toPng } from "html-to-image";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ExportButton } from "@/components/ui/ExportButton";
+import { DataTable } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants";
-import { useAuth } from "@/hooks/useAuth";
-import { canFilterSalesManagerReportsByUser } from "@/constants/roles";
 import { adminService } from "@/features/admin/services/adminService";
 import { SalesManagerTrendChart } from "../components/SalesManagerTrendChart";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
@@ -22,7 +22,6 @@ import {
   agentStatusTone,
   exportStatusLabel,
   formatChangePercent,
-  formatReportDate,
   formatReportMoney,
   formatStatusLabel,
   isoToReportDateText,
@@ -31,6 +30,10 @@ import {
   validateCustomDateRange,
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+} from "../components/ReportFilterDrawer";
 import {
   salesManagerDashboardReportService,
   type SalesManagerActionInboxItem,
@@ -60,7 +63,6 @@ import {
   CalendarDays,
   CircleDollarSign,
   Download,
-  Filter,
   Handshake,
   LayoutDashboard,
   Loader2,
@@ -305,59 +307,50 @@ function ReportDataTable({
   emptyMessage: string;
   loading?: boolean;
 }) {
+  const gridColumns: GridColDef[] = columns.map((column, index) => ({
+    field: column.key,
+    headerName: column.label,
+    flex: 1,
+    minWidth: 120,
+    sortable: false,
+    align: column.align === "right" ? "right" : "left",
+    headerAlign: column.align === "right" ? "right" : "left",
+    renderCell: (params) => (
+      <span
+        className={cn(
+          "truncate",
+          column.align === "right" && "tabular-nums",
+          index === 0 && "font-medium text-slate-900",
+        )}
+      >
+        {params.row[column.key] ?? "—"}
+      </span>
+    ),
+  }));
+  const gridRows = rows.map((row, index) => ({
+    ...row,
+    id: row.id ?? index,
+  }));
+
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-100 bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            {columns.map((column) => (
-              <th
-                key={column.key}
-                className={cn(
-                  "px-4 py-2.5",
-                  column.align === "right" && "text-right",
-                )}
-              >
-                {column.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length ? (
-            rows.map((row, index) => (
-              <tr
-                key={String(row.id ?? index)}
-                className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
-              >
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className={cn(
-                      "px-4 py-2.5 text-slate-700",
-                      column.align === "right" && "text-right tabular-nums",
-                      column.key === columns[0].key &&
-                        "font-medium text-slate-900",
-                    )}
-                  >
-                    {row[column.key]}
-                  </td>
-                ))}
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td
-                colSpan={columns.length}
-                className="px-4 py-10 text-center text-sm text-slate-400"
-              >
-                {loading ? "Loading…" : emptyMessage}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      rows={gridRows}
+      columns={gridColumns}
+      loading={loading}
+      getRowId={(row) => String(row.id)}
+      disableRowSelectionOnClick
+      disableColumnFilter
+      showToolbar
+      showExport={false}
+      pageSizeOptions={[10, 20, 50]}
+      initialState={{
+        pagination: { paginationModel: { page: 0, pageSize: 20 } },
+      }}
+      className="rounded-none border-0 shadow-none"
+      localeText={{
+        noRowsLabel: loading ? "Loading…" : emptyMessage,
+      }}
+    />
   );
 }
 
@@ -460,7 +453,6 @@ type FilterDraft = {
   bookingType: SalesManagerBookingType;
   stateId: string;
   agencyTier: string;
-  salesManagerId: string;
 };
 
 const DEFAULT_DRAFT: FilterDraft = {
@@ -471,7 +463,6 @@ const DEFAULT_DRAFT: FilterDraft = {
   bookingType: DEFAULT_BOOKING_TYPE,
   stateId: "",
   agencyTier: "",
-  salesManagerId: "",
 };
 
 function SectionPanel({
@@ -531,52 +522,113 @@ function StatTile({
   value,
   hint,
   icon: Icon,
-  tone = "default",
+  tone = "sky",
 }: {
   label: string;
   value: string | number;
   hint?: string;
   icon: LucideIcon;
-  tone?: "default" | "success" | "warning" | "danger" | "info";
+  tone?:
+    | "default"
+    | "sky"
+    | "blue"
+    | "indigo"
+    | "violet"
+    | "teal"
+    | "cyan"
+    | "orange"
+    | "success"
+    | "warning"
+    | "danger"
+    | "info";
 }) {
   const tones = {
     default: {
-      wrap: "border-slate-200 bg-slate-50/70",
-      value: "text-slate-900",
+      wrap: "border-sky-100 bg-gradient-to-br from-sky-50 to-white",
+      label: "text-sky-700",
+      icon: "bg-sky-500",
+    },
+    sky: {
+      wrap: "border-sky-100 bg-gradient-to-br from-sky-50 to-white",
+      label: "text-sky-700",
+      icon: "bg-sky-500",
+    },
+    blue: {
+      wrap: "border-blue-100 bg-gradient-to-br from-blue-50 to-white",
+      label: "text-blue-700",
+      icon: "bg-blue-600",
+    },
+    indigo: {
+      wrap: "border-indigo-100 bg-gradient-to-br from-indigo-50 to-white",
+      label: "text-indigo-700",
+      icon: "bg-indigo-600",
+    },
+    violet: {
+      wrap: "border-violet-100 bg-gradient-to-br from-violet-50 to-white",
+      label: "text-violet-700",
+      icon: "bg-violet-600",
+    },
+    teal: {
+      wrap: "border-teal-100 bg-gradient-to-br from-teal-50 to-white",
+      label: "text-teal-700",
+      icon: "bg-teal-600",
+    },
+    cyan: {
+      wrap: "border-cyan-100 bg-gradient-to-br from-cyan-50 to-white",
+      label: "text-cyan-700",
+      icon: "bg-cyan-600",
+    },
+    orange: {
+      wrap: "border-orange-100 bg-gradient-to-br from-orange-50 to-white",
+      label: "text-orange-700",
+      icon: "bg-orange-500",
     },
     success: {
-      wrap: "border-emerald-200 bg-emerald-50/80",
-      value: "text-emerald-900",
+      wrap: "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white",
+      label: "text-emerald-700",
+      icon: "bg-emerald-600",
     },
     warning: {
-      wrap: "border-amber-200 bg-amber-50/80",
-      value: "text-amber-900",
+      wrap: "border-amber-100 bg-gradient-to-br from-amber-50 to-white",
+      label: "text-amber-700",
+      icon: "bg-amber-500",
     },
     danger: {
-      wrap: "border-rose-200 bg-rose-50/80",
-      value: "text-rose-900",
+      wrap: "border-rose-100 bg-gradient-to-br from-rose-50 to-white",
+      label: "text-rose-700",
+      icon: "bg-rose-500",
     },
     info: {
-      wrap: "border-sky-200 bg-sky-50/80",
-      value: "text-sky-900",
+      wrap: "border-blue-100 bg-gradient-to-br from-blue-50 to-white",
+      label: "text-blue-700",
+      icon: "bg-blue-600",
     },
   }[tone];
 
   return (
-    <div className={cn("rounded-md border px-2 py-1.5", tones.wrap)}>
-      <div className="flex items-center justify-between gap-1">
-        <p className="truncate text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+    <div className={cn("rounded-lg border px-2.5 py-2 shadow-sm", tones.wrap)}>
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
+            tones.icon,
+          )}
+        >
+          <Icon className="h-3 w-3 text-white" strokeWidth={2.25} />
+        </span>
+        <p
+          className={cn(
+            "truncate text-[10px] font-semibold uppercase tracking-wide",
+            tones.label,
+          )}
+        >
           {label}
         </p>
-        <Icon className={cn("h-2.5 w-2.5 shrink-0 opacity-60", tones.value)} />
       </div>
       <p
         className={cn(
-          "mt-0.5 font-bold tabular-nums leading-tight",
-          typeof value === "string" && value.length > 12
-            ? "text-xs"
-            : "text-sm",
-          tones.value,
+          "mt-0.5 font-bold tabular-nums leading-tight text-slate-900",
+          typeof value === "string" && value.length > 12 ? "text-xs" : "text-sm",
         )}
       >
         {value}
@@ -601,7 +653,19 @@ function MetricWithChange({
   metric?: SalesManagerPeriodMetric | SalesManagerPeriodMoneyMetric;
   formatValue: (value: number) => string;
   icon: LucideIcon;
-  tone?: "default" | "success" | "warning" | "danger" | "info";
+  tone?:
+    | "default"
+    | "sky"
+    | "blue"
+    | "indigo"
+    | "violet"
+    | "teal"
+    | "cyan"
+    | "orange"
+    | "success"
+    | "warning"
+    | "danger"
+    | "info";
 }) {
   const current =
     metric && "current" in metric
@@ -699,8 +763,6 @@ function AgentCard({ agent }: { agent: SalesManagerAgentSnapshot }) {
 }
 
 export default function SalesManagerDashboardReportPage() {
-  const { user } = useAuth();
-  const canFilterByManager = canFilterSalesManagerReportsByUser(user?.roles);
   const { toast, showToast, hideToast } = useToast();
 
   const [datePreset, setDatePreset] =
@@ -713,7 +775,6 @@ export default function SalesManagerDashboardReportPage() {
     useState<SalesManagerBookingType>(DEFAULT_BOOKING_TYPE);
   const [stateId, setStateId] = useState("");
   const [agencyTier, setAgencyTier] = useState("");
-  const [salesManagerId, setSalesManagerId] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [draft, setDraft] = useState<FilterDraft>(DEFAULT_DRAFT);
   const [customFromText, setCustomFromText] = useState("");
@@ -732,9 +793,6 @@ export default function SalesManagerDashboardReportPage() {
     useState<SalesManagerDashboardReportResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [managerOptions, setManagerOptions] = useState<
-    Array<{ id: string; label: string }>
-  >([]);
   const [states, setStates] = useState<Array<{ id: string; label: string }>>(
     [],
   );
@@ -750,36 +808,7 @@ export default function SalesManagerDashboardReportPage() {
     (bookingType !== DEFAULT_BOOKING_TYPE ? 1 : 0) +
     (stateId ? 1 : 0) +
     (agencyTier ? 1 : 0) +
-    (salesManagerId ? 1 : 0) +
     (datePreset === "CUSTOM" && (fromDate || toDate) ? 1 : 0);
-
-  useEffect(() => {
-    if (!canFilterByManager) return;
-    let cancelled = false;
-    adminService
-      .getUsers({ role: "SALES_MANAGER", size: 200, status: "ACTIVE" })
-      .then((response) => {
-        if (cancelled) return;
-        setManagerOptions(
-          (response.content || []).map((entry) => ({
-            id: String(entry.userId ?? entry.id ?? ""),
-            label:
-              [entry.firstName, entry.lastName]
-                .filter(Boolean)
-                .join(" ")
-                .trim() ||
-              entry.email?.trim() ||
-              `User ${entry.userId ?? entry.id ?? ""}`,
-          })),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setManagerOptions([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [canFilterByManager]);
 
   useEffect(() => {
     let cancelled = false;
@@ -811,7 +840,6 @@ export default function SalesManagerDashboardReportPage() {
       const nextBookingType = overrides?.bookingType ?? bookingType;
       const nextStateId = overrides?.stateId ?? stateId;
       const nextAgencyTier = overrides?.agencyTier ?? agencyTier;
-      const nextSalesManagerId = overrides?.salesManagerId ?? salesManagerId;
 
       if (nextPreset === "CUSTOM" && (!nextFrom || !nextTo)) return;
 
@@ -826,7 +854,6 @@ export default function SalesManagerDashboardReportPage() {
           bookingType: nextBookingType,
           stateId: nextStateId || undefined,
           agencyTier: (nextAgencyTier as SalesManagerAgencyTier) || undefined,
-          salesManagerId: nextSalesManagerId || undefined,
         });
         setReport(data);
       } catch (err) {
@@ -843,7 +870,6 @@ export default function SalesManagerDashboardReportPage() {
       dateAxis,
       datePreset,
       fromDate,
-      salesManagerId,
       showToast,
       stateId,
       toDate,
@@ -898,7 +924,6 @@ export default function SalesManagerDashboardReportPage() {
     setBookingType(nextDraft.bookingType);
     setStateId(nextDraft.stateId);
     setAgencyTier(nextDraft.agencyTier);
-    setSalesManagerId(nextDraft.salesManagerId);
     setFilterOpen(false);
     void loadReport(nextDraft);
   };
@@ -914,7 +939,6 @@ export default function SalesManagerDashboardReportPage() {
     setBookingType(DEFAULT_DRAFT.bookingType);
     setStateId("");
     setAgencyTier("");
-    setSalesManagerId("");
     setFilterOpen(false);
     void loadReport(DEFAULT_DRAFT);
   };
@@ -933,7 +957,6 @@ export default function SalesManagerDashboardReportPage() {
           bookingType,
           stateId: stateId || undefined,
           agencyTier: (agencyTier as SalesManagerAgencyTier) || undefined,
-          salesManagerId: salesManagerId || undefined,
         },
         format,
         setExportStatus,
@@ -994,18 +1017,18 @@ export default function SalesManagerDashboardReportPage() {
         icon={LayoutDashboard}
         iconClassName="bg-gradient-to-br from-emerald-500 to-teal-600"
         title="Sales Manager Dashboard"
-        description={
-          report?.dateRange?.fromDate && report?.dateRange?.toDate
-            ? `${formatReportDate(report.dateRange.fromDate)} – ${formatReportDate(report.dateRange.toDate)}${
-                report.scope ? ` · ${formatStatusLabel(report.scope)}` : ""
-              } · ${formatStatusLabel(report.dateAxis || "BOOKING")} period`
-            : undefined
-        }
-        descriptionClassName="truncate text-xs font-bold text-slate-800"
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
+          <div className="flex flex-wrap items-center gap-2">
+            <ReportAppliedRange
+              from={report?.dateRange?.fromDate}
+              to={report?.dateRange?.toDate}
+              detail={
+                report
+                  ? `${report.scope ? `${formatStatusLabel(report.scope)} · ` : ""}${formatStatusLabel(report.dateAxis || "BOOKING")} period`
+                  : null
+              }
+            />
+            <ReportFilterButton
               onClick={() => {
                 setDraft({
                   datePreset,
@@ -1015,22 +1038,13 @@ export default function SalesManagerDashboardReportPage() {
                   bookingType,
                   stateId,
                   agencyTier,
-                  salesManagerId,
                 });
                 setCustomFromText(isoToReportDateText(fromDate));
                 setCustomToText(isoToReportDateText(toDate));
                 setFilterOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 ? (
-                <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {activeFilterCount}
-                </span>
-              ) : null}
-            </button>
+              activeCount={activeFilterCount}
+            />
             <ExportButton
               iconOnly
               disabled={loading || customRangeInvalid}
@@ -1066,18 +1080,15 @@ export default function SalesManagerDashboardReportPage() {
               type="button"
               onClick={() => void loadReport()}
               disabled={loading || customRangeInvalid}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              aria-label="Refresh"
+              title="Refresh"
+              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
             >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              Refresh
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             </button>
             <Link
               to={ROUTES.REPORTS.SALES_MANAGER_AGENTS}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:from-emerald-600 hover:to-teal-700"
             >
               <UserRoundCog className="h-4 w-4" />
               Agent Portfolio
@@ -1129,6 +1140,7 @@ export default function SalesManagerDashboardReportPage() {
                 <StatTile
                   label="Assigned"
                   icon={Users}
+                  tone="sky"
                   value={
                     report?.portfolioKpis.assignedAgents ?? (loading ? "…" : 0)
                   }
@@ -1144,6 +1156,7 @@ export default function SalesManagerDashboardReportPage() {
                 <StatTile
                   label="Inactive"
                   icon={Users}
+                  tone="violet"
                   value={
                     report?.portfolioKpis.inactiveAgents ?? (loading ? "…" : 0)
                   }
@@ -1160,7 +1173,7 @@ export default function SalesManagerDashboardReportPage() {
                 <StatTile
                   label="New Agents"
                   icon={BadgeCheck}
-                  tone="info"
+                  tone="blue"
                   value={report?.portfolioKpis.newAgents ?? (loading ? "…" : 0)}
                 />
                 <StatTile
@@ -1181,6 +1194,7 @@ export default function SalesManagerDashboardReportPage() {
                 <StatTile
                   label="Avg Bookings / Agent"
                   icon={BookOpen}
+                  tone="indigo"
                   value={
                     report?.portfolioKpis.averageBookingsPerAgent ??
                     (loading ? "…" : 0)
@@ -1189,6 +1203,7 @@ export default function SalesManagerDashboardReportPage() {
                 <StatTile
                   label="Avg Revenue / Agent"
                   icon={Banknote}
+                  tone="teal"
                   value={
                     report
                       ? formatReportMoney(
@@ -1214,6 +1229,7 @@ export default function SalesManagerDashboardReportPage() {
                 <StatTile
                   label="Active Sub-agents"
                   icon={Handshake}
+                  tone="cyan"
                   value={
                     report?.portfolioKpis.totalActiveSubAgents ??
                     (loading ? "…" : 0)
@@ -1243,12 +1259,14 @@ export default function SalesManagerDashboardReportPage() {
               <MetricWithChange
                 label="Hotel"
                 icon={LayoutDashboard}
+                tone="indigo"
                 metric={report?.bookingKpis.hotelBookings}
                 formatValue={(value) => String(value)}
               />
               <MetricWithChange
                 label="Package"
                 icon={Package}
+                tone="violet"
                 metric={report?.bookingKpis.packageBookings}
                 formatValue={(value) => String(value)}
               />
@@ -1301,14 +1319,14 @@ export default function SalesManagerDashboardReportPage() {
                 <MetricWithChange
                   label="OTA Revenue"
                   icon={TrendingUp}
-                  tone="info"
+                  tone="cyan"
                   metric={report?.revenueKpis.otaRevenue}
                   formatValue={(value) => formatReportMoney({ amount: value })}
                 />
                 <MetricWithChange
                   label="Agency Comm."
                   icon={Handshake}
-                  tone="success"
+                  tone="teal"
                   metric={report?.revenueKpis.agencyCommission}
                   formatValue={(value) => formatReportMoney({ amount: value })}
                 />
@@ -1322,7 +1340,7 @@ export default function SalesManagerDashboardReportPage() {
                 <StatTile
                   label="Collection Rate"
                   icon={Percent}
-                  tone="success"
+                  tone="indigo"
                   value={
                     report
                       ? `${report.revenueKpis.collectionRate.current.toFixed(1)}%`
@@ -1353,12 +1371,14 @@ export default function SalesManagerDashboardReportPage() {
                 <MetricWithChange
                   label="Refunds"
                   icon={RefreshCw}
+                  tone="orange"
                   metric={report?.revenueKpis.refundAmount}
                   formatValue={(value) => formatReportMoney({ amount: value })}
                 />
                 <StatTile
                   label="Avg Booking"
                   icon={Banknote}
+                  tone="blue"
                   value={
                     report
                       ? formatReportMoney(
@@ -1372,6 +1392,7 @@ export default function SalesManagerDashboardReportPage() {
                 <StatTile
                   label="Hotel Revenue"
                   icon={LayoutDashboard}
+                  tone="indigo"
                   value={
                     report
                       ? formatReportMoney(report.revenueKpis.hotelRevenue)
@@ -1383,6 +1404,7 @@ export default function SalesManagerDashboardReportPage() {
                 <StatTile
                   label="Package Revenue"
                   icon={Package}
+                  tone="violet"
                   value={
                     report
                       ? formatReportMoney(report.revenueKpis.packageRevenue)
@@ -1394,6 +1416,7 @@ export default function SalesManagerDashboardReportPage() {
                 <StatTile
                   label="Outstanding Days"
                   icon={CalendarDays}
+                  tone="cyan"
                   value={
                     report
                       ? `${report.revenueKpis.averageOutstandingDays.toFixed(0)}d`
@@ -1460,25 +1483,38 @@ export default function SalesManagerDashboardReportPage() {
                   {
                     label: "Applied → Approved",
                     value: report?.agentFunnel.appliedToApprovedPercent,
+                    card: "border-sky-100 bg-gradient-to-br from-sky-50 to-white",
+                    labelTone: "text-sky-700",
                   },
                   {
                     label: "Approved → Active",
                     value: report?.agentFunnel.approvedToActivatedPercent,
+                    card: "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white",
+                    labelTone: "text-emerald-700",
                   },
                   {
                     label: "Active → First booking",
                     value: report?.agentFunnel.activatedToFirstBookingPercent,
+                    card: "border-indigo-100 bg-gradient-to-br from-indigo-50 to-white",
+                    labelTone: "text-indigo-700",
                   },
                   {
                     label: "First booking → Retained",
                     value: report?.agentFunnel.firstBookingToRetainedPercent,
+                    card: "border-violet-100 bg-gradient-to-br from-violet-50 to-white",
+                    labelTone: "text-violet-700",
                   },
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className="rounded-md bg-slate-50 px-2 py-1.5"
+                    className={cn("rounded-md border px-2 py-1.5", item.card)}
                   >
-                    <p className="text-[9px] font-medium uppercase tracking-wide text-slate-500">
+                    <p
+                      className={cn(
+                        "text-[9px] font-medium uppercase tracking-wide",
+                        item.labelTone,
+                      )}
+                    >
                       {item.label}
                     </p>
                     <p className="mt-0.5 text-xs font-bold tabular-nums text-slate-900">
@@ -2019,27 +2055,6 @@ export default function SalesManagerDashboardReportPage() {
                   )}
                 </select>
               </FilterField>
-              {canFilterByManager ? (
-                <FilterField label="Sales manager">
-                  <select
-                    value={draft.salesManagerId}
-                    onChange={(event) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        salesManagerId: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  >
-                    <option value="">All managers</option>
-                    {managerOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </FilterField>
-              ) : null}
             </div>
             <div className="flex gap-2 border-t border-slate-100 px-4 py-3">
               <button

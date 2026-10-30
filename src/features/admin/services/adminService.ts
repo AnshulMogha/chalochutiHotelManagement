@@ -115,6 +115,8 @@ export interface TravelAgentOnboardingListItem {
   agencyName: string;
   agencyTier?: AgencyTier;
   status: TravelAgentOnboardingStatus;
+  onboardedByUserId?: number | null;
+  onboardedBy?: string | null;
   createdAt: string;
 }
 
@@ -165,6 +167,8 @@ export interface TravelAgentOnboardingItem {
   bankName: string;
   termsAccepted: boolean;
   status: TravelAgentOnboardingStatus;
+  onboardedByUserId?: number | null;
+  onboardedBy?: string | null;
   rejectionRemarks: string | null;
   reviewedBy: number | null;
   reviewedAt: string | null;

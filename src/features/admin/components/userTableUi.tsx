@@ -162,13 +162,14 @@ export function UserFilterSelect({
   const selected =
     options.find((opt) => opt.value === value) ?? options[0] ?? null;
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const visibleOptions = searchable && normalizedQuery
-    ? options.filter(
-        (opt) =>
-          opt.label.toLowerCase().includes(normalizedQuery) ||
-          opt.value.toLowerCase().includes(normalizedQuery),
-      )
-    : options;
+  const visibleOptions =
+    searchable && normalizedQuery
+      ? options.filter(
+          (opt) =>
+            opt.label.toLowerCase().includes(normalizedQuery) ||
+            opt.value.toLowerCase().includes(normalizedQuery),
+        )
+      : options;
 
   useEffect(() => {
     if (!open) {
@@ -325,41 +326,48 @@ export function UserFilterSelect({
 }
 
 export const userTableGridSx = {
+  "& .MuiDataGrid-columnHeader": {
+    padding: "8px 10px !important",
+    "& .MuiDataGrid-iconButtonContainer": {
+      opacity: "1 !important",
+      visibility: "visible !important",
+    },
+    "& .MuiDataGrid-columnSeparator": {
+      color: "#cbd5e1 !important",
+    },
+  },
+  "& .MuiDataGrid-columnHeader[data-field='actions']": {
+    paddingRight: "12px !important",
+  },
   "& .MuiDataGrid-row": {
     cursor: "pointer",
     transition: "background-color 0.15s ease",
     "&:hover": {
-      backgroundColor: "#eff6ff !important",
+      backgroundColor: "#f8fafc !important",
     },
     "&.Mui-selected": {
-      backgroundColor: "#dbeafe !important",
+      backgroundColor: "#eef2ff !important",
     },
   },
   "& .MuiDataGrid-cell": {
     display: "flex",
     alignItems: "center",
     overflow: "hidden",
-    py: "6px !important",
-  },
-  "& .MuiDataGrid-main": {
-    overflow: "hidden",
-  },
-  "& .MuiDataGrid-virtualScroller": {
-    overflowX: "auto !important",
+    lineHeight: "1.25 !important",
+    padding: "6px 10px !important",
   },
   "& .MuiDataGrid-cell[data-field='actions']": {
     overflow: "visible",
-    paddingLeft: "8px !important",
+    justifyContent: "flex-end",
     paddingRight: "12px !important",
   },
   "& .MuiDataGrid-cell[data-field='roles']": {
-    alignItems: "flex-start",
-    py: "8px !important",
+    alignItems: "center",
   },
   "& .MuiDataGrid-footerContainer": {
     minHeight: 48,
-    backgroundColor: "#f8fafc",
-    borderTop: "1px solid #e2e8f0",
+    backgroundColor: "#ffffff",
+    borderTop: "1px solid #f1f5f9",
   },
   "& .MuiTablePagination-root": {
     color: "#64748b",

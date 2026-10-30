@@ -1479,7 +1479,7 @@ function CommissionRulesPanel({
                 return (
                   <tr
                     key={commission.id}
-                    className="transition-colors even:bg-slate-50/60 hover:bg-blue-50/50"
+                    className="transition-colors even:bg-slate-50/60 hover:bg-slate-50/80"
                   >
                     <td className="whitespace-nowrap px-3 py-2 first:pl-4">
                       <div className="flex items-center gap-2 text-sm text-gray-700">
@@ -1974,14 +1974,14 @@ export default function CommissionAndTaxPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden">
-    <div className="mx-auto flex h-full w-full max-w-7xl min-h-0 flex-1 flex-col px-4 py-3 sm:px-6 lg:px-8">
+    <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden bg-slate-50">
+    <div className="mx-auto flex h-full w-full max-w-350 min-h-0 flex-1 flex-col px-3 py-4 sm:px-5">
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as AdminCommissionTab)}
-        className="flex min-h-0 flex-1 flex-col gap-4"
+        className="flex min-h-0 flex-1 flex-col gap-3"
       >
-        <TabsList className="inline-flex h-auto w-full shrink-0 flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 sm:w-auto">
+        <TabsList className="inline-flex h-auto w-full shrink-0 flex-wrap gap-1 rounded-xl border border-slate-200/80 bg-white p-1 shadow-sm sm:w-auto">
           {COMMISSION_TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.value;
@@ -2126,7 +2126,7 @@ export default function CommissionAndTaxPage() {
                   <select
                     value={taxStateFilter}
                     onChange={(e) => setTaxStateFilter(e.target.value)}
-                    className="min-w-[140px] rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/20"
+                    className="min-w-[140px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-100"
                   >
                     <option value="">All states</option>
                     {taxStates.map((state) => (
@@ -2213,7 +2213,7 @@ export default function CommissionAndTaxPage() {
                           return (
                             <tr
                               key={tax.id}
-                              className="transition-colors even:bg-slate-50/60 hover:bg-emerald-50/50"
+                              className="transition-colors even:bg-slate-50/60 hover:bg-slate-50/80"
                             >
                               <td className="whitespace-nowrap px-3 py-2 first:pl-4">
                                 <div className="flex items-center gap-2 text-sm text-gray-700">
@@ -2384,7 +2384,7 @@ export default function CommissionAndTaxPage() {
                       {filteredServiceFees.map((fee) => (
                         <tr
                           key={fee.id}
-                          className="transition-colors even:bg-slate-50/60 hover:bg-purple-50/50"
+                          className="transition-colors even:bg-slate-50/60 hover:bg-slate-50/80"
                         >
                           <td className="px-3 py-2 text-sm font-medium text-gray-900 first:pl-4">
                             <div className="flex items-center gap-2">

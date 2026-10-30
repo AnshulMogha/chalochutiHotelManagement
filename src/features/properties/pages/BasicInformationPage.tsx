@@ -15,35 +15,22 @@ import {
 } from "@/lib/permissions";
 import { ReadOnlySection } from "@/components/ui/ReadOnlySection";
 import { cn } from "@/lib/utils";
-import { BasicInfoFormCard } from "../components/property-info/basicInfoFormUi";
 
 const TABS = [
   {
     value: "property-details",
     label: "Property Details",
     icon: Building2,
-    active: "bg-blue-600 text-white font-semibold shadow-sm",
-    idle: "text-slate-700 hover:bg-blue-100 hover:text-blue-800",
-    iconActive: "text-white",
-    iconIdle: "text-slate-500 group-hover:text-blue-600",
   },
   {
     value: "property-contact",
     label: "Property Contact Details",
     icon: Phone,
-    active: "bg-emerald-600 text-white font-semibold shadow-sm",
-    idle: "text-slate-700 hover:bg-emerald-100 hover:text-emerald-800",
-    iconActive: "text-white",
-    iconIdle: "text-slate-500 group-hover:text-emerald-600",
   },
   {
     value: "how-to-reach",
     label: "How to Reach",
     icon: MapPin,
-    active: "bg-violet-600 text-white font-semibold shadow-sm",
-    idle: "text-slate-700 hover:bg-violet-100 hover:text-violet-800",
-    iconActive: "text-white",
-    iconIdle: "text-slate-500 group-hover:text-violet-600",
   },
 ] as const;
 
@@ -61,92 +48,97 @@ export default function BasicInformationPage() {
 
   if (!selectedHotelId) {
     return (
-      <div className="container mx-auto px-4 py-4">
-        <div className="mb-4">
-          <h1 className="text-xl font-bold tracking-tight text-gray-900">
-            Basic Information
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Please select a hotel from the dropdown above to view basic
-            information
-          </p>
-        </div>
-        <BasicInfoFormCard>
-          <div className="flex min-h-[400px] items-center justify-center">
-            <p className="text-gray-500">No hotel selected</p>
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+          <div className="flex min-h-60 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white">
+            <div className="text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200">
+                <Building2 className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-medium text-slate-700">
+                No hotel selected
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Select a hotel from the top bar to view basic information
+              </p>
+            </div>
           </div>
-        </BasicInfoFormCard>
+        </div>
       </div>
     );
   }
 
   if (!canViewBasicInfo) {
     return (
-      <div className="container mx-auto px-4 py-4">
-        <div className="mb-4">
-          <h1 className="text-xl font-bold tracking-tight text-gray-900">
-            Basic Information
-          </h1>
-          <p className="mt-1 text-sm text-gray-600">
-            You do not have permission to view this section.
-          </p>
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center shadow-sm">
+            <p className="text-sm font-medium text-slate-700">
+              You do not have permission to view this section.
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 pb-4">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="sticky top-0 z-20 -mx-4 mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 bg-gray-50 px-4 py-3">
-          <h1 className="shrink-0 text-xl font-bold tracking-tight text-gray-900">
-            Basic Information
-          </h1>
-          <TabsList className="inline-flex h-auto w-full flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 sm:w-auto">
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.value;
-              return (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className={cn(
-                    "group gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
-                    isActive ? tab.active : tab.idle,
-                  )}
-                >
-                  <Icon
-                    className={cn(
-                      "h-4 w-4 shrink-0",
-                      isActive ? tab.iconActive : tab.iconIdle,
-                    )}
-                    strokeWidth={2.25}
-                  />
-                  {tab.label}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </div>
+    <div className="min-h-full bg-slate-50">
+      <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+              <TabsList className="inline-flex h-auto w-full flex-wrap gap-1 bg-transparent p-0 sm:w-auto">
+                {TABS.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.value;
+                  return (
+                    <TabsTrigger
+                      key={tab.value}
+                      value={tab.value}
+                      className={cn(
+                        "group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition",
+                        isActive
+                          ? "bg-[#2f3d95] text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800",
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          "h-3.5 w-3.5 shrink-0",
+                          isActive
+                            ? "text-white"
+                            : "text-slate-500 group-hover:text-slate-700",
+                        )}
+                        strokeWidth={2.25}
+                      />
+                      {tab.label}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </div>
+          </div>
 
-        <TabsContent value="property-details" className="mt-0">
-          <ReadOnlySection isReadOnly={readOnlyPropertyDetails}>
-            <PropertyDetailsTab hotelId={selectedHotelId} />
-          </ReadOnlySection>
-        </TabsContent>
+          <TabsContent value="property-details" className="mt-0">
+            <ReadOnlySection isReadOnly={readOnlyPropertyDetails}>
+              <PropertyDetailsTab hotelId={selectedHotelId} />
+            </ReadOnlySection>
+          </TabsContent>
 
-        <TabsContent value="property-contact" className="mt-0">
-          <ReadOnlySection isReadOnly={readOnlyContact}>
-            <PropertyContactDetailsTab hotelId={selectedHotelId} />
-          </ReadOnlySection>
-        </TabsContent>
+          <TabsContent value="property-contact" className="mt-0">
+            <ReadOnlySection isReadOnly={readOnlyContact}>
+              <PropertyContactDetailsTab hotelId={selectedHotelId} />
+            </ReadOnlySection>
+          </TabsContent>
 
-        <TabsContent value="how-to-reach" className="mt-0">
-          <ReadOnlySection isReadOnly={readOnlyHowToReach}>
-            <HowToReachTab hotelId={selectedHotelId} />
-          </ReadOnlySection>
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="how-to-reach" className="mt-0">
+            <ReadOnlySection isReadOnly={readOnlyHowToReach}>
+              <HowToReachTab hotelId={selectedHotelId} />
+            </ReadOnlySection>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }

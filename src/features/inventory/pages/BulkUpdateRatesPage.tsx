@@ -1041,7 +1041,7 @@ export default function BulkUpdateRatesPage() {
   const calculateNettRate = (grossRate: number) => grossRate;
 
   const b2bB2cInputClassName =
-    "w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400";
+    "w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400";
 
   const showB2bDualPricing =
     customerTypeUI === "B2C" && updateBothPricesB2CAndB2B;
@@ -1204,7 +1204,7 @@ export default function BulkUpdateRatesPage() {
                   </p>
                 </div>
               </div>
-              {/* <div className="h-1 w-full bg-blue-600/70 rounded-full mt-3"></div> */}
+              {/* <div className="h-1 w-full bg-[#2f3d95]/70 rounded-full mt-3"></div> */}
             </div>
           </div>
 
@@ -1233,7 +1233,7 @@ export default function BulkUpdateRatesPage() {
                     value={customerTypeUI}
                     onChange={(e) => setCustomerTypeUI(e.target.value)}
                     disabled={isSubmitting}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white text-sm font-semibold text-slate-800 focus:outline-none focus:ring-3 focus:ring-blue-500/25 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-blue-200 shadow-sm"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white text-sm font-semibold text-slate-800 focus:outline-none focus:ring-3 focus:ring-[#2f3d95]/25 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-blue-200 shadow-sm"
                   >
                     <option value="B2C">B2C</option>
                     <option value="B2B">B2B</option>
@@ -1328,7 +1328,7 @@ export default function BulkUpdateRatesPage() {
                               transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
                               ${
                                 isSelected
-                                  ? "bg-blue-600 text-white shadow-sm hover:bg-blue-700 border-blue-600"
+                                  ? "bg-[#2f3d95] text-white shadow-sm hover:bg-[#263578] border-[#2f3d95]"
                                   : "bg-white text-blue-700 border-blue-100 hover:border-blue-200 hover:bg-blue-50"
                               }
                             `}
@@ -1390,7 +1390,7 @@ export default function BulkUpdateRatesPage() {
                         onChange={(e) => setShowNettRate(e.target.checked)}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#2f3d95]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2f3d95] shadow-inner"></div>
                     </label>
                   </div> */}
 
@@ -1416,7 +1416,7 @@ export default function BulkUpdateRatesPage() {
                         }
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#2f3d95]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2f3d95] shadow-inner"></div>
                     </label>
                   </div>
 
@@ -1445,7 +1445,7 @@ export default function BulkUpdateRatesPage() {
                         disabled={isSubmitting}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#2f3d95]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2f3d95] shadow-inner"></div>
                     </label>
                   </div>
                   )}
@@ -1482,7 +1482,7 @@ export default function BulkUpdateRatesPage() {
                   placeholder="Search for a rate plan..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl bg-white text-sm font-semibold text-slate-800 focus:outline-none focus:ring-3 focus:ring-blue-500/25 focus:border-blue-500 shadow-sm transition-all hover:border-blue-200 placeholder:text-slate-400"
+                  className="w-full pl-12 pr-4 py-3.5 border border-slate-200 rounded-xl bg-white text-sm font-semibold text-slate-800 focus:outline-none focus:ring-3 focus:ring-[#2f3d95]/25 focus:border-blue-500 shadow-sm transition-all hover:border-blue-200 placeholder:text-slate-400"
                 />
               </div>
             </div>
@@ -1745,7 +1745,7 @@ export default function BulkUpdateRatesPage() {
                                             ? LINKED_SLAVE_RATE_TOOLTIP
                                             : undefined
                                         }
-                                        className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
+                                        className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                       />
                                       {showB2bDualPricing &&
                                         getFormValue(
@@ -1906,7 +1906,7 @@ export default function BulkUpdateRatesPage() {
                                               ? LINKED_SLAVE_RATE_TOOLTIP
                                               : undefined
                                           }
-                                          className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
+                                          className="w-full px-4 py-3.5 border border-slate-300 rounded-lg bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/20 focus:border-blue-500 disabled:bg-slate-50 disabled:cursor-not-allowed transition-all hover:border-slate-400"
                                         />
                                         {showB2bDualPricing &&
                                           getFormValue(
@@ -1970,7 +1970,7 @@ export default function BulkUpdateRatesPage() {
                         type="button"
                         onClick={handleSubmit}
                         disabled={!canSubmit || isReadOnly}
-                        className="px-8 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 disabled:hover:shadow-md flex items-center gap-2"
+                        className="px-8 py-2.5 text-sm font-semibold text-white bg-[#2f3d95] hover:bg-[#263578] rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#2f3d95] disabled:hover:shadow-md flex items-center gap-2"
                       >
                         {isSubmitting ? (
                           <>

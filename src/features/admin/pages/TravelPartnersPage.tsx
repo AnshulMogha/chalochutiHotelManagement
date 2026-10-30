@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { Button, DataTable, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
+import { useState, useEffect, useCallback } from "react";
+import { Button, DataTable, formatListCount } from "@/components/ui";
 import { ExportButton } from "@/components/ui/ExportButton";
+import type { GridColDef } from "@mui/x-data-grid";
 import { ApproveRejectModal } from "../components/ApproveRejectModal";
 import { adminService } from "../services/adminService";
 import type {
@@ -14,10 +15,7 @@ import {
   isSuperAdmin,
   isZonalManagerSalesRole,
 } from "@/constants/roles";
-import type { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import {
-  Handshake,
-  Eye,
   X,
   User,
   FileText,
@@ -29,17 +27,20 @@ import {
   Mail,
   MapPin,
   Hash,
-  CalendarDays,
-  MessageSquare,
   IdCard,
   Briefcase,
   Loader2,
   AlertCircle,
-  Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportFilterDrawer,
+  ReportRefreshButton,
+} from "@/features/reports/components/ReportFilterDrawer";
 import {
   isoToReportDateText,
   parseOptionalReportDate,
@@ -52,8 +53,6 @@ import type {
 } from "@/features/reports/services/reportExportService";
 import {
   TravelPartnerBadge,
-  TravelPartnerColumnHeader,
-  TRAVEL_PARTNER_TAB_STYLES,
   getAgencyTierTone,
   getTravelPartnerRemarkTone,
   travelPartnerTableGridSx,
@@ -91,6 +90,8 @@ export interface TravelPartner {
   email: string;
   agencyNumber: string;
   agencyTier?: AgencyTier;
+  onboardedBy?: string | null;
+  onboardedByUserId?: number | null;
   panNumber?: string;
   panCardFileUrl?: string;
   gstNumber?: string;
@@ -126,6 +127,8 @@ function mapListItemToPartner(
     email: item.email,
     agencyNumber: item.agencyName,
     agencyTier: item.agencyTier,
+    onboardedBy: item.onboardedBy ?? null,
+    onboardedByUserId: item.onboardedByUserId ?? null,
   };
 }
 
@@ -142,6 +145,8 @@ function mapOnboardingToPartner(
     email: item.email,
     agencyNumber: item.agencyName,
     agencyTier: item.agencyTier,
+    onboardedBy: item.onboardedBy ?? null,
+    onboardedByUserId: item.onboardedByUserId ?? null,
     panNumber: item.panNumber,
     panCardFileUrl: item.panCardDocumentUrl,
     gstNumber: item.gstNumber,
@@ -162,10 +167,26 @@ const PARTNER_TABS: Array<{
   value: TravelPartnerStatus;
   label: string;
   icon: typeof Clock;
+  activeClass: string;
 }> = [
-  { value: "PENDING", label: "Pending", icon: Clock },
-  { value: "APPROVED", label: "Approved", icon: CheckCircle },
-  { value: "REJECTED", label: "Rejected", icon: XCircle },
+  {
+    value: "PENDING",
+    label: "Pending",
+    icon: Clock,
+    activeClass: "bg-amber-500 text-white",
+  },
+  {
+    value: "APPROVED",
+    label: "Approved",
+    icon: CheckCircle,
+    activeClass: "bg-emerald-600 text-white",
+  },
+  {
+    value: "REJECTED",
+    label: "Rejected",
+    icon: XCircle,
+    activeClass: "bg-rose-600 text-white",
+  },
 ];
 
 const EMPTY_MESSAGES: Record<
@@ -228,10 +249,8 @@ export default function TravelPartnersPage() {
     null,
   );
   const [selectedTier, setSelectedTier] = useState<AgencyTier>("GOLD");
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: 20,
-  });
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [totalElements, setTotalElements] = useState(0);
   const [statusTotals, setStatusTotals] = useState<
     Record<TravelPartnerStatus, number>
@@ -259,15 +278,15 @@ export default function TravelPartnersPage() {
     selectedPartner?.status === "PENDING" &&
     (!isZonalSales || detailStep === 2);
 
-  const hasActiveFilters = Boolean(
-    appliedFilters.email ||
-      appliedFilters.name ||
-      appliedFilters.agencyName ||
-      appliedFilters.agencyTier ||
-      appliedFilters.createdAt ||
-      appliedFilters.createdAtFrom ||
-      appliedFilters.createdAtTo,
-  );
+  const activeFilterCount =
+    (appliedFilters.email ? 1 : 0) +
+    (appliedFilters.name ? 1 : 0) +
+    (appliedFilters.agencyName ? 1 : 0) +
+    (appliedFilters.agencyTier ? 1 : 0) +
+    (appliedFilters.createdAt ? 1 : 0) +
+    (appliedFilters.createdAtFrom || appliedFilters.createdAtTo ? 1 : 0);
+  const hasActiveFilters = activeFilterCount > 0;
+  const totalPages = Math.max(1, Math.ceil(totalElements / pageSize) || 1);
 
   const applyFilters = () => {
     const createdAtIso = parseOptionalReportDate(draftFilters.createdAt);
@@ -300,14 +319,14 @@ export default function TravelPartnersPage() {
       createdAtFrom,
       createdAtTo,
     });
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    setPage(0);
     setFilterOpen(false);
   };
 
   const resetFilters = () => {
     setDraftFilters(DEFAULT_PARTNER_FILTERS);
     setAppliedFilters(DEFAULT_PARTNER_FILTERS);
-    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    setPage(0);
     setFilterOpen(false);
   };
 
@@ -373,8 +392,8 @@ export default function TravelPartnersPage() {
     setListError(null);
     try {
       const response = await adminService.getTravelAgentOnboardingList({
-        page: paginationModel.page,
-        size: paginationModel.pageSize,
+        page,
+        size: pageSize,
         status: activeTab,
         ...(appliedFilters.email ? { email: appliedFilters.email } : {}),
         ...(appliedFilters.name ? { name: appliedFilters.name } : {}),
@@ -416,12 +435,7 @@ export default function TravelPartnersPage() {
     } finally {
       setLoading(false);
     }
-  }, [
-    activeTab,
-    paginationModel.page,
-    paginationModel.pageSize,
-    appliedFilters,
-  ]);
+  }, [activeTab, page, pageSize, appliedFilters]);
 
   useEffect(() => {
     fetchPartners();
@@ -433,7 +447,13 @@ export default function TravelPartnersPage() {
     setDetailLoading(true);
     try {
       const item = await adminService.getTravelAgentOnboardingById(partner.id);
-      setSelectedPartner(mapOnboardingToPartner(item));
+      const mapped = mapOnboardingToPartner(item);
+      setSelectedPartner({
+        ...mapped,
+        onboardedBy: mapped.onboardedBy ?? partner.onboardedBy ?? null,
+        onboardedByUserId:
+          mapped.onboardedByUserId ?? partner.onboardedByUserId ?? null,
+      });
     } catch {
       // Keep showing list item if fetch by id fails
     } finally {
@@ -497,140 +517,136 @@ export default function TravelPartnersPage() {
     }
   };
 
-  const columns = useMemo((): GridColDef<TravelPartner>[] => {
-    const cols: GridColDef<TravelPartner>[] = [
-      {
-        field: "name",
-        headerName: "Name",
-        flex: 1.2,
-        minWidth: 160,
-        valueGetter: (_value, row) =>
-          `${row.title ? `${row.title} ` : ""}${row.name}`,
-        renderHeader: () => (
-          <TravelPartnerColumnHeader icon={User} label="Name" />
-        ),
-        renderCell: (params) => (
-          <TravelPartnerBadge className="bg-indigo-50 text-indigo-800 ring-indigo-200">
-            {params.value as string}
-          </TravelPartnerBadge>
-        ),
+  const emptyMessage = EMPTY_MESSAGES[activeTab];
+  const columns: GridColDef<TravelPartner>[] = [
+    {
+      field: "name",
+      headerName: "Name",
+      flex: 1.1,
+      minWidth: 160,
+      sortable: false,
+      renderCell: (params) => {
+        const fullName = `${params.row.title ? `${params.row.title} ` : ""}${params.row.name}`;
+        return (
+          <span className="truncate text-sm font-semibold leading-tight text-slate-900">
+            {fullName}
+          </span>
+        );
       },
-      {
-        field: "email",
-        headerName: "Email",
-        flex: 1.3,
-        minWidth: 180,
-        renderHeader: () => (
-          <TravelPartnerColumnHeader icon={Mail} label="Email" />
-        ),
-        renderCell: (params) => (
-          <TravelPartnerBadge
-            className="bg-sky-50 text-sky-800 ring-sky-200"
-            title={String(params.value ?? "")}
+    },
+    {
+      field: "email",
+      headerName: "Email",
+      flex: 1.3,
+      minWidth: 200,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="truncate text-sm text-slate-700" title={params.row.email}>
+          {params.row.email || "—"}
+        </span>
+      ),
+    },
+    {
+      field: "agencyNumber",
+      headerName: "Agency No.",
+      flex: 0.9,
+      minWidth: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="truncate text-sm text-slate-700">
+          {params.row.agencyNumber || "—"}
+        </span>
+      ),
+    },
+    {
+      field: "agencyTier",
+      headerName: "Agency Tier",
+      width: 130,
+      minWidth: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <TravelPartnerBadge className={getAgencyTierTone(params.row.agencyTier)}>
+          {formatAgencyTier(params.row.agencyTier)}
+        </TravelPartnerBadge>
+      ),
+    },
+    {
+      field: "onboardedBy",
+      headerName: "Onboarded By",
+      flex: 1.2,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (params) =>
+        params.row.onboardedBy ? (
+          <span
+            className="truncate text-sm text-slate-700"
+            title={params.row.onboardedBy}
           >
-            {params.value as string}
-          </TravelPartnerBadge>
+            {params.row.onboardedBy}
+          </span>
+        ) : (
+          <span className="text-sm text-slate-400">—</span>
         ),
-      },
-      {
-        field: "agencyNumber",
-        headerName: "Agency No.",
-        flex: 1,
-        minWidth: 130,
-        renderHeader: () => (
-          <TravelPartnerColumnHeader icon={IdCard} label="Agency No." />
-        ),
-        renderCell: (params) => (
-          <TravelPartnerBadge className="bg-violet-50 text-violet-800 ring-violet-200">
-            {params.value as string}
-          </TravelPartnerBadge>
-        ),
-      },
-      {
-        field: "agencyTier",
-        headerName: "Agency Tier",
-        flex: 0.9,
-        minWidth: 120,
-        valueGetter: (_value, row) => formatAgencyTier(row.agencyTier),
-        renderHeader: () => (
-          <TravelPartnerColumnHeader icon={Briefcase} label="Agency Tier" />
-        ),
-        renderCell: (params) => (
-          <TravelPartnerBadge
-            className={getAgencyTierTone(params.row.agencyTier)}
-          >
-            {params.value as string}
-          </TravelPartnerBadge>
-        ),
-      },
-      {
-        field: "appliedAt",
-        headerName: "Applied",
-        flex: 0.8,
-        minWidth: 110,
-        valueGetter: (_value, row) => formatDate(row.appliedAt),
-        renderHeader: () => (
-          <TravelPartnerColumnHeader icon={CalendarDays} label="Applied" />
-        ),
-        renderCell: (params) => (
-          <TravelPartnerBadge className="bg-slate-100 text-slate-700 ring-slate-200">
-            {params.value as string}
-          </TravelPartnerBadge>
-        ),
-      },
-    ];
-
-    if (activeTab !== "PENDING") {
-      cols.push({
-        field: "remarks",
-        headerName: "Remarks",
-        flex: 1.2,
-        minWidth: 160,
-        sortable: false,
-        renderHeader: () => (
-          <TravelPartnerColumnHeader icon={MessageSquare} label="Remarks" />
-        ),
-        renderCell: (params) => (
-          <TravelPartnerBadge
-            className={getTravelPartnerRemarkTone(activeTab)}
-            title={String(params.value ?? "—")}
-          >
-            {(params.value as string) || "—"}
-          </TravelPartnerBadge>
-        ),
-      });
-    }
-
-    cols.push({
+    },
+    {
+      field: "appliedAt",
+      headerName: "Applied",
+      width: 120,
+      minWidth: 110,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="whitespace-nowrap text-sm font-medium text-slate-600">
+          {formatDate(params.row.appliedAt)}
+        </span>
+      ),
+    },
+    ...(activeTab !== "PENDING"
+      ? [
+          {
+            field: "remarks",
+            headerName: "Remarks",
+            flex: 1,
+            minWidth: 160,
+            sortable: false,
+            renderCell: (params) => (
+              <TravelPartnerBadge
+                className={getTravelPartnerRemarkTone(activeTab)}
+                title={params.row.remarks || "—"}
+              >
+                {params.row.remarks || "—"}
+              </TravelPartnerBadge>
+            ),
+          } satisfies GridColDef<TravelPartner>,
+        ]
+      : []),
+    {
       field: "actions",
-      headerName: "Actions",
-      flex: 0.7,
-      minWidth: 130,
+      headerName: "",
+      width: activeTab === "APPROVED" && canUpdateTier ? 148 : 88,
+      minWidth: 88,
       sortable: false,
       filterable: false,
+      disableColumnMenu: true,
       align: "right",
       headerAlign: "right",
-      renderHeader: () => (
-        <TravelPartnerColumnHeader icon={Eye} label="Actions" />
-      ),
       renderCell: (params) => (
-        <div className="flex items-center justify-end gap-1.5">
-          {activeTab === "APPROVED" && canUpdateTier && (
+        <div className="flex w-full items-center justify-end gap-1.5">
+          {activeTab === "APPROVED" && canUpdateTier ? (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(event) => {
+                event.stopPropagation();
                 openTierModal(params.row);
               }}
               className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
             >
               Tier
             </button>
-          )}
+          ) : null}
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={(event) => {
+              event.stopPropagation();
               void openPartnerDetail(params.row);
             }}
             className="rounded-lg border border-[#2f3d95]/25 bg-[#eef2ff] px-3 py-1 text-xs font-semibold text-[#2f3d95] transition-colors hover:border-[#2f3d95] hover:bg-[#2f3d95] hover:text-white"
@@ -639,25 +655,105 @@ export default function TravelPartnersPage() {
           </button>
         </div>
       ),
-    });
+    },
+  ];
 
-    return cols;
-  }, [activeTab, canUpdateTier, openPartnerDetail, openTierModal]);
+  const statusBadgeClass: Record<TravelPartnerStatus, string> = {
+    PENDING: "bg-amber-100 text-amber-800",
+    APPROVED: "bg-emerald-100 text-emerald-800",
+    REJECTED: "bg-rose-100 text-rose-800",
+  };
 
-  const renderPanel = () => {
-    const message = EMPTY_MESSAGES[activeTab];
-
-    return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm">
-        {loading ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-4">
-            <Loader2 className="mb-3 h-9 w-9 animate-spin text-[#2f3d95]" />
-            <p className="text-sm font-medium text-gray-600">
-              Loading travel partners...
-            </p>
+  return (
+    <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden bg-slate-50">
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
+      <div className="mx-auto flex h-full w-full max-w-350 min-h-0 flex-1 flex-col gap-3 px-3 py-4 sm:px-5">
+        <div className="shrink-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+            <div className="flex flex-wrap items-center gap-1">
+              {PARTNER_TABS.map((tab) => {
+                const isActive = activeTab === tab.value;
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(tab.value);
+                      setPage(0);
+                    }}
+                    className={cn(
+                      "cursor-pointer rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition",
+                      isActive
+                        ? tab.activeClass
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                    )}
+                  >
+                    {tab.label}
+                    <span
+                      className={cn(
+                        "ml-1.5 rounded-full px-1.5 py-px text-[10px] font-bold",
+                        isActive
+                          ? "bg-white/20 text-white"
+                          : "bg-white text-slate-500",
+                      )}
+                    >
+                      {statusTotals[tab.value]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <ReportAppliedRange
+                from={
+                  appliedFilters.createdAtFrom ||
+                  appliedFilters.createdAt ||
+                  null
+                }
+                to={appliedFilters.createdAtTo || null}
+                detail={
+                  [
+                    PARTNER_TABS.find((tab) => tab.value === activeTab)?.label,
+                    appliedFilters.email || null,
+                    appliedFilters.name || null,
+                    appliedFilters.agencyName || null,
+                    appliedFilters.agencyTier
+                      ? formatAgencyTier(
+                          appliedFilters.agencyTier as AgencyTier,
+                        )
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || null
+                }
+              />
+              <ReportFilterButton
+                onClick={openFilterDrawer}
+                activeCount={activeFilterCount}
+              />
+              <ExportButton
+                iconOnly
+                exporting={exporting}
+                exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+                onExportExcel={() => void exportPartners("EXCEL")}
+                onExportCSV={() => void exportPartners("CSV")}
+                onExportPDF={() => void exportPartners("PDF")}
+              />
+              <ReportRefreshButton
+                onClick={() => void fetchPartners()}
+                loading={loading}
+              />
+            </div>
           </div>
-        ) : listError ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+        </div>
+
+        {listError ? (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-center">
             <AlertCircle className="mb-3 h-10 w-10 text-red-400" />
             <p className="mb-3 text-sm font-medium text-red-600">{listError}</p>
             <Button
@@ -668,301 +764,175 @@ export default function TravelPartnersPage() {
               Retry
             </Button>
           </div>
-        ) : partners.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
-              <Handshake className="h-8 w-8 text-gray-400" />
-            </div>
-            <h3 className="mb-1 text-lg font-semibold text-gray-900">
-              {hasActiveFilters
-                ? "No partners match your filters"
-                : message.title}
-            </h3>
-            <p className="max-w-sm text-sm text-gray-500">
-              {hasActiveFilters
-                ? "Try a different name, email, agency, or date."
-                : message.description}
-            </p>
-          </div>
         ) : (
           <DataTable
+            subtitle={
+              loading ? (
+                "Loading…"
+              ) : (
+                <>
+                  <span className="font-medium text-slate-600">
+                    {formatListCount(totalElements, "partner")}
+                  </span>
+                  <span className="text-slate-400">
+                    {hasActiveFilters ? " · filtered" : ""} · Page {page + 1} of{" "}
+                    {totalPages}
+                  </span>
+                </>
+              )
+            }
             rows={partners}
             columns={columns}
             getRowId={(row) => row.id}
-            rowHeight={56}
-            pageSizeOptions={[10, 20, 50]}
+            loading={loading}
             paginationMode="server"
-            paginationModel={paginationModel}
-            onPaginationModelChange={setPaginationModel}
             rowCount={totalElements}
+            paginationModel={{ page, pageSize }}
+            onPaginationModelChange={(model) => {
+              if (model.pageSize !== pageSize) {
+                setPageSize(model.pageSize);
+                setPage(0);
+                return;
+              }
+              if (model.page !== page) setPage(model.page);
+            }}
+            pageSizeOptions={[10, 20, 50, 100]}
+            disableRowSelectionOnClick
+            disableColumnFilter
+            showToolbar
+            showExport={false}
             fillContainer
+            dense
+            rowHeight={52}
             sx={travelPartnerTableGridSx}
-            className="h-full rounded-none border-0 shadow-none"
+            className="min-h-0"
+            localeText={{
+              noRowsLabel: hasActiveFilters
+                ? "No partners match your filters."
+                : `${emptyMessage.title}. ${emptyMessage.description}`,
+            }}
           />
         )}
       </div>
-    );
-  };
 
-  const statusBadgeClass: Record<TravelPartnerStatus, string> = {
-    PENDING: "bg-amber-100 text-amber-800",
-    APPROVED: "bg-emerald-100 text-emerald-800",
-    REJECTED: "bg-rose-100 text-rose-800",
-  };
-
-  return (
-    <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden">
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={hideToast}
-      />
-      <div className="container mx-auto flex h-full min-h-0 flex-1 flex-col px-4 py-4">
-        <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-bold tracking-tight text-gray-900">
-            Travel Partners
-            {!loading && (
-              <span className="ml-1.5 font-bold text-gray-900">
-                ({totalElements} partner{totalElements !== 1 ? "s" : ""})
-              </span>
-            )}
-          </h1>
-          <div className="flex items-center gap-2">
-            <ExportButton
-              iconOnly
-              exporting={exporting}
-              exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
-              onExportExcel={() => void exportPartners("EXCEL")}
-              onExportCSV={() => void exportPartners("CSV")}
-              onExportPDF={() => void exportPartners("PDF")}
-            />
-            <button
-              type="button"
-              onClick={openFilterDrawer}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {hasActiveFilters ? (
-                <span className="rounded-full bg-[#2f3d95] px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  Active
-                </span>
-              ) : null}
-            </button>
-          </div>
-        </div>
-
-        <Tabs
-          value={activeTab}
-          onValueChange={(nextTab) => {
-            setActiveTab(nextTab as TravelPartnerStatus);
-            setPaginationModel((prev) => ({ ...prev, page: 0 }));
-          }}
-          className="flex min-h-0 flex-1 flex-col gap-3"
-        >
-          <TabsList className="inline-flex h-auto w-full shrink-0 flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 sm:w-auto">
-            {PARTNER_TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.value;
-              const styles = TRAVEL_PARTNER_TAB_STYLES[tab.value];
-              return (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className={cn(
-                    "gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150",
-                    isActive ? styles.active : styles.idle,
-                  )}
-                >
-                  <Icon
-                    className={cn(
-                      "h-4 w-4 shrink-0",
-                      isActive ? styles.iconActive : styles.iconIdle,
-                    )}
-                    strokeWidth={2.25}
-                  />
-                  {tab.label}
-                  <span
-                    className={cn(
-                      "ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold",
-                      isActive
-                        ? "bg-white/25 text-white"
-                        : "bg-white/80 text-gray-600",
-                    )}
-                  >
-                    {statusTotals[tab.value]}
-                  </span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-
-          {PARTNER_TABS.map((tab) => (
-            <TabsContent
-              key={tab.value}
-              value={tab.value}
-              className="mt-0 flex min-h-0 flex-1 flex-col"
-            >
-              {activeTab === tab.value ? renderPanel() : null}
-            </TabsContent>
-          ))}
-        </Tabs>
-      </div>
-
-      {filterOpen ? (
-        <div className="fixed inset-0 z-50 flex">
-          <button
-            type="button"
-            aria-label="Close filters"
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => setFilterOpen(false)}
+      <ReportFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onReset={resetFilters}
+        onApply={applyFilters}
+        title="Filters"
+        resetLabel="Reset"
+        applyLabel="Apply"
+      >
+        <section>
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            Email
+          </label>
+          <input
+            type="search"
+            value={draftFilters.email}
+            onChange={(e) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                email: e.target.value,
+              }))
+            }
+            placeholder="agent@"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
-          <aside className="relative ml-auto flex h-full w-full max-w-sm flex-col bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
-                <p className="text-[11px] text-slate-500">
-                  Search partners, then apply to refresh
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(false)}
-                className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Email
-                </label>
-                <input
-                  type="search"
-                  value={draftFilters.email}
-                  onChange={(e) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      email: e.target.value,
-                    }))
-                  }
-                  placeholder="agent@"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Name
-                </label>
-                <input
-                  type="search"
-                  value={draftFilters.name}
-                  onChange={(e) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                    }))
-                  }
-                  placeholder="John"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Agency name
-                </label>
-                <input
-                  type="search"
-                  value={draftFilters.agencyName}
-                  onChange={(e) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      agencyName: e.target.value,
-                    }))
-                  }
-                  placeholder="Sky"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Agency tier
-                </label>
-                <select
-                  value={draftFilters.agencyTier}
-                  onChange={(e) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      agencyTier: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="">All tiers</option>
-                  {AGENCY_TIER_OPTIONS.map((tier) => (
-                    <option key={tier.value} value={tier.value}>
-                      {tier.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <ReportCustomDateFields
-                  singleDate
-                  singleLabel="Created date (IST day)"
-                  fromText={draftFilters.createdAt}
-                  onFromTextChange={(value) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      createdAt: value,
-                      createdAtFrom: "",
-                      createdAtTo: "",
-                    }))
-                  }
-                />
-              </div>
-              <ReportCustomDateFields
-                fromLabel="Created from"
-                toLabel="Created to"
-                fromText={draftFilters.createdAtFrom}
-                toText={draftFilters.createdAtTo}
-                onFromTextChange={(value) =>
-                  setDraftFilters((prev) => ({
-                    ...prev,
-                    createdAtFrom: value,
-                    createdAt: "",
-                  }))
-                }
-                onToTextChange={(value) =>
-                  setDraftFilters((prev) => ({
-                    ...prev,
-                    createdAtTo: value,
-                    createdAt: "",
-                  }))
-                }
-              />
-            </div>
-            <div className="flex gap-2 border-t border-slate-200 px-4 py-3">
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                onClick={applyFilters}
-                className="flex-1 rounded-lg bg-[#2f3d95] px-3 py-2 text-sm font-semibold text-white hover:bg-[#263578]"
-              >
-                Apply
-              </button>
-            </div>
-          </aside>
-        </div>
-      ) : null}
+        </section>
+        <section>
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            Name
+          </label>
+          <input
+            type="search"
+            value={draftFilters.name}
+            onChange={(e) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                name: e.target.value,
+              }))
+            }
+            placeholder="John"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
+        </section>
+        <section>
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            Agency name
+          </label>
+          <input
+            type="search"
+            value={draftFilters.agencyName}
+            onChange={(e) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                agencyName: e.target.value,
+              }))
+            }
+            placeholder="Sky"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
+        </section>
+        <section>
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            Agency tier
+          </label>
+          <select
+            value={draftFilters.agencyTier}
+            onChange={(e) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                agencyTier: e.target.value,
+              }))
+            }
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          >
+            <option value="">All tiers</option>
+            {AGENCY_TIER_OPTIONS.map((tier) => (
+              <option key={tier.value} value={tier.value}>
+                {tier.label}
+              </option>
+            ))}
+          </select>
+        </section>
+        <section>
+          <ReportCustomDateFields
+            singleDate
+            singleLabel="Created date (IST day)"
+            fromText={draftFilters.createdAt}
+            onFromTextChange={(value) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                createdAt: value,
+                createdAtFrom: "",
+                createdAtTo: "",
+              }))
+            }
+          />
+        </section>
+        <ReportCustomDateFields
+          fromLabel="Created from"
+          toLabel="Created to"
+          fromText={draftFilters.createdAtFrom}
+          toText={draftFilters.createdAtTo}
+          onFromTextChange={(value) =>
+            setDraftFilters((prev) => ({
+              ...prev,
+              createdAtFrom: value,
+              createdAt: "",
+            }))
+          }
+          onToTextChange={(value) =>
+            setDraftFilters((prev) => ({
+              ...prev,
+              createdAtTo: value,
+              createdAt: "",
+            }))
+          }
+        />
+      </ReportFilterDrawer>
 
       {/* Detail Modal */}
       {selectedPartner && (
@@ -1107,6 +1077,15 @@ export default function TravelPartnersPage() {
                               <dt className="text-gray-500">Email</dt>
                               <dd className="font-medium text-gray-900 break-all">
                                 {selectedPartner.email ?? "—"}
+                              </dd>
+                            </div>
+                          </div>
+                          <div className="sm:col-span-2 flex items-start gap-2">
+                            <User className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                            <div className="min-w-0">
+                              <dt className="text-gray-500">Onboarded by</dt>
+                              <dd className="font-medium text-gray-900 break-all">
+                                {selectedPartner.onboardedBy || "—"}
                               </dd>
                             </div>
                           </div>

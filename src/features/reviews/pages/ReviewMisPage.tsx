@@ -9,10 +9,17 @@ import { useAuth } from "@/hooks/useAuth";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ExportButton } from "@/components/ui/ExportButton";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportRefreshButton,
+  ReportFilterDrawer,
+} from "@/features/reports/components/ReportFilterDrawer";
+import {
   exportStatusLabel,
-  formatReportDate,
   formatReportDateTime,
   formatStatusLabel,
   isoToReportDateText,
@@ -36,9 +43,7 @@ import {
   REVIEW_STATUSES,
 } from "../services/reviewModerationTypes";
 import {
-  ReviewFilterDrawer,
   ReviewFilterField,
-  ReviewModerationPageShell,
   ReviewStatusBadge,
   ReviewSubjectLookupField,
   OwnerScopedHotelSelect,
@@ -46,14 +51,13 @@ import {
 import {
   BarChart3,
   BedDouble,
+  Building2,
   Bus,
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
   Eye,
-  Filter,
   ImageIcon,
   Flag,
   Hotel,
@@ -62,7 +66,6 @@ import {
   MapPin,
   MessageSquare,
   Mountain,
-  RefreshCw,
   Route,
   Sparkles,
   Star,
@@ -116,52 +119,52 @@ const CATEGORY_META: Record<
   Cleanliness: {
     icon: Sparkles,
     tone: "border-cyan-100 bg-cyan-50/60",
-    iconTone: "bg-cyan-100 text-cyan-700",
+    iconTone: "bg-cyan-600 text-white",
   },
   Staff: {
     icon: Users,
     tone: "border-violet-100 bg-violet-50/60",
-    iconTone: "bg-violet-100 text-violet-700",
+    iconTone: "bg-violet-600 text-white",
   },
   Location: {
     icon: MapPin,
     tone: "border-rose-100 bg-rose-50/60",
-    iconTone: "bg-rose-100 text-rose-700",
+    iconTone: "bg-rose-500 text-white",
   },
   "Room comfort": {
     icon: BedDouble,
     tone: "border-sky-100 bg-sky-50/60",
-    iconTone: "bg-sky-100 text-sky-700",
+    iconTone: "bg-sky-600 text-white",
   },
   Value: {
     icon: IndianRupee,
     tone: "border-emerald-100 bg-emerald-50/60",
-    iconTone: "bg-emerald-100 text-emerald-700",
+    iconTone: "bg-emerald-600 text-white",
   },
   Hotel: {
     icon: Hotel,
     tone: "border-indigo-100 bg-indigo-50/60",
-    iconTone: "bg-indigo-100 text-indigo-700",
+    iconTone: "bg-indigo-600 text-white",
   },
   Transport: {
     icon: Bus,
     tone: "border-amber-100 bg-amber-50/60",
-    iconTone: "bg-amber-100 text-amber-700",
+    iconTone: "bg-amber-500 text-white",
   },
   Activity: {
     icon: Mountain,
     tone: "border-teal-100 bg-teal-50/60",
-    iconTone: "bg-teal-100 text-teal-700",
+    iconTone: "bg-teal-600 text-white",
   },
   "Tour guide": {
     icon: UserRound,
     tone: "border-fuchsia-100 bg-fuchsia-50/60",
-    iconTone: "bg-fuchsia-100 text-fuchsia-700",
+    iconTone: "bg-fuchsia-600 text-white",
   },
   Itinerary: {
     icon: Route,
     tone: "border-orange-100 bg-orange-50/60",
-    iconTone: "bg-orange-100 text-orange-700",
+    iconTone: "bg-orange-500 text-white",
   },
 };
 
@@ -300,34 +303,34 @@ function buildMisRequestParams(options: {
 
 const KPI_TONES = {
   slate: {
-    card: "border-slate-200/80 bg-white",
-    icon: "bg-slate-100 text-slate-600",
-    label: "text-slate-500",
+    card: "border-sky-100 bg-gradient-to-br from-sky-50 to-white",
+    icon: "bg-sky-500 text-white",
+    label: "text-sky-700",
   },
   emerald: {
-    card: "border-emerald-100 bg-emerald-50/40",
-    icon: "bg-emerald-100 text-emerald-700",
-    label: "text-emerald-700/80",
+    card: "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white",
+    icon: "bg-emerald-600 text-white",
+    label: "text-emerald-700",
   },
   amber: {
-    card: "border-amber-100 bg-amber-50/40",
-    icon: "bg-amber-100 text-amber-700",
-    label: "text-amber-700/80",
+    card: "border-amber-100 bg-gradient-to-br from-amber-50 to-white",
+    icon: "bg-amber-500 text-white",
+    label: "text-amber-700",
   },
   gold: {
-    card: "border-yellow-100 bg-yellow-50/50",
-    icon: "bg-yellow-100 text-yellow-700",
-    label: "text-yellow-700/80",
+    card: "border-amber-100 bg-gradient-to-br from-amber-50 to-white",
+    icon: "bg-amber-500 text-white",
+    label: "text-amber-700",
   },
   rose: {
-    card: "border-rose-100 bg-rose-50/40",
-    icon: "bg-rose-100 text-rose-700",
-    label: "text-rose-700/80",
+    card: "border-rose-100 bg-gradient-to-br from-rose-50 to-white",
+    icon: "bg-rose-500 text-white",
+    label: "text-rose-700",
   },
   sky: {
-    card: "border-sky-100 bg-sky-50/40",
-    icon: "bg-sky-100 text-sky-700",
-    label: "text-sky-700/80",
+    card: "border-indigo-100 bg-gradient-to-br from-indigo-50 to-white",
+    icon: "bg-indigo-600 text-white",
+    label: "text-indigo-700",
   },
 } as const;
 
@@ -391,7 +394,7 @@ export default function ReviewMisPage() {
   const isModeratorView = canModerateReviews(user?.roles);
   const isHotelScopedMis = canManageHotelReviews(user?.roles) && !isModeratorView;
   const showOwnerActions = isHotelScopedMis && !!hotelId;
-  const columnCount = isModeratorView || showOwnerActions ? 10 : 9;
+  const showActionColumn = isModeratorView || showOwnerActions;
 
   const { toast, showToast, hideToast } = useToast();
   const [page, setPage] = useState(0);
@@ -467,15 +470,6 @@ export default function ReviewMisPage() {
     });
     setPage((prev) => (prev === 0 ? prev : 0));
   }, [user, isHotelScopedMis, hotelId]);
-
-  const dateRangeLabel = useMemo(() => {
-    if (filters.fromDate && filters.toDate) {
-      return `${formatReportDate(filters.fromDate)} – ${formatReportDate(filters.toDate)}`;
-    }
-    if (filters.fromDate) return `From ${formatReportDate(filters.fromDate)}`;
-    if (filters.toDate) return `Until ${formatReportDate(filters.toDate)}`;
-    return null;
-  }, [filters.fromDate, filters.toDate]);
 
   const loadMis = useCallback(async () => {
     if (isHotelScopedMis && !user) return;
@@ -730,6 +724,211 @@ export default function ReviewMisPage() {
     ] as const
   ).filter(([, value]) => value != null);
 
+  const expandedRow = rows.find((row) => row.id === expandedId) ?? null;
+
+  const columns = useMemo<GridColDef<ReviewMisItem>[]>(() => {
+    const base: GridColDef<ReviewMisItem>[] = [
+      {
+        field: "expand",
+        headerName: "",
+        width: 52,
+        sortable: false,
+        renderCell: (params) => (
+          <button
+            type="button"
+            onClick={() =>
+              setExpandedId((prev) =>
+                prev === params.row.id ? null : params.row.id,
+              )
+            }
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            aria-label={expandedId === params.row.id ? "Collapse" : "Expand"}
+          >
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 transition-transform",
+                expandedId === params.row.id && "rotate-180",
+              )}
+            />
+          </button>
+        ),
+      },
+      {
+        field: "bookingRef",
+        headerName: "Booking",
+        width: 170,
+        sortable: false,
+        renderCell: (params) => (
+          <span className="font-mono text-xs font-semibold text-[#2f3d95]">
+            {params.row.bookingRef || "—"}
+          </span>
+        ),
+      },
+      {
+        field: "bookingType",
+        headerName: "Type",
+        width: 120,
+        sortable: false,
+        renderCell: (params) => (
+          <span className="inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-800 ring-1 ring-inset ring-indigo-200">
+            {formatStatusLabel(
+              params.row.subjectType || params.row.bookingType || "—",
+            )}
+          </span>
+        ),
+      },
+      {
+        field: "subjectName",
+        headerName: "Hotel name",
+        width: 200,
+        sortable: false,
+        renderCell: (params) => (
+          <div className="flex min-w-0 items-start gap-2">
+            <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 ring-1 ring-teal-200">
+              <Building2 className="h-3.5 w-3.5" />
+            </span>
+            <p className="truncate font-medium text-slate-900">
+              {params.row.subjectName || "—"}
+            </p>
+          </div>
+        ),
+      },
+      {
+        field: "overallRating",
+        headerName: "Rating",
+        width: 100,
+        sortable: false,
+        renderCell: (params) => (
+          <div className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-sm font-semibold text-amber-800 ring-1 ring-amber-200">
+            {params.row.overallRating != null
+              ? params.row.overallRating.toFixed(1)
+              : "—"}
+            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+          </div>
+        ),
+      },
+      {
+        field: "reviewText",
+        headerName: "Review",
+        flex: 1,
+        minWidth: 240,
+        sortable: false,
+        renderCell: (params) => (
+          <MisReviewCell
+            row={params.row}
+            onOpenMedia={(preview) => setMediaPreview(preview)}
+          />
+        ),
+      },
+      {
+        field: "travellerType",
+        headerName: "Traveller",
+        width: 140,
+        sortable: false,
+        renderCell: (params) => (
+          <div className="min-w-0">
+            {params.row.travellerType ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800 ring-1 ring-sky-200">
+                <Users className="h-3 w-3" />
+                {formatStatusLabel(params.row.travellerType)}
+              </span>
+            ) : (
+              <span className="text-sm text-slate-400">—</span>
+            )}
+            {params.row.wouldRecommend != null ? (
+              <p
+                className={cn(
+                  "mt-1 text-[11px] font-medium",
+                  params.row.wouldRecommend
+                    ? "text-emerald-600"
+                    : "text-rose-500",
+                )}
+              >
+                Recommend {params.row.wouldRecommend ? "yes" : "no"}
+              </p>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 130,
+        sortable: false,
+        renderCell: (params) => (
+          <div>
+            <ReviewStatusBadge status={params.row.status} />
+            {params.row.autoModerated ? (
+              <p className="mt-1 text-[11px] font-medium text-rose-500">Auto</p>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        field: "publishedAt",
+        headerName: "Published",
+        width: 170,
+        sortable: false,
+        renderCell: (params) =>
+          params.row.publishedAt || params.row.createdAt ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+              <CalendarDays className="h-3 w-3 shrink-0" />
+              {formatReportDateTime(
+                params.row.publishedAt || params.row.createdAt,
+              )}
+            </span>
+          ) : (
+            <span className="text-sm text-slate-400">—</span>
+          ),
+      },
+    ];
+
+    if (showActionColumn) {
+      base.push({
+        field: "actions",
+        headerName: "Action",
+        width: 150,
+        sortable: false,
+        align: "right",
+        headerAlign: "right",
+        renderCell: (params) =>
+          showOwnerActions ? (
+            <div className="flex flex-wrap justify-end gap-1.5">
+              {!params.row.reply?.replyText ? (
+                <button
+                  type="button"
+                  onClick={() => openOwnerDialog("reply", params.row)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800 transition hover:bg-sky-100"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Reply
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => openOwnerDialog("report", params.row)}
+                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-800 transition hover:bg-rose-100"
+              >
+                <Flag className="h-3.5 w-3.5" />
+                Report
+              </button>
+            </div>
+          ) : (
+            <Link
+              to={ROUTES.RATINGS_REVIEWS.DETAIL(params.row.id)}
+              state={{ review: params.row }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              Open
+            </Link>
+          ),
+      });
+    }
+
+    return base;
+  }, [expandedId, showActionColumn, showOwnerActions]);
+
   return (
     <>
       <Toast
@@ -738,72 +937,59 @@ export default function ReviewMisPage() {
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-      <ReviewModerationPageShell
-        title="Review MIS"
-        subtitle={
-          isHotelScopedMis
-            ? hotelId
-              ? "Hotel booking reviews for the selected property"
-              : "Select a hotel from the top bar to load review MIS"
-            : hotelId && shouldApplyTopBarHotelSubject(filters.bookingType)
-              ? "Hotel booking reviews for the selected property"
-              : dateRangeLabel
-                ? `Analytics · ${dateRangeLabel}`
-                : "Volume, ratings, and review inventory"
-        }
-        icon={BarChart3}
-        iconClassName="bg-[#2f3d95]"
-        borderClassName="border-slate-200"
-        wide
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {dateRangeLabel ? (
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                {dateRangeLabel}
-              </span>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => {
-                setDraft(filtersToDraft(filters));
-                setFilterOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-            >
-              <Filter className="h-4 w-4 text-slate-500" />
-              Filters
-              {activeFilterCount > 0 ? (
-                <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2f3d95] px-1.5 text-[10px] font-semibold text-white">
-                  {activeFilterCount}
-                </span>
-              ) : null}
-            </button>
-            <button
-              type="button"
-              onClick={() => void loadMis()}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
-              ) : (
-                <RefreshCw className="h-4 w-4 text-slate-500" />
-              )}
-              Refresh
-            </button>
-            <ExportButton
-              iconOnly
-              disabled={loading || (isHotelScopedMis && !hotelId)}
-              exporting={exporting}
-              exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
-              onExportExcel={() => void handleExport("EXCEL")}
-              onExportCSV={() => void handleExport("CSV")}
-              onExportPDF={() => void handleExport("PDF")}
-            />
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+          <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900">
+                  Review MIS
+                </p>
+                {isHotelScopedMis && !hotelId ? (
+                  <p className="text-xs text-slate-500">
+                    Select a hotel from the top bar to load review MIS
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <ReportAppliedRange
+                  from={filters.fromDate}
+                  to={filters.toDate}
+                  detail={
+                    filters.bookingType
+                      ? formatStatusLabel(filters.bookingType)
+                      : filters.fromDate || filters.toDate
+                        ? null
+                        : "All dates"
+                  }
+                />
+                <ReportFilterButton
+                  onClick={() => {
+                    setDraft(filtersToDraft(filters));
+                    setFilterOpen(true);
+                  }}
+                  activeCount={activeFilterCount}
+                />
+                <ExportButton
+                  iconOnly
+                  disabled={loading || (isHotelScopedMis && !hotelId)}
+                  exporting={exporting}
+                  exportingLabel={
+                    exportStatusLabel(exportStatus) || "Exporting…"
+                  }
+                  onExportExcel={() => void handleExport("EXCEL")}
+                  onExportCSV={() => void handleExport("CSV")}
+                  onExportPDF={() => void handleExport("PDF")}
+                />
+                <ReportRefreshButton
+                  onClick={() => void loadMis()}
+                  loading={loading}
+                />
+              </div>
+            </div>
           </div>
-        }
-      >
-        <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+
+          <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <MisKpiCard
             label="Total"
             value={loading ? "…" : summary.totalReviews.toLocaleString("en-IN")}
@@ -859,9 +1045,9 @@ export default function ReviewMisPage() {
 
         {aggregate ? (
           <div className="mb-3 grid gap-2 lg:grid-cols-2">
-            <div className="rounded-xl border border-amber-100/80 bg-linear-to-br from-amber-50/40 to-white px-3.5 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50 to-white px-3.5 py-3 shadow-sm">
               <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-100 text-amber-700">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-500 text-white">
                   <BarChart3 className="h-3.5 w-3.5" />
                 </div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-amber-800/80">
@@ -912,10 +1098,10 @@ export default function ReviewMisPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-indigo-100/80 bg-linear-to-br from-indigo-50/30 to-white px-3.5 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white px-3.5 py-3 shadow-sm">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-100 text-indigo-700">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-600 text-white">
                     <Sparkles className="h-3.5 w-3.5" />
                   </div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-indigo-800/80">
@@ -972,143 +1158,85 @@ export default function ReviewMisPage() {
           </div>
         ) : null}
 
-        <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-          <div className="border-b border-slate-100 px-4 py-2.5">
-            <p className="text-xs font-medium text-slate-600">
-              {totalElements.toLocaleString("en-IN")} reviews
-              <span className="font-normal text-slate-400">
-                {" "}
-                · Page {page + 1} of {totalPages}
-              </span>
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/80">
-                  <th className="w-10 px-3 py-3" />
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                    Booking
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                    Type
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                    Hotel name
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                    Rating
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                    Review
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                    Traveller
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                    Published
-                  </th>
-                  {isModeratorView || showOwnerActions ? (
-                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                      Action
-                    </th>
-                  ) : null}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td
-                      colSpan={columnCount}
-                      className="px-4 py-20 text-center text-slate-500"
-                    >
-                      <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-slate-400" />
-                      Loading reviews…
-                    </td>
-                  </tr>
-                ) : isHotelScopedMis && !hotelId ? (
-                  <tr>
-                    <td
-                      colSpan={columnCount}
-                      className="px-4 py-20 text-center text-sm text-slate-500"
-                    >
-                      Select a hotel from the top bar to view review MIS.
-                    </td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={columnCount}
-                      className="px-4 py-20 text-center text-sm text-slate-500"
-                    >
-                      No reviews match the selected filters.
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row) => {
-                    const expanded = expandedId === row.id;
-                    return (
-                      <FragmentRow
-                        key={row.id}
-                        row={row}
-                        expanded={expanded}
-                        showActions={isModeratorView}
-                        showOwnerActions={showOwnerActions}
-                        onOwnerReply={() => openOwnerDialog("reply", row)}
-                        onOwnerReport={() => openOwnerDialog("report", row)}
-                        columnCount={columnCount}
-                        onToggle={() =>
-                          setExpandedId((prev) =>
-                            prev === row.id ? null : row.id,
-                          )
-                        }
-                        onOpenMedia={(preview) => setMediaPreview(preview)}
-                      />
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3.5">
-            <p className="text-xs text-slate-500">
-              {totalElements.toLocaleString("en-IN")} reviews
-              <span className="text-slate-300"> · </span>
-              Page {page + 1} of {totalPages}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={page <= 0 || loading}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Prev
-              </button>
-              <button
-                type="button"
-                disabled={page + 1 >= totalPages || loading}
-                onClick={() => setPage((p) => p + 1)}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
-              >
-                Next
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
+          <DataTable
+            subtitle={
+              loading ? (
+                "Loading…"
+              ) : (
+                <>
+                  <span className="font-medium text-slate-600">
+                    {formatListCount(totalElements, "review")}
+                  </span>
+                  <span className="text-slate-400">
+                    {activeFilterCount > 0 ? " · filtered" : ""} · Page {page + 1} of{" "}
+                    {Math.max(totalPages, 1)}
+                  </span>
+                </>
+              )
+            }
+            rows={rows}
+            columns={columns}
+            getRowId={(row) => row.id}
+            loading={loading}
+            paginationMode="server"
+            rowCount={totalElements}
+            paginationModel={{ page, pageSize: PAGE_SIZE }}
+            onPaginationModelChange={(model) => {
+              if (model.page !== page) setPage(Math.max(0, model.page));
+            }}
+            pageSizeOptions={[PAGE_SIZE]}
+            disableRowSelectionOnClick
+            disableColumnFilter
+            showToolbar
+            showExport={false}
+            allowHorizontalScroll
+            getRowHeight={() => "auto"}
+            localeText={{
+              noRowsLabel:
+                isHotelScopedMis && !hotelId
+                  ? "Select a hotel from the top bar to view review MIS."
+                  : "No reviews match the selected filters.",
+            }}
+            sx={{
+              "& .MuiDataGrid-cell": {
+                alignItems: "flex-start",
+                whiteSpace: "normal",
+                py: "8px",
+                overflow: "visible",
+              },
+            }}
+          />
+          {expandedRow ? (
+            <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-900">
+                  {expandedRow.bookingRef || expandedRow.subjectName || "Review"} details
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(null)}
+                  className="rounded-lg px-2 py-1 text-xs font-medium text-slate-600 hover:bg-white"
+                >
+                  Close
+                </button>
+              </div>
+              <ReviewMisExpandedPanel
+                row={expandedRow}
+                onOpenMedia={(preview) => setMediaPreview(preview)}
+              />
             </div>
-          </div>
-        </section>
-      </ReviewModerationPageShell>
+          ) : null}
+        </div>
+      </div>
 
-      <ReviewFilterDrawer
+      <ReportFilterDrawer
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
         onReset={resetFilters}
         onApply={applyFilters}
+        title="Filters"
+        resetLabel="Reset"
+        applyLabel="Apply"
       >
         <ReviewFilterField label="Booking type">
           {isHotelScopedMis ? (
@@ -1204,7 +1332,7 @@ export default function ReviewMisPage() {
             inputClassName="rounded-xl"
           />
         </div>
-      </ReviewFilterDrawer>
+      </ReportFilterDrawer>
 
       {ownerDialogMode && ownerActiveReview ? (
         <>
@@ -1319,25 +1447,11 @@ export default function ReviewMisPage() {
   );
 }
 
-function FragmentRow({
+function MisReviewCell({
   row,
-  expanded,
-  showActions,
-  showOwnerActions,
-  onOwnerReply,
-  onOwnerReport,
-  columnCount,
-  onToggle,
   onOpenMedia,
 }: {
   row: ReviewMisItem;
-  expanded: boolean;
-  showActions: boolean;
-  showOwnerActions: boolean;
-  onOwnerReply: () => void;
-  onOwnerReport: () => void;
-  columnCount: number;
-  onToggle: () => void;
   onOpenMedia: (preview: { url: string; label: string }) => void;
 }) {
   const [replyOpen, setReplyOpen] = useState(false);
@@ -1395,351 +1509,248 @@ function FragmentRow({
   };
 
   return (
-    <>
-      <tr className="align-top transition-colors hover:bg-slate-50/70">
-        <td className="px-3 py-4">
-          <button
-            type="button"
-            onClick={onToggle}
-            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-            aria-label={expanded ? "Collapse" : "Expand"}
-          >
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 transition-transform",
-                expanded && "rotate-180",
-              )}
-            />
-          </button>
-        </td>
-        <td className="px-4 py-4">
-          <p className="font-medium text-slate-900">{row.bookingRef || "—"}</p>
-        </td>
-        <td className="px-4 py-4">
-          <span className="inline-flex rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-800 ring-1 ring-inset ring-indigo-200">
-            {formatStatusLabel(row.subjectType || row.bookingType || "—")}
-          </span>
-        </td>
-        <td className="px-4 py-4">
-          <p className="max-w-56 font-medium text-slate-900">
-            {row.subjectName || "—"}
+    <div className="min-w-0">
+{row.title ? (
+  <p className="line-clamp-1 font-medium text-slate-900">{row.title}</p>
+) : null}
+<p
+  className={cn(
+    "line-clamp-2 text-slate-600",
+    row.title ? "mt-0.5" : "",
+  )}
+>
+  {row.reviewText || "—"}
+</p>
+<div className="mt-1.5 flex flex-wrap gap-1.5">
+  {row.media.length > 0 ? (
+    <div ref={mediaRef} className="relative">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          openFirstMedia();
+        }}
+        className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-violet-200 transition hover:bg-violet-100"
+      >
+        {row.media.length} media
+      </button>
+      {mediaOpen ? (
+        <div className="absolute left-0 top-full z-30 mt-1.5 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+          <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.04em] text-slate-500">
+            Media
           </p>
-        </td>
-        <td className="px-4 py-4">
-          <div className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-800">
-            {row.overallRating != null ? row.overallRating.toFixed(1) : "—"}
-            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-          </div>
-        </td>
-        <td className="max-w-sm px-4 py-4">
-          {row.title ? (
-            <p className="line-clamp-1 font-medium text-slate-900">{row.title}</p>
-          ) : null}
-          <p
-            className={cn(
-              "line-clamp-2 text-slate-600",
-              row.title ? "mt-0.5" : "",
-            )}
-          >
-            {row.reviewText || "—"}
-          </p>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {row.media.length > 0 ? (
-              <div ref={mediaRef} className="relative">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openFirstMedia();
-                  }}
-                  className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 transition hover:bg-slate-200 hover:text-slate-800"
-                >
-                  {row.media.length} media
-                </button>
-                {mediaOpen ? (
-                  <div className="absolute left-0 top-full z-30 mt-1.5 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
-                    <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                      Media
-                    </p>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {sortedMedia.map((media, index) => {
-                        const label =
-                          media.fileName || media.storageKey || "Image";
-                        const href = resolveReviewMediaUrl(media);
-                        if (!href) {
-                          return (
-                            <div
-                              key={`${media.storageKey || label}-${index}`}
-                              className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-3 text-center text-[10px] text-slate-400"
-                            >
-                              {label}
-                            </div>
-                          );
-                        }
-                        return (
-                          <button
-                            key={`${media.storageKey || label}-${index}`}
-                            type="button"
-                            onClick={() => {
-                              setMediaOpen(false);
-                              onOpenMedia({ url: href, label });
-                            }}
-                            className="overflow-hidden rounded-lg border border-slate-200 transition hover:border-[#2f3d95]/40"
-                          >
-                            <img
-                              src={href}
-                              alt={label}
-                              className="aspect-video w-full object-cover"
-                              loading="lazy"
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {sortedMedia.map((media, index) => {
+              const label =
+                media.fileName || media.storageKey || "Image";
+              const href = resolveReviewMediaUrl(media);
+              if (!href) {
+                return (
+                  <div
+                    key={`${media.storageKey || label}-${index}`}
+                    className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-3 text-center text-[10px] text-slate-400"
+                  >
+                    {label}
                   </div>
-                ) : null}
-              </div>
-            ) : null}
-            {row.reply?.replyText ? (
-              <div ref={replyRef} className="relative">
+                );
+              }
+              return (
                 <button
+                  key={`${media.storageKey || label}-${index}`}
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  onClick={() => {
                     setMediaOpen(false);
-                    setReplyOpen((prev) => !prev);
+                    onOpenMedia({ url: href, label });
                   }}
-                  className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 transition hover:bg-sky-100"
+                  className="overflow-hidden rounded-lg border border-slate-200 transition hover:border-[#2f3d95]/40"
                 >
-                  <MessageSquare className="h-3 w-3" />
-                  Reply
+                  <img
+                    src={href}
+                    alt={label}
+                    className="aspect-video w-full object-cover"
+                    loading="lazy"
+                  />
                 </button>
-                {replyOpen ? (
-                  <div className="absolute left-0 top-full z-30 mt-1.5 w-72 max-w-[min(18rem,70vw)] rounded-xl border border-sky-100 bg-white p-3 shadow-lg">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-sky-800">
-                      Hotel reply
-                    </p>
-                    <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
-                      {row.reply.replyText}
-                    </p>
-                    <p className="mt-2 text-[11px] text-slate-500">
-                      {row.reply.repliedByName || "—"}
-                      {row.reply.repliedAt
-                        ? ` · ${formatReportDateTime(row.reply.repliedAt)}`
-                        : ""}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+              );
+            })}
           </div>
-        </td>
-        <td className="px-4 py-4 text-slate-600">
-          {row.travellerType ? formatStatusLabel(row.travellerType) : "—"}
-          {row.wouldRecommend != null ? (
-            <p className="mt-1 text-[11px] text-slate-400">
-              Recommend {row.wouldRecommend ? "yes" : "no"}
-            </p>
-          ) : null}
-        </td>
-        <td className="px-4 py-4">
-          <ReviewStatusBadge status={row.status} />
-          {row.autoModerated ? (
-            <p className="mt-1 text-[11px] text-slate-400">Auto</p>
-          ) : null}
-        </td>
-        <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">
-          {row.publishedAt
-            ? formatReportDateTime(row.publishedAt)
-            : row.createdAt
-              ? formatReportDateTime(row.createdAt)
-              : "—"}
-        </td>
-        {showOwnerActions ? (
-          <td className="px-4 py-4 text-right">
-            <div className="flex flex-wrap justify-end gap-1.5">
-              {!row.reply?.replyText ? (
-                <button
-                  type="button"
-                  onClick={onOwnerReply}
-                  className="inline-flex items-center gap-1 rounded-xl border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800 transition hover:bg-sky-100"
-                >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  Reply
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={onOwnerReport}
-                className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-800 transition hover:bg-rose-100"
-              >
-                <Flag className="h-3.5 w-3.5" />
-                Report
-              </button>
-            </div>
-          </td>
-        ) : showActions ? (
-          <td className="px-4 py-4 text-right">
-            <Link
-              to={ROUTES.RATINGS_REVIEWS.DETAIL(row.id)}
-              state={{
-                review: {
-                  id: row.id,
-                  bookingType: row.bookingType,
-                  bookingRef: row.bookingRef,
-                  customerEmail: null,
-                  subjectType: row.subjectType,
-                  subjectId: row.subjectId,
-                  subjectName: row.subjectName,
-                  overallRating: row.overallRating,
-                  title: row.title,
-                  reviewText: row.reviewText,
-                  travellerType: row.travellerType,
-                  wouldRecommend: row.wouldRecommend,
-                  wouldReturn: row.wouldReturn,
-                  status: row.status,
-                  autoModerated: row.autoModerated,
-                  moderationReason: row.moderationReason,
-                  publishedAt: row.publishedAt,
-                  createdAt: row.createdAt,
-                  reply: row.reply,
-                  media: row.media,
-                },
-              }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-            >
-              <Eye className="h-3.5 w-3.5" />
-              Open
-            </Link>
-          </td>
-        ) : null}
-      </tr>
-      {expanded ? (
-        <tr className="bg-slate-50/50">
-          <td colSpan={columnCount} className="px-4 py-4">
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                  Moderation
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-slate-700">
-                  {row.moderationReason || "—"}
-                </p>
-                {row.reply ? (
-                  <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50/50 p-3">
-                    <p className="text-xs font-semibold text-sky-800">
-                      Hotel reply
-                    </p>
-                    <p className="mt-1 text-sm text-slate-800">
-                      {row.reply.replyText}
-                    </p>
-                    <p className="mt-1.5 text-[11px] text-slate-500">
-                      {row.reply.repliedByName || "—"}
-                      {row.reply.repliedAt
-                        ? ` · ${formatReportDateTime(row.reply.repliedAt)}`
-                        : ""}
-                    </p>
-                  </div>
-                ) : null}
-                {row.media.length > 0 ? (
-                  <div className="mt-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                      Media ({row.media.length})
-                    </p>
-                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {sortedMedia.map((media, index) => {
-                          const label =
-                            media.fileName || media.storageKey || "File";
-                          const href = resolveReviewMediaUrl(media);
-                          if (!href) {
-                            return (
-                              <div
-                                key={`${media.storageKey || media.fileName}-${index}`}
-                                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-3 text-center text-[11px] text-slate-500"
-                              >
-                                {label}
-                              </div>
-                            );
-                          }
-                          return (
-                            <button
-                              key={`${media.storageKey || media.fileName}-${index}`}
-                              type="button"
-                              onClick={() =>
-                                onOpenMedia({ url: href, label })
-                              }
-                              className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left transition hover:border-[#2f3d95]/40 hover:shadow-sm"
-                              title="Preview image"
-                            >
-                              <div className="relative aspect-video bg-slate-200">
-                                <img
-                                  src={href}
-                                  alt={label}
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                />
-                                <span className="absolute inset-0 flex items-center justify-center bg-slate-900/0 transition group-hover:bg-slate-900/25">
-                                  <ImageIcon className="h-5 w-5 text-white opacity-0 drop-shadow transition group-hover:opacity-100" />
-                                </span>
-                              </div>
-                              <p className="truncate px-2 py-1.5 text-[11px] text-slate-600">
-                                {label}
-                              </p>
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
-                  Audit history ({row.auditHistory.length})
-                </p>
-                {row.auditHistory.length === 0 ? (
-                  <p className="mt-2 text-sm text-slate-500">No audit entries.</p>
-                ) : (
-                  <ul className="mt-2 max-h-52 space-y-2 overflow-y-auto">
-                    {row.auditHistory.map((entry) => (
-                      <li
-                        key={String(entry.id)}
-                        className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs font-semibold text-slate-800">
-                            {formatStatusLabel(entry.action)}
-                          </span>
-                          <span className="text-[11px] text-slate-500">
-                            {entry.fromStatus
-                              ? formatStatusLabel(entry.fromStatus)
-                              : "—"}
-                            {" → "}
-                            {entry.toStatus
-                              ? formatStatusLabel(entry.toStatus)
-                              : "—"}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-600">
-                          {entry.reason || entry.reasonCode || "—"}
-                        </p>
-                        <p className="mt-1 text-[11px] text-slate-400">
-                          {entry.moderatorName || entry.moderatorRole || "—"}
-                          {entry.actedAt
-                            ? ` · ${formatReportDateTime(entry.actedAt)}`
-                            : ""}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          </td>
-        </tr>
+        </div>
       ) : null}
-    </>
+    </div>
+  ) : null}
+  {row.reply?.replyText ? (
+    <div ref={replyRef} className="relative">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setMediaOpen(false);
+          setReplyOpen((prev) => !prev);
+        }}
+        className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 transition hover:bg-sky-100"
+      >
+        <MessageSquare className="h-3 w-3" />
+        Reply
+      </button>
+      {replyOpen ? (
+        <div className="absolute left-0 top-full z-30 mt-1.5 w-72 max-w-[min(18rem,70vw)] rounded-xl border border-sky-100 bg-white p-3 shadow-lg">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-sky-800">
+            Hotel reply
+          </p>
+          <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+            {row.reply.replyText}
+          </p>
+          <p className="mt-2 text-[11px] text-slate-500">
+            {row.reply.repliedByName || "—"}
+            {row.reply.repliedAt
+              ? ` · ${formatReportDateTime(row.reply.repliedAt)}`
+              : ""}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  ) : null}
+</div>
+    </div>
   );
 }
+
+function ReviewMisExpandedPanel({
+  row,
+  onOpenMedia,
+}: {
+  row: ReviewMisItem;
+  onOpenMedia: (preview: { url: string; label: string }) => void;
+}) {
+  const sortedMedia = useMemo(
+    () =>
+      [...row.media].sort(
+        (a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0),
+      ),
+    [row.media],
+  );
+
+  return (
+<div className="grid gap-3 lg:grid-cols-2">
+  <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
+      Moderation
+    </p>
+    <p className="mt-2 text-sm leading-relaxed text-slate-700">
+      {row.moderationReason || "—"}
+    </p>
+    {row.reply ? (
+      <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50/50 p-3">
+        <p className="text-xs font-semibold text-sky-800">
+          Hotel reply
+        </p>
+        <p className="mt-1 text-sm text-slate-800">
+          {row.reply.replyText}
+        </p>
+        <p className="mt-1.5 text-[11px] text-slate-500">
+          {row.reply.repliedByName || "—"}
+          {row.reply.repliedAt
+            ? ` · ${formatReportDateTime(row.reply.repliedAt)}`
+            : ""}
+        </p>
+      </div>
+    ) : null}
+    {row.media.length > 0 ? (
+      <div className="mt-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
+          Media ({row.media.length})
+        </p>
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {sortedMedia.map((media, index) => {
+              const label =
+                media.fileName || media.storageKey || "File";
+              const href = resolveReviewMediaUrl(media);
+              if (!href) {
+                return (
+                  <div
+                    key={`${media.storageKey || media.fileName}-${index}`}
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-3 text-center text-[11px] text-slate-500"
+                  >
+                    {label}
+                  </div>
+                );
+              }
+              return (
+                <button
+                  key={`${media.storageKey || media.fileName}-${index}`}
+                  type="button"
+                  onClick={() =>
+                    onOpenMedia({ url: href, label })
+                  }
+                  className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left transition hover:border-[#2f3d95]/40 hover:shadow-sm"
+                  title="Preview image"
+                >
+                  <div className="relative aspect-video bg-slate-200">
+                    <img
+                      src={href}
+                      alt={label}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center bg-slate-900/0 transition group-hover:bg-slate-900/25">
+                      <ImageIcon className="h-5 w-5 text-white opacity-0 drop-shadow transition group-hover:opacity-100" />
+                    </span>
+                  </div>
+                  <p className="truncate px-2 py-1.5 text-[11px] text-slate-600">
+                    {label}
+                  </p>
+                </button>
+              );
+            })}
+        </div>
+      </div>
+    ) : null}
+  </div>
+  <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-slate-500">
+      Audit history ({row.auditHistory.length})
+    </p>
+    {row.auditHistory.length === 0 ? (
+      <p className="mt-2 text-sm text-slate-500">No audit entries.</p>
+    ) : (
+      <ul className="mt-2 max-h-52 space-y-2 overflow-y-auto">
+        {row.auditHistory.map((entry) => (
+          <li
+            key={String(entry.id)}
+            className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-800">
+                {formatStatusLabel(entry.action)}
+              </span>
+              <span className="text-[11px] text-slate-500">
+                {entry.fromStatus
+                  ? formatStatusLabel(entry.fromStatus)
+                  : "—"}
+                {" → "}
+                {entry.toStatus
+                  ? formatStatusLabel(entry.toStatus)
+                  : "—"}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-slate-600">
+              {entry.reason || entry.reasonCode || "—"}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-400">
+              {entry.moderatorName || entry.moderatorRole || "—"}
+              {entry.actedAt
+                ? ` · ${formatReportDateTime(entry.actedAt)}`
+                : ""}
+            </p>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</div>
+  );
+}
+
 
 function filtersToDraft(filters: AppliedFilters): FilterDraft {
   return {

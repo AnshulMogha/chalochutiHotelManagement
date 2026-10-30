@@ -178,7 +178,7 @@ export const BulkRestrictionsModal = ({
                   value={format(startDate, 'yyyy-MM-dd')}
                   min={format(today, 'yyyy-MM-dd')}
                   onChange={(e) => handleStartDateChange(new Date(e.target.value + 'T00:00:00'))}
-                  className="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  className="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-[#2f3d95]/20 focus:border-blue-500 outline-none transition-all"
                 />
               </div>
               <span className="text-slate-500 font-medium">to</span>
@@ -189,7 +189,7 @@ export const BulkRestrictionsModal = ({
                   value={format(endDate, 'yyyy-MM-dd')}
                   min={format(startDate, 'yyyy-MM-dd')}
                   onChange={(e) => handleEndDateChange(new Date(e.target.value + 'T00:00:00'))}
-                  className="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                  className="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:ring-2 focus:ring-[#2f3d95]/20 focus:border-blue-500 outline-none transition-all"
                 />
               </div>
             </div>
@@ -217,7 +217,7 @@ export const BulkRestrictionsModal = ({
                   type="checkbox"
                   checked={blockInventory}
                   onChange={(e) => handleBlockInventoryChange(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
+                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-[#2f3d95] focus:ring-2"
                 />
                 <span className="text-sm text-slate-700 group-hover:text-slate-900">Block Inventory</span>
               </label>
@@ -226,7 +226,7 @@ export const BulkRestrictionsModal = ({
                   type="checkbox"
                   checked={unblockInventory}
                   onChange={(e) => handleUnblockInventoryChange(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
+                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-[#2f3d95] focus:ring-2"
                 />
                 <span className="text-sm text-slate-700 group-hover:text-slate-900">Unblock Inventory</span>
               </label>
@@ -242,7 +242,7 @@ export const BulkRestrictionsModal = ({
                   type="checkbox"
                   checked={cta}
                   onChange={(e) => handleCtaChange(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
+                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-[#2f3d95] focus:ring-2"
                 />
                 <span className="text-sm text-slate-700 group-hover:text-slate-900">Close to Arrival (CTA)</span>
               </label>
@@ -251,7 +251,7 @@ export const BulkRestrictionsModal = ({
                   type="checkbox"
                   checked={inactivateCta}
                   onChange={(e) => handleInactivateCtaChange(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
+                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-[#2f3d95] focus:ring-2"
                 />
                 <span className="text-sm text-slate-700 group-hover:text-slate-900">Inactivate CTA</span>
               </label>
@@ -266,7 +266,7 @@ export const BulkRestrictionsModal = ({
                   type="checkbox"
                   checked={ctd}
                   onChange={(e) => handleCtdChange(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
+                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-[#2f3d95] focus:ring-2"
                 />
                 <span className="text-sm text-slate-700 group-hover:text-slate-900">Close to Departure (CTD)</span>
               </label>
@@ -275,7 +275,7 @@ export const BulkRestrictionsModal = ({
                   type="checkbox"
                   checked={inactivateCtd}
                   onChange={(e) => handleInactivateCtdChange(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
+                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-[#2f3d95] focus:ring-2"
                 />
                 <span className="text-sm text-slate-700 group-hover:text-slate-900">Inactivate CTD</span>
               </label>
@@ -295,7 +295,7 @@ export const BulkRestrictionsModal = ({
                 value={minStay}
                 onChange={(e) => setMinStay(e.target.value)}
                 placeholder="e.g. 2"
-                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
+                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-[#2f3d95]/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
               />
             </div>
             <div className="space-y-2">
@@ -308,7 +308,7 @@ export const BulkRestrictionsModal = ({
                 value={maxStay}
                 onChange={(e) => setMaxStay(e.target.value)}
                 placeholder="e.g. 7"
-                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
+                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-[#2f3d95]/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
               />
             </div>
           </div>
@@ -344,7 +344,7 @@ export const BulkRestrictionsModal = ({
           </button>
           <button
             onClick={handleSave}
-            className="px-6 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all active:scale-95"
+            className="px-6 py-2 text-sm font-bold text-white bg-[#2f3d95] hover:bg-[#263578] rounded-lg shadow-sm transition-all active:scale-95"
           >
             Save
           </button>

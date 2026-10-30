@@ -45,8 +45,8 @@ export function BookingColumnHeader({
   label: string;
 }) {
   return (
-    <span className="flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-wide text-white">
-      <Icon className="h-3.5 w-3.5 shrink-0 text-sky-200" strokeWidth={2.25} />
+    <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-normal text-slate-500">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2.25} />
       {label}
     </span>
   );

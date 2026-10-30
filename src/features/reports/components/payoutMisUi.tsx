@@ -1,4 +1,6 @@
 import { Link, useLocation, useSearchParams } from "react-router";
+import type { GridColDef } from "@mui/x-data-grid";
+import { DataTable, formatListCount } from "@/components/ui";
 import { ROUTES } from "@/constants";
 import { cn } from "@/lib/utils";
 import { appendReturnToQuery } from "@/lib/navigationReturn";
@@ -110,15 +112,15 @@ export function PaymentsTabNav({
   const payoutsPath = hotelScopedPath(ROUTES.REPORTS.HOTEL_PAYOUTS, hotelId);
 
   return (
-    <div className="mb-3 flex gap-5 border-b border-slate-200">
+    <div className="flex items-center gap-1">
       {showNetEarnings ? (
         <Link
           to={netEarningsPath}
           className={cn(
-            "border-b-2 pb-2 text-sm font-semibold transition",
+            "rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition",
             active === "net-earnings"
-              ? "border-blue-600 text-blue-700"
-              : "border-transparent text-slate-500 hover:text-slate-800",
+              ? "bg-[#2f3d95] text-white"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200",
           )}
         >
           Net Earnings
@@ -128,10 +130,10 @@ export function PaymentsTabNav({
         <Link
           to={payoutsPath}
           className={cn(
-            "border-b-2 pb-2 text-sm font-semibold transition",
+            "rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition",
             active === "payouts"
-              ? "border-blue-600 text-blue-700"
-              : "border-transparent text-slate-500 hover:text-slate-800",
+              ? "bg-[#2f3d95] text-white"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200",
           )}
         >
           Payouts
@@ -142,38 +144,53 @@ export function PaymentsTabNav({
 }
 
 export function PayoutSummaryStrip({ summary }: { summary: PayoutMisSummary }) {
+  const cards = [
+    {
+      label: "Payments Made",
+      value: summary.paymentsMade,
+      sub: null as string | null,
+      card: "border-sky-100 bg-gradient-to-br from-sky-50 to-white",
+      labelTone: "text-sky-700",
+    },
+    {
+      label: "Bookings Count",
+      value: summary.bookingsCount,
+      sub: null as string | null,
+      card: "border-indigo-100 bg-gradient-to-br from-indigo-50 to-white",
+      labelTone: "text-indigo-700",
+    },
+    {
+      label: "Payment Settled",
+      value: formatReportMoney(summary.paymentSettled),
+      sub: `Transferred ${formatReportMoney(summary.amountTransferred)} + Adjusted ${formatReportMoney(summary.amountAdjusted)}`,
+      card: "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white",
+      labelTone: "text-emerald-700",
+    },
+  ];
+
   return (
-    <div className="flex flex-wrap items-center gap-4 sm:gap-5">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          Payments Made
-        </p>
-        <p className="text-xl font-extrabold tabular-nums text-slate-900">
-          {summary.paymentsMade}
-        </p>
-      </div>
-      <div className="hidden h-9 w-px bg-slate-200 sm:block" />
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          Bookings Count
-        </p>
-        <p className="text-xl font-extrabold tabular-nums text-slate-900">
-          {summary.bookingsCount}
-        </p>
-      </div>
-      <div className="hidden h-9 w-px bg-slate-200 md:block" />
-      <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          Payment Settled
-        </p>
-        <p className="text-xl font-extrabold tabular-nums text-slate-900">
-          {formatReportMoney(summary.paymentSettled)}
-        </p>
-        <p className="text-[11px] text-slate-400">
-          Transferred {formatReportMoney(summary.amountTransferred)} + Adjusted{" "}
-          {formatReportMoney(summary.amountAdjusted)}
-        </p>
-      </div>
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      {cards.map((item) => (
+        <div
+          key={item.label}
+          className={cn("rounded-lg border px-3 py-2 shadow-sm", item.card)}
+        >
+          <p
+            className={cn(
+              "text-[11px] font-semibold uppercase tracking-wide",
+              item.labelTone,
+            )}
+          >
+            {item.label}
+          </p>
+          <p className="text-xl font-extrabold tabular-nums text-slate-900">
+            {item.value}
+          </p>
+          {item.sub ? (
+            <p className="text-[11px] text-slate-500">{item.sub}</p>
+          ) : null}
+        </div>
+      ))}
     </div>
   );
 }
@@ -383,69 +400,114 @@ export function PayoutDetailDrawer({
                     {creditStatusBadge("CREDITED")}
                   </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                      <tr>
-                        <th className="px-4 py-2.5 font-semibold">Booking ID (PNR)</th>
-                        <th className="px-4 py-2.5 font-semibold">{dateColumnLabel}</th>
-                        <th className="px-4 py-2.5 font-semibold">Booking Amount</th>
-                        <th className="px-4 py-2.5 font-semibold">Amount Transferred</th>
-                        <th className="px-4 py-2.5 font-semibold">Amount Adjusted</th>
-                        <th className="px-4 py-2.5 font-semibold">Adjustment Reason</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {detail.bookings.map((row) => {
-                        const bookingHref = payoutBookingUrl(
-                          variant,
-                          row.bookingId,
-                          row.bookingReference,
-                          returnTo,
-                        );
-                        return (
-                        <tr key={`${row.bookingId}-${row.bookingReference}`}>
-                          <td className="px-4 py-3 font-mono text-xs">
-                            {bookingHref ? (
-                              <Link
-                                to={bookingHref}
-                                state={{ returnTo }}
-                                className="font-semibold text-blue-700 hover:underline"
-                              >
-                                {row.bookingReference || row.bookingId}
-                              </Link>
-                            ) : (
-                              <span className="text-slate-600">
-                                {row.bookingReference || row.bookingId}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-slate-700">
-                            {formatStayOrTripDates(
-                              row.checkIn,
-                              row.checkOut,
-                              row.startDate,
-                              row.endDate,
-                            )}
-                          </td>
-                          <td className="px-4 py-3 tabular-nums">
-                            {formatFinanceMoney(row.bookingAmount)}
-                          </td>
-                          <td className="px-4 py-3 tabular-nums">
-                            {formatFinanceMoney(row.amountTransferred)}
-                          </td>
-                          <td className="px-4 py-3 tabular-nums">
-                            {formatFinanceMoney(row.amountAdjusted)}
-                          </td>
-                          <td className="px-4 py-3 text-slate-600">
-                            {row.adjustmentReason?.trim() || "—"}
-                          </td>
-                        </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <DataTable
+                  rows={detail.bookings.map((row) => ({
+                    ...row,
+                    id: `${row.bookingId}-${row.bookingReference}`,
+                  }))}
+                  columns={
+                    [
+                      {
+                        field: "bookingReference",
+                        headerName: "Booking ID (PNR)",
+                        flex: 1.1,
+                        minWidth: 160,
+                        sortable: false,
+                        renderCell: (params) => {
+                          const bookingHref = payoutBookingUrl(
+                            variant,
+                            params.row.bookingId,
+                            params.row.bookingReference,
+                            returnTo,
+                          );
+                          const label =
+                            params.row.bookingReference || params.row.bookingId;
+                          return bookingHref ? (
+                            <Link
+                              to={bookingHref}
+                              state={{ returnTo }}
+                              className="truncate font-mono text-xs font-semibold text-blue-700 hover:underline"
+                            >
+                              {label}
+                            </Link>
+                          ) : (
+                            <span className="truncate font-mono text-xs text-slate-600">
+                              {label}
+                            </span>
+                          );
+                        },
+                      },
+                      {
+                        field: "dates",
+                        headerName: dateColumnLabel,
+                        flex: 1,
+                        minWidth: 150,
+                        sortable: false,
+                        renderCell: (params) =>
+                          formatStayOrTripDates(
+                            params.row.checkIn,
+                            params.row.checkOut,
+                            params.row.startDate,
+                            params.row.endDate,
+                          ),
+                      },
+                      {
+                        field: "bookingAmount",
+                        headerName: "Booking Amount",
+                        width: 140,
+                        sortable: false,
+                        renderCell: (params) => (
+                          <span className="tabular-nums">
+                            {formatFinanceMoney(params.row.bookingAmount)}
+                          </span>
+                        ),
+                      },
+                      {
+                        field: "amountTransferred",
+                        headerName: "Amount Transferred",
+                        width: 160,
+                        sortable: false,
+                        renderCell: (params) => (
+                          <span className="tabular-nums">
+                            {formatFinanceMoney(params.row.amountTransferred)}
+                          </span>
+                        ),
+                      },
+                      {
+                        field: "amountAdjusted",
+                        headerName: "Amount Adjusted",
+                        width: 150,
+                        sortable: false,
+                        renderCell: (params) => (
+                          <span className="tabular-nums">
+                            {formatFinanceMoney(params.row.amountAdjusted)}
+                          </span>
+                        ),
+                      },
+                      {
+                        field: "adjustmentReason",
+                        headerName: "Adjustment Reason",
+                        flex: 1,
+                        minWidth: 160,
+                        sortable: false,
+                        renderCell: (params) =>
+                          params.row.adjustmentReason?.trim() || "—",
+                      },
+                    ] satisfies GridColDef<(typeof detail.bookings)[number] & { id: string }>[]
+                  }
+                  getRowId={(row) => row.id}
+                  disableRowSelectionOnClick
+                  disableColumnFilter
+                  showToolbar={false}
+                  showExport={false}
+                  allowHorizontalScroll
+                  pageSizeOptions={[10, 20, 50]}
+                  initialState={{
+                    pagination: { paginationModel: { page: 0, pageSize: 20 } },
+                  }}
+                  className="rounded-none border-0 shadow-none"
+                  localeText={{ noRowsLabel: "No bookings in this settlement." }}
+                />
               </section>
             </>
           ) : (
@@ -506,6 +568,10 @@ export function PayoutPaymentsTable({
   onRowExport,
   rowExportingRef,
   loading,
+  page,
+  pageSize,
+  rowCount,
+  onPageChange,
 }: {
   rows: PayoutMisPaymentRow[];
   sortField: PayoutMisSortField;
@@ -515,153 +581,210 @@ export function PayoutPaymentsTable({
   onRowExport: (paymentReference: string) => void;
   rowExportingRef?: string | null;
   loading?: boolean;
+  page: number;
+  pageSize: number;
+  rowCount: number;
+  onPageChange: (page: number) => void;
 }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-100 bg-slate-50/80">
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-              <span className="inline-flex items-center gap-1">
-                Payment Ref
-                <Info className="h-3 w-3 text-slate-400" aria-hidden />
-              </span>
-            </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-              Settlement No
-            </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-              Hotel Name
-            </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-              <SortableHeader
-                label="Payment Date"
-                field="PAYMENT_DATE"
-                activeField={sortField}
-                activeDir={sortDir}
-                onSort={onSort}
-              />
-            </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-              <SortableHeader
-                label="Bookings"
-                field="BOOKING_COUNT"
-                activeField={sortField}
-                activeDir={sortDir}
-                onSort={onSort}
-              />
-            </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-              <SortableHeader
-                label="Settled"
-                field="PAYMENTS_SETTLED"
-                activeField={sortField}
-                activeDir={sortDir}
-                onSort={onSort}
-              />
-            </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-              <SortableHeader
-                label="Transferred"
-                field="AMOUNT_TRANSFERRED"
-                activeField={sortField}
-                activeDir={sortDir}
-                onSort={onSort}
-              />
-            </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-              <SortableHeader
-                label="Adjusted"
-                field="AMOUNT_ADJUSTED"
-                activeField={sortField}
-                activeDir={sortDir}
-                onSort={onSort}
-              />
-            </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-              Status
-            </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-              Export
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
-            <tr>
-              <td colSpan={10} className="px-4 py-16 text-center">
-                <Loader2 className="mx-auto h-6 w-6 animate-spin text-blue-600" />
-              </td>
-            </tr>
-          ) : !rows.length ? (
-            <tr>
-              <td colSpan={10} className="px-4 py-16 text-center text-slate-400">
-                No payout records found for the selected filters.
-              </td>
-            </tr>
+  const columns: GridColDef<PayoutMisPaymentRow>[] = [
+    {
+      field: "paymentReferenceNumber",
+      headerName: "Payment Ref",
+      width: 180,
+      sortable: false,
+      renderHeader: () => (
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          Payment Ref
+          <Info className="h-3 w-3 text-slate-400" aria-hidden />
+        </span>
+      ),
+      renderCell: (params) => (
+        <button
+          type="button"
+          onClick={() => onOpenDetail(params.row.paymentReferenceNumber)}
+          className="font-mono text-xs font-semibold text-[#2f3d95] hover:underline"
+        >
+          {params.row.paymentReferenceNumber}
+        </button>
+      ),
+    },
+    {
+      field: "settlementNo",
+      headerName: "Settlement No",
+      width: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="font-mono text-xs text-slate-700">
+          {params.row.settlementNo || "—"}
+        </span>
+      ),
+    },
+    {
+      field: "hotelName",
+      headerName: "Hotel Name",
+      flex: 1,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="truncate text-slate-700" title={params.row.hotelName || undefined}>
+          {params.row.hotelName || "—"}
+        </span>
+      ),
+    },
+    {
+      field: "paymentDate",
+      headerName: "Payment Date",
+      width: 150,
+      sortable: false,
+      renderHeader: () => (
+        <SortableHeader
+          label="Payment Date"
+          field="PAYMENT_DATE"
+          activeField={sortField}
+          activeDir={sortDir}
+          onSort={onSort}
+        />
+      ),
+      renderCell: (params) => formatPayoutShortDate(params.row.paymentDate),
+    },
+    {
+      field: "bookingCount",
+      headerName: "Bookings",
+      width: 120,
+      sortable: false,
+      renderHeader: () => (
+        <SortableHeader
+          label="Bookings"
+          field="BOOKING_COUNT"
+          activeField={sortField}
+          activeDir={sortDir}
+          onSort={onSort}
+        />
+      ),
+      renderCell: (params) => (
+        <span className="tabular-nums text-slate-800">{params.row.bookingCount}</span>
+      ),
+    },
+    {
+      field: "paymentsSettled",
+      headerName: "Settled",
+      width: 140,
+      sortable: false,
+      renderHeader: () => (
+        <SortableHeader
+          label="Settled"
+          field="PAYMENTS_SETTLED"
+          activeField={sortField}
+          activeDir={sortDir}
+          onSort={onSort}
+        />
+      ),
+      renderCell: (params) => (
+        <span className="tabular-nums font-medium text-slate-900">
+          {formatReportMoney(params.row.paymentsSettled)}
+        </span>
+      ),
+    },
+    {
+      field: "amountTransferred",
+      headerName: "Transferred",
+      width: 140,
+      sortable: false,
+      renderHeader: () => (
+        <SortableHeader
+          label="Transferred"
+          field="AMOUNT_TRANSFERRED"
+          activeField={sortField}
+          activeDir={sortDir}
+          onSort={onSort}
+        />
+      ),
+      renderCell: (params) => (
+        <span className="tabular-nums text-slate-800">
+          {formatReportMoney(params.row.amountTransferred)}
+        </span>
+      ),
+    },
+    {
+      field: "amountAdjusted",
+      headerName: "Adjusted",
+      width: 130,
+      sortable: false,
+      renderHeader: () => (
+        <SortableHeader
+          label="Adjusted"
+          field="AMOUNT_ADJUSTED"
+          activeField={sortField}
+          activeDir={sortDir}
+          onSort={onSort}
+        />
+      ),
+      renderCell: (params) => (
+        <span className="tabular-nums text-slate-800">
+          {formatReportMoney(params.row.amountAdjusted)}
+        </span>
+      ),
+    },
+    {
+      field: "paymentStatus",
+      headerName: "Status",
+      width: 130,
+      sortable: false,
+      renderCell: (params) => paymentStatusBadge(params.row.paymentStatus),
+    },
+    {
+      field: "export",
+      headerName: "Export",
+      width: 130,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        <button
+          type="button"
+          onClick={() => onRowExport(params.row.paymentReferenceNumber)}
+          disabled={rowExportingRef === params.row.paymentReferenceNumber}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 disabled:opacity-60"
+        >
+          {rowExportingRef === params.row.paymentReferenceNumber ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
-            rows.map((row) => (
-              <tr
-                key={row.paymentReferenceNumber}
-                className="border-b border-slate-50 hover:bg-slate-50/60"
-              >
-                <td className="px-3 py-2.5">
-                  <button
-                    type="button"
-                    onClick={() => onOpenDetail(row.paymentReferenceNumber)}
-                    className="font-mono text-xs font-semibold text-[#2f3d95] hover:underline"
-                  >
-                    {row.paymentReferenceNumber}
-                  </button>
-                </td>
-                <td className="px-3 py-2.5 font-mono text-xs text-slate-700">
-                  {row.settlementNo || "—"}
-                </td>
-                <td className="max-w-56 px-3 py-2.5">
-                  <span
-                    className="block truncate text-slate-700"
-                    title={row.hotelName || undefined}
-                  >
-                    {row.hotelName || "—"}
-                  </span>
-                </td>
-                <td className="px-3 py-2.5 text-slate-700">
-                  {formatPayoutShortDate(row.paymentDate)}
-                </td>
-                <td className="px-3 py-2.5 tabular-nums text-slate-800">
-                  {row.bookingCount}
-                </td>
-                <td className="px-3 py-2.5 tabular-nums font-medium text-slate-900">
-                  {formatReportMoney(row.paymentsSettled)}
-                </td>
-                <td className="px-3 py-2.5 tabular-nums text-slate-800">
-                  {formatReportMoney(row.amountTransferred)}
-                </td>
-                <td className="px-3 py-2.5 tabular-nums text-slate-800">
-                  {formatReportMoney(row.amountAdjusted)}
-                </td>
-                <td className="px-3 py-2.5">{paymentStatusBadge(row.paymentStatus)}</td>
-                <td className="px-3 py-2.5">
-                  <button
-                    type="button"
-                    onClick={() => onRowExport(row.paymentReferenceNumber)}
-                    disabled={rowExportingRef === row.paymentReferenceNumber}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 disabled:opacity-60"
-                  >
-                    {rowExportingRef === row.paymentReferenceNumber ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Download className="h-3.5 w-3.5" />
-                    )}
-                    Download
-                  </button>
-                </td>
-              </tr>
-            ))
+            <Download className="h-3.5 w-3.5" />
           )}
-        </tbody>
-      </table>
-    </div>
+          Download
+        </button>
+      ),
+    },
+  ];
+
+  return (
+    <DataTable
+      title="Payment Settlement Details"
+      subtitle={
+        <span className="text-slate-500">
+          {formatListCount(rowCount, "payment")} · Page {page + 1} of{" "}
+          {Math.max(Math.ceil(rowCount / pageSize) || 1, 1)}
+        </span>
+      }
+      rows={rows}
+      columns={columns}
+      getRowId={(row) => row.paymentReferenceNumber}
+      loading={loading}
+      paginationMode="server"
+      rowCount={rowCount}
+      paginationModel={{ page, pageSize }}
+      onPaginationModelChange={(model) => {
+        if (model.page !== page) onPageChange(model.page);
+      }}
+      pageSizeOptions={[pageSize]}
+      disableRowSelectionOnClick
+      disableColumnFilter
+      showToolbar
+      showExport={false}
+      allowHorizontalScroll
+      localeText={{
+        noRowsLabel: "No payout records found for the selected filters.",
+      }}
+    />
   );
 }
 

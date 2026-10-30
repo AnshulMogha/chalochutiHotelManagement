@@ -537,7 +537,7 @@ export default function BulkUpdateInventoryPage() {
                             flex flex-col items-center justify-center py-2 px-1 rounded-full border transition-all
                             ${
                               isSelected
-                                ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                                ? "bg-[#2f3d95] text-white border-[#2f3d95] shadow-sm"
                                 : "bg-white text-blue-700 border-blue-100 hover:border-blue-200 hover:bg-blue-50"
                             }
                           `}
@@ -627,7 +627,7 @@ export default function BulkUpdateInventoryPage() {
                                 onChange={() => {
                                   if (!disabledRow) toggleRoom(room.roomId);
                                 }}
-                                className="h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                className="h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-[#2f3d95]"
                               />
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-semibold text-slate-900 truncate">
@@ -667,7 +667,7 @@ export default function BulkUpdateInventoryPage() {
                                   }));
                                 }}
                                 placeholder="0"
-                                className="w-full min-w-0 px-3 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
+                                className="w-full min-w-0 px-3 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/25 focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
                               />
                             </div>
                           </div>
@@ -697,7 +697,7 @@ export default function BulkUpdateInventoryPage() {
                   mappingLoading ||
                   mappedRoomList.length === 0
                 }
-                className="px-6 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed shadow-sm"
+                className="px-6 py-2.5 text-sm font-bold text-white bg-[#2f3d95] rounded-lg hover:bg-[#263578] disabled:bg-[#2f3d95]/40 disabled:cursor-not-allowed shadow-sm"
               >
                 {isSubmitting ? "Updating…" : "Update inventory"}
               </button>

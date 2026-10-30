@@ -7,35 +7,35 @@ import {
   type RejectedHotelItem,
   type ReviewRemark,
 } from "../services/adminService";
-import { Button, ExportButton, Tabs, TabsContent, TabsList, TabsTrigger, DataTable } from "@/components/ui";
 import {
-  Eye,
-  Calendar,
-  User,
+  Button,
+  ExportButton,
+  Tabs,
+  TabsContent,
+  DataTable,
+  formatListCount,
+} from "@/components/ui";
+import {
   Building2,
   X,
   Loader2,
   AlertCircle,
-  Hash,
-  MapPin,
-  MessageSquare,
   Clock,
   CheckCircle2,
   XCircle,
-  Filter,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
 import type { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import { exportToCSV, exportToExcel, type ExportColumn } from "@/utils/export";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  isZonalHotelReviewerRole,
-  isQcReviewerRole,
-} from "@/constants/roles";
+import { isZonalHotelReviewerRole, isQcReviewerRole } from "@/constants/roles";
 import { cn } from "@/lib/utils";
-import { HotelReviewTableToolbar } from "../components/HotelReviewTableToolbar";
 import {
-  HotelReviewColumnHeader,
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportRefreshButton,
+} from "@/features/reports/components/ReportFilterDrawer";
+import {
   HotelReviewBadge,
   getRemarkTone,
   hotelReviewTableGridSx,
@@ -69,28 +69,10 @@ const REVIEW_TABS: {
   { value: "rejected", label: "Rejected", icon: XCircle },
 ];
 
-const REVIEW_TAB_STYLES: Record<
-  ReviewBucket,
-  { active: string; idle: string; iconActive: string; iconIdle: string }
-> = {
-  pending: {
-    active: "bg-amber-500 text-white shadow-sm",
-    idle: "text-amber-800 hover:bg-amber-100/80",
-    iconActive: "text-white",
-    iconIdle: "text-amber-600",
-  },
-  approved: {
-    active: "bg-emerald-600 text-white shadow-sm",
-    idle: "text-emerald-800 hover:bg-emerald-100/80",
-    iconActive: "text-white",
-    iconIdle: "text-emerald-600",
-  },
-  rejected: {
-    active: "bg-rose-600 text-white shadow-sm",
-    idle: "text-rose-800 hover:bg-rose-100/80",
-    iconActive: "text-white",
-    iconIdle: "text-rose-600",
-  },
+const REVIEW_TAB_ACTIVE: Record<ReviewBucket, string> = {
+  pending: "bg-amber-500 text-white",
+  approved: "bg-emerald-600 text-white",
+  rejected: "bg-rose-600 text-white",
 };
 
 function getHotelReviewFetchMode(
@@ -116,19 +98,21 @@ export default function HotelReviewListPage() {
     rejected: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [remarkModalData, setRemarkModalData] = useState<{
     hotelName: string;
     remarks: ReviewRemark[];
   } | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [draftFilters, setDraftFilters] = useState<ReviewFilters>(DEFAULT_FILTERS);
-  const [appliedFilters, setAppliedFilters] = useState<ReviewFilters>(DEFAULT_FILTERS);
+  const [draftFilters, setDraftFilters] =
+    useState<ReviewFilters>(DEFAULT_FILTERS);
+  const [appliedFilters, setAppliedFilters] =
+    useState<ReviewFilters>(DEFAULT_FILTERS);
   const navigate = useNavigate();
   const { user } = useAuth();
   const fetchMode = getHotelReviewFetchMode(user?.roles);
-  const useReviewerReadOnlyView =
-    fetchMode === "qc" || fetchMode === "zonal";
+  const useReviewerReadOnlyView = fetchMode === "qc" || fetchMode === "zonal";
 
   const persistReviewContext = (tab: ReviewBucket, hotelId?: string) => {
     if (typeof window === "undefined") return;
@@ -172,7 +156,10 @@ export default function HotelReviewListPage() {
                 ? await adminService.getQcPendingHotelsPaginated(params)
                 : await adminService.getHotelsForReviewPaginated(params);
           setPendingHotels(response.content || []);
-          setTotalRows((prev) => ({ ...prev, pending: response.totalElements || 0 }));
+          setTotalRows((prev) => ({
+            ...prev,
+            pending: response.totalElements || 0,
+          }));
         } else if (activeTab === "approved") {
           const response =
             fetchMode === "zonal"
@@ -181,7 +168,10 @@ export default function HotelReviewListPage() {
                 ? await adminService.getQcApprovedHotelsPaginated(params)
                 : await adminService.getApprovedHotelsPaginated(params);
           setApprovedHotels(response.content || []);
-          setTotalRows((prev) => ({ ...prev, approved: response.totalElements || 0 }));
+          setTotalRows((prev) => ({
+            ...prev,
+            approved: response.totalElements || 0,
+          }));
         } else {
           const response =
             fetchMode === "zonal"
@@ -190,7 +180,10 @@ export default function HotelReviewListPage() {
                 ? await adminService.getQcRejectedHotelsPaginated(params)
                 : await adminService.getRejectedHotelsPaginated(params);
           setRejectedHotels(response.content || []);
-          setTotalRows((prev) => ({ ...prev, rejected: response.totalElements || 0 }));
+          setTotalRows((prev) => ({
+            ...prev,
+            rejected: response.totalElements || 0,
+          }));
         }
       } catch (err) {
         setError("Failed to load hotels");
@@ -207,6 +200,7 @@ export default function HotelReviewListPage() {
     paginationModel.page,
     paginationModel.pageSize,
     appliedFilters,
+    refreshNonce,
   ]);
 
   const formatDate = (dateString: string) => {
@@ -252,13 +246,14 @@ export default function HotelReviewListPage() {
     setFilterOpen(false);
   };
 
-  const hasActiveFilters = Boolean(
-    appliedFilters.city ||
-      appliedFilters.hotelName ||
-      appliedFilters.hotelCode ||
-      appliedFilters.submittedBy ||
-      appliedFilters.submittedAt,
-  );
+  const activeFilterCount = [
+    appliedFilters.city,
+    appliedFilters.hotelName,
+    appliedFilters.hotelCode,
+    appliedFilters.submittedBy,
+    appliedFilters.submittedAt,
+  ].filter(Boolean).length;
+  const hasActiveFilters = activeFilterCount > 0;
 
   const getCurrentHotels = () => {
     switch (activeTab) {
@@ -304,7 +299,11 @@ export default function HotelReviewListPage() {
         valueGetter: (row) => getLatestReviewRemark(row)?.remark || "",
       },
     ];
-    exportToCSV(hotels, exportColumns, `hotel-review-${activeTab}-${new Date().toISOString().split('T')[0]}`);
+    exportToCSV(
+      hotels,
+      exportColumns,
+      `hotel-review-${activeTab}-${new Date().toISOString().split("T")[0]}`,
+    );
   };
 
   const handleExportExcel = () => {
@@ -325,7 +324,11 @@ export default function HotelReviewListPage() {
         valueGetter: (row) => getLatestReviewRemark(row)?.remark || "",
       },
     ];
-    exportToExcel(hotels, exportColumns, `hotel-review-${activeTab}-${new Date().toISOString().split('T')[0]}`);
+    exportToExcel(
+      hotels,
+      exportColumns,
+      `hotel-review-${activeTab}-${new Date().toISOString().split("T")[0]}`,
+    );
   };
 
   const columns: GridColDef[] = [
@@ -334,11 +337,8 @@ export default function HotelReviewListPage() {
       headerName: "Hotel Name",
       flex: 1.5,
       minWidth: 180,
-      renderHeader: () => (
-        <HotelReviewColumnHeader icon={Building2} label="Hotel Name" />
-      ),
       renderCell: (params) => (
-        <span className="truncate text-sm font-semibold text-gray-900">
+        <span className="truncate text-sm font-semibold leading-tight text-slate-900">
           {params.value}
         </span>
       ),
@@ -348,26 +348,20 @@ export default function HotelReviewListPage() {
       headerName: "Hotel City",
       flex: 0.9,
       minWidth: 130,
-      renderHeader: () => (
-        <HotelReviewColumnHeader icon={MapPin} label="Hotel City" />
-      ),
       renderCell: (params) =>
         params.value ? (
           <HotelReviewBadge className="bg-violet-50 text-violet-700 ring-violet-200">
             {params.value}
           </HotelReviewBadge>
         ) : (
-          <span className="text-sm text-gray-400">—</span>
+          <span className="text-sm text-slate-400">—</span>
         ),
     },
     {
       field: "hotelCode",
       headerName: "Hotel Code",
       flex: 0.8,
-      minWidth: 130,
-      renderHeader: () => (
-        <HotelReviewColumnHeader icon={Hash} label="Hotel Code" />
-      ),
+      minWidth: 140,
       renderCell: (params) => (
         <HotelReviewBadge className="bg-indigo-50 font-mono text-indigo-700 ring-indigo-200">
           {params.value}
@@ -378,10 +372,7 @@ export default function HotelReviewListPage() {
       field: "requestedBy",
       headerName: "Submitted By",
       flex: 1,
-      minWidth: 160,
-      renderHeader: () => (
-        <HotelReviewColumnHeader icon={User} label="Submitted By" />
-      ),
+      minWidth: 180,
       renderCell: (params) => (
         <HotelReviewBadge
           className="bg-slate-50 font-normal text-slate-600 ring-slate-200"
@@ -394,11 +385,8 @@ export default function HotelReviewListPage() {
     {
       field: "submittedAt",
       headerName: "Submitted At",
-      flex: 1,
-      minWidth: 140,
-      renderHeader: () => (
-        <HotelReviewColumnHeader icon={Calendar} label="Submitted At" />
-      ),
+      width: 130,
+      minWidth: 120,
       renderCell: (params) => (
         <span className="whitespace-nowrap text-sm font-medium text-slate-600">
           {formatDate(params.value)}
@@ -411,13 +399,10 @@ export default function HotelReviewListPage() {
       flex: 1.3,
       minWidth: 220,
       sortable: false,
-      renderHeader: () => (
-        <HotelReviewColumnHeader icon={MessageSquare} label="QC/Zonal Remark" />
-      ),
       renderCell: (params) => {
         const latest = getLatestReviewRemark(params.row);
         if (!latest) {
-          return <span className="text-sm text-gray-400">—</span>;
+          return <span className="text-sm text-slate-400">—</span>;
         }
         const allRemarks = params.row.qcRemarks ?? [];
         const tone = getRemarkTone(latest);
@@ -441,14 +426,19 @@ export default function HotelReviewListPage() {
             >
               <span
                 className={cn(
-                  "inline-flex max-w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold ring-1 transition-opacity group-hover:opacity-80",
+                  "inline-flex h-auto max-w-full items-center gap-1.5 self-center rounded-md px-2 py-0.5 text-[11px] font-semibold leading-tight ring-1 transition-opacity group-hover:opacity-80",
                   tone.className,
                 )}
               >
                 <span
-                  className={cn("h-1.5 w-1.5 shrink-0 rounded-full", tone.dotClass)}
+                  className={cn(
+                    "h-1.5 w-1.5 shrink-0 rounded-full",
+                    tone.dotClass,
+                  )}
                 />
-                <span className="truncate">{truncateRemark(latest.remark, 48)}</span>
+                <span className="truncate">
+                  {truncateRemark(latest.remark, 48)}
+                </span>
               </span>
             </button>
             <p className="mt-1 text-[11px] text-slate-400">
@@ -460,22 +450,23 @@ export default function HotelReviewListPage() {
     },
     {
       field: "actions",
-      headerName: "Actions",
-      flex: 0.5,
-      minWidth: 80,
+      headerName: "",
+      width: 88,
+      minWidth: 88,
       sortable: false,
       filterable: false,
+      disableColumnMenu: true,
       align: "right",
       headerAlign: "right",
-      renderHeader: () => (
-        <HotelReviewColumnHeader icon={Eye} label="Actions" />
-      ),
       renderCell: (params) => (
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            persistReviewContext(activeTab as ReviewBucket, String(params.row.hotelId));
+            persistReviewContext(
+              activeTab as ReviewBucket,
+              String(params.row.hotelId),
+            );
             const q = new URLSearchParams({
               draftId: String(params.row.hotelId),
               reviewTab: activeTab,
@@ -516,156 +507,187 @@ export default function HotelReviewListPage() {
   ) => {
     const message = emptyMessages[activeTab as ReviewBucket];
 
-    return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200/80 bg-white shadow-sm">
-        {isLoading ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-4">
-            <Loader2 className="mb-3 h-9 w-9 animate-spin text-[#2f3d95]" />
-            <p className="text-sm font-medium text-gray-600">Loading hotels...</p>
+    const totalRows = getCurrentTotalRows();
+    const totalPages = Math.max(
+      1,
+      Math.ceil(totalRows / paginationModel.pageSize) || 1,
+    );
+
+    if (isLoading) {
+      return (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-white px-4 shadow-sm">
+          <Loader2 className="mb-3 h-9 w-9 animate-spin text-[#2f3d95]" />
+          <p className="text-sm font-medium text-slate-600">Loading hotels...</p>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-center">
+          <AlertCircle className="mb-3 h-10 w-10 text-red-400" />
+          <p className="mb-3 text-sm font-medium text-red-600">{error}</p>
+          <Button
+            onClick={() => window.location.reload()}
+            variant="primary"
+            className="text-sm"
+          >
+            Retry
+          </Button>
+        </div>
+      );
+    }
+
+    if (hotels.length === 0) {
+      return (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-white px-4 text-center shadow-sm">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+            <Building2 className="h-8 w-8 text-slate-400" />
           </div>
-        ) : error ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-            <AlertCircle className="mb-3 h-10 w-10 text-red-400" />
-            <p className="mb-3 text-sm font-medium text-red-600">{error}</p>
-            <Button
-              onClick={() => window.location.reload()}
-              variant="primary"
-              className="text-sm"
+          <h3 className="mb-1 text-lg font-semibold text-slate-900">
+            {hasActiveFilters ? "No hotels match your filters" : message.title}
+          </h3>
+          <p className="max-w-sm text-sm text-slate-500">
+            {hasActiveFilters
+              ? "Try a different hotel name, code, or city."
+              : message.description}
+          </p>
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              Retry
-            </Button>
-          </div>
-        ) : hotels.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
-              <Building2 className="h-8 w-8 text-gray-400" />
-            </div>
-            <h3 className="mb-1 text-lg font-semibold text-gray-900">
-              {hasActiveFilters ? "No hotels match your filters" : message.title}
-            </h3>
-            <p className="max-w-sm text-sm text-gray-500">
-              {hasActiveFilters
-                ? "Try a different hotel name, code, or city."
-                : message.description}
-            </p>
-            {hasActiveFilters ? (
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                <X className="h-4 w-4" />
-                Clear filters
-              </button>
-            ) : null}
-          </div>
-        ) : (
-          <DataTable
-            rows={hotels}
-            columns={columns}
-            getRowId={(row) => row.hotelId}
-            rowHeight={64}
-            pageSizeOptions={[10, 20, 50, 100]}
-            paginationMode="server"
-            paginationModel={paginationModel}
-            onPaginationModelChange={setPaginationModel}
-            rowCount={getCurrentTotalRows()}
-            showToolbar
-            fillContainer
-            slots={{ toolbar: HotelReviewTableToolbar }}
-            slotProps={{
-              toolbar: {
-                showQuickFilter: false,
-              },
-            }}
-            exportFileName={`hotel-review-${activeTab}-${new Date().toISOString().split("T")[0]}`}
-            sx={hotelReviewTableGridSx}
-            className="h-full rounded-none border-0 shadow-none"
-          />
-        )}
-      </div>
+              <X className="h-4 w-4" />
+              Clear filters
+            </button>
+          ) : null}
+        </div>
+      );
+    }
+
+    return (
+      <DataTable
+        subtitle={
+          <>
+            <span className="font-medium text-slate-600">
+              {formatListCount(totalRows, "hotel")}
+            </span>
+            <span className="text-slate-400">
+              {hasActiveFilters ? " · filtered" : ""} · Page{" "}
+              {paginationModel.page + 1} of {totalPages}
+            </span>
+          </>
+        }
+        rows={hotels}
+        columns={columns}
+        getRowId={(row) => row.hotelId}
+        paginationMode="server"
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
+        rowCount={totalRows}
+        disableRowSelectionOnClick
+        showToolbar
+        showExport={false}
+        fillContainer
+        dense
+        rowHeight={52}
+        exportFileName={`hotel-review-${activeTab}-${new Date().toISOString().split("T")[0]}`}
+        sx={hotelReviewTableGridSx}
+        className="min-h-0"
+        localeText={{
+          noRowsLabel: hasActiveFilters
+            ? "No hotels match your filters"
+            : message.title,
+        }}
+      />
     );
   };
 
   const currentHotels = getCurrentHotels();
-  const currentTotal = getCurrentTotalRows();
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden">
-      <div className="container mx-auto flex h-full min-h-0 flex-1 flex-col px-4 py-4">
-        <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-bold tracking-tight text-gray-900">
-            Hotel Review
-            {!isLoading && (
-              <span className="ml-1.5 font-bold text-gray-900">
-                ({currentTotal} hotel{currentTotal !== 1 ? "s" : ""})
-              </span>
-            )}
-          </h1>
-          {!isLoading && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setDraftFilters(appliedFilters);
-                  setFilterOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-              >
-                <Filter className="h-4 w-4" />
-                Filters
-                {hasActiveFilters ? (
-                  <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                    Active
-                  </span>
-                ) : null}
-              </button>
-              {currentHotels.length > 0 ? (
-                <ExportButton
-                  iconOnly
-                  onExportCSV={handleExportCSV}
-                  onExportExcel={handleExportExcel}
-                />
-              ) : null}
-            </div>
-          )}
-        </div>
-
+    <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden bg-slate-50">
+      <div className="mx-auto flex h-full w-full max-w-350 min-h-0 flex-1 flex-col gap-3 px-3 py-4 sm:px-5">
         <Tabs
           value={activeTab}
           onValueChange={(nextTab) => {
             persistReviewContext(nextTab as ReviewBucket);
-            setActiveTab(nextTab);
+            setActiveTab(nextTab as ReviewBucket);
             setPaginationModel((prev) => ({ ...prev, page: 0 }));
           }}
           className="flex min-h-0 flex-1 flex-col gap-3"
         >
-          <TabsList className="inline-flex h-auto w-full shrink-0 flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 sm:w-auto">
-            {REVIEW_TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.value;
-              const styles = REVIEW_TAB_STYLES[tab.value];
-              return (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className={cn(
-                    "gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150",
-                    isActive ? styles.active : styles.idle,
-                  )}
-                >
-                  <Icon
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-2 shadow-sm">
+            <div className="flex flex-wrap items-center gap-1">
+              {REVIEW_TABS.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.value;
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => {
+                      persistReviewContext(tab.value);
+                      setActiveTab(tab.value);
+                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                    }}
                     className={cn(
-                      "h-4 w-4 shrink-0",
-                      isActive ? styles.iconActive : styles.iconIdle,
+                      "inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold transition",
+                      isActive
+                        ? REVIEW_TAB_ACTIVE[tab.value]
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200",
                     )}
-                    strokeWidth={2.25}
-                  />
-                  {tab.label}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+                  >
+                    <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+                    {tab.label}
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 text-[10px] font-bold",
+                        isActive
+                          ? "bg-white/20 text-white"
+                          : "bg-white text-slate-500",
+                      )}
+                    >
+                      {totalRows[tab.value]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <ReportAppliedRange
+                from={appliedFilters.submittedAt || null}
+                detail={
+                  [
+                    appliedFilters.city || null,
+                    appliedFilters.hotelName || null,
+                    appliedFilters.hotelCode || null,
+                    appliedFilters.submittedBy || null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || null
+                }
+              />
+              <ReportFilterButton
+                onClick={() => {
+                  setDraftFilters(appliedFilters);
+                  setFilterOpen(true);
+                }}
+                activeCount={activeFilterCount}
+              />
+              <ExportButton
+                iconOnly
+                onExportCSV={handleExportCSV}
+                onExportExcel={handleExportExcel}
+                disabled={isLoading || currentHotels.length === 0}
+              />
+              <ReportRefreshButton
+                onClick={() => setRefreshNonce((n) => n + 1)}
+                loading={isLoading}
+              />
+            </div>
+          </div>
 
           <TabsContent
             value="pending"
@@ -699,7 +721,9 @@ export default function HotelReviewListPage() {
             />
             <aside className="relative ml-auto flex h-full w-full max-w-sm flex-col bg-white shadow-xl">
               <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
+                <h2 className="text-sm font-semibold text-slate-900">
+                  Filters
+                </h2>
                 <button
                   type="button"
                   onClick={() => setFilterOpen(false)}
@@ -815,93 +839,94 @@ export default function HotelReviewListPage() {
         ) : null}
 
         {remarkModalData && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setRemarkModalData(null)}
-        >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl m-4 max-h-[85vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setRemarkModalData(null)}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b bg-linear-to-r from-gray-50 to-blue-50/60">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">
-                  Review Remarks
-                </h2>
-                <p className="text-sm text-gray-600">
-                  {remarkModalData.hotelName}
-                </p>
-                <p className="mt-1 inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                  {remarkModalData.remarks.length} remark
-                  {remarkModalData.remarks.length !== 1 ? "s" : ""}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRemarkModalData(null)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Close remarks"
-              >
-                <X className="w-5 h-5 text-gray-600" />
-              </button>
-            </div>
-
             <div
-              className="p-6 max-h-[62vh] overflow-y-scroll space-y-3"
-              style={{ scrollbarGutter: "stable" }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl m-4 max-h-[85vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
             >
-              {remarkModalData.remarks.length === 0 ? (
-                <p className="text-sm text-gray-500">No remarks found.</p>
-              ) : (
-                remarkModalData.remarks.map((item, idx) => (
-                  <div
-                    key={`${item.remarkedAt}-${idx}`}
-                    className="rounded-xl border border-gray-200 bg-white p-4 shadow-xs"
-                  >
-                    <div className="mb-3 flex flex-wrap items-center gap-2">
-                      {item.reviewerSource && (
-                        <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
-                          {item.reviewerSource}
-                        </span>
-                      )}
-                      {item.reviewAction && (
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                            item.reviewAction.includes("APPROVED")
-                              ? "bg-emerald-100 text-emerald-700"
-                              : item.reviewAction.includes("REJECT")
-                                ? "bg-red-100 text-red-700"
-                                : "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {item.reviewAction}
-                        </span>
-                      )}
-                    </div>
+              <div className="flex items-center justify-between px-6 py-4 border-b bg-linear-to-r from-gray-50 to-blue-50/60">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Review Remarks
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    {remarkModalData.hotelName}
+                  </p>
+                  <p className="mt-1 inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                    {remarkModalData.remarks.length} remark
+                    {remarkModalData.remarks.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRemarkModalData(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Close remarks"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
 
-                    <p className="text-sm text-gray-900 whitespace-pre-wrap wrap-break-word leading-relaxed">
-                      {item.remark}
-                    </p>
+              <div
+                className="p-6 max-h-[62vh] overflow-y-scroll space-y-3"
+                style={{ scrollbarGutter: "stable" }}
+              >
+                {remarkModalData.remarks.length === 0 ? (
+                  <p className="text-sm text-gray-500">No remarks found.</p>
+                ) : (
+                  remarkModalData.remarks.map((item, idx) => (
+                    <div
+                      key={`${item.remarkedAt}-${idx}`}
+                      className="rounded-xl border border-gray-200 bg-white p-4 shadow-xs"
+                    >
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        {item.reviewerSource && (
+                          <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
+                            {item.reviewerSource}
+                          </span>
+                        )}
+                        {item.reviewAction && (
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                              item.reviewAction.includes("APPROVED")
+                                ? "bg-emerald-100 text-emerald-700"
+                                : item.reviewAction.includes("REJECT")
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-gray-100 text-gray-700"
+                            }`}
+                          >
+                            {item.reviewAction}
+                          </span>
+                        )}
+                      </div>
 
-                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
-                      <p>
-                        <span className="font-medium text-gray-700">At:</span>{" "}
-                        {formatDate(item.remarkedAt)}
+                      <p className="text-sm text-gray-900 whitespace-pre-wrap wrap-break-word leading-relaxed">
+                        {item.remark}
                       </p>
-                      <p className="break-all">
-                        <span className="font-medium text-gray-700">Acted By:</span>{" "}
-                        {item.actedBy || "-"}
-                      </p>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
+                        <p>
+                          <span className="font-medium text-gray-700">At:</span>{" "}
+                          {formatDate(item.remarkedAt)}
+                        </p>
+                        <p className="break-all">
+                          <span className="font-medium text-gray-700">
+                            Acted By:
+                          </span>{" "}
+                          {item.actedBy || "-"}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
     </div>
   );
 }
-

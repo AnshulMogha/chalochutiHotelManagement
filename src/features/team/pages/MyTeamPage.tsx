@@ -15,6 +15,16 @@ import {
   type UpdateUserRequest,
 } from "@/features/admin/services/adminService";
 import { Button, Input, Select, LoadingSpinner } from "@/components/ui";
+import {
+  ListEmptyRow,
+  ListLoadingRow,
+  ListTable,
+  ListTableBody,
+  ListTableHead,
+  ListTableRow,
+  ListTableTh,
+  formatListCount,
+} from "@/components/ui/ListTable";
 import { RoleBadge } from "@/components/ui/badges/RoleBadge";
 import { Toast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
@@ -122,8 +132,7 @@ const PERMISSION_MODULES: { value: PermissionModule; label: string }[] = [
 /** Modules an owner can assign to Hotel Manager (no Finance / Documents). */
 const HOTEL_MANAGER_PERMISSION_MODULES: PermissionModule[] =
   PERMISSION_MODULES.map((module) => module.value).filter(
-    (module) =>
-      module !== "PROPERTY_FINANCE" && module !== "PROPERTY_DOCUMENT",
+    (module) => module !== "PROPERTY_FINANCE" && module !== "PROPERTY_DOCUMENT",
   );
 
 const HOTEL_MANAGER_RESTRICTED_MANAGE_ROLES = [
@@ -208,9 +217,8 @@ function TeamMemberFormModal({
 
   useEffect(() => {
     if (mode === "edit" && member) {
-      const normalizedRoles = (member.roles?.length
-        ? member.roles
-        : [member.role]
+      const normalizedRoles = (
+        member.roles?.length ? member.roles : [member.role]
       )
         .map((role) => normalizeTeamRole(role))
         .filter((role): role is TeamRole => role != null);
@@ -218,9 +226,7 @@ function TeamMemberFormModal({
       const filteredRoles = normalizedRoles.filter((role) =>
         allowedRoleValues.has(role),
       );
-      const singleRole = filteredRoles[0]
-        ? [filteredRoles[0]]
-        : defaultRoles;
+      const singleRole = filteredRoles[0] ? [filteredRoles[0]] : defaultRoles;
       setFormData({
         roles: singleRole,
         firstName: member.firstName || "",
@@ -301,7 +307,10 @@ function TeamMemberFormModal({
       console.error("Error submitting form:", error);
       const err = error as {
         message?: string;
-        data?: Record<string, string> | { data?: Record<string, string> } | null;
+        data?:
+          | Record<string, string>
+          | { data?: Record<string, string> }
+          | null;
       };
 
       const rawData = err?.data;
@@ -369,7 +378,9 @@ function TeamMemberFormModal({
 
   const handleRoleSelect = (role: TeamRole) => {
     if (!ALLOWED_TEAM_ROLES.has(role)) return;
-    const allowedRoleValues = new Set(roleOptions.map((option) => option.value));
+    const allowedRoleValues = new Set(
+      roleOptions.map((option) => option.value),
+    );
     if (!allowedRoleValues.has(role)) return;
     setFormData({ ...formData, roles: [role] });
     if (errors.roles) {
@@ -426,7 +437,9 @@ function TeamMemberFormModal({
             <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
               <X className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-rose-800">Could not save</p>
+                <p className="text-sm font-medium text-rose-800">
+                  Could not save
+                </p>
                 <p className="mt-0.5 text-sm text-rose-700">{apiError}</p>
               </div>
               <button
@@ -679,7 +692,9 @@ function TeamMemberDetailsModal({
               {memberInitials(member)}
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">{fullName}</h2>
+              <h2 className="text-lg font-semibold text-slate-900">
+                {fullName}
+              </h2>
               <p className="mt-0.5 text-sm text-slate-500">
                 User ID · {member.userId}
               </p>
@@ -810,42 +825,46 @@ function PermissionsModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [loadWarning, setLoadWarning] = useState<string | null>(null);
-  const memberRoles = member?.roles?.length ? member.roles : member?.role ? [member.role] : [];
+  const memberRoles = member?.roles?.length
+    ? member.roles
+    : member?.role
+      ? [member.role]
+      : [];
   const isHotelManager = memberRoles.includes("HOTEL_MANAGER");
   const isFrontDesk = memberRoles.includes("FRONT_DESK_EXEC");
   const isAccountant =
     memberRoles.includes("HOTEL_ACCOUNTANT") ||
     memberRoles.includes("ACCOUNTANT");
-  const visiblePermissionModules = useMemo(
-    () => {
-      if (isFrontDesk) {
-        return PERMISSION_MODULES.filter((module) => module.value === "BOOKINGS");
-      }
-      if (isAccountant) {
-        return HOTEL_ACCOUNTANT_PERMISSION_OPTIONS.filter((module) =>
-          HOTEL_ACCOUNTANT_ALLOWED_MODULES.includes(module.value),
-        );
-      }
-      if (isHotelManager) {
-        return PERMISSION_MODULES.filter((module) =>
-          HOTEL_MANAGER_PERMISSION_MODULES.includes(module.value),
-        );
-      }
-      return PERMISSION_MODULES.filter((module) => module.value !== "MY_TEAM");
-    },
-    [isAccountant, isFrontDesk, isHotelManager],
-  );
+  const visiblePermissionModules = useMemo(() => {
+    if (isFrontDesk) {
+      return PERMISSION_MODULES.filter((module) => module.value === "BOOKINGS");
+    }
+    if (isAccountant) {
+      return HOTEL_ACCOUNTANT_PERMISSION_OPTIONS.filter((module) =>
+        HOTEL_ACCOUNTANT_ALLOWED_MODULES.includes(module.value),
+      );
+    }
+    if (isHotelManager) {
+      return PERMISSION_MODULES.filter((module) =>
+        HOTEL_MANAGER_PERMISSION_MODULES.includes(module.value),
+      );
+    }
+    return PERMISSION_MODULES.filter((module) => module.value !== "MY_TEAM");
+  }, [isAccountant, isFrontDesk, isHotelManager]);
 
   const hydratePermissions = (
     existingPermissions: Permission[] = [],
   ): Permission[] =>
     visiblePermissionModules.map((module) => {
-      const existing = existingPermissions.find((p) => p.module === module.value);
-      const basePermission =
-        existing || { module: module.value, canView: false, canEdit: false };
-      if (
-        VIEW_ONLY_MODULES.includes(module.value)
-      ) {
+      const existing = existingPermissions.find(
+        (p) => p.module === module.value,
+      );
+      const basePermission = existing || {
+        module: module.value,
+        canView: false,
+        canEdit: false,
+      };
+      if (VIEW_ONLY_MODULES.includes(module.value)) {
         return { ...basePermission, canEdit: false };
       }
       return basePermission;
@@ -931,7 +950,9 @@ function PermissionsModal({
     setApiError(null);
     try {
       const filteredPermissions = permissions.filter((permission) =>
-        visiblePermissionModules.some((module) => module.value === permission.module),
+        visiblePermissionModules.some(
+          (module) => module.value === permission.module,
+        ),
       );
       const normalizedPermissions = filteredPermissions.map((permission) =>
         VIEW_ONLY_MODULES.includes(permission.module)
@@ -939,7 +960,9 @@ function PermissionsModal({
           : permission,
       );
       const finalPermissions = isFrontDesk
-        ? normalizedPermissions.filter((permission) => permission.module === "BOOKINGS")
+        ? normalizedPermissions.filter(
+            (permission) => permission.module === "BOOKINGS",
+          )
         : isAccountant
           ? normalizedPermissions.filter((permission) =>
               HOTEL_ACCOUNTANT_ALLOWED_MODULES.includes(
@@ -1005,7 +1028,9 @@ function PermissionsModal({
             <div className="mb-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
               <X className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-rose-800">Could not save</p>
+                <p className="text-sm font-medium text-rose-800">
+                  Could not save
+                </p>
                 <p className="mt-0.5 text-sm text-rose-700">{apiError}</p>
               </div>
               <button
@@ -1212,7 +1237,8 @@ export default function MyTeamPage() {
     );
 
   const canManageMemberActions = (member: TeamMember): boolean =>
-    canHotelOwnerManageMember(member) && canHotelManagerManageMemberActions(member);
+    canHotelOwnerManageMember(member) &&
+    canHotelManagerManageMemberActions(member);
 
   useEffect(() => {
     if (selectedHotelId) {
@@ -1238,9 +1264,7 @@ export default function MyTeamPage() {
         .toLowerCase();
       const mobile = member.mobile?.toLowerCase() || "";
       return (
-        email.includes(query) ||
-        name.includes(query) ||
-        mobile.includes(query)
+        email.includes(query) || name.includes(query) || mobile.includes(query)
       );
     });
   }, [teamMembers, searchFilter]);
@@ -1264,28 +1288,19 @@ export default function MyTeamPage() {
   };
 
   useEffect(() => {
-    if (
-      editingMember &&
-      !canManageMemberActions(editingMember)
-    ) {
+    if (editingMember && !canManageMemberActions(editingMember)) {
       setEditingMember(null);
     }
   }, [editingMember, canManageMemberActions]);
 
   useEffect(() => {
-    if (
-      permissionsMember &&
-      !canManageMemberActions(permissionsMember)
-    ) {
+    if (permissionsMember && !canManageMemberActions(permissionsMember)) {
       setPermissionsMember(null);
     }
   }, [permissionsMember, canManageMemberActions]);
 
   useEffect(() => {
-    if (
-      revokeMember &&
-      !canManageMemberActions(revokeMember)
-    ) {
+    if (revokeMember && !canManageMemberActions(revokeMember)) {
       setRevokeMember(null);
     }
   }, [revokeMember, canManageMemberActions]);
@@ -1319,7 +1334,9 @@ export default function MyTeamPage() {
       // Step 1: Create user using admin API (POST /admin/users)
       const userCreateRequest: CreateUserRequest = {
         email: createData.email,
-        roles: sanitizeAssignableRoles(createData.roles) as CreateUserRequest["roles"],
+        roles: sanitizeAssignableRoles(
+          createData.roles,
+        ) as CreateUserRequest["roles"],
         firstName: createData.firstName,
         lastName: createData.lastName,
         phoneNumber: createData.phoneNumber,
@@ -1435,21 +1452,20 @@ export default function MyTeamPage() {
 
   if (!selectedHotelId) {
     return (
-      <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
-        <div className="mb-5">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            My Team
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Select a hotel from the dropdown above to manage team members
-          </p>
-        </div>
-        <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70">
-          <div className="text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-400 ring-1 ring-slate-200">
-              <Building2 className="h-6 w-6" />
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+          <div className="flex min-h-80 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white">
+            <div className="text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200">
+                <Building2 className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-medium text-slate-700">
+                No hotel selected
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Select a hotel from the top bar to manage team members
+              </p>
             </div>
-            <p className="text-sm font-medium text-slate-600">No hotel selected</p>
           </div>
         </div>
       </div>
@@ -1457,283 +1473,245 @@ export default function MyTeamPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm"
-              style={{ backgroundColor: TEAM_BRAND.primary }}
-            >
-              <Users className="h-5 w-5" />
+    <div className="min-h-full bg-slate-50">
+      <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+        <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <div className="relative min-w-48 flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={handleTeamSearchKeyDown}
+                  placeholder="Name, email, or mobile"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white py-1.5 pr-2.5 pl-8 text-sm text-slate-700 placeholder:text-slate-400 focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/20"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={applyTeamSearch}
+                className="h-9 px-3 text-sm"
+              >
+                Search
+              </Button>
+              {searchFilter ? (
+                <button
+                  type="button"
+                  onClick={resetTeamSearch}
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Reset
+                </button>
+              ) : null}
             </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                My Team
-              </h1>
-              <p className="text-sm text-slate-500">
-                Manage staff access and permissions for this property
-              </p>
-            </div>
-          </div>
-        </div>
-        <Button
-          variant="primary"
-          onClick={() => setShowCreateModal(true)}
-          className="gap-2 shadow-sm"
-        >
-          <Plus className="h-4 w-4" />
-          Add Team Member
-        </Button>
-      </div>
-
-      {isLoading ? (
-        <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
-          <LoadingSpinner />
-        </div>
-      ) : teamMembers.length === 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 bg-gradient-to-br from-[#eef2ff] via-white to-slate-50 px-6 py-10 text-center sm:px-10">
-            <div
-              className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-md"
-              style={{ backgroundColor: TEAM_BRAND.primary }}
-            >
-              <Users className="h-8 w-8" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900">
-              No team members yet
-            </h3>
-            <p className="mx-auto mt-1.5 max-w-md text-sm text-slate-500">
-              Add managers, front desk, or accountants so they can help run this
-              hotel.
-            </p>
             <Button
               variant="primary"
               onClick={() => setShowCreateModal(true)}
-              className="mt-5 gap-2 shadow-sm"
+              className="gap-1.5 py-1.5 text-sm"
             >
               <Plus className="h-4 w-4" />
               Add Team Member
             </Button>
           </div>
         </div>
-      ) : (
-        <div className="space-y-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="min-w-0 flex-1">
-                <Input
-                  label="Search team"
-                  type="text"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={handleTeamSearchKeyDown}
-                  placeholder="Name, email, or mobile"
-                  icon={<Search className="h-4 w-4 text-slate-400" />}
-                />
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <Button type="button" variant="primary" onClick={applyTeamSearch}>
-                  Search
-                </Button>
-                <Button type="button" variant="outline" onClick={resetTeamSearch}>
-                  Reset
-                </Button>
-              </div>
-            </div>
-          </div>
 
-          {displayedTeamMembers.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-6 py-12 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-400 ring-1 ring-slate-200">
-                <Search className="h-5 w-5" />
-              </div>
-              <p className="font-medium text-slate-800">No matching team members</p>
-              <p className="mt-1 text-sm text-slate-500">
-                Try a different search term or reset filters.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-5">
-                <p className="text-sm font-semibold text-slate-900">
-                  Team members
-                </p>
-                <span className="rounded-full bg-[#eef2ff] px-2.5 py-0.5 text-xs font-semibold text-[#2f3d95]">
-                  {displayedTeamMembers.length}
-                </span>
-              </div>
-              <ul className="divide-y divide-slate-100">
-                {displayedTeamMembers.map((member) => {
-                  const actionLocked = !canManageMemberActions(member);
-                  const actionLockTitle =
-                    "You do not have permission to manage this team member.";
-                  return (
-                    <li key={member.accessId}>
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setSelectedMember(member)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setSelectedMember(member);
+        <ListTable
+          subtitle={
+            isLoading
+              ? "Loading…"
+              : `${formatListCount(displayedTeamMembers.length, "member")}${
+                  searchFilter ? " · filtered" : ""
+                }`
+          }
+        >
+          <ListTableHead>
+            <tr>
+              <ListTableTh>Member</ListTableTh>
+              <ListTableTh>Contact</ListTableTh>
+              <ListTableTh>Roles</ListTableTh>
+              <ListTableTh>Joined</ListTableTh>
+              <ListTableTh>Status</ListTableTh>
+              <ListTableTh align="right">Actions</ListTableTh>
+            </tr>
+          </ListTableHead>
+          <ListTableBody>
+            {isLoading ? (
+              <ListLoadingRow colSpan={6} label="Loading team members…" />
+            ) : teamMembers.length === 0 ? (
+              <ListEmptyRow
+                colSpan={6}
+                message="No team members yet. Add managers, front desk, or accountants for this hotel."
+              />
+            ) : displayedTeamMembers.length === 0 ? (
+              <ListEmptyRow
+                colSpan={6}
+                message="No matching team members. Try a different search or reset."
+              />
+            ) : (
+              displayedTeamMembers.map((member) => {
+                const actionLocked = !canManageMemberActions(member);
+                const actionLockTitle =
+                  "You do not have permission to manage this team member.";
+                const joinedLabel = member.createdAt
+                  ? new Date(member.createdAt).toLocaleDateString("en-GB", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })
+                  : "N/A";
+
+                return (
+                  <ListTableRow
+                    key={member.accessId}
+                    className="cursor-pointer"
+                    onClick={() => setSelectedMember(member)}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#2f3d95] text-xs font-bold text-white">
+                          {memberInitials(member)}
+                        </span>
+                        <p className="truncate font-medium text-slate-900">
+                          {memberDisplayName(member)}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="space-y-1">
+                        <span className="inline-flex max-w-full items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-800 ring-1 ring-sky-200">
+                          <Mail className="h-3 w-3 shrink-0" />
+                          <span className="truncate">
+                            {member.email || "N/A"}
+                          </span>
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-800 ring-1 ring-violet-200">
+                          <Phone className="h-3 w-3 shrink-0" />
+                          {member.mobile || "N/A"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <RoleBadge
+                        roles={
+                          member.roles?.length
+                            ? member.roles
+                            : member.role
+                              ? [member.role]
+                              : []
+                        }
+                      />
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+                        <CalendarDays className="h-3 w-3 shrink-0" />
+                        {joinedLabel}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <TeamStatusBadge status={member.accountStatus} />
+                    </td>
+                    <td
+                      className="px-4 py-3 text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="inline-flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          disabled={actionLocked}
+                          onClick={() =>
+                            !actionLocked && setEditingMember(member)
                           }
-                        }}
-                        className="grid gap-3 px-4 py-3.5 transition-colors hover:bg-[#f8f9ff] sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] sm:items-center sm:gap-4 sm:px-5"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white"
-                            style={{ backgroundColor: TEAM_BRAND.primary }}
-                          >
-                            {memberInitials(member)}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate text-sm font-semibold text-slate-900">
-                                {memberDisplayName(member)}
-                              </p>
-                              <TeamStatusBadge status={member.accountStatus} />
-                            </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                              <span className="inline-flex min-w-0 items-center gap-1 truncate">
-                                <Mail className="h-3 w-3 shrink-0" />
-                                <span className="truncate">
-                                  {member.email || "N/A"}
-                                </span>
-                              </span>
-                              <span className="inline-flex items-center gap-1">
-                                <Phone className="h-3 w-3 shrink-0" />
-                                {member.mobile || "N/A"}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="min-w-0 space-y-1.5">
-                          <RoleBadge
-                            roles={
-                              member.roles?.length
-                                ? member.roles
-                                : member.role
-                                  ? [member.role]
-                                  : []
-                            }
-                          />
-                          <p className="text-[11px] text-slate-400">
-                            Joined{" "}
-                            {member.createdAt
-                              ? new Date(member.createdAt).toLocaleDateString(
-                                  "en-GB",
-                                  {
-                                    day: "2-digit",
-                                    month: "2-digit",
-                                    year: "numeric",
-                                  },
-                                )
-                              : "N/A"}
-                          </p>
-                        </div>
-
-                        <div
-                          className="flex items-center gap-1 sm:justify-end"
-                          onClick={(e) => e.stopPropagation()}
+                          className={cn(
+                            "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                            actionLocked
+                              ? "cursor-not-allowed text-slate-300"
+                              : "text-slate-500 hover:bg-indigo-50 hover:text-[#2f3d95]",
+                          )}
+                          title={actionLocked ? actionLockTitle : "Edit"}
                         >
-                          <button
-                            type="button"
-                            disabled={actionLocked}
-                            onClick={() =>
-                              !actionLocked && setEditingMember(member)
-                            }
-                            className={cn(
-                              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
-                              actionLocked
-                                ? "cursor-not-allowed text-slate-300"
-                                : "text-slate-500 hover:bg-[#eef2ff] hover:text-[#2f3d95]",
-                            )}
-                            title={actionLocked ? actionLockTitle : "Edit"}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={actionLocked}
-                            onClick={() =>
-                              !actionLocked && setPermissionsMember(member)
-                            }
-                            className={cn(
-                              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
-                              actionLocked
-                                ? "cursor-not-allowed text-slate-300"
-                                : "text-slate-500 hover:bg-[#eef2ff] hover:text-[#2f3d95]",
-                            )}
-                            title={
-                              actionLocked
-                                ? actionLockTitle
-                                : "Manage Permissions"
-                            }
-                          >
-                            <Settings className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={actionLocked}
+                          onClick={() =>
+                            !actionLocked && setPermissionsMember(member)
+                          }
+                          className={cn(
+                            "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                            actionLocked
+                              ? "cursor-not-allowed text-slate-300"
+                              : "text-slate-500 hover:bg-indigo-50 hover:text-[#2f3d95]",
+                          )}
+                          title={
+                            actionLocked
+                              ? actionLockTitle
+                              : "Manage Permissions"
+                          }
+                        >
+                          <Settings className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            actionLocked ||
+                            !canHotelManagerAssignForMember(member)
+                          }
+                          onClick={() => {
+                            if (
                               actionLocked ||
                               !canHotelManagerAssignForMember(member)
+                            ) {
+                              return;
                             }
-                            onClick={() => {
-                              if (
-                                actionLocked ||
-                                !canHotelManagerAssignForMember(member)
-                              ) {
-                                return;
-                              }
-                              navigate(
-                                `${ROUTES.TEAM.USER_MANAGE_HOTELS(member.userId)}?hotelId=${encodeURIComponent(selectedHotelId)}`,
-                              );
-                            }}
-                            className={cn(
-                              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
-                              actionLocked ||
-                                !canHotelManagerAssignForMember(member)
-                                ? "cursor-not-allowed text-slate-300"
-                                : "text-slate-500 hover:bg-[#eef2ff] hover:text-[#2f3d95]",
-                            )}
-                            title={
-                              actionLocked ? actionLockTitle : "Manage Hotel"
-                            }
-                          >
-                            <Building2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={actionLocked}
-                            onClick={() =>
-                              !actionLocked && setRevokeMember(member)
-                            }
-                            className={cn(
-                              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
-                              actionLocked
-                                ? "cursor-not-allowed text-slate-300"
-                                : "text-slate-500 hover:bg-rose-50 hover:text-rose-600",
-                            )}
-                            title={
-                              actionLocked ? actionLockTitle : "Revoke Access"
-                            }
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                            navigate(
+                              `${ROUTES.TEAM.USER_MANAGE_HOTELS(member.userId)}?hotelId=${encodeURIComponent(selectedHotelId)}`,
+                            );
+                          }}
+                          className={cn(
+                            "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                            actionLocked ||
+                              !canHotelManagerAssignForMember(member)
+                              ? "cursor-not-allowed text-slate-300"
+                              : "text-slate-500 hover:bg-indigo-50 hover:text-[#2f3d95]",
+                          )}
+                          title={
+                            actionLocked ? actionLockTitle : "Manage Hotel"
+                          }
+                        >
+                          <Building2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={actionLocked}
+                          onClick={() =>
+                            !actionLocked && setRevokeMember(member)
+                          }
+                          className={cn(
+                            "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                            actionLocked
+                              ? "cursor-not-allowed text-slate-300"
+                              : "text-slate-500 hover:bg-rose-50 hover:text-rose-600",
+                          )}
+                          title={
+                            actionLocked ? actionLockTitle : "Revoke Access"
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+                    </td>
+                  </ListTableRow>
+                );
+              })
+            )}
+          </ListTableBody>
+        </ListTable>
+      </div>
 
       {/* Create/Edit Modal */}
       <TeamMemberFormModal

@@ -1,20 +1,17 @@
 import { useNavigate } from "react-router";
-import { Button, ExportButton } from "@/components/ui";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
+import { Button, DataTable, ExportButton } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import {
   Plus,
   Edit,
   Eye,
   Building2,
-  Calendar,
   CheckCircle,
   Clock,
-  User,
   AlertCircle,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  X,
+  CalendarDays,
+  MapPin,
+  User,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
 import { canOnboardHotel } from "@/constants/roles";
@@ -22,16 +19,13 @@ import { useAuth } from "@/hooks";
 import type { HotelList, HotelStatus } from "../types";
 import { propertyService } from "../services/propertyService";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { LoadingSpinner } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import {
-  DataGrid,
-  GridToolbar,
-} from "@mui/x-data-grid";
-import type { GridColDef } from "@mui/x-data-grid";
-import { Box } from "@mui/material";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import {
+  ReportFilterButton,
+  ReportFilterDrawer,
+} from "@/features/reports/components/ReportFilterDrawer";
 import {
   exportStatusLabel,
   isoToReportDateText,
@@ -42,6 +36,13 @@ import type {
   ExportJobStatus,
   ReportExportFormat,
 } from "@/features/reports/services/reportExportService";
+
+const PROPERTY_TABS = [
+  { value: "all", label: "All Properties" },
+  { value: "active", label: "Active Properties" },
+  { value: "inprocess", label: "In Process" },
+  { value: "rejected", label: "Rejected" },
+] as const;
 
 const TAB_STATUS_PARAMS: Record<string, string> = {
   all: "",
@@ -72,40 +73,81 @@ const DEFAULT_PROPERTY_FILTERS: PropertyListFilters = {
 
 const statusConfig: Record<
   HotelStatus,
-  { label: string; className: string; icon: React.ReactNode }
+  { label: string; className: string; icon: React.ReactNode; iconWrap: string }
 > = {
   LIVE: {
     label: "Active",
-    className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    className: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
+    iconWrap: "bg-emerald-100 text-emerald-700",
     icon: <CheckCircle className="w-3 h-3" />,
   },
   UNDER_REVIEW: {
     label: "Under Review",
-    className: "bg-amber-100 text-amber-700 border-amber-200",
+    className: "bg-amber-50 text-amber-800 ring-1 ring-amber-200",
+    iconWrap: "bg-amber-100 text-amber-700",
     icon: <Clock className="w-3 h-3" />,
   },
   DRAFT: {
     label: "Draft",
-    className: "bg-slate-100 text-slate-700 border-slate-200",
+    className: "bg-sky-50 text-sky-800 ring-1 ring-sky-200",
+    iconWrap: "bg-sky-100 text-sky-700",
     icon: <Edit className="w-3 h-3" />,
   },
   REJECTED: {
     label: "Rejected",
-    className: "bg-red-100 text-red-700 border-red-200",
-    icon: <Clock className="w-3 h-3" />,
+    className: "bg-rose-50 text-rose-800 ring-1 ring-rose-200",
+    iconWrap: "bg-rose-100 text-rose-700",
+    icon: <AlertCircle className="w-3 h-3" />,
   },
   SUSPENDED: {
     label: "Suspended",
-    className: "bg-gray-100 text-gray-700 border-gray-200",
+    className: "bg-orange-50 text-orange-800 ring-1 ring-orange-200",
+    iconWrap: "bg-orange-100 text-orange-700",
     icon: <Clock className="w-3 h-3" />,
   },
 };
+
+const STEP_TONES: Array<{ match: RegExp; className: string }> = [
+  {
+    match: /basic|info/i,
+    className: "bg-indigo-50 text-indigo-800 ring-1 ring-indigo-200",
+  },
+  {
+    match: /document/i,
+    className: "bg-violet-50 text-violet-800 ring-1 ring-violet-200",
+  },
+  {
+    match: /room|inventory/i,
+    className: "bg-cyan-50 text-cyan-800 ring-1 ring-cyan-200",
+  },
+  {
+    match: /rate|price/i,
+    className: "bg-teal-50 text-teal-800 ring-1 ring-teal-200",
+  },
+  {
+    match: /polic/i,
+    className: "bg-amber-50 text-amber-800 ring-1 ring-amber-200",
+  },
+  {
+    match: /photo|image|media/i,
+    className: "bg-fuchsia-50 text-fuchsia-800 ring-1 ring-fuchsia-200",
+  },
+  {
+    match: /review|submit/i,
+    className: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200",
+  },
+];
 
 const formatStep = (step: string) => {
   return step
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
+};
+
+const getStepTone = (step: string) => {
+  const found = STEP_TONES.find((tone) => tone.match.test(step));
+  return found?.className ?? "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
 };
 
 const getStatusInfo = (status?: string) => {
@@ -121,7 +163,8 @@ const getStatusInfo = (status?: string) => {
 
   return {
     label: fallbackLabel,
-    className: "bg-slate-100 text-slate-700 border-slate-200",
+    className: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
+    iconWrap: "bg-slate-100 text-slate-600",
     icon: <Clock className="w-3 h-3" />,
   };
 };
@@ -166,7 +209,7 @@ function mapHotelToListItem(
     locked: hotel.locked,
     submittedAt: hotel.submittedAt ?? undefined,
     requestedByEmail: hotel.requestedByEmail ?? undefined,
-    rejectionReason: hotel.rejectionReason,
+    rejectionReason: hotel.rejectionReason ?? undefined,
   };
 }
 
@@ -418,53 +461,6 @@ export default function MyPropertiesPage() {
     };
   }, [isScopedPropertyViewer, propertyFilterParams]);
 
-  const paginationHeader = (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-      <p className="text-sm text-gray-600">
-        {totalElements.toLocaleString("en-IN")} total
-        <span className="text-gray-400"> · </span>
-        Page {page + 1} of {totalPages}
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-2 text-sm text-gray-600">
-          Rows
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPage(0);
-              setPageSize(Number(e.target.value));
-            }}
-            className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm"
-          >
-            {[10, 20, 50, 100].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          disabled={page <= 0 || isLoading}
-          onClick={() => setPage((p) => Math.max(0, p - 1))}
-          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Prev
-        </button>
-        <button
-          type="button"
-          disabled={page + 1 >= totalPages || isLoading}
-          onClick={() => setPage((p) => p + 1)}
-          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
-        >
-          Next
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  );
-
   const handleExport = async (format: ReportExportFormat) => {
     setExporting(true);
     setExportStatus("QUEUED");
@@ -489,702 +485,541 @@ export default function MyPropertiesPage() {
     }
   };
 
-  const renderTable = (
-    hotels: HotelList[],
-    isActiveTab: boolean = false,
-    canAddProperty: boolean = true,
-    inProcessViewOnly: boolean = false,
-    isAllTab: boolean = false,
-  ) => {
-    if (hotels.length === 0) {
+  const effectiveTab = isScopedPropertyViewer ? "active" : activeTab;
+  const isActiveTab = effectiveTab === "active";
+  const isAllTab = effectiveTab === "all";
+  const showStepAndRejection = !isActiveTab;
+  const inProcessViewOnly = isHotelBdUser && !isActiveTab;
+  const hotels =
+    effectiveTab === "all"
+      ? allHotels
+      : effectiveTab === "active"
+        ? activeHotels
+        : effectiveTab === "inprocess"
+          ? inProcessHotels
+          : rejectedHotels;
+  const handleRowNavigate = (hotel: HotelList) => {
+    if (isScopedPropertyViewer) return;
+    const isLiveProperty = ["ACTIVE", "LIVE"].includes(
+      String(hotel.status || "").toUpperCase(),
+    );
+    if (isActiveTab || (isAllTab && isLiveProperty)) {
+      navigate(
+        `${ROUTES.PROPERTY_INFO.BASIC_INFO}?hotelId=${hotel.hotelId}`,
+      );
+    }
+  };
+
+  const renderRowActions = (hotel: HotelList) => {
+    if (isScopedPropertyViewer) return null;
+
+    const isLiveProperty = ["ACTIVE", "LIVE"].includes(
+      String(hotel.status || "").toUpperCase(),
+    );
+
+    if (isActiveTab || (isAllTab && isLiveProperty)) {
       return (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-md p-16 text-center">
-          <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-600 text-lg font-medium mb-2">
-            No properties found on this page
-          </p>
-          {canAddProperty && (
-            <>
-              <p className="text-gray-500 text-sm mb-6">
-                Get started by adding your first property
-              </p>
-              <Button
-                onClick={handleAddProperty}
-                variant="primary"
-                className="gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Property
-              </Button>
-            </>
-          )}
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(event) => {
+            event.stopPropagation();
+            navigate(getOnboardingReadOnlyUrl(hotel.hotelId));
+          }}
+          className="gap-1.5 border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+        >
+          <Eye className="h-3.5 w-3.5" />
+          View
+        </Button>
       );
     }
 
-    const columns: GridColDef[] = [
-      {
-        field: "hotelName",
-        headerName: "Hotel Name",
-        flex: 1.5,
-        minWidth: 200,
-        renderCell: (params) => (
-          <div className="flex items-center gap-3 w-full">
-            <div className="w-10 h-10 rounded-lg bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
-              <Building2 className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-gray-900 truncate">
-                {params.row.hotelName}
-              </div>
-              <div className="text-xs text-gray-500 truncate">
-                ID: {params.row.hotelId}
-              </div>
-            </div>
-          </div>
-        ),
-      },
-      {
-        field: "hotelCode",
-        headerName: "Hotel Code",
-        flex: 0.8,
-        minWidth: 150,
-        renderCell: (params) => (
-          <div className="text-sm text-gray-600 font-mono">
-            {params.value || "N/A"}
-          </div>
-        ),
-      },
-      {
-        field: "city",
-        headerName: "City",
-        flex: 0.7,
-        minWidth: 130,
-        renderCell: (params) => (
-          <div className="text-sm text-gray-600">{params.value || "N/A"}</div>
-        ),
-      },
-      {
-        field: "status",
-        headerName: "Status",
-        flex: 0.7,
-        minWidth: 120,
-        renderCell: (params) => {
-          const statusInfo = getStatusInfo(params.value);
-          return (
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap",
-                statusInfo.className,
-              )}
-            >
-              {statusInfo.icon}
-              {statusInfo.label}
-            </span>
-          );
-        },
-      },
-      ...(!isActiveTab
-        ? [
-            {
-              field: "currentStep",
-              headerName: "Current Step",
-              flex: 0.8,
-              minWidth: 150,
-              renderCell: (params) => (
-                <div className="text-sm text-gray-700">
-                  {formatStep(params.value)}
-                </div>
-              ),
-            } as GridColDef,
-          ]
-        : []),
-      {
-        field: "submittedAt",
-        headerName: "Submitted At",
-        flex: 1,
-        minWidth: 180,
-        renderCell: (params) =>
-          params.value ? (
-            <div className="flex items-center text-sm text-gray-600 whitespace-nowrap">
-              <Calendar className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
-              <span>{formatDate(params.value)}</span>
-            </div>
-          ) : (
-            <span className="text-sm text-gray-400">N/A</span>
-          ),
-      },
-      {
-        field: "requestedByEmail",
-        headerName: "Requested By",
-        flex: 1,
-        minWidth: 200,
-        renderCell: (params) =>
-          params.value ? (
-            <div className="flex items-center text-sm text-gray-600 min-w-0">
-              <User className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
-              <span className="truncate">{params.value}</span>
-            </div>
-          ) : (
-            <span className="text-sm text-gray-400">N/A</span>
-          ),
-      },
-      ...(!isActiveTab
-        ? [
-            {
-              field: "rejectionReason",
-              headerName: "Rejection Reason",
-              flex: 1.2,
-              minWidth: 200,
-              renderCell: (params) =>
-                params.value ? (
-                  <div className="flex items-start gap-2 max-w-full">
-                    <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                    <span className="text-sm text-red-700 line-clamp-2 wrap-break-word">
-                      {params.value}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-gray-400">-</span>
-                ),
-            } as GridColDef,
-          ]
-        : []),
-      {
-        field: "actions",
-        headerName: "Actions",
-        width: 120,
-        flex: 0,
-        sortable: false,
-        filterable: false,
-        align: "right",
-        headerAlign: "right",
-        renderCell: (params) => {
-          if (isScopedPropertyViewer) {
-            return null;
-          }
+    const shouldOpenReadOnly =
+      inProcessViewOnly && hotel.status !== "DRAFT";
 
-          const isLiveProperty = ["ACTIVE", "LIVE"].includes(
-            String(params.row.status || "").toUpperCase(),
-          );
-
-          if (isActiveTab || (isAllTab && isLiveProperty)) {
-            return (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  navigate(getOnboardingReadOnlyUrl(params.row.hotelId));
-                }}
-                className="gap-2"
-              >
-                <Eye className="w-4 h-4" />
-                View
-              </Button>
-            );
-          }
-
-          const shouldOpenReadOnly =
-            inProcessViewOnly && params.row.status !== "DRAFT";
-
-          if (!(shouldOpenReadOnly || !params.row.locked)) return null;
-
-          return (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(event) => {
-                event.stopPropagation();
-                navigate(
-                  shouldOpenReadOnly
-                    ? getOnboardingReadOnlyUrl(params.row.hotelId)
-                    : withMyPropertyOrigin(
-                        ROUTES.PROPERTIES.EDIT(params.row.hotelId),
-                      ),
-                );
-              }}
-              className="gap-2"
-            >
-              {shouldOpenReadOnly ? (
-                <>
-                  <Eye className="w-4 h-4" />
-                  View
-                </>
-              ) : (
-                <>
-                  <Edit className="w-4 h-4" />
-                  Edit
-                </>
-              )}
-            </Button>
-          );
-        },
-      } as GridColDef,
-    ].filter((column) =>
-      isScopedPropertyViewer ? column.field !== "actions" : true,
-    );
+    if (!(shouldOpenReadOnly || !hotel.locked)) return null;
 
     return (
-      <Box
-        sx={{
-          width: "100%",
-          borderRadius: "12px",
-          overflow: "hidden",
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={(event) => {
+          event.stopPropagation();
+          navigate(
+            shouldOpenReadOnly
+              ? getOnboardingReadOnlyUrl(hotel.hotelId)
+              : withMyPropertyOrigin(ROUTES.PROPERTIES.EDIT(hotel.hotelId)),
+          );
         }}
-        className="bg-white border border-gray-200 shadow-md"
+        className={cn(
+          "gap-1.5",
+          shouldOpenReadOnly
+            ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+            : "border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100",
+        )}
       >
-        <DataGrid
-          rows={hotels}
-          columns={columns}
-          getRowId={(row) => row.hotelId}
-          autoHeight
-          hideFooter
-          disableColumnFilter
-          onRowClick={
-            (isActiveTab || isAllTab) && !isScopedPropertyViewer
-              ? (params) => {
-                  const isLiveProperty = ["ACTIVE", "LIVE"].includes(
-                    String(params.row.status || "").toUpperCase(),
-                  );
-                  if (isActiveTab || isLiveProperty) {
-                    navigate(
-                      `${ROUTES.PROPERTY_INFO.BASIC_INFO}?hotelId=${params.row.hotelId}`,
-                    );
-                  }
-                }
-              : undefined
-          }
-          slots={{
-            toolbar: GridToolbar,
-          }}
-          slotProps={{
-            toolbar: {
-              showQuickFilter: true,
-              quickFilterProps: { debounceMs: 500 },
-              csvOptions: {
-                fileName: `hotels-${new Date().toISOString().split("T")[0]}`,
-                delimiter: ",",
-                utf8WithBom: true,
-              },
-              printOptions: {
-                disableToolbarButton: false,
-              },
-              exportOptions: {
-                formatOptions: {
-                  utf8WithBom: true,
-                },
-              },
-            },
-          }}
-          sx={{
-            border: "none",
-            borderRadius: "12px",
-            "& .MuiDataGrid-columnHeaders": {
-              backgroundColor: "#2f3d95 !important",
-              color: "white !important",
-              fontSize: "0.875rem",
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              minHeight: "56px !important",
-              "& .MuiDataGrid-columnHeaderTitle": {
-                fontWeight: 700,
-                fontSize: "0.875rem",
-                color: "white !important",
-              },
-              "& .MuiDataGrid-iconButtonContainer": {
-                color: "white !important",
-              },
-            },
-            "& .MuiDataGrid-columnHeader": {
-              padding: "14px 16px",
-              backgroundColor: "#2f3d95 !important",
-              color: "white !important",
-              "&:focus": {
-                outline: "none",
-              },
-              "&:focus-within": {
-                outline: "none",
-              },
-              "&:hover .MuiDataGrid-iconButtonContainer": {
-                opacity: 0,
-              },
-              "& .MuiDataGrid-iconButtonContainer": {
-                opacity: 0,
-                transition: "opacity 0.2s",
-              },
-              "&.MuiDataGrid-columnHeader--sorted .MuiDataGrid-iconButtonContainer":
-                {
-                  opacity: 1,
-                  "& .MuiDataGrid-sortIcon": {
-                    color: "#10b981 !important",
-                    fontSize: "0.875rem",
-                    width: "16px",
-                    height: "16px",
-                  },
-                },
-              "& .MuiDataGrid-sortIcon": {
-                color: "#10b981 !important",
-                fontSize: "0.875rem",
-                width: "16px",
-                height: "16px",
-              },
-            },
-            "& .MuiDataGrid-row": {
-              ...((isActiveTab || isAllTab) && !isScopedPropertyViewer
-                ? { cursor: "pointer" }
-                : {}),
-              "&:hover": {
-                backgroundColor: "#eff6ff",
-              },
-              "&:nth-of-type(even)": {
-                backgroundColor: "#fafafa",
-                "&:hover": {
-                  backgroundColor: "#eff6ff",
-                },
-              },
-            },
-            "& .MuiDataGrid-cell": {
-              borderBottom: "1px solid #e5e7eb",
-              padding: "14px 16px",
-              fontSize: "0.875rem",
-              display: "flex",
-              alignItems: "center",
-              "&:focus": {
-                outline: "none",
-              },
-              "&:focus-within": {
-                outline: "none",
-              },
-            },
-            "& .MuiDataGrid-footerContainer": {
-              borderTop: "1px solid #e5e7eb",
-              padding: "12px 16px",
-              backgroundColor: "white",
-            },
-            "& .MuiDataGrid-toolbarContainer": {
-              padding: "12px 16px",
-              backgroundColor: "#f9fafb",
-              borderBottom: "1px solid #e5e7eb",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              "& .MuiButton-root": {
-                textTransform: "none",
-              },
-            },
-            "& .MuiDataGrid-main": {
-              overflowX: "hidden",
-            },
-            "& .MuiDataGrid-columnHeadersInner": {
-              backgroundColor: "#2f3d95 !important",
-            },
-            "& .MuiDataGrid-columnHeaders .MuiDataGrid-filler": {
-              backgroundColor: "#2f3d95 !important",
-            },
-          }}
-        />
-      </Box>
+        {shouldOpenReadOnly ? (
+          <>
+            <Eye className="h-3.5 w-3.5" />
+            View
+          </>
+        ) : (
+          <>
+            <Edit className="h-3.5 w-3.5" />
+            Edit
+          </>
+        )}
+      </Button>
     );
   };
 
-  if (isLoading && totalElements === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner />
-      </div>
-    );
-  }
+  const columns: GridColDef<HotelList>[] = [
+    {
+      field: "hotelName",
+      headerName: "Hotel Name",
+      flex: 1,
+      minWidth: 220,
+      sortable: false,
+      renderCell: (params) => {
+        const statusInfo = getStatusInfo(params.row.status);
+        return (
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span
+              className={cn(
+                "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                statusInfo.iconWrap,
+              )}
+            >
+              <Building2 className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-medium text-slate-900">
+                {params.row.hotelName}
+              </p>
+              <p className="truncate text-[11px] text-slate-400">
+                ID: {params.row.hotelId}
+              </p>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      field: "hotelCode",
+      headerName: "Hotel Code",
+      width: 160,
+      sortable: false,
+      renderCell: (params) =>
+        params.row.hotelCode ? (
+          <span className="inline-flex max-w-full truncate rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200">
+            {params.row.hotelCode}
+          </span>
+        ) : (
+          <span className="text-sm text-slate-400">N/A</span>
+        ),
+    },
+    {
+      field: "city",
+      headerName: "City",
+      width: 140,
+      sortable: false,
+      renderCell: (params) =>
+        params.row.city ? (
+          <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-800 ring-1 ring-teal-200">
+            <MapPin className="h-3 w-3 shrink-0" />
+            {params.row.city}
+          </span>
+        ) : (
+          <span className="text-sm text-slate-400">N/A</span>
+        ),
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => {
+        const statusInfo = getStatusInfo(params.row.status);
+        return (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+              statusInfo.className,
+            )}
+          >
+            {statusInfo.icon}
+            {statusInfo.label}
+          </span>
+        );
+      },
+    },
+    ...(showStepAndRejection
+      ? [
+          {
+            field: "currentStep",
+            headerName: "Current Step",
+            width: 150,
+            sortable: false,
+            renderCell: (params) => (
+              <span
+                className={cn(
+                  "inline-flex rounded-md px-2 py-0.5 text-xs font-semibold",
+                  getStepTone(params.row.currentStep || ""),
+                )}
+              >
+                {formatStep(params.row.currentStep || "")}
+              </span>
+            ),
+          } satisfies GridColDef<HotelList>,
+        ]
+      : []),
+    {
+      field: "submittedAt",
+      headerName: "Submitted At",
+      width: 150,
+      sortable: false,
+      renderCell: (params) =>
+        params.row.submittedAt ? (
+          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+            <CalendarDays className="h-3 w-3 shrink-0" />
+            {formatDate(params.row.submittedAt)}
+          </span>
+        ) : (
+          <span className="text-sm text-slate-400">N/A</span>
+        ),
+    },
+    {
+      field: "requestedByEmail",
+      headerName: "Requested By",
+      width: 220,
+      sortable: false,
+      renderCell: (params) =>
+        params.row.requestedByEmail ? (
+          <span
+            className="inline-flex max-w-full items-center gap-1 truncate rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800 ring-1 ring-blue-200"
+            title={params.row.requestedByEmail}
+          >
+            <User className="h-3 w-3 shrink-0" />
+            <span className="truncate">{params.row.requestedByEmail}</span>
+          </span>
+        ) : (
+          <span className="text-sm text-slate-400">N/A</span>
+        ),
+    },
+    ...(showStepAndRejection
+      ? [
+          {
+            field: "rejectionReason",
+            headerName: "Rejection Reason",
+            width: 220,
+            sortable: false,
+            renderCell: (params) =>
+              params.row.rejectionReason ? (
+                <span className="inline-flex items-start gap-1.5 rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-800 ring-1 ring-rose-200">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span className="line-clamp-2">
+                    {params.row.rejectionReason}
+                  </span>
+                </span>
+              ) : (
+                <span className="text-sm text-slate-400">—</span>
+              ),
+          } satisfies GridColDef<HotelList>,
+        ]
+      : []),
+    ...(!isScopedPropertyViewer
+      ? [
+          {
+            field: "actions",
+            headerName: "Actions",
+            width: 120,
+            sortable: false,
+            align: "right",
+            headerAlign: "right",
+            renderCell: (params) => renderRowActions(params.row),
+          } satisfies GridColDef<HotelList>,
+        ]
+      : []),
+  ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-full bg-slate-50">
       <Toast
         message={toast.message}
         type={toast.type}
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-      {isScopedPropertyViewer ? (
-        <>
-          <div className="mb-6 flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={openFilterDrawer}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 ? (
-                <span className="rounded-full bg-[#2f3d95] px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {activeFilterCount}
-                </span>
-              ) : null}
-            </button>
-          </div>
-          <div className="mb-3">{paginationHeader}</div>
-          {renderTable(activeHotels, true, false)}
-          <div className="mt-3">{paginationHeader}</div>
-        </>
-      ) : (
-        <Tabs
-          defaultValue="active"
-          value={activeTab}
-          onValueChange={(value) => {
-            setActiveTab(value);
-            setPage(0);
-          }}
-          className="space-y-6"
-        >
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <TabsList className="bg-white border border-gray-200 shadow-sm h-12 px-1 space-x-1 rounded-xl">
-              <TabsTrigger
-                value="all"
-                className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
-              >
-                <span>All Properties</span>
-                <span className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
-                  {tabTotals.all}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="active"
-                className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
-              >
-                <span>Active Properties</span>
-                <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
-                  {tabTotals.active}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="inprocess"
-                className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
-              >
-                <span>In Process</span>
-                <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
-                  {tabTotals.inprocess}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="rejected"
-                className="cursor-pointer px-6 py-2.5 text-sm font-semibold data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all"
-              >
-                <span>Rejected</span>
-                <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium data-[state=active]:bg-white/20 data-[state=active]:text-white">
-                  {tabTotals.rejected}
-                </span>
-              </TabsTrigger>
-            </TabsList>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={openFilterDrawer}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-              >
-                <Filter className="h-4 w-4" />
-                Filters
-                {activeFilterCount > 0 ? (
-                  <span className="rounded-full bg-[#2f3d95] px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                    {activeFilterCount}
+      <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+        <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+            <div className="flex flex-wrap items-center gap-1">
+              {isScopedPropertyViewer ? (
+                <span className="rounded-full bg-[#2f3d95] px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+                  Active Properties
+                  <span className="ml-1.5 rounded-full bg-white/20 px-1.5 py-px text-[10px] font-bold">
+                    {tabTotals.active}
                   </span>
-                ) : null}
-              </button>
-              {canOnboard && (
+                </span>
+              ) : (
+                PROPERTY_TABS.map((tab) => {
+                  const isActive = activeTab === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(tab.value);
+                        setPage(0);
+                      }}
+                      className={cn(
+                        "cursor-pointer rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition",
+                        isActive
+                          ? "bg-[#2f3d95] text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                      )}
+                    >
+                      {tab.label}
+                      <span
+                        className={cn(
+                          "ml-1.5 rounded-full px-1.5 py-px text-[10px] font-bold",
+                          isActive
+                            ? "bg-white/20 text-white"
+                            : "bg-white text-slate-500",
+                        )}
+                      >
+                        {tabTotals[tab.value] ?? 0}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <ReportFilterButton
+                onClick={openFilterDrawer}
+                activeCount={activeFilterCount}
+                label="Filters"
+              />
+              {!isScopedPropertyViewer && canOnboard ? (
                 <Button
-                  onClick={handleAddProperty}
+                  onClick={() => void handleAddProperty()}
                   variant="primary"
-                  className="gap-2 shadow-lg hover:shadow-xl transition-shadow"
+                  size="sm"
+                  className="gap-1.5"
                 >
-                  <Plus className="w-5 h-5" />
-                  <span>Add New Property</span>
+                  <Plus className="h-4 w-4" />
+                  Add New Property
                 </Button>
-              )}
-              {(tabTotals[activeTab] ?? 0) > 0 && (
+              ) : null}
+              {!isScopedPropertyViewer && (tabTotals[activeTab] ?? 0) > 0 ? (
                 <ExportButton
-                  onExportCSV={() => void handleExport("CSV")}
-                  onExportExcel={() => void handleExport("EXCEL")}
+                  iconOnly
                   exporting={exporting}
-                  exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+                  exportingLabel={
+                    exportStatusLabel(exportStatus) || "Exporting…"
+                  }
+                  onExportExcel={() => void handleExport("EXCEL")}
+                  onExportCSV={() => void handleExport("CSV")}
                 />
-              )}
+              ) : null}
             </div>
           </div>
-
-          <div className="mb-3">{paginationHeader}</div>
-
-          {/* All Properties Tab */}
-          <TabsContent value="all" className="mt-0">
-            {renderTable(allHotels, false, canOnboard, isHotelBdUser, true)}
-          </TabsContent>
-
-          {/* Active Properties Tab */}
-          <TabsContent value="active" className="mt-0">
-            {renderTable(activeHotels, true, canOnboard)}
-          </TabsContent>
-
-          {/* In Process Properties Tab */}
-          <TabsContent value="inprocess" className="mt-0">
-            {renderTable(inProcessHotels, false, canOnboard, isHotelBdUser)}
-          </TabsContent>
-
-          {/* Rejected Properties Tab */}
-          <TabsContent value="rejected" className="mt-0">
-            {renderTable(rejectedHotels, false, canOnboard, isHotelBdUser)}
-          </TabsContent>
-
-          <div className="mt-3">{paginationHeader}</div>
-        </Tabs>
-      )}
-
-      {filterOpen ? (
-        <div className="fixed inset-0 z-50 flex">
-          <button
-            type="button"
-            aria-label="Close filters"
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => setFilterOpen(false)}
-          />
-          <aside className="relative ml-auto flex h-full w-full max-w-sm flex-col bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
-                <p className="text-[11px] text-slate-500">
-                  Search hotels, then apply to refresh
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(false)}
-                className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Hotel name
-                </label>
-                <input
-                  type="search"
-                  value={draftFilters.hotelName}
-                  onChange={(e) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      hotelName: e.target.value,
-                    }))
-                  }
-                  placeholder="Taj"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Hotel code
-                </label>
-                <input
-                  type="search"
-                  value={draftFilters.hotelCode}
-                  onChange={(e) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      hotelCode: e.target.value,
-                    }))
-                  }
-                  placeholder="HTL"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  City
-                </label>
-                <input
-                  type="search"
-                  value={draftFilters.city}
-                  onChange={(e) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      city: e.target.value,
-                    }))
-                  }
-                  placeholder="Mumbai"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Requested by
-                </label>
-                <input
-                  type="search"
-                  value={draftFilters.requestedBy}
-                  onChange={(e) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      requestedBy: e.target.value,
-                    }))
-                  }
-                  placeholder="owner@"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <ReportCustomDateFields
-                  singleDate
-                  singleLabel="Submitted date (IST day)"
-                  fromText={draftFilters.submittedAt}
-                  onFromTextChange={(value) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      submittedAt: value,
-                      submittedAtFrom: "",
-                      submittedAtTo: "",
-                    }))
-                  }
-                />
-              </div>
-              <ReportCustomDateFields
-                fromLabel="Submitted from"
-                toLabel="Submitted to"
-                fromText={draftFilters.submittedAtFrom}
-                toText={draftFilters.submittedAtTo}
-                onFromTextChange={(value) =>
-                  setDraftFilters((prev) => ({
-                    ...prev,
-                    submittedAtFrom: value,
-                    submittedAt: "",
-                  }))
-                }
-                onToTextChange={(value) =>
-                  setDraftFilters((prev) => ({
-                    ...prev,
-                    submittedAtTo: value,
-                    submittedAt: "",
-                  }))
-                }
-              />
-            </div>
-            <div className="flex gap-2 border-t border-slate-200 px-4 py-3">
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                onClick={applyFilters}
-                className="flex-1 rounded-lg bg-[#2f3d95] px-3 py-2 text-sm font-semibold text-white hover:bg-[#263578]"
-              >
-                Apply
-              </button>
-            </div>
-          </aside>
         </div>
-      ) : null}
+
+        <DataTable
+          subtitle={
+            isLoading && hotels.length === 0 ? (
+              "Loading…"
+            ) : (
+              <>
+                <span className="font-medium text-slate-600">
+                  {totalElements.toLocaleString("en-IN")}{" "}
+                  {totalElements === 1 ? "property" : "properties"}
+                </span>
+                <span className="text-slate-400">
+                  {" "}
+                  · Page {page + 1} of {Math.max(totalPages, 1)}
+                </span>
+              </>
+            )
+          }
+          rows={hotels}
+          columns={columns}
+          getRowId={(row) => row.hotelId}
+          loading={isLoading}
+          paginationMode="server"
+          rowCount={totalElements}
+          paginationModel={{ page, pageSize }}
+          onPaginationModelChange={(model) => {
+            if (model.pageSize !== pageSize) {
+              setPage(0);
+              setPageSize(model.pageSize);
+              return;
+            }
+            if (model.page !== page) setPage(model.page);
+          }}
+          pageSizeOptions={[10, 20, 50, 100]}
+          disableRowSelectionOnClick
+          disableColumnFilter
+          showToolbar
+          showExport={false}
+          allowHorizontalScroll
+          getRowHeight={() => "auto"}
+          onRowClick={(params) => {
+            const hotel = params.row;
+            const rowClickable =
+              !isScopedPropertyViewer &&
+              (isActiveTab ||
+                (isAllTab &&
+                  ["ACTIVE", "LIVE"].includes(
+                    String(hotel.status || "").toUpperCase(),
+                  )));
+            if (rowClickable) handleRowNavigate(hotel);
+          }}
+          getRowClassName={(params) => {
+            const hotel = params.row;
+            const rowClickable =
+              !isScopedPropertyViewer &&
+              (isActiveTab ||
+                (isAllTab &&
+                  ["ACTIVE", "LIVE"].includes(
+                    String(hotel.status || "").toUpperCase(),
+                  )));
+            return rowClickable ? "property-row-clickable" : "";
+          }}
+          localeText={{
+            noRowsLabel:
+              canOnboard && !isScopedPropertyViewer
+                ? "No properties found. Add a new property to get started."
+                : "No properties found on this page.",
+          }}
+          sx={{
+            "& .MuiDataGrid-cell": {
+              alignItems: "center",
+              whiteSpace: "normal",
+              py: "8px",
+            },
+            "& .property-row-clickable": {
+              cursor: "pointer",
+            },
+          }}
+        />
+      </div>
+
+      <ReportFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onReset={resetFilters}
+        onApply={applyFilters}
+        title="Filters"
+        resetLabel="Reset"
+        applyLabel="Apply"
+      >
+        <section>
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            Hotel name
+          </label>
+          <input
+            type="search"
+            value={draftFilters.hotelName}
+            onChange={(e) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                hotelName: e.target.value,
+              }))
+            }
+            placeholder="Taj"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
+        </section>
+        <section>
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            Hotel code
+          </label>
+          <input
+            type="search"
+            value={draftFilters.hotelCode}
+            onChange={(e) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                hotelCode: e.target.value,
+              }))
+            }
+            placeholder="HTL"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
+        </section>
+        <section>
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            City
+          </label>
+          <input
+            type="search"
+            value={draftFilters.city}
+            onChange={(e) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                city: e.target.value,
+              }))
+            }
+            placeholder="Mumbai"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
+        </section>
+        <section>
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            Requested by
+          </label>
+          <input
+            type="search"
+            value={draftFilters.requestedBy}
+            onChange={(e) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                requestedBy: e.target.value,
+              }))
+            }
+            placeholder="owner@"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
+        </section>
+        <section>
+          <ReportCustomDateFields
+            singleDate
+            singleLabel="Submitted date (IST day)"
+            fromText={draftFilters.submittedAt}
+            onFromTextChange={(value) =>
+              setDraftFilters((prev) => ({
+                ...prev,
+                submittedAt: value,
+                submittedAtFrom: "",
+                submittedAtTo: "",
+              }))
+            }
+          />
+        </section>
+        <ReportCustomDateFields
+          fromLabel="Submitted from"
+          toLabel="Submitted to"
+          fromText={draftFilters.submittedAtFrom}
+          toText={draftFilters.submittedAtTo}
+          onFromTextChange={(value) =>
+            setDraftFilters((prev) => ({
+              ...prev,
+              submittedAtFrom: value,
+              submittedAt: "",
+            }))
+          }
+          onToTextChange={(value) =>
+            setDraftFilters((prev) => ({
+              ...prev,
+              submittedAtTo: value,
+              submittedAt: "",
+            }))
+          }
+        />
+      </ReportFilterDrawer>
     </div>
   );
 }

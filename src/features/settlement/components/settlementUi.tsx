@@ -272,14 +272,15 @@ export function SettlementRefreshButton({
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+      aria-label={label}
+      title={label}
+      className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
     >
       {loading ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <RefreshCw className="h-4 w-4" />
       )}
-      {label}
     </button>
   );
 }
@@ -404,16 +405,82 @@ export function SettlementPanel({
 
 const SETTLEMENT_STAT_TONE: Record<
   "navy" | "emerald" | "amber" | "sky" | "violet" | "rose" | "slate",
-  string
+  { card: string; label: string; icon: string }
 > = {
-  navy: "bg-[#2f3d95]",
-  emerald: "bg-emerald-600",
-  amber: "bg-amber-500",
-  sky: "bg-sky-600",
-  violet: "bg-violet-600",
-  rose: "bg-rose-600",
-  slate: "bg-slate-500",
+  navy: {
+    card: "border-indigo-100 bg-gradient-to-br from-indigo-50 to-white",
+    label: "text-indigo-700",
+    icon: "bg-[#2f3d95]",
+  },
+  emerald: {
+    card: "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white",
+    label: "text-emerald-700",
+    icon: "bg-emerald-600",
+  },
+  amber: {
+    card: "border-amber-100 bg-gradient-to-br from-amber-50 to-white",
+    label: "text-amber-700",
+    icon: "bg-amber-500",
+  },
+  sky: {
+    card: "border-sky-100 bg-gradient-to-br from-sky-50 to-white",
+    label: "text-sky-700",
+    icon: "bg-sky-600",
+  },
+  violet: {
+    card: "border-violet-100 bg-gradient-to-br from-violet-50 to-white",
+    label: "text-violet-700",
+    icon: "bg-violet-600",
+  },
+  rose: {
+    card: "border-rose-100 bg-gradient-to-br from-rose-50 to-white",
+    label: "text-rose-700",
+    icon: "bg-rose-500",
+  },
+  slate: {
+    card: "border-cyan-100 bg-gradient-to-br from-cyan-50 to-white",
+    label: "text-cyan-700",
+    icon: "bg-cyan-600",
+  },
 };
+
+export function settlementStatusSurface(status?: string | null): string {
+  const value = String(status || "").toUpperCase();
+  if (value === "FULLY_SETTLED" || value === "APPROVED" || value === "PAID") {
+    return "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white";
+  }
+  if (value === "CUSTOMER_PAYMENT_PENDING" || value === "PENDING") {
+    return "border-amber-100 bg-gradient-to-br from-amber-50 to-white";
+  }
+  if (
+    value === "SUPPLIER_PAYMENT_PENDING" ||
+    value === "DISPUTED" ||
+    value === "UNDER_REVIEW"
+  ) {
+    return "border-orange-100 bg-gradient-to-br from-orange-50 to-white";
+  }
+  if (
+    value === "BOTH_PENDING" ||
+    value === "REFUND_PENDING" ||
+    value === "REJECTED" ||
+    value === "FAILED"
+  ) {
+    return "border-rose-100 bg-gradient-to-br from-rose-50 to-white";
+  }
+  if (
+    value === "SETTLEMENT_TRACKING_INCOMPLETE" ||
+    value === "REVERSED"
+  ) {
+    return "border-violet-100 bg-gradient-to-br from-violet-50 to-white";
+  }
+  if (value === "PAYMENT_QUEUED" || value === "PAYMENT_PROCESSING") {
+    return "border-sky-100 bg-gradient-to-br from-sky-50 to-white";
+  }
+  if (value === "NO_SETTLEMENT_DUE") {
+    return "border-cyan-100 bg-gradient-to-br from-cyan-50 to-white";
+  }
+  return "border-indigo-100 bg-gradient-to-br from-indigo-50 to-white";
+}
 
 export function SettlementReportStatCard({
   label,
@@ -430,34 +497,37 @@ export function SettlementReportStatCard({
   tone?: keyof typeof SETTLEMENT_STAT_TONE;
   className?: string;
 }) {
+  const palette = SETTLEMENT_STAT_TONE[tone];
   return (
     <div
       className={cn(
-        "rounded-lg border border-slate-200 bg-white p-3 shadow-sm",
+        "rounded-lg border p-3 shadow-sm",
+        palette.card,
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            {label}
-          </p>
-          <div className="mt-0.5 font-sans text-lg font-bold tabular-nums tracking-tight text-slate-900">
-            {value}
-          </div>
-          {sub ? (
-            <p className="mt-0.5 text-[11px] text-slate-500">{sub}</p>
-          ) : null}
-        </div>
+      <div className="flex items-center gap-2">
         <div
           className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
-            SETTLEMENT_STAT_TONE[tone],
+            palette.icon,
           )}
         >
           <Icon className="h-4 w-4 text-white" strokeWidth={2.25} aria-hidden />
         </div>
+        <p
+          className={cn(
+            "min-w-0 truncate text-[11px] font-semibold uppercase tracking-wide",
+            palette.label,
+          )}
+        >
+          {label}
+        </p>
       </div>
+      <div className="mt-1 font-sans text-lg font-bold tabular-nums tracking-tight text-slate-900">
+        {value}
+      </div>
+      {sub ? <p className="mt-0.5 text-[11px] text-slate-500">{sub}</p> : null}
     </div>
   );
 }

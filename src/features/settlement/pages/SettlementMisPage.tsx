@@ -4,15 +4,20 @@ import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { canApproveSupplierSettlement } from "@/constants/roles";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
   formatFinanceMoney,
-  formatReportDate,
   formatStatusLabel,
   exportStatusLabel,
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+} from "@/features/reports/components/ReportFilterDrawer";
 import type { ExportJobStatus } from "@/features/reports/services/reportExportService";
 import { settlementService } from "../services/settlementService";
 import {
@@ -25,7 +30,6 @@ import {
   SettlementMoney,
   SettlementPageShell,
   SettlementRefreshButton,
-  SettlementReportSection,
   SettlementReportStatCard,
   SettlementStatusBadge,
   SettlementActionConfirmDialog,
@@ -34,11 +38,8 @@ import {
 import {
   BarChart3,
   Building2,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Download,
-  Filter,
   IndianRupee,
   Loader2,
   RotateCcw,
@@ -91,7 +92,8 @@ export default function SettlementMisPage() {
   const [rows, setRows] = useState<SettlementMisRow[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
-  const [dateRangeLabel, setDateRangeLabel] = useState<string | null>(null);
+  const [visibleFrom, setVisibleFrom] = useState<string | null>(null);
+  const [visibleTo, setVisibleTo] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
     null,
@@ -138,22 +140,8 @@ export default function SettlementMisPage() {
       setTotalPages(response.data.totalPages);
       setTotalElements(response.data.totalElements);
       setSummary(response.data.summary);
-      if (response.data.fromDate || response.data.toDate) {
-        setDateRangeLabel(
-          formatSettlementPeriod({
-            from: response.data.fromDate ?? null,
-            to: response.data.toDate ?? null,
-          }),
-        );
-      } else if (range.fromDate || range.toDate) {
-        setDateRangeLabel(
-          `${range.fromDate ? formatReportDate(range.fromDate) : "…"} – ${
-            range.toDate ? formatReportDate(range.toDate) : "…"
-          }`,
-        );
-      } else {
-        setDateRangeLabel(null);
-      }
+      setVisibleFrom(response.data.fromDate || range.fromDate || null);
+      setVisibleTo(response.data.toDate || range.toDate || null);
     } catch (error) {
       showToast(extractErrorMessage(error), "error");
       setRows([]);
@@ -178,6 +166,141 @@ export default function SettlementMisPage() {
       setRetryingNo(null);
     }
   };
+
+  const columns = useMemo<GridColDef<SettlementMisRow>[]>(() => {
+    const base: GridColDef<SettlementMisRow>[] = [
+      {
+        field: "settlementNo",
+        headerName: "Settlement",
+        width: 190,
+        sortable: false,
+        renderCell: (params) => (
+          <Link
+            to={ROUTES.SETTLEMENT.DETAIL(params.row.settlementNo)}
+            className="font-mono text-xs font-semibold text-indigo-700 hover:underline"
+          >
+            {params.row.settlementNo}
+          </Link>
+        ),
+      },
+      {
+        field: "supplierName",
+        headerName: "Supplier",
+        flex: 1,
+        minWidth: 220,
+        sortable: false,
+        renderCell: (params) => (
+          <div className="flex items-center gap-2 py-1">
+            <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
+            <div className="min-w-0">
+              <p className="truncate font-medium text-slate-900">
+                {params.row.supplierName}
+              </p>
+              <p className="truncate text-[11px] text-slate-400">
+                {[params.row.supplierType, params.row.component]
+                  .filter(Boolean)
+                  .map((value) => formatStatusLabel(value))
+                  .filter((value, index, list) => list.indexOf(value) === index)
+                  .join(" · ")}
+              </p>
+            </div>
+          </div>
+        ),
+      },
+      {
+        field: "period",
+        headerName: "Period",
+        width: 180,
+        sortable: false,
+        renderCell: (params) => (
+          <span className="text-xs text-slate-600">
+            {formatSettlementPeriod(params.row.period)}
+          </span>
+        ),
+      },
+      {
+        field: "gross",
+        headerName: "Gross",
+        width: 130,
+        sortable: false,
+        renderCell: (params) => <SettlementMoney value={params.row.gross} />,
+      },
+      {
+        field: "payable",
+        headerName: "Payable",
+        width: 130,
+        sortable: false,
+        renderCell: (params) => <SettlementMoney value={params.row.payable} />,
+      },
+      {
+        field: "payoutStatus",
+        headerName: "Payout",
+        width: 170,
+        sortable: false,
+        renderCell: (params) => {
+          const payoutStatus = params.row.payoutStatus || params.row.status;
+          return (
+            <div className="space-y-1 py-1">
+              <SettlementStatusBadge status={payoutStatus} />
+              {params.row.status &&
+              params.row.payoutStatus &&
+              params.row.status !== params.row.payoutStatus ? (
+                <p className="text-[10px] text-slate-500">
+                  Settlement: {formatStatusLabel(params.row.status)}
+                </p>
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
+        field: "utr",
+        headerName: "UTR",
+        width: 160,
+        sortable: false,
+        renderCell: (params) => (
+          <span className="font-mono text-xs text-slate-600">
+            {params.row.utr || "—"}
+          </span>
+        ),
+      },
+    ];
+    if (canRetry) {
+      base.push({
+        field: "action",
+        headerName: "Action",
+        width: 110,
+        sortable: false,
+        align: "right",
+        headerAlign: "right",
+        renderCell: (params) => {
+          const payoutStatus = params.row.payoutStatus || params.row.status;
+          const isFailed =
+            String(payoutStatus || "").toUpperCase() === "FAILED" ||
+            String(params.row.status || "").toUpperCase() === "FAILED";
+          if (!isFailed) {
+            return <span className="text-xs text-slate-300">—</span>;
+          }
+          return (
+            <button
+              type="button"
+              disabled={retryingNo === params.row.settlementNo}
+              onClick={() => setRetryConfirmNo(params.row.settlementNo)}
+              className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+            >
+              {retryingNo === params.row.settlementNo ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5" />
+              )}
+              Retry
+            </button>
+          );
+        },
+      });
+    }
+    return base;
+  }, [canRetry, retryingNo]);
 
   const openFilterDrawer = () => {
     setDraft(applied);
@@ -250,28 +373,34 @@ export default function SettlementMisPage() {
     <>
       <SettlementPageShell
         title="Settlement MIS"
-        subtitle={
-          dateRangeLabel
-            ? `Finance dashboard · ${dateRangeLabel}`
-            : "Finance dashboard — payable, paid, and settlement KPIs"
-        }
+        subtitle="Finance dashboard — payable, paid, and settlement KPIs"
         icon={BarChart3}
         iconClassName="bg-gradient-to-br from-indigo-500 to-violet-600"
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
+          <div className="flex flex-wrap items-center gap-2">
+            <ReportAppliedRange
+              from={visibleFrom}
+              to={visibleTo}
+              detail={
+                [
+                  applied.component
+                    ? formatStatusLabel(applied.component)
+                    : null,
+                  applied.payoutStatus
+                    ? formatStatusLabel(applied.payoutStatus)
+                    : null,
+                  applied.supplierName.trim() || null,
+                  applied.settlementNo.trim() || null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") ||
+                (!visibleFrom && !visibleTo ? "All dates" : null)
+              }
+            />
+            <ReportFilterButton
               onClick={openFilterDrawer}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 ? (
-                <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {activeFilterCount}
-                </span>
-              ) : null}
-            </button>
+              activeCount={activeFilterCount}
+            />
             <button
               type="button"
               onClick={() => void downloadMis()}
@@ -286,7 +415,7 @@ export default function SettlementMisPage() {
                   ? exportStatusLabel(exportStatus)
                   : "Download Excel"
               }
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
             >
               {exporting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -329,183 +458,47 @@ export default function SettlementMisPage() {
           />
         </div>
 
-        <SettlementReportSection
+        <DataTable
           title="Settlement records"
-          description={`${totalElements.toLocaleString("en-IN")} settlements · Page ${page + 1} of ${Math.max(totalPages, 1)}`}
-          flush
-        >
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-[#263578] bg-[#2f3d95] text-white">
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                    Settlement
-                  </th>
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                    Supplier
-                  </th>
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                    Period
-                  </th>
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                    Gross
-                  </th>
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                    Payable
-                  </th>
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                    Payout
-                  </th>
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                    UTR
-                  </th>
-                  {canRetry ? (
-                    <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wide">
-                      Action
-                    </th>
-                  ) : null}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {loading ? (
-                  <tr>
-                    <td
-                      colSpan={canRetry ? 8 : 7}
-                      className="px-4 py-16 text-center text-slate-500"
-                    >
-                      <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
-                      Loading MIS…
-                    </td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={canRetry ? 8 : 7}
-                      className="px-4 py-16 text-center text-slate-500"
-                    >
-                      No settlement records for selected filters.
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row) => {
-                    const payoutStatus = row.payoutStatus || row.status;
-                    const isFailed =
-                      String(payoutStatus || "").toUpperCase() === "FAILED" ||
-                      String(row.status || "").toUpperCase() === "FAILED";
-                    return (
-                      <tr key={row.settlementNo} className="hover:bg-slate-50/80">
-                        <td className="px-4 py-3">
-                          <Link
-                            to={ROUTES.SETTLEMENT.DETAIL(row.settlementNo)}
-                            className="font-mono text-xs font-semibold text-indigo-700 hover:underline"
-                          >
-                            {row.settlementNo}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
-                            <div className="min-w-0">
-                              <p className="font-medium text-slate-900">
-                                {row.supplierName}
-                              </p>
-                              <p className="text-[11px] text-slate-400">
-                                {[
-                                  row.supplierType,
-                                  row.component,
-                                ]
-                                  .filter(Boolean)
-                                  .map((value) => formatStatusLabel(value))
-                                  .filter(
-                                    (value, index, list) =>
-                                      list.indexOf(value) === index,
-                                  )
-                                  .join(" · ")}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
-                          {formatSettlementPeriod(row.period)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <SettlementMoney value={row.gross} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <SettlementMoney value={row.payable} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="space-y-1">
-                            <SettlementStatusBadge status={payoutStatus} />
-                            {row.status &&
-                            row.payoutStatus &&
-                            row.status !== row.payoutStatus ? (
-                              <p className="text-[10px] text-slate-500">
-                                Settlement: {formatStatusLabel(row.status)}
-                              </p>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 font-mono text-xs text-slate-600">
-                          {row.utr || "—"}
-                        </td>
-                        {canRetry ? (
-                          <td className="px-4 py-3 text-right">
-                            {isFailed ? (
-                              <button
-                                type="button"
-                                disabled={retryingNo === row.settlementNo}
-                                onClick={() =>
-                                  setRetryConfirmNo(row.settlementNo)
-                                }
-                                className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
-                              >
-                                {retryingNo === row.settlementNo ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <RotateCcw className="h-3.5 w-3.5" />
-                                )}
-                                Retry
-                              </button>
-                            ) : (
-                              <span className="text-xs text-slate-300">—</span>
-                            )}
-                          </td>
-                        ) : null}
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-            <p className="text-xs text-slate-500">
-              {totalElements.toLocaleString("en-IN")} settlements · Page{" "}
-              {page + 1} of {Math.max(totalPages, 1)}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={page <= 0 || loading}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium disabled:opacity-40"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Prev
-              </button>
-              <button
-                type="button"
-                disabled={page + 1 >= totalPages || loading}
-                onClick={() => setPage((p) => p + 1)}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium disabled:opacity-40"
-              >
-                Next
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </SettlementReportSection>
+          subtitle={
+            <>
+              <span className="font-medium text-slate-600">
+                {formatListCount(totalElements, "settlement")}
+              </span>
+              <span className="text-slate-400">
+                {" "}
+                · Page {page + 1} of {Math.max(totalPages, 1)}
+              </span>
+            </>
+          }
+          rows={rows}
+          columns={columns}
+          getRowId={(row) => row.settlementNo}
+          loading={loading}
+          paginationMode="server"
+          rowCount={totalElements}
+          paginationModel={{ page, pageSize: PAGE_SIZE }}
+          onPaginationModelChange={(model) => {
+            if (model.page !== page) setPage(model.page);
+          }}
+          pageSizeOptions={[PAGE_SIZE]}
+          disableRowSelectionOnClick
+          disableColumnFilter
+          showToolbar
+          showExport={false}
+          allowHorizontalScroll
+          getRowHeight={() => "auto"}
+          localeText={{
+            noRowsLabel: "No settlement records for selected filters.",
+          }}
+          sx={{
+            "& .MuiDataGrid-cell": {
+              alignItems: "center",
+              whiteSpace: "normal",
+              py: "8px",
+            },
+          }}
+        />
       </SettlementPageShell>
 
       <SettlementFilterDrawer

@@ -101,11 +101,11 @@ const getDateHeaderClasses = (date: Date, isSelected: boolean, isPastDate: boole
   switch (type) {
     case 'WEEKEND':
       return isSelected
-        ? 'bg-blue-600 text-white shadow-sm'
+        ? 'bg-[#2f3d95] text-white shadow-sm'
         : 'bg-green-50/80 text-green-700 hover:bg-green-100/80 cursor-pointer';
     default:
       return isSelected
-        ? 'bg-blue-600 text-white shadow-sm'
+        ? 'bg-[#2f3d95] text-white shadow-sm'
         : 'bg-white text-slate-600 hover:bg-slate-50 border-r border-slate-100 cursor-pointer';
   }
 };
@@ -640,7 +640,7 @@ export const RoomTypesGrid = ({
                       w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                       tabular-nums
                       ${canEdit
-                        ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
+                        ? "ring-2 ring-blue-600/40 border-[#2f3d95]/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-[#2f3d95]"
                         : `${getReadOnlyGridCellCursor(isPastDateCell(date), isSelected)} bg-slate-50/80 border-slate-200/80 text-slate-400`}
                       ${minStay !== null && minStay !== undefined && canEdit ? "text-emerald-700" : ""}
                       ${(minStay === null || minStay === undefined) && canEdit ? "text-rose-600" : ""}
@@ -746,7 +746,7 @@ export const RoomTypesGrid = ({
                       w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                       tabular-nums
                       ${canEdit
-                        ? "ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600"
+                        ? "ring-2 ring-blue-600/40 border-[#2f3d95]/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-[#2f3d95]"
                         : `${getReadOnlyGridCellCursor(isPastDateCell(date), isSelected)} bg-slate-50/80 border-slate-200/80 text-slate-400`}
                       ${maxStay !== null && maxStay !== undefined && canEdit ? "text-emerald-700" : ""}
                       ${(maxStay === null || maxStay === undefined) && canEdit ? "text-rose-600" : ""}
@@ -1162,7 +1162,7 @@ export const RoomTypesGrid = ({
                         w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                         tabular-nums
                         ${canEdit && !isUpdating
-                          ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600 text-rose-600' 
+                          ? 'ring-2 ring-blue-600/40 border-[#2f3d95]/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-[#2f3d95] text-rose-600' 
                           : `${getReadOnlyGridCellCursor(isPastDateCell(date), isColumnSelected)} bg-slate-50/80 border-slate-200/80 text-slate-400`}
                         ${isUpdating ? 'opacity-50' : ''}
                         focus:outline-none
@@ -1257,7 +1257,7 @@ export const RoomTypesGrid = ({
                         w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                         tabular-nums
                         ${canEdit && !isUpdating
-                          ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600 text-rose-600'
+                          ? 'ring-2 ring-blue-600/40 border-[#2f3d95]/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-[#2f3d95] text-rose-600'
                           : `${getReadOnlyGridCellCursor(isPastDateCell(date), isColumnSelected)} bg-slate-50/80 border-slate-200/80 text-slate-400`}
                         ${isUpdating ? 'opacity-50' : ''}
                         focus:outline-none
@@ -1355,7 +1355,7 @@ export const RoomTypesGrid = ({
                         w-20 h-11 border rounded-lg font-semibold text-lg text-center transition-all duration-150
                         tabular-nums
                         ${canEdit && !isUpdating
-                          ? 'ring-2 ring-blue-600/40 border-blue-600/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-blue-600' 
+                          ? 'ring-2 ring-blue-600/40 border-[#2f3d95]/30 shadow-sm bg-white focus:ring-blue-600/60 focus:border-[#2f3d95]' 
                           : `${getReadOnlyGridCellCursor(isPastDateCell(date), isColumnSelected)} bg-slate-50/80 border-slate-200/80 text-slate-400`}
                         ${canEdit && !isUpdating ? 'text-emerald-700' : ''}
                         focus:outline-none

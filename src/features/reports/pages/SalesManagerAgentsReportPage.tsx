@@ -8,11 +8,11 @@ import {
 import { Link } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ExportButton } from "@/components/ui/ExportButton";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants";
 import { appendReturnToQuery } from "@/lib/navigationReturn";
-import { useAuth } from "@/hooks/useAuth";
-import { canFilterSalesManagerReportsByUser } from "@/constants/roles";
 import { adminService } from "@/features/admin/services/adminService";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
@@ -20,7 +20,6 @@ import {
   SummaryCard,
   agentStatusTone,
   exportStatusLabel,
-  formatReportDate,
   formatReportDateTime,
   formatReportMoney,
   formatStatusLabel,
@@ -30,6 +29,10 @@ import {
   validateOptionalDateRange,
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+} from "../components/ReportFilterDrawer";
 import {
   salesManagerAgentsReportService,
   type SalesManagerAgentPortfolioRow,
@@ -50,13 +53,17 @@ import type {
 } from "../services/salesManagerReportTypes";
 import {
   AlertCircle,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
+  Award,
+  Ban,
+  BookX,
+  Gem,
   LayoutDashboard,
-  Loader2,
+  Medal,
   RefreshCw,
+  UserCheck,
   UserRoundCog,
+  UserX,
+  Users,
   X,
 } from "lucide-react";
 
@@ -97,7 +104,6 @@ type FilterDraft = {
   stateId: string;
   state: string;
   agencyTier: string;
-  salesManagerId: string;
   search: string;
   agentStatus: SalesManagerAgentStatus | "ALL";
   sort: SalesManagerAgentsSortField;
@@ -117,7 +123,6 @@ const DEFAULT_DRAFT: FilterDraft = {
   stateId: "",
   state: "",
   agencyTier: "",
-  salesManagerId: "",
   search: "",
   agentStatus: DEFAULT_STATUS,
   sort: DEFAULT_SORT,
@@ -129,8 +134,6 @@ const DEFAULT_DRAFT: FilterDraft = {
 };
 
 export default function SalesManagerAgentsReportPage() {
-  const { user } = useAuth();
-  const canFilterByManager = canFilterSalesManagerReportsByUser(user?.roles);
   const { toast, showToast, hideToast } = useToast();
 
   const [datePreset, setDatePreset] =
@@ -144,7 +147,6 @@ export default function SalesManagerAgentsReportPage() {
   const [stateId, setStateId] = useState("");
   const [state, setState] = useState("");
   const [agencyTier, setAgencyTier] = useState("");
-  const [salesManagerId, setSalesManagerId] = useState("");
   const [search, setSearch] = useState("");
   const [agentStatus, setAgentStatus] = useState<
     SalesManagerAgentStatus | "ALL"
@@ -174,9 +176,6 @@ export default function SalesManagerAgentsReportPage() {
     null,
   );
   const [error, setError] = useState<string | null>(null);
-  const [managerOptions, setManagerOptions] = useState<
-    Array<{ id: string; label: string }>
-  >([]);
   const [states, setStates] = useState<
     Array<{ id: string; label: string; name: string }>
   >([]);
@@ -196,38 +195,9 @@ export default function SalesManagerAgentsReportPage() {
     (search.trim() ? 1 : 0) +
     (stateId ? 1 : 0) +
     (agencyTier ? 1 : 0) +
-    (salesManagerId ? 1 : 0) +
     (onboardedFrom || onboardedTo ? 1 : 0) +
     (lastBookingFrom || lastBookingTo ? 1 : 0) +
     (datePreset === "CUSTOM" && (fromDate || toDate) ? 1 : 0);
-
-  useEffect(() => {
-    if (!canFilterByManager) return;
-    let cancelled = false;
-    adminService
-      .getUsers({ role: "SALES_MANAGER", size: 200, status: "ACTIVE" })
-      .then((response) => {
-        if (cancelled) return;
-        setManagerOptions(
-          (response.content || []).map((entry) => ({
-            id: String(entry.userId ?? entry.id ?? ""),
-            label:
-              [entry.firstName, entry.lastName]
-                .filter(Boolean)
-                .join(" ")
-                .trim() ||
-              entry.email?.trim() ||
-              `User ${entry.userId ?? entry.id ?? ""}`,
-          })),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setManagerOptions([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [canFilterByManager]);
 
   useEffect(() => {
     let cancelled = false;
@@ -280,8 +250,6 @@ export default function SalesManagerAgentsReportPage() {
           agencyTier:
             ((overrides?.agencyTier ?? agencyTier) as SalesManagerAgencyTier) ||
             undefined,
-          salesManagerId:
-            (overrides?.salesManagerId ?? salesManagerId) || undefined,
           search: (overrides?.search ?? search).trim() || undefined,
           agentStatus: overrides?.agentStatus ?? agentStatus,
           sort: overrides?.sort ?? sort,
@@ -317,7 +285,6 @@ export default function SalesManagerAgentsReportPage() {
       onboardedFrom,
       onboardedTo,
       page,
-      salesManagerId,
       search,
       showToast,
       sort,
@@ -377,7 +344,6 @@ export default function SalesManagerAgentsReportPage() {
     setStateId(nextDraft.stateId);
     setState(nextDraft.state);
     setAgencyTier(nextDraft.agencyTier);
-    setSalesManagerId(nextDraft.salesManagerId);
     setSearch(nextDraft.search);
     setAgentStatus(nextDraft.agentStatus);
     setSort(nextDraft.sort);
@@ -423,7 +389,6 @@ export default function SalesManagerAgentsReportPage() {
     setStateId("");
     setState("");
     setAgencyTier("");
-    setSalesManagerId("");
     setSearch("");
     setAgentStatus(DEFAULT_DRAFT.agentStatus);
     setSort(DEFAULT_DRAFT.sort);
@@ -452,7 +417,6 @@ export default function SalesManagerAgentsReportPage() {
       stateId: stateId || undefined,
       state: state.trim() || undefined,
       agencyTier: (agencyTier as SalesManagerAgencyTier) || undefined,
-      salesManagerId: salesManagerId || undefined,
       search: search.trim() || undefined,
       agentStatus,
       sort,
@@ -473,7 +437,6 @@ export default function SalesManagerAgentsReportPage() {
       lastBookingTo,
       onboardedFrom,
       onboardedTo,
-      salesManagerId,
       search,
       sort,
       sortDir,
@@ -502,6 +465,171 @@ export default function SalesManagerAgentsReportPage() {
     }
   };
 
+  const agentColumns: GridColDef<SalesManagerAgentPortfolioRow>[] = [
+    {
+      field: "agency",
+      headerName: "Agency",
+      flex: 1.3,
+      minWidth: 200,
+      sortable: false,
+      valueGetter: (_value, row) => row.agency.name,
+      renderCell: (params) => (
+        <div className="min-w-0 py-1 leading-tight">
+          <p className="truncate font-medium text-slate-900">
+            {params.row.agency.name}
+          </p>
+          <p className="truncate text-xs text-slate-500">
+            {params.row.agentCode}
+            {params.row.agency.contactPerson
+              ? ` · ${params.row.agency.contactPerson}`
+              : ""}
+          </p>
+          {params.row.agency.email ? (
+            <p className="truncate text-xs text-slate-500">
+              {params.row.agency.email}
+            </p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      field: "location",
+      headerName: "Location",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <div className="py-1 leading-tight text-slate-700">
+          <p>{params.row.location.state || "—"}</p>
+          <p className="text-xs text-slate-500">
+            {params.row.location.city || "—"}
+          </p>
+        </div>
+      ),
+    },
+    {
+      field: "tier",
+      headerName: "Tier",
+      width: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="inline-flex h-auto items-center self-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium leading-tight text-slate-700">
+          {params.row.tier.label}
+        </span>
+      ),
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 130,
+      sortable: false,
+      renderCell: (params) => (
+        <span
+          className={cn(
+            "inline-flex h-auto items-center self-center rounded-full px-2 py-0.5 text-xs font-semibold leading-tight ring-1 ring-inset",
+            agentStatusTone(params.row.status.color, params.row.status.code),
+          )}
+        >
+          {params.row.status.label}
+        </span>
+      ),
+    },
+    {
+      field: "bookings",
+      headerName: "Bookings",
+      flex: 1.2,
+      minWidth: 220,
+      sortable: false,
+      renderCell: (params) => (
+        <div className="min-w-0 py-1 leading-tight tabular-nums text-slate-800">
+          <p className="font-semibold">{params.row.bookings.total} bookings</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <Link
+              to={agentHotelMisUrl(String(params.row.agentId))}
+              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+            >
+              Hotel {params.row.bookings.hotel}
+            </Link>
+            <a
+              href={`${ROUTES.ADMIN.PACKAGE_BOOKING_FINANCIAL_MIS}?agencyId=${params.row.agentId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+            >
+              Package {params.row.bookings.package}
+            </a>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            {params.row.bookings.confirmed} confirmed ·{" "}
+            {params.row.bookings.cancelled} cancelled
+          </p>
+        </div>
+      ),
+    },
+    {
+      field: "revenue",
+      headerName: "Revenue",
+      width: 160,
+      sortable: false,
+      renderCell: (params) => (
+        <div className="py-1 leading-tight tabular-nums text-slate-800">
+          <p className="font-semibold">
+            {formatReportMoney(params.row.revenue.grossBookingValue)}
+          </p>
+          <p className="text-xs text-slate-500">
+            Collected {formatReportMoney(params.row.revenue.collected)}
+          </p>
+          <p className="text-xs text-slate-500">
+            Outstanding {formatReportMoney(params.row.revenue.outstanding)}
+          </p>
+        </div>
+      ),
+    },
+    {
+      field: "collection",
+      headerName: "Collection",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <div className="py-1 leading-tight tabular-nums text-slate-800">
+          <p className="font-semibold">
+            {params.row.revenue.collectionPercent.toFixed(1)}%
+          </p>
+          <p className="text-xs text-slate-500">
+            ABV {formatReportMoney(params.row.revenue.averageBookingValue)}
+          </p>
+        </div>
+      ),
+    },
+    {
+      field: "activity",
+      headerName: "Activity",
+      flex: 1,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (params) => (
+        <div className="py-1 leading-tight text-slate-700">
+          <p className="text-xs">
+            Last booking:{" "}
+            {formatReportDateTime(params.row.activity.lastBookingAt)}
+          </p>
+        </div>
+      ),
+    },
+    {
+      field: "quality",
+      headerName: "Quality",
+      width: 130,
+      sortable: false,
+      renderCell: (params) => (
+        <div className="py-1 leading-tight tabular-nums text-slate-700">
+          <p className="text-xs">
+            Cancel {params.row.quality.cancellationPercent.toFixed(1)}%
+          </p>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4">
       <Toast toast={toast} onClose={hideToast} />
@@ -510,20 +638,18 @@ export default function SalesManagerAgentsReportPage() {
         icon={UserRoundCog}
         iconClassName="bg-gradient-to-br from-emerald-500 to-teal-600"
         title="Agent Portfolio"
-        description={
-          report?.dateRange?.fromDate && report?.dateRange?.toDate
-            ? `${formatReportDate(report.dateRange.fromDate)} – ${formatReportDate(report.dateRange.toDate)}${
-                report.metricWindow
-                  ? ` · ${formatStatusLabel(report.metricWindow)} metrics`
-                  : ""
-              }`
-            : undefined
-        }
-        descriptionClassName="truncate text-xs font-bold text-slate-800"
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
+          <div className="flex flex-wrap items-center gap-2">
+            <ReportAppliedRange
+              from={report?.dateRange?.fromDate}
+              to={report?.dateRange?.toDate}
+              detail={
+                report?.metricWindow
+                  ? `${formatStatusLabel(report.metricWindow)} metrics`
+                  : null
+              }
+            />
+            <ReportFilterButton
               onClick={() => {
                 setDraft({
                   datePreset,
@@ -534,7 +660,6 @@ export default function SalesManagerAgentsReportPage() {
                   stateId,
                   state,
                   agencyTier,
-                  salesManagerId,
                   search,
                   agentStatus,
                   sort,
@@ -552,29 +677,8 @@ export default function SalesManagerAgentsReportPage() {
                 setLastBookingToText(isoToReportDateText(lastBookingTo));
                 setFilterOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 ? (
-                <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {activeFilterCount}
-                </span>
-              ) : null}
-            </button>
-            <button
-              type="button"
-              onClick={() => void loadReport()}
-              disabled={loading || customRangeInvalid}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              Refresh
-            </button>
+              activeCount={activeFilterCount}
+            />
             <ExportButton
               iconOnly
               disabled={loading || customRangeInvalid}
@@ -584,9 +688,21 @@ export default function SalesManagerAgentsReportPage() {
               onExportCSV={() => void handleExport("CSV")}
               onExportPDF={() => void handleExport("PDF")}
             />
+            <button
+              type="button"
+              onClick={() => void loadReport()}
+              disabled={loading || customRangeInvalid}
+              aria-label="Refresh"
+              title="Refresh"
+              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+            >
+              <RefreshCw
+                className={cn("h-4 w-4", loading && "animate-spin")}
+              />
+            </button>
             <Link
               to={ROUTES.REPORTS.SALES_MANAGER_DASHBOARD}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:from-emerald-600 hover:to-teal-700"
             >
               <LayoutDashboard className="h-4 w-4" />
               Dashboard
@@ -605,17 +721,22 @@ export default function SalesManagerAgentsReportPage() {
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <SummaryCard
           label="Total Agents"
+          tone="sky"
+          icon={Users}
           value={report?.summary.totalAgents ?? (loading ? "…" : 0)}
         />
         <SummaryCard
           label="Active"
           tone="success"
+          icon={UserCheck}
           value={report?.summary.activeAgents ?? (loading ? "…" : 0)}
           active={agentStatus === "ACTIVE"}
           onClick={() => applyStatusCardFilter("ACTIVE")}
         />
         <SummaryCard
           label="Inactive"
+          tone="violet"
+          icon={UserX}
           value={report?.summary.inactiveAgents ?? (loading ? "…" : 0)}
           active={agentStatus === "INACTIVE"}
           onClick={() => applyStatusCardFilter("INACTIVE")}
@@ -623,6 +744,7 @@ export default function SalesManagerAgentsReportPage() {
         <SummaryCard
           label="Zero Booking"
           tone="warning"
+          icon={BookX}
           value={report?.summary.zeroBookingAgents ?? (loading ? "…" : 0)}
           active={agentStatus === "ZERO_BOOKING"}
           onClick={() => applyStatusCardFilter("ZERO_BOOKING")}
@@ -630,6 +752,7 @@ export default function SalesManagerAgentsReportPage() {
         <SummaryCard
           label="Suspended"
           tone="danger"
+          icon={Ban}
           value={report?.summary.suspendedAgents ?? (loading ? "…" : 0)}
           active={agentStatus === "SUSPENDED"}
           onClick={() => applyStatusCardFilter("SUSPENDED")}
@@ -640,16 +763,18 @@ export default function SalesManagerAgentsReportPage() {
         <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
           {(
             [
-              ["Bronze", "BRONZE", tierSummary.bronze],
-              ["Silver", "SILVER", tierSummary.silver],
-              ["Gold", "GOLD", tierSummary.gold],
-              ["Platinum", "PLATINUM", tierSummary.platinum],
-              ["Diamond", "DIAMOND", tierSummary.diamond],
+              ["Bronze", "BRONZE", tierSummary.bronze, "orange", Medal],
+              ["Silver", "SILVER", tierSummary.silver, "cyan", Award],
+              ["Gold", "GOLD", tierSummary.gold, "amber", Award],
+              ["Platinum", "PLATINUM", tierSummary.platinum, "indigo", Gem],
+              ["Diamond", "DIAMOND", tierSummary.diamond, "violet", Gem],
             ] as const
-          ).map(([label, tier, value]) => (
+          ).map(([label, tier, value, tone, Icon]) => (
             <SummaryCard
               key={tier}
               label={label}
+              tone={tone}
+              icon={Icon}
               value={loading && !report ? "…" : value}
               active={agencyTier === tier}
               onClick={() => applyTierCardFilter(tier)}
@@ -658,93 +783,58 @@ export default function SalesManagerAgentsReportPage() {
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-4 py-2.5">
-          <p className="text-xs font-medium text-slate-600">
-            {totalElements} agent{totalElements === 1 ? "" : "s"}
-            {report?.agents.page.sort
-              ? ` · sorted by ${formatStatusLabel(report.agents.page.sort)} (${report.agents.page.direction})`
-              : null}
-            <span className="font-normal text-slate-400">
-              {" "}
-              · Page {page + 1} of {Math.max(totalPages, 1)}
-            </span>
-          </p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">Agency</th>
-                <th className="px-4 py-3">Location</th>
-                <th className="px-4 py-3">Tier</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Bookings</th>
-                <th className="px-4 py-3">Revenue</th>
-                <th className="px-4 py-3">Collection</th>
-                <th className="px-4 py-3">Activity</th>
-                <th className="px-4 py-3">Quality</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(report?.agents.content ?? []).map((row) => (
-                <AgentRow key={row.agentId} row={row} />
-              ))}
-              {!loading && !(report?.agents.content.length ?? 0) ? (
-                <tr>
-                  <td
-                    colSpan={9}
-                    className="px-4 py-10 text-center text-sm text-slate-400"
-                  >
-                    No agents match the current filters
-                  </td>
-                </tr>
+      <DataTable
+        subtitle={
+          loading && !report ? (
+            "Loading…"
+          ) : (
+            <>
+              <span className="font-medium text-slate-600">
+                {formatListCount(totalElements, "agent")}
+              </span>
+              {report?.agents.page.sort ? (
+                <span>
+                  {" "}
+                  · sorted by {formatStatusLabel(report.agents.page.sort)} (
+                  {report.agents.page.direction})
+                </span>
               ) : null}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3">
-          <p className="text-xs text-slate-500">
-            {totalElements} agent{totalElements === 1 ? "" : "s"}
-            <span className="text-slate-400">
-              {" "}
-              · Page {page + 1} of {Math.max(totalPages, 1)}
-            </span>
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={page <= 0 || loading}
-              onClick={() => {
-                const nextPage = page - 1;
-                setPage(nextPage);
-                void loadReport({ page: nextPage });
-              }}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Prev
-            </button>
-            <span className="text-xs tabular-nums text-slate-600">
-              Page {page + 1} of {Math.max(totalPages, 1)}
-            </span>
-            <button
-              type="button"
-              disabled={page + 1 >= totalPages || loading}
-              onClick={() => {
-                const nextPage = page + 1;
-                setPage(nextPage);
-                void loadReport({ page: nextPage });
-              }}
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-50"
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
+              <span className="text-slate-400">
+                {" "}
+                · Page {page + 1} of {Math.max(totalPages, 1)}
+              </span>
+            </>
+          )
+        }
+        rows={report?.agents.content ?? []}
+        columns={agentColumns}
+        getRowId={(row) => row.agentId}
+        loading={loading && !report}
+        paginationMode="server"
+        rowCount={totalElements}
+        paginationModel={{ page, pageSize: PAGE_SIZE }}
+        onPaginationModelChange={(model) => {
+          if (model.page !== page) {
+            setPage(model.page);
+            void loadReport({ page: model.page });
+          }
+        }}
+        pageSizeOptions={[PAGE_SIZE]}
+        disableRowSelectionOnClick
+        disableColumnFilter
+        showToolbar
+        showExport={false}
+        allowHorizontalScroll
+        getRowHeight={() => "auto"}
+        sx={{
+          "& .MuiDataGrid-cell": {
+            alignItems: "flex-start",
+            whiteSpace: "normal",
+            py: "8px",
+          },
+        }}
+        localeText={{ noRowsLabel: "No agents match the current filters" }}
+      />
 
       {filterOpen ? (
         <>
@@ -925,27 +1015,6 @@ export default function SalesManagerAgentsReportPage() {
                   ))}
                 </select>
               </FilterField>
-              {canFilterByManager ? (
-                <FilterField label="Sales manager">
-                  <select
-                    value={draft.salesManagerId}
-                    onChange={(event) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        salesManagerId: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  >
-                    <option value="">All managers</option>
-                    {managerOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </FilterField>
-              ) : null}
               <FilterField label="Sort by">
                 <select
                   value={draft.sort}
@@ -1041,92 +1110,4 @@ function agentHotelMisUrl(agentId: string): string {
   const params = new URLSearchParams({ agencyId: String(agentId) });
   appendReturnToQuery(params, ROUTES.REPORTS.SALES_MANAGER_AGENTS);
   return `${ROUTES.REPORTS.HOTEL_BOOKING_FINANCIAL_MIS}?${params.toString()}`;
-}
-
-function AgentRow({ row }: { row: SalesManagerAgentPortfolioRow }) {
-  return (
-    <tr className="border-t border-slate-100 align-top hover:bg-slate-50/80">
-      <td className="px-4 py-3">
-        <p className="font-medium text-slate-900">{row.agency.name}</p>
-        <p className="text-xs text-slate-500">
-          {row.agentCode}
-          {row.agency.contactPerson ? ` · ${row.agency.contactPerson}` : ""}
-        </p>
-        {row.agency.email ? (
-          <p className="text-xs text-slate-500">{row.agency.email}</p>
-        ) : null}
-      </td>
-      <td className="px-4 py-3 text-slate-700">
-        <p>{row.location.state || "—"}</p>
-        <p className="text-xs text-slate-500">{row.location.city || "—"}</p>
-      </td>
-      <td className="px-4 py-3">
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-          {row.tier.label}
-        </span>
-      </td>
-      <td className="px-4 py-3">
-        <span
-          className={cn(
-            "rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset",
-            agentStatusTone(row.status.color, row.status.code),
-          )}
-        >
-          {row.status.label}
-        </span>
-      </td>
-      <td className="px-4 py-3 tabular-nums text-slate-800">
-        <p className="font-semibold">{row.bookings.total} bookings</p>
-        <div className="mt-1 flex items-center gap-2">
-          <Link
-            to={agentHotelMisUrl(row.agentId)}
-            className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
-          >
-            🏨 Hotel {row.bookings.hotel}
-          </Link>
-          <a
-            href={`${ROUTES.ADMIN.PACKAGE_BOOKING_FINANCIAL_MIS}?agencyId=${row.agentId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 hover:bg-purple-100"
-          >
-            📦 Package {row.bookings.package}
-          </a>
-        </div>
-        <p className="mt-1 text-xs text-slate-500">
-          {row.bookings.confirmed} confirmed · {row.bookings.cancelled}{" "}
-          cancelled
-        </p>
-      </td>
-      <td className="px-4 py-3 tabular-nums text-slate-800">
-        <p className="font-semibold">
-          {formatReportMoney(row.revenue.grossBookingValue)}
-        </p>
-        <p className="text-xs text-slate-500">
-          Collected {formatReportMoney(row.revenue.collected)}
-        </p>
-        <p className="text-xs text-slate-500">
-          Outstanding {formatReportMoney(row.revenue.outstanding)}
-        </p>
-      </td>
-      <td className="px-4 py-3 tabular-nums text-slate-800">
-        <p className="font-semibold">
-          {row.revenue.collectionPercent.toFixed(1)}%
-        </p>
-        <p className="text-xs text-slate-500">
-          ABV {formatReportMoney(row.revenue.averageBookingValue)}
-        </p>
-      </td>
-      <td className="px-4 py-3 text-slate-700">
-        <p className="text-xs">
-          Last booking: {formatReportDateTime(row.activity.lastBookingAt)}
-        </p>
-      </td>
-      <td className="px-4 py-3 tabular-nums text-slate-700">
-        <p className="text-xs">
-          Cancel {row.quality.cancellationPercent.toFixed(1)}%
-        </p>
-      </td>
-    </tr>
-  );
 }

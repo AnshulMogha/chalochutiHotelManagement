@@ -1193,7 +1193,7 @@ export default function Layout() {
                         <button
                           type="button"
                           disabled={isReadOnly}
-                          className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+                          className="px-6 py-2.5 text-sm font-semibold text-white bg-[#2f3d95] rounded-lg hover:bg-[#263578] transition-colors shadow-sm whitespace-nowrap flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                         >
                           Bulk Update
                           <ChevronDown className="w-4 h-4" />

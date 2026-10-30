@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { ROUTES } from "@/constants";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { DataTable } from "@/components/ui";
+import type { GridColDef, GridSortModel } from "@mui/x-data-grid";
 import {
   adminService,
   type CityMasterItem,
@@ -16,16 +18,12 @@ import {
   type BookingSummarySortField,
 } from "../services/bookingSummaryService";
 import {
-  ArrowUpDown,
   BookOpen,
   Building2,
   CalendarDays,
   CircleDollarSign,
   ClipboardList,
   Download,
-  Filter,
-  HelpCircle,
-  Loader2,
   MapPin,
   RefreshCw,
   Search,
@@ -39,6 +37,10 @@ import {
   validateCustomDateRange,
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+} from "../components/ReportFilterDrawer";
 import { ROLES, hasAnyRole } from "@/constants/roles";
 import { useAuth } from "@/hooks";
 
@@ -57,14 +59,6 @@ const DATE_PRESET_OPTIONS: {
   { value: "LAST_6_MONTHS", label: "Last 6 months" },
   { value: "CUSTOM", label: "Custom" },
 ];
-
-/**
- * The metrics table and the earnings panel are two separate tables shown side
- * by side, so their bars and header rows need identical fixed heights to line
- * up once labels start wrapping on narrow screens.
- */
-const TABLE_TOP_BAR_CLASS = "h-14";
-const TABLE_HEADER_ROW_CLASS = "h-20";
 
 function formatCurrency(
   amount: number | undefined | null,
@@ -189,65 +183,6 @@ function EarningsCell({
       title={formatCurrency(amount, currency)}
     >
       {label}
-    </button>
-  );
-}
-
-function SortHeader({
-  label,
-  active,
-  direction,
-  onClick,
-  hint,
-  tone,
-}: {
-  label: string;
-  active?: boolean;
-  direction?: BookingSummarySortDir;
-  onClick?: () => void;
-  hint?: string;
-  tone?: "indigo" | "emerald" | "sky" | "violet" | "amber" | "slate";
-}) {
-  const toneClass = {
-    indigo: "text-indigo-700 hover:text-indigo-900",
-    emerald: "text-emerald-700 hover:text-emerald-900",
-    sky: "text-sky-700 hover:text-sky-900",
-    violet: "text-violet-700 hover:text-violet-900",
-    amber: "text-amber-700 hover:text-amber-900",
-    slate: "text-slate-600 hover:text-slate-900",
-  }[tone ?? "slate"];
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex w-full cursor-pointer flex-col items-start gap-1 text-left text-xs font-semibold uppercase tracking-wide",
-        toneClass,
-      )}
-      title={hint ? `${label} — ${hint}` : label}
-    >
-      <span className="flex w-full items-start gap-1">
-        <span className="line-clamp-2 leading-snug">{label}</span>
-        {hint && (
-          <HelpCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
-        )}
-      </span>
-      <span
-        className={cn(
-          "inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 normal-case tracking-normal",
-          active
-            ? "border-indigo-200 bg-indigo-100 text-[#2f3d95]"
-            : "border-slate-200 bg-white/80 text-slate-400",
-        )}
-      >
-        <ArrowUpDown className="h-3.5 w-3.5" />
-        {active ? (
-          <span className="text-[11px] font-bold leading-none">
-            {direction === "asc" ? "Asc" : "Desc"}
-          </span>
-        ) : null}
-      </span>
     </button>
   );
 }
@@ -422,16 +357,6 @@ export default function BookingSummaryPage() {
     navigate(`${ROUTES.BOOKINGS.LIST}?${params.toString()}`);
   };
 
-  const toggleSort = (field: BookingSummarySortField) => {
-    setPage(0);
-    if (sort === field) {
-      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSort(field);
-      setSortDir("desc");
-    }
-  };
-
   const clearFilters = () => {
     setSearch("");
     setDebouncedSearch("");
@@ -536,6 +461,184 @@ export default function BookingSummaryPage() {
     );
   }, [hotels]);
 
+  const summarySortModel: GridSortModel = [{ field: sort, sort: sortDir }];
+  const onSummarySort = (model: GridSortModel) => {
+    const next = model[0];
+    if (!next?.field || !next.sort) return;
+    const field = next.field as BookingSummarySortField;
+    if (field === sort && next.sort === sortDir) return;
+    setSort(field);
+    setSortDir(next.sort);
+    setPage(0);
+  };
+
+  const activityColumns: GridColDef<BookingSummaryHotelRow>[] = [
+    {
+      field: "hotelName",
+      headerName: "Property",
+      flex: 1.6,
+      minWidth: 220,
+      renderCell: (params) => {
+        const hotel = params.row;
+        return (
+          <div className="flex min-w-0 items-center gap-3 py-1">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-[#2f3d95] text-white shadow-sm shadow-indigo-200">
+              <Building2 className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p title={hotel.hotelName} className="truncate text-sm font-semibold leading-tight text-slate-900">
+                {hotel.hotelName}
+              </p>
+              <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-500">
+                <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
+                {[hotel.city, hotel.state].filter(Boolean).join(" · ") || "—"}
+              </p>
+              {hotel.hotelCode ? (
+                <p className="truncate font-mono text-[11px] text-slate-400">
+                  {hotel.hotelCode}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      field: "todaysBookings",
+      headerName: "Bookings",
+      description: `Today's bookings on this page: ${columnTotals.todaysBookings}`,
+      width: 118,
+      renderCell: (params) => (
+        <MetricLink
+          value={params.row.metrics.todaysBookings}
+          tone="indigo"
+          onClick={() =>
+            openDrillDown(params.row, params.row.drillDown.todaysBookings)
+          }
+        />
+      ),
+    },
+    {
+      field: "todaysCheckins",
+      headerName: "Check-ins",
+      description: `Today's check-ins on this page: ${columnTotals.todaysCheckins}`,
+      width: 118,
+      renderCell: (params) => (
+        <MetricLink
+          value={params.row.metrics.todaysCheckins}
+          tone="sky"
+          onClick={() =>
+            openDrillDown(params.row, params.row.drillDown.todaysCheckins)
+          }
+        />
+      ),
+    },
+    {
+      field: "stayingToday",
+      headerName: "Staying",
+      description: `Staying today on this page: ${columnTotals.stayingToday}`,
+      width: 110,
+      renderCell: (params) => (
+        <MetricLink
+          value={params.row.metrics.stayingToday}
+          tone="violet"
+          onClick={() =>
+            openDrillDown(params.row, params.row.drillDown.stayingToday)
+          }
+        />
+      ),
+    },
+    {
+      field: "todaysCheckouts",
+      headerName: "Check-outs",
+      description: `Today's check-outs on this page: ${columnTotals.todaysCheckouts}`,
+      width: 120,
+      renderCell: (params) => (
+        <MetricLink
+          value={params.row.metrics.todaysCheckouts}
+          tone="amber"
+          onClick={() =>
+            openDrillDown(params.row, params.row.drillDown.todaysCheckouts)
+          }
+        />
+      ),
+    },
+  ];
+
+  const earningsColumns: GridColDef<BookingSummaryHotelRow>[] = [
+    {
+      field: "netBookings",
+      headerName: "Net",
+      description: `Net bookings in the selected dates: ${summary.netBookings}`,
+      flex: 1,
+      minWidth: 90,
+      renderCell: (params) => (
+        <MetricLink
+          value={params.row.metrics.netBookings}
+          tone="indigo"
+          onClick={
+            params.row.drillDown.netBookings
+              ? () =>
+                  openDrillDown(params.row, params.row.drillDown.netBookings)
+              : undefined
+          }
+        />
+      ),
+    },
+    {
+      field: "hotelEarnings",
+      headerName: "Hotel",
+      description: `Hotel earnings in the selected dates: ${formatCompactEarnings(
+        summary.hotelEarnings.amount,
+        summary.hotelEarnings.currency,
+      )}`,
+      flex: 1,
+      minWidth: 100,
+      renderCell: (params) => (
+        <EarningsCell
+          amount={params.row.metrics.hotelEarnings?.amount}
+          currency={params.row.metrics.hotelEarnings?.currency ?? "INR"}
+          onClick={
+            params.row.drillDown.hotelEarnings
+              ? () =>
+                  openDrillDown(params.row, params.row.drillDown.hotelEarnings)
+              : undefined
+          }
+        />
+      ),
+    },
+    ...(isSuperAdmin
+      ? [
+          {
+            field: "otaEarnings",
+            headerName: "OTA",
+            description: `OTA earnings in the selected dates: ${formatCompactEarnings(
+              summary.otaEarnings.amount,
+              summary.otaEarnings.currency,
+            )}`,
+            flex: 1,
+            minWidth: 100,
+            renderCell: (params) => (
+              <EarningsCell
+                amount={params.row.metrics.otaEarnings?.amount}
+                currency={params.row.metrics.otaEarnings?.currency ?? "INR"}
+                tone="amber"
+                onClick={
+                  params.row.drillDown.otaEarnings
+                    ? () =>
+                        openDrillDown(
+                          params.row,
+                          params.row.drillDown.otaEarnings,
+                        )
+                    : undefined
+                }
+              />
+            ),
+          } satisfies GridColDef<BookingSummaryHotelRow>,
+        ]
+      : []),
+  ];
+
   return (
     <>
       <Toast
@@ -557,24 +660,6 @@ export default function BookingSummaryPage() {
                 </h1>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFilterOpen(true)}
-                  className={cn(
-                    "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition",
-                    activeFilterCount
-                      ? "border-indigo-200 bg-indigo-50 text-indigo-800"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50",
-                  )}
-                >
-                  <Filter className="h-4 w-4" />
-                  Filter
-                  {activeFilterCount ? (
-                    <span className="rounded-full bg-indigo-600 px-1.5 text-[11px] font-bold text-white">
-                      {activeFilterCount}
-                    </span>
-                  ) : null}
-                </button>
                 <span className="hidden rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 sm:inline">
                   Last updated{" "}
                   {lastUpdatedAt
@@ -584,25 +669,40 @@ export default function BookingSummaryPage() {
                       })
                     : "—"}
                 </span>
-                <button
-                  type="button"
-                  onClick={fetchSummary}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-60"
-                >
-                  <RefreshCw
-                    className={cn("h-3.5 w-3.5", loading && "animate-spin")}
-                  />
-                  Refresh
-                </button>
+                <ReportAppliedRange
+                  from={dateRange.fromDate}
+                  to={dateRange.toDate}
+                  detail={
+                    DATE_PRESET_OPTIONS.find(
+                      (option) =>
+                        option.value === (dateRange.preset || datePreset),
+                    )?.label
+                  }
+                />
+                <ReportFilterButton
+                  onClick={() => setFilterOpen(true)}
+                  activeCount={activeFilterCount}
+                />
                 <button
                   type="button"
                   onClick={downloadCsv}
                   aria-label="Download"
                   title="Download"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-200 bg-white text-emerald-700 shadow-sm transition hover:bg-emerald-50"
+                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
                 >
                   <Download className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={fetchSummary}
+                  disabled={loading}
+                  aria-label="Refresh"
+                  title="Refresh"
+                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  <RefreshCw
+                    className={cn("h-4 w-4", loading && "animate-spin")}
+                  />
                 </button>
               </div>
             </div>
@@ -618,19 +718,25 @@ export default function BookingSummaryPage() {
                     label: "Hotels",
                     value: summary.totalHotels || totalElements,
                     icon: Building2,
-                    tone: "bg-slate-100 text-slate-700",
+                    card: "border-sky-100 bg-gradient-to-br from-sky-50 to-white",
+                    iconTone: "bg-sky-500 text-white",
+                    labelTone: "text-sky-700",
                   },
                   {
                     label: "Net bookings",
                     value: summary.netBookings,
                     icon: BookOpen,
-                    tone: "bg-indigo-100 text-indigo-700",
+                    card: "border-indigo-100 bg-gradient-to-br from-indigo-50 to-white",
+                    iconTone: "bg-indigo-600 text-white",
+                    labelTone: "text-indigo-700",
                   },
                   {
                     label: "Today bookings",
                     value: columnTotals.todaysBookings,
                     icon: ClipboardList,
-                    tone: "bg-sky-100 text-sky-700",
+                    card: "border-blue-100 bg-gradient-to-br from-blue-50 to-white",
+                    iconTone: "bg-blue-600 text-white",
+                    labelTone: "text-blue-700",
                   },
                   {
                     label: "Hotel earnings",
@@ -639,7 +745,9 @@ export default function BookingSummaryPage() {
                       summary.hotelEarnings.currency,
                     ),
                     icon: CircleDollarSign,
-                    tone: "bg-emerald-100 text-emerald-700",
+                    card: "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white",
+                    iconTone: "bg-emerald-600 text-white",
+                    labelTone: "text-emerald-700",
                   },
                   ...(isSuperAdmin
                     ? [
@@ -650,25 +758,35 @@ export default function BookingSummaryPage() {
                             summary.otaEarnings.currency,
                           ),
                           icon: Wallet,
-                          tone: "bg-amber-100 text-amber-700",
+                          card: "border-amber-100 bg-gradient-to-br from-amber-50 to-white",
+                          iconTone: "bg-amber-500 text-white",
+                          labelTone: "text-amber-700",
                         },
                       ]
                     : []),
                 ].map((kpi) => (
                   <div
                     key={kpi.label}
-                    className="flex items-center gap-2.5 rounded-xl border border-slate-100 bg-white/80 px-3 py-2.5 shadow-sm"
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-xl border px-3 py-2.5 shadow-sm",
+                      kpi.card,
+                    )}
                   >
                     <span
                       className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-xl",
-                        kpi.tone,
+                        kpi.iconTone,
                       )}
                     >
                       <kpi.icon className="h-4 w-4" />
                     </span>
                     <div>
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                      <p
+                        className={cn(
+                          "text-[11px] font-medium uppercase tracking-wide",
+                          kpi.labelTone,
+                        )}
+                      >
                         {kpi.label}
                       </p>
                       <p className="text-base font-bold tabular-nums text-slate-900">
@@ -689,235 +807,47 @@ export default function BookingSummaryPage() {
             )}
           >
             {/* Left: today's metrics */}
-            <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-              <div className="border-b border-slate-100 px-4 py-2.5">
-                <p className="text-xs font-medium text-slate-600">
-                  {totalElements.toLocaleString("en-IN")} hotels
-                  <span className="font-normal text-slate-400">
-                    {" "}
-                    · Page {page + 1} of {Math.max(totalPages, 1)}
-                  </span>
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full table-fixed">
-                  <thead>
-                    {/* Spacer matches right date bar height */}
-                    <tr>
-                      <th
-                        colSpan={5}
-                        className={cn(
-                          TABLE_TOP_BAR_CLASS,
-                          "border-b border-slate-100 bg-slate-50/60 px-4 text-left",
-                        )}
-                      >
-                        <span className="text-xs font-medium text-slate-400">
-                          Today&apos;s activity
-                        </span>
-                      </th>
-                    </tr>
-                    <tr
-                      className={cn(
-                        TABLE_HEADER_ROW_CLASS,
-                        "border-b border-slate-100",
-                      )}
-                    >
-                      <th className="bg-slate-100/90 px-4 text-left align-middle">
-                        <SortHeader
-                          label="Property"
-                          active={sort === "hotelName"}
-                          direction={sortDir}
-                          onClick={() => toggleSort("hotelName")}
-                          tone="slate"
-                        />
-                      </th>
-                      <th className="bg-indigo-50 px-3 text-left align-middle">
-                        <SortHeader
-                          label={`Today's Bookings (${columnTotals.todaysBookings})`}
-                          active={sort === "todaysBookings"}
-                          direction={sortDir}
-                          onClick={() => toggleSort("todaysBookings")}
-                          tone="indigo"
-                        />
-                      </th>
-                      <th className="bg-sky-50 px-3 text-left align-middle">
-                        <SortHeader
-                          label={`Today's Check Ins (${columnTotals.todaysCheckins})`}
-                          active={sort === "todaysCheckins"}
-                          direction={sortDir}
-                          onClick={() => toggleSort("todaysCheckins")}
-                          tone="sky"
-                        />
-                      </th>
-                      <th className="bg-violet-50 px-3 text-left align-middle">
-                        <SortHeader
-                          label={`Staying Today (${columnTotals.stayingToday})`}
-                          active={sort === "stayingToday"}
-                          direction={sortDir}
-                          onClick={() => toggleSort("stayingToday")}
-                          tone="violet"
-                        />
-                      </th>
-                      <th className="bg-amber-50 px-3 text-left align-middle">
-                        <SortHeader
-                          label={`Today's Check Outs (${columnTotals.todaysCheckouts})`}
-                          active={sort === "todaysCheckouts"}
-                          direction={sortDir}
-                          onClick={() => toggleSort("todaysCheckouts")}
-                          tone="amber"
-                        />
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {loading ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-20 text-center">
-                          <Loader2 className="mx-auto mb-3 h-9 w-9 animate-spin text-indigo-600" />
-                          <p className="text-sm font-medium text-slate-600">
-                            Loading booking summary…
-                          </p>
-                        </td>
-                      </tr>
-                    ) : hotels.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-20 text-center">
-                          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-                            <Building2 className="h-7 w-7 text-slate-400" />
-                          </div>
-                          <p className="text-sm font-semibold text-slate-800">
-                            No hotels found
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            Try adjusting filters or date range.
-                          </p>
-                        </td>
-                      </tr>
-                    ) : (
-                      hotels.map((hotel) => (
-                        <tr
-                          key={hotel.hotelId}
-                          className="h-[4.75rem] transition-colors hover:bg-indigo-50/40"
-                        >
-                          <td className="px-4 align-middle">
-                            <div className="flex min-w-0 items-center gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-[#2f3d95] text-white shadow-sm shadow-indigo-200">
-                                <Building2 className="h-4 w-4" />
-                              </div>
-                              <div className="min-w-0 max-w-full overflow-hidden">
-                                <p
-                                  title={hotel.hotelName}
-                                  className="w-full truncate text-sm font-semibold text-slate-900"
-                                >
-                                  {hotel.hotelName.length > 23
-                                    ? `${hotel.hotelName.slice(0, 23).trimEnd()}…`
-                                    : hotel.hotelName}
-                                </p>
-                                <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-500">
-                                  <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
-                                  {[hotel.city, hotel.state]
-                                    .filter(Boolean)
-                                    .join(" · ") || "—"}
-                                </p>
-                                {hotel.hotelCode ? (
-                                  <p className="truncate font-mono text-[11px] text-slate-400">
-                                    {hotel.hotelCode}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-3 align-middle">
-                            <MetricLink
-                              value={hotel.metrics.todaysBookings}
-                              tone="indigo"
-                              onClick={() =>
-                                openDrillDown(
-                                  hotel,
-                                  hotel.drillDown.todaysBookings,
-                                )
-                              }
-                            />
-                          </td>
-                          <td className="px-3 align-middle">
-                            <MetricLink
-                              value={hotel.metrics.todaysCheckins}
-                              tone="sky"
-                              onClick={() =>
-                                openDrillDown(
-                                  hotel,
-                                  hotel.drillDown.todaysCheckins,
-                                )
-                              }
-                            />
-                          </td>
-                          <td className="px-3 align-middle">
-                            <MetricLink
-                              value={hotel.metrics.stayingToday}
-                              tone="violet"
-                              onClick={() =>
-                                openDrillDown(
-                                  hotel,
-                                  hotel.drillDown.stayingToday,
-                                )
-                              }
-                            />
-                          </td>
-                          <td className="px-3 align-middle">
-                            <MetricLink
-                              value={hotel.metrics.todaysCheckouts}
-                              tone="amber"
-                              onClick={() =>
-                                openDrillDown(
-                                  hotel,
-                                  hotel.drillDown.todaysCheckouts,
-                                )
-                              }
-                            />
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-4 py-3">
-                  <p className="text-xs text-slate-500">
+            <DataTable
+              title={
+                <span className="flex flex-wrap items-baseline gap-x-2 text-sm font-bold text-slate-900">
+                  <span>Today&apos;s activity</span>
+                  <span className="text-xs font-medium text-slate-500">
                     {totalElements.toLocaleString("en-IN")} hotels · Page{" "}
                     {page + 1} of {Math.max(totalPages, 1)}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={page <= 0 || loading}
-                      onClick={() => setPage((p) => Math.max(0, p - 1))}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 disabled:opacity-50"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      type="button"
-                      disabled={page + 1 >= totalPages || loading}
-                      onClick={() => setPage((p) => p + 1)}
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+                  </span>
+                </span>
+              }
+              rows={hotels}
+              columns={activityColumns}
+              getRowId={(row) => row.hotelId}
+              loading={loading}
+              paginationMode="server"
+              rowCount={totalElements}
+              paginationModel={{ page, pageSize }}
+              onPaginationModelChange={(model) => {
+                if (model.page !== page) setPage(model.page);
+              }}
+              pageSizeOptions={[pageSize]}
+              sortingMode="server"
+              sortModel={summarySortModel}
+              onSortModelChange={onSummarySort}
+              disableRowSelectionOnClick
+              disableColumnFilter
+              disableColumnMenu
+              showToolbar={false}
+              showExport={false}
+              allowHorizontalScroll
+              rowHeight={76}
+              localeText={{
+                noRowsLabel: "No hotels found. Try adjusting filters or date range.",
+              }}
+            />
 
             {/* Right: separate Net Bookings + earnings split (hotel-wise) */}
             <aside className="overflow-hidden rounded-2xl border border-indigo-200/80 bg-white shadow-sm ring-1 ring-indigo-100/60">
               <div
                 ref={dateDropdownRef}
-                className={cn(
-                  TABLE_TOP_BAR_CLASS,
-                  "relative flex items-center border-b border-indigo-100 bg-gradient-to-r from-indigo-100/90 via-sky-50 to-emerald-50 px-4",
-                )}
+                className="relative flex items-center border-b border-indigo-100 bg-gradient-to-r from-indigo-100/90 via-sky-50 to-emerald-50 px-4 py-2.5"
               >
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="inline-flex items-center gap-1.5 text-sm font-bold text-indigo-900">
@@ -1001,137 +931,29 @@ export default function BookingSummaryPage() {
                 )}
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full table-fixed">
-                  <thead>
-                    <tr
-                      className={cn(
-                        TABLE_HEADER_ROW_CLASS,
-                        "border-b border-indigo-100",
-                      )}
-                    >
-                      <th className="bg-indigo-50/80 px-3 text-left align-middle">
-                        <SortHeader
-                          label={`Net Bookings (${summary.netBookings})`}
-                          active={sort === "netBookings"}
-                          direction={sortDir}
-                          onClick={() => toggleSort("netBookings")}
-                          hint="Bookings in selected date range (per hotel)"
-                          tone="indigo"
-                        />
-                      </th>
-                      <th className="bg-emerald-50/80 px-3 text-left align-middle">
-                        <SortHeader
-                          label={`Hotel Earnings (${formatCompactEarnings(
-                            summary.hotelEarnings.amount,
-                            summary.hotelEarnings.currency,
-                          )})`}
-                          active={sort === "hotelEarnings"}
-                          direction={sortDir}
-                          onClick={() => toggleSort("hotelEarnings")}
-                          hint="Amount receivable by the property in selected date range"
-                          tone="emerald"
-                        />
-                      </th>
-                      {isSuperAdmin && (
-                        <th className="bg-amber-50/80 px-3 text-left align-middle">
-                          <SortHeader
-                            label={`OTA Earnings (${formatCompactEarnings(
-                              summary.otaEarnings.amount,
-                              summary.otaEarnings.currency,
-                            )})`}
-                            active={sort === "otaEarnings"}
-                            direction={sortDir}
-                            onClick={() => toggleSort("otaEarnings")}
-                            hint="Commission and fees retained by the OTA"
-                            tone="amber"
-                          />
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {loading ? (
-                      <tr>
-                        <td
-                          colSpan={isSuperAdmin ? 3 : 2}
-                          className="px-4 py-20 text-center"
-                        >
-                          <Loader2 className="mx-auto h-7 w-7 animate-spin text-indigo-600" />
-                        </td>
-                      </tr>
-                    ) : hotels.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={isSuperAdmin ? 3 : 2}
-                          className="px-4 py-16 text-center text-xs text-slate-400"
-                        >
-                          No data
-                        </td>
-                      </tr>
-                    ) : (
-                      hotels.map((hotel) => (
-                        <tr
-                          key={`net-${hotel.hotelId}`}
-                          className="h-[4.75rem] transition-colors hover:bg-indigo-50/40"
-                        >
-                          <td className="bg-indigo-50/20 px-3 align-middle">
-                            <MetricLink
-                              value={hotel.metrics.netBookings}
-                              tone="indigo"
-                              onClick={
-                                hotel.drillDown.netBookings
-                                  ? () =>
-                                      openDrillDown(
-                                        hotel,
-                                        hotel.drillDown.netBookings,
-                                      )
-                                  : undefined
-                              }
-                            />
-                          </td>
-                          <td className="bg-emerald-50/20 px-3 align-middle">
-                            <EarningsCell
-                              amount={hotel.metrics.hotelEarnings?.amount}
-                              currency={
-                                hotel.metrics.hotelEarnings?.currency ?? "INR"
-                              }
-                              onClick={
-                                hotel.drillDown.hotelEarnings
-                                  ? () =>
-                                      openDrillDown(
-                                        hotel,
-                                        hotel.drillDown.hotelEarnings,
-                                      )
-                                  : undefined
-                              }
-                            />
-                          </td>
-                          {isSuperAdmin && (
-                            <td className="bg-amber-50/20 px-3 align-middle">
-                              <EarningsCell
-                                amount={hotel.metrics.otaEarnings?.amount}
-                                currency={
-                                  hotel.metrics.otaEarnings?.currency ?? "INR"
-                                }
-                                tone="amber"
-                                onClick={
-                                  hotel.drillDown.otaEarnings
-                                    ? () =>
-                                        openDrillDown(
-                                          hotel,
-                                          hotel.drillDown.otaEarnings,
-                                        )
-                                    : undefined
-                                }
-                              />
-                            </td>
-                          )}
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+              <div className="[&>div]:rounded-none [&>div]:border-0 [&>div]:shadow-none">
+                <DataTable
+                  rows={hotels}
+                  columns={earningsColumns}
+                  getRowId={(row) => row.hotelId}
+                  loading={loading}
+                  paginationMode="server"
+                  rowCount={totalElements}
+                  paginationModel={{ page, pageSize }}
+                  pageSizeOptions={[pageSize]}
+                  sortingMode="server"
+                  sortModel={summarySortModel}
+                  onSortModelChange={onSummarySort}
+                  hideFooter
+                  disableRowSelectionOnClick
+                  disableColumnFilter
+                  disableColumnMenu
+                  showToolbar={false}
+                  showExport={false}
+                  allowHorizontalScroll
+                  rowHeight={76}
+                  localeText={{ noRowsLabel: "No data" }}
+                />
               </div>
             </aside>
           </div>

@@ -16,6 +16,13 @@ export interface SalesManagerMoneyAmount {
   currency: string;
 }
 
+export interface SalesManagerOption {
+  id: string;
+  label: string;
+  email?: string;
+  status?: string;
+}
+
 export interface SalesManagerPeriodMetric<T = number> {
   current: T;
   previous: T;
@@ -591,6 +598,59 @@ function buildQuery(params: SalesManagerDashboardReportParams): string {
 }
 
 export const salesManagerDashboardReportService = {
+  async getSalesManagers(
+    status: string = "ALL",
+  ): Promise<SalesManagerOption[]> {
+    const query = new URLSearchParams();
+    if (status.trim()) query.set("status", status.trim());
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    const response = await apiClient.get<
+      | ApiSuccessResponse<unknown>
+      | unknown
+    >(
+      `${API_ENDPOINTS.REPORTS.SALES_MANAGER_DASHBOARD_SALES_MANAGERS}${suffix}`,
+    );
+    const payload = unwrapPayload(response);
+    const list = Array.isArray(payload)
+      ? payload
+      : Array.isArray((payload as { content?: unknown[] } | null)?.content)
+        ? ((payload as { content: unknown[] }).content)
+        : Array.isArray((payload as { data?: unknown[] } | null)?.data)
+          ? ((payload as { data: unknown[] }).data)
+          : [];
+
+    return list
+      .map((raw) => {
+        const entry =
+          raw && typeof raw === "object"
+            ? (raw as Record<string, unknown>)
+            : {};
+        const userId = toNumber(entry.userId);
+        const id = toNumber(entry.id);
+        const optionId = String(
+          userId > 0 ? userId : id > 0 ? id : entry.id ?? "",
+        ).trim();
+        const name = String(entry.name ?? "").trim();
+        const firstName = String(entry.firstName ?? "").trim();
+        const lastName = String(entry.lastName ?? "").trim();
+        const displayName = String(entry.displayName ?? "").trim();
+        const email = String(entry.email ?? "").trim();
+        const label =
+          name ||
+          displayName ||
+          [firstName, lastName].filter(Boolean).join(" ").trim() ||
+          email ||
+          (optionId ? `Manager ${optionId}` : "");
+        return {
+          id: optionId,
+          label,
+          email: email || undefined,
+          status: String(entry.status ?? "").trim() || undefined,
+        };
+      })
+      .filter((entry) => entry.id.length > 0);
+  },
+
   async getReport(
     params: SalesManagerDashboardReportParams = {},
   ): Promise<SalesManagerDashboardReportResponse> {

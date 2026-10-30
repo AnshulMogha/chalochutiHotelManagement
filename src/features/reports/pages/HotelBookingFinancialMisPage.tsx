@@ -17,6 +17,8 @@ import {
 } from "date-fns";
 import { toPng } from "html-to-image";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { ROUTES } from "@/constants";
 import { sanitizeReturnTo } from "@/lib/navigationReturn";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
@@ -48,6 +50,10 @@ import {
   validateOptionalDateRange,
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+} from "../components/ReportFilterDrawer";
 import { HotelLookupFilterField } from "../components/HotelLookupFilterField";
 import type { ExportJobStatus } from "../services/reportExportService";
 import {
@@ -65,14 +71,10 @@ import {
   AlertCircle,
   ArrowLeft,
   Building2,
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
   CircleDollarSign,
   Download,
   Eye,
   FileSpreadsheet,
-  Filter,
   HandCoins,
   Landmark,
   LayoutDashboard,
@@ -142,6 +144,283 @@ type FilterDraft = {
 };
 
 const PAGE_SIZE = 20;
+
+function financialMisColumns(
+  openDetail: (row: HotelFinancialMisBookingRow, tab?: DetailTab) => void,
+): GridColDef<HotelFinancialMisBookingRow>[] {
+  return [
+    {
+      field: "booking",
+      headerName: "Booking",
+      width: 180,
+      sortable: false,
+      valueGetter: (_v, row) => row.bookingRef,
+      renderCell: (params) => (
+        <button
+          type="button"
+          onClick={() => openDetail(params.row, "overview")}
+          className="text-left"
+        >
+          <p className="font-semibold text-blue-700 hover:underline">
+            {params.row.bookingRef}
+          </p>
+          <p className="text-xs text-slate-500">ID {params.row.bookingId}</p>
+          {params.row.customerName ? (
+            <p className="text-xs text-slate-500">{params.row.customerName}</p>
+          ) : null}
+        </button>
+      ),
+    },
+    {
+      field: "hotel",
+      headerName: "Hotel",
+      width: 200,
+      sortable: false,
+      valueGetter: (_v, row) => row.hotelName,
+      renderCell: (params) => (
+        <div>
+          <p className="font-medium text-slate-900">{params.row.hotelName}</p>
+          <p className="text-xs text-slate-500">{params.row.hotelCode || "—"}</p>
+          {params.row.hotelCity || params.row.hotelState ? (
+            <p className="text-xs text-slate-500">
+              {[params.row.hotelCity, params.row.hotelState].filter(Boolean).join(", ")}
+            </p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      field: "bookingDate",
+      headerName: "Booking Date",
+      width: 130,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="whitespace-nowrap text-slate-700">
+          {formatReportDate(params.row.bookingDate)}
+        </span>
+      ),
+    },
+    {
+      field: "stay",
+      headerName: "Stay",
+      width: 190,
+      sortable: false,
+      valueGetter: (_v, row) => row.checkIn,
+      renderCell: (params) => (
+        <div className="whitespace-nowrap text-slate-700">
+          <p>
+            {formatReportDate(params.row.checkIn)} – {formatReportDate(params.row.checkOut)}
+          </p>
+          <p className="text-xs text-slate-500">
+            {params.row.nights} night{params.row.nights === 1 ? "" : "s"}
+            {params.row.rooms != null ? ` · ${params.row.rooms} room(s)` : ""}
+          </p>
+        </div>
+      ),
+    },
+    {
+      field: "source",
+      headerName: "Source",
+      width: 180,
+      sortable: false,
+      renderCell: (params) => (
+        <div>
+          <StatusBadge
+            status={params.row.bookingSource}
+            label="Source"
+            tone="bg-sky-50 text-sky-700 ring-sky-200"
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            {formatStatusLabel(params.row.bookedBy)}
+            {params.row.bookingRate ? ` · ${formatStatusLabel(params.row.bookingRate)}` : ""}
+          </p>
+          {params.row.bookingOwner ? (
+            <div className="mt-1">
+              <BookedByOwnerDisplay owner={params.row.bookingOwner} compact />
+            </div>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      field: "customerSellingPrice",
+      headerName: "Platform selling price",
+      width: 160,
+      sortable: false,
+      renderCell: (params) => (
+        <button
+          type="button"
+          onClick={() => openDetail(params.row, "customer")}
+          className="font-semibold tabular-nums text-blue-700 hover:underline"
+        >
+          {formatFinanceMoney(params.row.customerSellingPrice)}
+        </button>
+      ),
+    },
+    {
+      field: "agentCustomerPrice",
+      headerName: "Agent Customer Price",
+      width: 170,
+      sortable: false,
+      valueGetter: (_v, row) => getHotelFinancialMisAgentCustomerSellingPrice(row),
+      renderCell: (params) => (
+        <span className="font-semibold tabular-nums text-violet-700">
+          {formatFinanceMoney(getHotelFinancialMisAgentCustomerSellingPrice(params.row))}
+        </span>
+      ),
+    },
+    {
+      field: "agentSellingMarkupAmount",
+      headerName: "Agent Selling Markup",
+      width: 170,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="font-semibold tabular-nums text-amber-700">
+          {formatFinanceMoney(params.row.agentSellingMarkupAmount)}
+        </span>
+      ),
+    },
+    {
+      field: "hotelPayout",
+      headerName: "Hotel Payout",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <button
+          type="button"
+          onClick={() => openDetail(params.row, "hotelPayout")}
+          className="font-semibold tabular-nums text-indigo-700 hover:underline"
+        >
+          {formatFinanceMoney(params.row.hotelPayout)}
+        </button>
+      ),
+    },
+    {
+      field: "tax",
+      headerName: "TDS / TCS",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <div>
+          <p className="tabular-nums text-slate-800">
+            TDS {formatFinanceMoney(params.row.tds)}
+          </p>
+          <p className="text-xs tabular-nums text-slate-500">
+            TCS {formatFinanceMoney(params.row.tcs)}
+          </p>
+        </div>
+      ),
+    },
+    {
+      field: "otaRevenue",
+      headerName: "Net OTA Revenue",
+      width: 160,
+      sortable: false,
+      renderCell: (params) => {
+        const ota = getHotelFinancialMisDisplayOta(params.row);
+        return (
+          <button
+            type="button"
+            onClick={() => openDetail(params.row, "otaRevenue")}
+            className="text-left"
+          >
+            <p className="font-semibold tabular-nums text-cyan-700 hover:underline">
+              {formatFinanceMoney(ota.otaRevenue)}
+            </p>
+            {params.row.commission.rateLabel?.trim() ||
+            params.row.commission.ratePercent != null ? (
+              <p className="text-xs tabular-nums text-slate-500">
+                {params.row.commission.rateLabel?.trim() ||
+                  `${params.row.commission.ratePercent}%`}
+              </p>
+            ) : null}
+            <p className="text-xs tabular-nums text-slate-500">
+              GST {formatFinanceMoney(ota.otaRevenueGst)}
+            </p>
+            <p className="text-xs tabular-nums text-slate-500">
+              Incl. {formatFinanceMoney(ota.otaRevenueInclusiveGst)}
+            </p>
+          </button>
+        );
+      },
+    },
+    {
+      field: "bookingStatus",
+      headerName: "Booking status",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <StatusBadge
+          status={params.row.bookingStatus}
+          label="Booking"
+          tone={bookingStatusTone(params.row.bookingStatus)}
+        />
+      ),
+    },
+    {
+      field: "paymentStatus",
+      headerName: "Payment status",
+      width: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <div>
+          <StatusBadge
+            status={params.row.paymentStatus}
+            label="Payment"
+            tone={paymentStatusTone(params.row.paymentStatus)}
+          />
+          <p className="mt-1 text-xs tabular-nums text-slate-500">
+            Collected {formatFinanceMoney(params.row.amountCollected)}
+          </p>
+        </div>
+      ),
+    },
+    {
+      field: "cancelRefund",
+      headerName: "Cancel / Refund",
+      width: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <button
+          type="button"
+          onClick={() => openDetail(params.row, "cancellation")}
+          className="text-left"
+        >
+          <p className="tabular-nums text-slate-800 hover:text-blue-700 hover:underline">
+            {formatFinanceMoney(params.row.cancellationCharge)}
+          </p>
+          <p className="text-xs tabular-nums text-slate-500">
+            Refund {formatFinanceMoney(params.row.refundAmount)}
+          </p>
+          <div className="mt-1">
+            <StatusBadge
+              status={params.row.refundStatus}
+              label="Refund"
+              tone={refundStatusTone(params.row.refundStatus)}
+            />
+          </div>
+        </button>
+      ),
+    },
+    {
+      field: "details",
+      headerName: "View Details",
+      width: 140,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        <button
+          type="button"
+          onClick={() => openDetail(params.row, "overview")}
+          className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+        >
+          <Eye className="h-3.5 w-3.5 shrink-0" />
+          <span className="whitespace-nowrap">View Details</span>
+        </button>
+      ),
+    },
+  ];
+}
 
 const DEFAULT_DRAFT: FilterDraft = {
   uiDatePreset: "THIS_MONTH",
@@ -838,50 +1117,21 @@ export default function HotelBookingFinancialMisPage() {
             title="Hotel Booking Financial MIS"
             actions={
               <div className="flex flex-wrap items-center gap-2">
-                {report?.dateRange?.fromDate && report?.dateRange?.toDate ? (
-                  <div className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-bold text-blue-800 shadow-sm">
-                    <CalendarDays className="h-4 w-4 shrink-0 text-blue-600" />
-                    <span>
-                      {formatReportDate(report.dateRange.fromDate)} –{" "}
-                      {formatReportDate(report.dateRange.toDate)}
-                    </span>
-                    {report.dateAxis ? (
-                      <span className="font-semibold text-blue-600">
-                        · {formatStatusLabel(report.dateAxis)}
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
-                <button
-                  type="button"
+                <ReportAppliedRange
+                  from={report?.dateRange?.fromDate}
+                  to={report?.dateRange?.toDate}
+                  detail={
+                    report?.dateAxis ? formatStatusLabel(report.dateAxis) : null
+                  }
+                />
+                <ReportFilterButton
                   onClick={() => {
                     setDraft(filters);
                     syncFilterDateTexts(filters);
                     setFilterOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-                >
-                  <Filter className="h-4 w-4" />
-                  Filters
-                  {activeFilterCount > 0 ? (
-                    <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                      {activeFilterCount}
-                    </span>
-                  ) : null}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void loadReport()}
-                  disabled={loading || customInvalid}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                  Refresh
-                </button>
+                  activeCount={activeFilterCount}
+                />
                 <div
                   className="relative"
                   ref={downloadMenuRef}
@@ -905,7 +1155,7 @@ export default function HotelBookingFinancialMisPage() {
                           ? "Capturing…"
                           : "Download MIS"
                     }
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 shadow-sm transition hover:bg-blue-100 disabled:opacity-60"
+                    className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                   >
                     {exporting || capturingPage ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -945,6 +1195,20 @@ export default function HotelBookingFinancialMisPage() {
                     </div>
                   ) : null}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => void loadReport()}
+                  disabled={loading || customInvalid}
+                  aria-label="Refresh"
+                  title="Refresh"
+                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </button>
               </div>
             }
           />
@@ -1187,286 +1451,53 @@ export default function HotelBookingFinancialMisPage() {
           </div>
         </div>
 
-        <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 px-4 py-2.5">
-            <p className="text-xs font-medium text-slate-600">
-              {totalElements} booking{totalElements === 1 ? "" : "s"}
-              {report?.page.sort
-                ? ` · sorted by ${formatStatusLabel(report.page.sort)} (${report.page.direction})`
-                : null}
-              <span className="font-normal text-slate-400">
-                {" "}
-                · Page {page + 1} of {Math.max(totalPages, 1)}
+        <DataTable
+          className="mt-3"
+          subtitle={
+            <>
+              <span className="font-medium text-slate-600">
+                {formatListCount(totalElements, "booking")}
+                {report?.page.sort
+                  ? ` · sorted by ${formatStatusLabel(report.page.sort)} (${report.page.direction})`
+                  : null}
               </span>
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="sticky left-0 z-10 bg-slate-50 px-4 py-3">
-                    Booking
-                  </th>
-                  <th className="px-4 py-3">Hotel</th>
-                  <th className="px-4 py-3">Booking Date</th>
-                  <th className="px-4 py-3">Stay</th>
-                  <th className="px-4 py-3">Source</th>
-                  <th className="px-4 py-3">Platform selling price</th>
-                  <th className="px-4 py-3">Agent Customer Price</th>
-                  <th className="px-4 py-3">Agent Selling Markup</th>
-                  <th className="px-4 py-3">Hotel Payout</th>
-                  <th className="px-4 py-3">TDS / TCS</th>
-                  <th className="px-4 py-3">Net OTA Revenue</th>
-                  <th className="px-4 py-3">Booking status</th>
-                  <th className="px-4 py-3">Payment status</th>
-                  <th className="px-4 py-3">Cancel / Refund</th>
-                  <th className="px-4 py-3">View Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(report?.bookings ?? []).map((row) => (
-                  <tr
-                    key={`${row.bookingId}-${row.bookingRef}`}
-                    className="border-t border-slate-100 align-top hover:bg-blue-50/30"
-                  >
-                    <td className="sticky left-0 z-10 bg-white px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openDetail(row, "overview")}
-                        className="text-left"
-                      >
-                        <p className="font-semibold text-blue-700 hover:underline">
-                          {row.bookingRef}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          ID {row.bookingId}
-                        </p>
-                        {row.customerName ? (
-                          <p className="text-xs text-slate-500">
-                            {row.customerName}
-                          </p>
-                        ) : null}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-900">
-                        {row.hotelName}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {row.hotelCode || "—"}
-                      </p>
-                      {row.hotelCity || row.hotelState ? (
-                        <p className="text-xs text-slate-500">
-                          {[row.hotelCity, row.hotelState]
-                            .filter(Boolean)
-                            .join(", ")}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                      {formatReportDate(row.bookingDate)}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                      <p>
-                        {formatReportDate(row.checkIn)} –{" "}
-                        {formatReportDate(row.checkOut)}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {row.nights} night{row.nights === 1 ? "" : "s"}
-                        {row.rooms != null ? ` · ${row.rooms} room(s)` : ""}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge
-                        status={row.bookingSource}
-                        label="Source"
-                        tone="bg-sky-50 text-sky-700 ring-sky-200"
-                      />
-                      <p className="mt-1 text-xs text-slate-500">
-                        {formatStatusLabel(row.bookedBy)}
-                        {row.bookingRate
-                          ? ` · ${formatStatusLabel(row.bookingRate)}`
-                          : ""}
-                      </p>
-                      {row.bookingOwner ? (
-                        <div className="mt-1">
-                          <BookedByOwnerDisplay
-                            owner={row.bookingOwner}
-                            compact
-                          />
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openDetail(row, "customer")}
-                        className="font-semibold tabular-nums text-blue-700 hover:underline"
-                      >
-                        {formatFinanceMoney(row.customerSellingPrice)}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 font-semibold tabular-nums text-violet-700">
-                      {formatFinanceMoney(
-                        getHotelFinancialMisAgentCustomerSellingPrice(row),
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-semibold tabular-nums text-amber-700">
-                      {formatFinanceMoney(row.agentSellingMarkupAmount)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openDetail(row, "hotelPayout")}
-                        className="font-semibold tabular-nums text-indigo-700 hover:underline"
-                      >
-                        {formatFinanceMoney(row.hotelPayout)}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="tabular-nums text-slate-800">
-                        TDS {formatFinanceMoney(row.tds)}
-                      </p>
-                      <p className="text-xs tabular-nums text-slate-500">
-                        TCS {formatFinanceMoney(row.tcs)}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openDetail(row, "otaRevenue")}
-                        className="text-left font-semibold tabular-nums text-cyan-700 hover:underline"
-                      >
-                        {formatFinanceMoney(
-                          getHotelFinancialMisDisplayOta(row).otaRevenue,
-                        )}
-                      </button>
-                      {row.commission.rateLabel?.trim() ||
-                      row.commission.ratePercent != null ? (
-                        <p className="text-xs tabular-nums text-slate-500">
-                          {row.commission.rateLabel?.trim() ||
-                            `${row.commission.ratePercent}%`}
-                        </p>
-                      ) : null}
-                      <p className="text-xs tabular-nums text-slate-500">
-                        GST{" "}
-                        {formatFinanceMoney(
-                          getHotelFinancialMisDisplayOta(row).otaRevenueGst,
-                        )}
-                      </p>
-                      <p className="text-xs tabular-nums text-slate-500">
-                        Incl.{" "}
-                        {formatFinanceMoney(
-                          getHotelFinancialMisDisplayOta(row)
-                            .otaRevenueInclusiveGst,
-                        )}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge
-                        status={row.bookingStatus}
-                        label="Booking"
-                        tone={bookingStatusTone(row.bookingStatus)}
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge
-                        status={row.paymentStatus}
-                        label="Payment"
-                        tone={paymentStatusTone(row.paymentStatus)}
-                      />
-                      <p className="mt-1 text-xs tabular-nums text-slate-500">
-                        Collected {formatFinanceMoney(row.amountCollected)}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openDetail(row, "cancellation")}
-                        className="text-left"
-                      >
-                        <p className="tabular-nums text-slate-800 hover:text-blue-700 hover:underline">
-                          {formatFinanceMoney(row.cancellationCharge)}
-                        </p>
-                        <p className="text-xs tabular-nums text-slate-500">
-                          Refund {formatFinanceMoney(row.refundAmount)}
-                        </p>
-                        <div className="mt-1">
-                          <StatusBadge
-                            status={row.refundStatus}
-                            label="Refund"
-                            tone={refundStatusTone(row.refundStatus)}
-                          />
-                        </div>
-                      </button>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => openDetail(row, "overview")}
-                        className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
-                      >
-                        <Eye className="h-3.5 w-3.5 shrink-0" />
-                        <span className="whitespace-nowrap">View Details</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {!loading && !(report?.bookings.length ?? 0) ? (
-                  <tr>
-                    <td
-                      colSpan={13}
-                      className="px-4 py-12 text-center text-sm text-slate-400"
-                    >
-                      No hotel bookings match the current filters
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-slate-100 px-3 py-1.5">
-            <p className="text-[11px] leading-none text-slate-500">
-              {totalElements} booking{totalElements === 1 ? "" : "s"}
               <span className="text-slate-400">
                 {" "}
                 · Page {page + 1} of {Math.max(totalPages, 1)}
               </span>
-            </p>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                disabled={page <= 0 || loading}
-                onClick={() => {
-                  const nextPage = page - 1;
-                  setPage(nextPage);
-                  void loadReport(filters, nextPage);
-                }}
-                className="inline-flex items-center gap-0.5 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 disabled:opacity-50"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Prev
-              </button>
-              <span className="text-[11px] tabular-nums text-slate-600">
-                Page {page + 1} of {Math.max(totalPages, 1)}
-              </span>
-              <button
-                type="button"
-                disabled={page + 1 >= totalPages || loading}
-                onClick={() => {
-                  const nextPage = page + 1;
-                  setPage(nextPage);
-                  void loadReport(filters, nextPage);
-                }}
-                className="inline-flex items-center gap-0.5 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 disabled:opacity-50"
-              >
-                Next
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          rows={report?.bookings ?? []}
+          columns={financialMisColumns(openDetail)}
+          getRowId={(row) => `${row.bookingId}-${row.bookingRef}`}
+          loading={loading}
+          paginationMode="server"
+          rowCount={totalElements}
+          paginationModel={{ page, pageSize: PAGE_SIZE }}
+          onPaginationModelChange={(model) => {
+            if (model.page === page) return;
+            setPage(model.page);
+            void loadReport(filters, model.page);
+          }}
+          pageSizeOptions={[PAGE_SIZE]}
+          disableRowSelectionOnClick
+          disableColumnFilter
+          showToolbar
+          showExport={false}
+          allowHorizontalScroll
+          getRowHeight={() => "auto"}
+          localeText={{
+            noRowsLabel: "No hotel bookings match the current filters",
+          }}
+          sx={{
+            "& .MuiDataGrid-cell": {
+              alignItems: "flex-start",
+              whiteSpace: "normal",
+              py: "8px",
+              lineHeight: "1.25 !important",
+            },
+          }}
+        />
 
         {filterOpen ? (
           <>

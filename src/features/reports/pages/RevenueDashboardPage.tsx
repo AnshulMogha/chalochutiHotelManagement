@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ExportButton } from "@/components/ui/ExportButton";
+import { DataTable } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { cn } from "@/lib/utils";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
 import { HotelLookupFilterField } from "../components/HotelLookupFilterField";
 import { PackageLookupFilterField } from "../components/PackageLookupFilterField";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportFilterDrawer,
+} from "../components/ReportFilterDrawer";
 import {
   adminService,
   type CityMasterItem,
@@ -45,7 +52,6 @@ import {
   Building2,
   CalendarDays,
   CircleDollarSign,
-  Filter,
   HandCoins,
   Loader2,
   Package,
@@ -53,7 +59,6 @@ import {
   RefreshCw,
   RotateCcw,
   Wallet,
-  X,
 } from "lucide-react";
 
 const DATE_PRESETS: { value: RevenueDatePreset; label: string }[] = [
@@ -193,6 +198,39 @@ export default function RevenueDashboardPage() {
       });
   }, []);
 
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.datePreset !== DEFAULT_FILTERS.datePreset) count += 1;
+    if (filters.product !== DEFAULT_FILTERS.product) count += 1;
+    if (filters.channel !== DEFAULT_FILTERS.channel) count += 1;
+    if (filters.paymentStatus !== DEFAULT_FILTERS.paymentStatus) count += 1;
+    if (filters.hotelId) count += 1;
+    if (filters.packageId) count += 1;
+    if (filters.supplierId) count += 1;
+    if (filters.stateId) count += 1;
+    if (filters.cityId) count += 1;
+    if (filters.datePreset === "CUSTOM" && (filters.fromDate || filters.toDate)) {
+      count += 1;
+    }
+    return count;
+  }, [filters]);
+
+  const openFilters = () => {
+    setDraft(filters);
+    setCustomFromText(isoToReportDateText(filters.fromDate));
+    setCustomToText(isoToReportDateText(filters.toDate));
+    setFilterOpen(true);
+  };
+
+  const resetFilters = () => {
+    setDraft(DEFAULT_FILTERS);
+    setFilters(DEFAULT_FILTERS);
+    setCustomFromText("");
+    setCustomToText("");
+    setFilterOpen(false);
+    void load(DEFAULT_FILTERS);
+  };
+
   const applyFilters = () => {
     let next = draft;
     if (draft.datePreset === "CUSTOM") {
@@ -237,20 +275,20 @@ export default function RevenueDashboardPage() {
           title="Revenue Dashboard"
           description="Financial performance from completed Hotel & Package services. Hotel = CHECK_OUT; Package = REVENUE_DATE."
           actions={
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setDraft(filters);
-                  setCustomFromText(isoToReportDateText(filters.fromDate));
-                  setCustomToText(isoToReportDateText(filters.toDate));
-                  setFilterOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                <Filter className="h-4 w-4" />
-                Filters
-              </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <ReportAppliedRange
+                from={report?.dateRange.fromDate}
+                to={report?.dateRange.toDate}
+                detail={
+                  DATE_PRESETS.find(
+                    (option) => option.value === filters.datePreset,
+                  )?.label
+                }
+              />
+              <ReportFilterButton
+                onClick={openFilters}
+                activeCount={activeFilterCount}
+              />
               <ExportButton
                 iconOnly
                 disabled={loading}
@@ -376,201 +414,162 @@ export default function RevenueDashboardPage() {
         )}
       </div>
 
-      {filterOpen ? (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <button
-            type="button"
-            aria-label="Close filters"
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => setFilterOpen(false)}
+      <ReportFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onReset={resetFilters}
+        onApply={applyFilters}
+        resetLabel="Reset"
+        applyLabel="Apply"
+      >
+        <Field label="Time period">
+          <select
+            className={fieldClass}
+            value={draft.datePreset}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                datePreset: event.target.value as RevenueDatePreset,
+              }))
+            }
+          >
+            {DATE_PRESETS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {draft.datePreset === "CUSTOM" ? (
+          <ReportCustomDateFields
+            fromText={customFromText}
+            toText={customToText}
+            onFromTextChange={setCustomFromText}
+            onToTextChange={setCustomToText}
+            stacked
           />
-          <aside className="relative flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <h2 className="text-lg font-bold text-slate-900">Filters</h2>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(false)}
-                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
-              <Field label="Time period">
-                <select
-                  className={fieldClass}
-                  value={draft.datePreset}
-                  onChange={(event) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      datePreset: event.target.value as RevenueDatePreset,
-                    }))
-                  }
-                >
-                  {DATE_PRESETS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              {draft.datePreset === "CUSTOM" ? (
-                <ReportCustomDateFields
-                  fromText={customFromText}
-                  toText={customToText}
-                  onFromTextChange={setCustomFromText}
-                  onToTextChange={setCustomToText}
-                  stacked
-                />
-              ) : null}
-              <Field label="Product">
-                <select
-                  className={fieldClass}
-                  value={draft.product}
-                  onChange={(event) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      product: event.target.value as RevenueProduct,
-                    }))
-                  }
-                >
-                  <option value="ALL">All</option>
-                  <option value="HOTEL">Hotel</option>
-                  <option value="PACKAGE">Package</option>
-                </select>
-              </Field>
-              <Field label="Channel">
-                <select
-                  className={fieldClass}
-                  value={draft.channel}
-                  onChange={(event) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      channel: event.target.value as RevenueChannel,
-                    }))
-                  }
-                >
-                  <option value="ALL">All</option>
-                  <option value="B2C">B2C (direct)</option>
-                  <option value="B2B">B2B (agent)</option>
-                </select>
-              </Field>
-              <Field label="Payment status">
-                <select
-                  className={fieldClass}
-                  value={draft.paymentStatus}
-                  onChange={(event) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      paymentStatus: event.target.value as RevenuePaymentStatus,
-                    }))
-                  }
-                >
-                  <option value="ALL">All</option>
-                  <option value="PAID">Paid</option>
-                  <option value="PARTIAL">Partial</option>
-                  <option value="PENDING">Pending</option>
-                </select>
-              </Field>
-              <HotelLookupFilterField
-                value={draft.hotelId}
-                selectedLabel={draft.hotelLabel}
-                onChange={({ hotelId, hotelLabel }) =>
-                  setDraft((prev) => ({ ...prev, hotelId, hotelLabel }))
-                }
-              />
-              <PackageLookupFilterField
-                value={draft.packageId}
-                selectedLabel={draft.packageLabel}
-                onChange={({ packageId, packageLabel }) =>
-                  setDraft((prev) => ({ ...prev, packageId, packageLabel }))
-                }
-              />
-              <Field label="Supplier id">
-                <input
-                  className={fieldClass}
-                  value={draft.supplierId}
-                  onChange={(event) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      supplierId: event.target.value,
-                    }))
-                  }
-                  placeholder="Packages only"
-                />
-              </Field>
-              <Field label="State">
-                <select
-                  className={fieldClass}
-                  value={draft.stateId}
-                  onChange={(event) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      stateId: event.target.value,
-                      cityId: "",
-                    }))
-                  }
-                >
-                  <option value="">All states</option>
-                  {states.map((state) => (
-                    <option key={state.id} value={state.id}>
-                      {state.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="City">
-                <select
-                  className={fieldClass}
-                  value={draft.cityId}
-                  onChange={(event) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      cityId: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="">All cities</option>
-                  {cities
-                    .filter(
-                      (city) =>
-                        !draft.stateId ||
-                        String(city.stateId || "") === draft.stateId,
-                    )
-                    .map((city) => (
-                      <option key={city.id} value={city.id}>
-                        {city.name}
-                      </option>
-                    ))}
-                </select>
-              </Field>
-            </div>
-            <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setDraft(DEFAULT_FILTERS);
-                  setFilters(DEFAULT_FILTERS);
-                  setCustomFromText("");
-                  setCustomToText("");
-                  setFilterOpen(false);
-                  void load(DEFAULT_FILTERS);
-                }}
-                className="text-sm font-semibold text-[#2f3d95]"
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                onClick={applyFilters}
-                className="rounded-lg bg-[#2f3d95] px-4 py-2 text-sm font-semibold text-white"
-              >
-                Apply
-              </button>
-            </div>
-          </aside>
-        </div>
-      ) : null}
+        ) : null}
+        <Field label="Product">
+          <select
+            className={fieldClass}
+            value={draft.product}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                product: event.target.value as RevenueProduct,
+              }))
+            }
+          >
+            <option value="ALL">All</option>
+            <option value="HOTEL">Hotel</option>
+            <option value="PACKAGE">Package</option>
+          </select>
+        </Field>
+        <Field label="Channel">
+          <select
+            className={fieldClass}
+            value={draft.channel}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                channel: event.target.value as RevenueChannel,
+              }))
+            }
+          >
+            <option value="ALL">All</option>
+            <option value="B2C">B2C (direct)</option>
+            <option value="B2B">B2B (agent)</option>
+          </select>
+        </Field>
+        <Field label="Payment status">
+          <select
+            className={fieldClass}
+            value={draft.paymentStatus}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                paymentStatus: event.target.value as RevenuePaymentStatus,
+              }))
+            }
+          >
+            <option value="ALL">All</option>
+            <option value="PAID">Paid</option>
+            <option value="PARTIAL">Partial</option>
+            <option value="PENDING">Pending</option>
+          </select>
+        </Field>
+        <HotelLookupFilterField
+          value={draft.hotelId}
+          selectedLabel={draft.hotelLabel}
+          onChange={({ hotelId, hotelLabel }) =>
+            setDraft((prev) => ({ ...prev, hotelId, hotelLabel }))
+          }
+        />
+        <PackageLookupFilterField
+          value={draft.packageId}
+          selectedLabel={draft.packageLabel}
+          onChange={({ packageId, packageLabel }) =>
+            setDraft((prev) => ({ ...prev, packageId, packageLabel }))
+          }
+        />
+        <Field label="Supplier id">
+          <input
+            className={fieldClass}
+            value={draft.supplierId}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                supplierId: event.target.value,
+              }))
+            }
+            placeholder="Packages only"
+          />
+        </Field>
+        <Field label="State">
+          <select
+            className={fieldClass}
+            value={draft.stateId}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                stateId: event.target.value,
+                cityId: "",
+              }))
+            }
+          >
+            <option value="">All states</option>
+            {states.map((state) => (
+              <option key={state.id} value={state.id}>
+                {state.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="City">
+          <select
+            className={fieldClass}
+            value={draft.cityId}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                cityId: event.target.value,
+              }))
+            }
+          >
+            <option value="">All cities</option>
+            {cities
+              .filter(
+                (city) =>
+                  !draft.stateId || String(city.stateId || "") === draft.stateId,
+              )
+              .map((city) => (
+                <option key={city.id} value={city.id}>
+                  {city.name}
+                </option>
+              ))}
+          </select>
+        </Field>
+      </ReportFilterDrawer>
     </div>
   );
 }
@@ -602,15 +601,121 @@ function ProductBreakdown({
       ? rows
       : rows.filter((row) => row.product === selectedProduct);
 
+  const columns: GridColDef<RevenueProductRow>[] = [
+    {
+      field: "product",
+      headerName: "Product",
+      flex: 1,
+      minWidth: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="font-medium text-slate-900">
+          {productLabel(params.row.product)}
+        </span>
+      ),
+    },
+    {
+      field: "completedBookings",
+      headerName: "Bookings",
+      width: 110,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">{params.row.completedBookings}</span>
+      ),
+    },
+    {
+      field: "grossBookingValue",
+      headerName: "Gross",
+      flex: 1,
+      minWidth: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">
+          {moneyLabel(params.row.grossBookingValue)}
+        </span>
+      ),
+    },
+    {
+      field: "collectedRevenue",
+      headerName: "Collected",
+      flex: 1,
+      minWidth: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">
+          {moneyLabel(params.row.collectedRevenue)}
+        </span>
+      ),
+    },
+    {
+      field: "outstanding",
+      headerName: "Outstanding",
+      flex: 1,
+      minWidth: 130,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">
+          {moneyLabel(params.row.outstanding, params.row.outstandingSupported)}
+        </span>
+      ),
+    },
+    {
+      field: "supplierCost",
+      headerName: "Supplier cost",
+      flex: 1,
+      minWidth: 130,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">
+          {moneyLabel(params.row.supplierCost, params.row.supplierCostSupported)}
+        </span>
+      ),
+    },
+    {
+      field: "otaRevenue",
+      headerName: "OTA revenue",
+      flex: 1,
+      minWidth: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">{moneyLabel(params.row.otaRevenue)}</span>
+      ),
+    },
+    {
+      field: "grossProfit",
+      headerName: "Gross profit",
+      flex: 1,
+      minWidth: 130,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">
+          {moneyLabel(params.row.grossProfit, params.row.grossProfitSupported)}
+        </span>
+      ),
+    },
+    {
+      field: "refunded",
+      headerName: "Refunded",
+      flex: 1,
+      minWidth: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">{moneyLabel(params.row.refunded)}</span>
+      ),
+    },
+  ];
+
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+    <DataTable
+      title={
         <div className="flex items-center gap-2">
           <Package className="h-4 w-4 text-slate-500" />
-          <h2 className="text-sm font-semibold text-slate-900">
+          <span className="text-sm font-semibold text-slate-900">
             Product breakdown
-          </h2>
+          </span>
         </div>
+      }
+      headerActions={
         <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
           {(["ALL", "HOTEL", "PACKAGE"] as RevenueProduct[]).map((product) => (
             <button
@@ -628,75 +733,28 @@ function ProductBreakdown({
             </button>
           ))}
         </div>
-      </div>
-      {showSumWarning && selectedProduct === "ALL" ? (
-        <p className="border-b border-slate-100 px-4 py-2 text-xs text-slate-500">
-          These rows stay independent of the cards above when all products are
-          selected.
-        </p>
-      ) : null}
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-3 py-2">Product</th>
-              <th className="px-3 py-2">Bookings</th>
-              <th className="px-3 py-2">Gross</th>
-              <th className="px-3 py-2">Collected</th>
-              <th className="px-3 py-2">Outstanding</th>
-              <th className="px-3 py-2">Supplier cost</th>
-              <th className="px-3 py-2">OTA revenue</th>
-              <th className="px-3 py-2">Gross profit</th>
-              <th className="px-3 py-2">Refunded</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {visibleRows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={9}
-                  className="px-3 py-6 text-center text-slate-500"
-                >
-                  No product breakdown for this range.
-                </td>
-              </tr>
-            ) : (
-              visibleRows.map((row) => (
-                <tr key={row.product}>
-                  <td className="px-3 py-2 font-medium text-slate-900">
-                    {productLabel(row.product)}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {row.completedBookings}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {moneyLabel(row.grossBookingValue)}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {moneyLabel(row.collectedRevenue)}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {moneyLabel(row.outstanding, row.outstandingSupported)}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {moneyLabel(row.supplierCost, row.supplierCostSupported)}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {moneyLabel(row.otaRevenue)}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {moneyLabel(row.grossProfit, row.grossProfitSupported)}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {moneyLabel(row.refunded)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
+      }
+      afterHeader={
+        showSumWarning && selectedProduct === "ALL" ? (
+          <p className="border-b border-slate-100 px-4 py-2 text-xs text-slate-500">
+            These rows stay independent of the cards above when all products are
+            selected.
+          </p>
+        ) : null
+      }
+      rows={visibleRows}
+      columns={columns}
+      getRowId={(row) => row.product}
+      disableRowSelectionOnClick
+      disableColumnFilter
+      showToolbar
+      showExport={false}
+      pageSizeOptions={[10, 20, 50]}
+      initialState={{
+        pagination: { paginationModel: { page: 0, pageSize: 20 } },
+      }}
+      localeText={{ noRowsLabel: "No product breakdown for this range." }}
+    />
   );
 }
 

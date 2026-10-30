@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { cn } from "@/lib/utils";
 import {
   allocationStatusTone,
@@ -12,6 +14,11 @@ import {
   validateCustomDateRange,
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportRefreshButton,
+} from "../components/ReportFilterDrawer";
 import { inventoryService } from "@/features/inventory/services/inventoryService";
 import { rateService } from "@/features/inventory/services/rateService";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,6 +34,7 @@ import {
   inventoryAllocationReportService,
   type InventoryAllocationDatePreset,
   type InventoryAllocationReportResponse,
+  type InventoryAllocationRow,
 } from "../services/inventoryAllocationReportService";
 import type {
   ExportJobStatus,
@@ -41,7 +49,6 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
-  Filter,
   Layers,
   Loader2,
   Package,
@@ -53,6 +60,131 @@ import {
 } from "lucide-react";
 
 const DEFAULT_DATE_PRESET: InventoryAllocationDatePreset = "LAST_30_DAYS";
+const INVENTORY_PAGE_SIZE = 20;
+
+const inventoryColumns: GridColDef<InventoryAllocationRow>[] = [
+  {
+    field: "date",
+    headerName: "Date",
+    width: 130,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-slate-800">
+        <CalendarDays className="h-3.5 w-3.5 text-violet-400" />
+        {formatReportDate(params.row.date)}
+      </span>
+    ),
+  },
+  {
+    field: "hotelName",
+    headerName: "Hotel Name",
+    flex: 1,
+    minWidth: 180,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="truncate text-slate-700" title={params.row.hotelName || undefined}>
+        {params.row.hotelName || "—"}
+      </span>
+    ),
+  },
+  { field: "roomType", headerName: "Room Type", flex: 1, minWidth: 140, sortable: false },
+  { field: "ratePlan", headerName: "Rate Plan", flex: 1, minWidth: 140, sortable: false },
+  {
+    field: "total",
+    headerName: "Total",
+    width: 90,
+    sortable: false,
+    renderCell: (params) => <span className="tabular-nums text-slate-700">{params.row.total}</span>,
+  },
+  {
+    field: "allocated",
+    headerName: "Allocated",
+    width: 110,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums font-medium text-violet-700">{params.row.allocated}</span>
+    ),
+  },
+  {
+    field: "sold",
+    headerName: "Sold",
+    width: 90,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums font-medium text-emerald-700">{params.row.sold}</span>
+    ),
+  },
+  {
+    field: "available",
+    headerName: "Available",
+    width: 110,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums text-sky-700">{params.row.available}</span>
+    ),
+  },
+  {
+    field: "remaining",
+    headerName: "Remaining",
+    width: 110,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums text-teal-700">{params.row.remaining}</span>
+    ),
+  },
+  {
+    field: "blocked",
+    headerName: "Blocked",
+    width: 100,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums font-medium text-rose-700">{params.row.blocked}</span>
+    ),
+  },
+  {
+    field: "allocationPercentage",
+    headerName: "Alloc %",
+    width: 100,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums text-amber-700">{params.row.allocationPercentage}%</span>
+    ),
+  },
+  {
+    field: "utilizationPercentage",
+    headerName: "Util %",
+    width: 100,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums text-indigo-700">{params.row.utilizationPercentage}%</span>
+    ),
+  },
+  {
+    field: "occupancyPercentage",
+    headerName: "Occ %",
+    width: 90,
+    sortable: false,
+    renderCell: (params) => (
+      <span className="tabular-nums text-slate-700">{params.row.occupancyPercentage}%</span>
+    ),
+  },
+  {
+    field: "status",
+    headerName: "Status",
+    width: 140,
+    sortable: false,
+    renderCell: (params) => (
+      <span
+        className={cn(
+          "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold leading-tight ring-1 ring-inset",
+          allocationStatusTone(params.row.status),
+        )}
+      >
+        {formatStatusLabel(params.row.status)}
+      </span>
+    ),
+  },
+];
 
 const DATE_PRESET_OPTIONS: {
   value: InventoryAllocationDatePreset;
@@ -97,18 +229,18 @@ function MetricCard({
 }) {
   return (
     <div className={cn("rounded-xl border px-3 py-2.5 shadow-sm", tone.wrap)}>
-      <div className="flex items-center justify-between gap-2">
-        <p className={cn("text-[11px] font-semibold uppercase tracking-wide", tone.label)}>
-          {label}
-        </p>
+      <div className="flex items-center gap-2">
         <span
           className={cn(
-            "inline-flex h-7 w-7 items-center justify-center rounded-lg",
+            "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
             tone.icon,
           )}
         >
           <Icon className="h-3.5 w-3.5" />
         </span>
+        <p className={cn("min-w-0 truncate text-[11px] font-semibold uppercase tracking-wide", tone.label)}>
+          {label}
+        </p>
       </div>
       <p className={cn("mt-1 text-xl font-bold tabular-nums", tone.value)}>{value}</p>
     </div>
@@ -150,7 +282,7 @@ export default function InventoryAllocationReportPage() {
   const [roomOptions, setRoomOptions] = useState<ReportIdOption[]>([]);
   const [ratePlanOptions, setRatePlanOptions] = useState<ReportIdOption[]>([]);
   const [page, setPage] = useState(0);
-  const [pageSize] = useState(20);
+  const [pageSize] = useState(INVENTORY_PAGE_SIZE);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -161,6 +293,7 @@ export default function InventoryAllocationReportPage() {
   const [report, setReport] =
     useState<InventoryAllocationReportResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
     null,
@@ -231,6 +364,7 @@ export default function InventoryAllocationReportPage() {
     page,
     pageSize,
     customRangeInvalid,
+    refreshNonce,
     showToast,
   ]);
 
@@ -461,17 +595,8 @@ export default function InventoryAllocationReportPage() {
                 <h1 className="truncate text-lg font-bold text-slate-900">
                   Inventory Allocation Report
                 </h1>
+                {selectedRoomTypeName || selectedRatePlanName ? (
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                  <span className="inline-flex items-center gap-1.5">
-                    <CalendarDays className="h-3.5 w-3.5 text-violet-500" />
-                    <span className="font-semibold text-slate-700">{presetLabel}</span>
-                    {report?.dateRange.fromDate ? (
-                      <span>
-                        {formatReportDate(report.dateRange.fromDate)} –{" "}
-                        {formatReportDate(report.dateRange.toDate)}
-                      </span>
-                    ) : null}
-                  </span>
                   {selectedRoomTypeName ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-medium text-violet-700 ring-1 ring-violet-200">
                       <BedDouble className="h-3 w-3" />
@@ -485,27 +610,19 @@ export default function InventoryAllocationReportPage() {
                     </span>
                   ) : null}
                 </p>
+                ) : null}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
+            <div className="flex flex-wrap items-center gap-2">
+              <ReportAppliedRange
+                from={report?.dateRange.fromDate}
+                to={report?.dateRange.toDate}
+                detail={presetLabel}
+              />
+              <ReportFilterButton
                 onClick={openFilters}
-                className={cn(
-                  "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition",
-                  activeFilterCount
-                    ? "border-violet-200 bg-violet-50 text-violet-800"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-violet-200 hover:bg-violet-50",
-                )}
-              >
-                <Filter className="h-4 w-4" />
-                Filter
-                {activeFilterCount ? (
-                  <span className="rounded-full bg-violet-600 px-1.5 text-[11px] font-bold text-white">
-                    {activeFilterCount}
-                  </span>
-                ) : null}
-              </button>
+                activeCount={activeFilterCount}
+              />
               <div className="relative" ref={exportMenuRef}>
                 <button
                   type="button"
@@ -521,7 +638,7 @@ export default function InventoryAllocationReportPage() {
                       ? exportStatusLabel(exportStatus) || "Exporting…"
                       : "Download"
                   }
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-800 transition hover:bg-violet-100 disabled:opacity-60"
+                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
                 >
                   {exporting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -555,6 +672,11 @@ export default function InventoryAllocationReportPage() {
                   </div>
                 ) : null}
               </div>
+              <ReportRefreshButton
+                onClick={() => setRefreshNonce((n) => n + 1)}
+                loading={loading}
+                disabled={customRangeInvalid}
+              />
             </div>
           </div>
 
@@ -571,9 +693,9 @@ export default function InventoryAllocationReportPage() {
                 value={summary.totalRooms}
                 icon={Building2}
                 tone={{
-                  wrap: "border-slate-200 bg-slate-50/80",
-                  icon: "bg-slate-200 text-slate-700",
-                  label: "text-slate-500",
+                  wrap: "border-sky-100 bg-gradient-to-br from-sky-50 to-white",
+                  icon: "bg-sky-500 text-white",
+                  label: "text-sky-700",
                   value: "text-slate-900",
                 }}
               />
@@ -582,10 +704,10 @@ export default function InventoryAllocationReportPage() {
                 value={summary.allocatedRooms}
                 icon={Layers}
                 tone={{
-                  wrap: "border-violet-200 bg-violet-50/80",
-                  icon: "bg-violet-100 text-violet-700",
-                  label: "text-violet-600",
-                  value: "text-violet-900",
+                  wrap: "border-violet-100 bg-gradient-to-br from-violet-50 to-white",
+                  icon: "bg-violet-600 text-white",
+                  label: "text-violet-700",
+                  value: "text-slate-900",
                 }}
               />
               <MetricCard
@@ -593,10 +715,10 @@ export default function InventoryAllocationReportPage() {
                 value={summary.soldRooms}
                 icon={ShoppingBag}
                 tone={{
-                  wrap: "border-emerald-200 bg-emerald-50/80",
-                  icon: "bg-emerald-100 text-emerald-700",
-                  label: "text-emerald-600",
-                  value: "text-emerald-900",
+                  wrap: "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white",
+                  icon: "bg-emerald-600 text-white",
+                  label: "text-emerald-700",
+                  value: "text-slate-900",
                 }}
               />
               <MetricCard
@@ -604,10 +726,10 @@ export default function InventoryAllocationReportPage() {
                 value={summary.availableRooms}
                 icon={CheckCircle2}
                 tone={{
-                  wrap: "border-sky-200 bg-sky-50/80",
-                  icon: "bg-sky-100 text-sky-700",
-                  label: "text-sky-600",
-                  value: "text-sky-900",
+                  wrap: "border-blue-100 bg-gradient-to-br from-blue-50 to-white",
+                  icon: "bg-blue-600 text-white",
+                  label: "text-blue-700",
+                  value: "text-slate-900",
                 }}
               />
               <MetricCard
@@ -615,10 +737,10 @@ export default function InventoryAllocationReportPage() {
                 value={summary.remainingRooms}
                 icon={BedDouble}
                 tone={{
-                  wrap: "border-teal-200 bg-teal-50/80",
-                  icon: "bg-teal-100 text-teal-700",
-                  label: "text-teal-600",
-                  value: "text-teal-900",
+                  wrap: "border-teal-100 bg-gradient-to-br from-teal-50 to-white",
+                  icon: "bg-teal-600 text-white",
+                  label: "text-teal-700",
+                  value: "text-slate-900",
                 }}
               />
               <MetricCard
@@ -626,10 +748,10 @@ export default function InventoryAllocationReportPage() {
                 value={summary.blockedRooms}
                 icon={Ban}
                 tone={{
-                  wrap: "border-rose-200 bg-rose-50/80",
-                  icon: "bg-rose-100 text-rose-700",
-                  label: "text-rose-600",
-                  value: "text-rose-900",
+                  wrap: "border-rose-100 bg-gradient-to-br from-rose-50 to-white",
+                  icon: "bg-rose-500 text-white",
+                  label: "text-rose-700",
+                  value: "text-slate-900",
                 }}
               />
               <MetricCard
@@ -637,10 +759,10 @@ export default function InventoryAllocationReportPage() {
                 value={`${summary.allocationPercentage}%`}
                 icon={Percent}
                 tone={{
-                  wrap: "border-amber-200 bg-amber-50/80",
-                  icon: "bg-amber-100 text-amber-700",
-                  label: "text-amber-600",
-                  value: "text-amber-900",
+                  wrap: "border-amber-100 bg-gradient-to-br from-amber-50 to-white",
+                  icon: "bg-amber-500 text-white",
+                  label: "text-amber-700",
+                  value: "text-slate-900",
                 }}
               />
               <MetricCard
@@ -648,170 +770,49 @@ export default function InventoryAllocationReportPage() {
                 value={`${summary.utilizationPercentage}%`}
                 icon={TrendingUp}
                 tone={{
-                  wrap: "border-indigo-200 bg-indigo-50/80",
-                  icon: "bg-indigo-100 text-indigo-700",
-                  label: "text-indigo-600",
-                  value: "text-indigo-900",
+                  wrap: "border-indigo-100 bg-gradient-to-br from-indigo-50 to-white",
+                  icon: "bg-indigo-600 text-white",
+                  label: "text-indigo-700",
+                  value: "text-slate-900",
                 }}
               />
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-            <div className="border-b border-slate-100 px-4 py-2.5">
-              <p className="text-xs font-medium text-slate-600">
-                {(report?.page.totalElements ?? 0).toLocaleString("en-IN")} rows
-                <span className="font-normal text-slate-400">
+          <DataTable
+            subtitle={
+              <>
+                <span className="font-medium text-slate-600">
+                  {formatListCount(report?.page.totalElements ?? 0, "row")}
+                </span>
+                <span className="text-slate-400">
                   {" "}
                   · Page {page + 1} of {Math.max(totalPages, 1)}
                 </span>
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-max text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50">
-                    {[
-                      "Date",
-                      "Hotel Name",
-                      "Room Type",
-                      "Rate Plan",
-                      "Total",
-                      "Allocated",
-                      "Sold",
-                      "Available",
-                      "Remaining",
-                      "Blocked",
-                      "Alloc %",
-                      "Util %",
-                      "Occ %",
-                      "Status",
-                    ].map((heading) => (
-                      <th
-                        key={heading}
-                        className="whitespace-nowrap px-3 py-3 text-left text-xs font-semibold uppercase tracking-normal text-slate-500"
-                      >
-                        {heading}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={14} className="px-4 py-16 text-center">
-                        <Loader2 className="mx-auto h-6 w-6 animate-spin text-violet-600" />
-                      </td>
-                    </tr>
-                  ) : !report?.inventory.length ? (
-                    <tr>
-                      <td
-                        colSpan={14}
-                        className="px-4 py-16 text-center text-slate-400"
-                      >
-                        No inventory allocation rows for this period.
-                      </td>
-                    </tr>
-                  ) : (
-                    report.inventory.map((row, index) => (
-                      <tr
-                        key={`${row.date}-${row.roomTypeId ?? row.roomType}-${row.ratePlanId ?? row.ratePlan}-${index}`}
-                        className="border-b border-slate-50 hover:bg-slate-50/60"
-                      >
-                        <td className="px-3 py-2.5 whitespace-nowrap text-slate-800">
-                          <span className="inline-flex items-center gap-1.5">
-                            <CalendarDays className="h-3.5 w-3.5 text-violet-400" />
-                            {formatReportDate(row.date)}
-                          </span>
-                        </td>
-                        <td className="max-w-56 px-3 py-2.5">
-                          <span
-                            className="block truncate text-slate-700"
-                            title={row.hotelName || undefined}
-                          >
-                            {row.hotelName || "—"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-slate-700">
-                          {row.roomType}
-                        </td>
-                        <td className="px-3 py-2.5 text-slate-700">
-                          {row.ratePlan}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
-                          {row.total}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums font-medium text-violet-700">
-                          {row.allocated}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums font-medium text-emerald-700">
-                          {row.sold}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-sky-700">
-                          {row.available}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-teal-700">
-                          {row.remaining}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums font-medium text-rose-700">
-                          {row.blocked}
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-amber-700">
-                          {row.allocationPercentage}%
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-indigo-700">
-                          {row.utilizationPercentage}%
-                        </td>
-                        <td className="px-3 py-2.5 tabular-nums text-slate-700">
-                          {row.occupancyPercentage}%
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span
-                            className={cn(
-                              "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset",
-                              allocationStatusTone(row.status),
-                            )}
-                          >
-                            {formatStatusLabel(row.status)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {totalPages > 1 ? (
-              <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-600">
-                <span>
-                  {(report?.page.totalElements ?? 0).toLocaleString("en-IN")} rows
-                  {" · "}
-                  Page {page + 1} of {Math.max(totalPages, 1)}
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                    disabled={page === 0 || loading}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPage((p) => Math.min(totalPages - 1, p + 1))
-                    }
-                    disabled={page >= totalPages - 1 || loading}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
+              </>
+            }
+            rows={report?.inventory ?? []}
+            columns={inventoryColumns}
+            getRowId={(row) =>
+              `${row.date}-${row.roomTypeId ?? row.roomType}-${row.ratePlanId ?? row.ratePlan}-${row.hotelName ?? ""}`
+            }
+            loading={loading}
+            paginationMode="server"
+            rowCount={report?.page.totalElements ?? 0}
+            paginationModel={{ page, pageSize }}
+            onPaginationModelChange={(model) => {
+              if (model.page !== page) setPage(model.page);
+            }}
+            pageSizeOptions={[INVENTORY_PAGE_SIZE]}
+            disableRowSelectionOnClick
+            disableColumnFilter
+            showToolbar
+            showExport={false}
+            allowHorizontalScroll
+            localeText={{
+              noRowsLabel: "No inventory allocation rows for this period.",
+            }}
+          />
         </div>
       </div>
 

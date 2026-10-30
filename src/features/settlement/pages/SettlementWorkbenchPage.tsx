@@ -4,6 +4,8 @@ import { ROUTES } from "@/constants";
 import { appendReturnToQuery } from "@/lib/navigationReturn";
 import { cn } from "@/lib/utils";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
   formatFinanceMoney,
@@ -14,6 +16,7 @@ import {
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import { ReportAppliedRange } from "@/features/reports/components/ReportFilterDrawer";
 import type { ExportJobStatus } from "@/features/reports/services/reportExportService";
 import { settlementService } from "../services/settlementService";
 import {
@@ -28,7 +31,6 @@ import {
   SettlementMoney,
   SettlementPageShell,
   SettlementRefreshButton,
-  SettlementReportSection,
   SettlementReportStatCard,
   WorkbenchItemsBreakdown,
   WorkbenchReadinessBadge,
@@ -38,8 +40,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   Building2,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Eye,
   IndianRupee,
@@ -273,6 +273,141 @@ export default function SettlementWorkbenchPage() {
 
   const todayIso = getTodayIsoDate();
 
+  const columns = useMemo<GridColDef<WorkbenchRow>[]>(() => {
+    return [
+      {
+        field: "supplierName",
+        headerName: "Supplier",
+        flex: 1,
+        minWidth: 220,
+        sortable: false,
+        renderCell: (params) => (
+          <div className="flex items-center gap-2 py-1">
+            <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
+            <div className="min-w-0">
+              <p className="truncate font-medium text-slate-900">
+                {params.row.supplierName.trim() || "—"}
+              </p>
+              <p className="truncate text-[11px] text-slate-400">
+                {formatStatusLabel(params.row.supplierType || params.row.component)}
+                {params.row.cycle
+                  ? ` · ${formatStatusLabel(params.row.cycle)}`
+                  : ""}
+              </p>
+            </div>
+          </div>
+        ),
+      },
+      {
+        field: "settlementPeriod",
+        headerName: "Period",
+        width: 180,
+        sortable: false,
+        renderCell: (params) => (
+          <span className="text-xs text-slate-600">
+            {formatSettlementPeriod(params.row.settlementPeriod)}
+          </span>
+        ),
+      },
+      {
+        field: "totalEligibleItems",
+        headerName: "Items",
+        width: 180,
+        sortable: false,
+        renderCell: (params) => (
+          <WorkbenchItemsBreakdown
+            totalEligibleItems={params.row.totalEligibleItems}
+            completedItems={params.row.completedItems}
+            cancellationItems={params.row.cancellationItems}
+            partialCancellationItems={params.row.partialCancellationItems}
+          />
+        ),
+      },
+      {
+        field: "grossAmount",
+        headerName: "Gross",
+        width: 130,
+        sortable: false,
+        renderCell: (params) => (
+          <SettlementMoney value={params.row.grossAmount} />
+        ),
+      },
+      {
+        field: "payableAmount",
+        headerName: "Payable",
+        width: 130,
+        sortable: false,
+        renderCell: (params) => (
+          <SettlementMoney
+            value={params.row.payableAmount}
+            className={
+              params.row.settlementReady ? "text-emerald-700" : undefined
+            }
+          />
+        ),
+      },
+      {
+        field: "bankVerified",
+        headerName: "Bank",
+        width: 130,
+        sortable: false,
+        renderCell: (params) => (
+          <SettlementBankBadge verified={params.row.bankVerified} />
+        ),
+      },
+      {
+        field: "settlementReady",
+        headerName: "Readiness",
+        width: 160,
+        sortable: false,
+        renderCell: (params) => (
+          <WorkbenchReadinessBadge
+            settlementReady={params.row.settlementReady}
+            existingDraft={params.row.existingDraft}
+            blockedReason={params.row.blockedReason}
+          />
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "Actions",
+        width: 200,
+        sortable: false,
+        renderCell: (params) => (
+          <div className="flex flex-wrap gap-1.5 py-1">
+            <Link
+              to={buildPreviewHref(
+                params.row,
+                applied?.cycle || undefined,
+                applied
+                  ? buildWorkbenchSearchHref(applied, page)
+                  : undefined,
+                appliedDateRange?.ok ? appliedDateRange.fromDate : null,
+                appliedDateRange?.ok ? appliedDateRange.toDate : null,
+              )}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-[#2f3d95] hover:bg-slate-50",
+                params.row.totalEligibleItems <= 0 &&
+                  "pointer-events-none opacity-40",
+              )}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              Preview
+            </Link>
+            {params.row.existingDraft ? (
+              <Link
+                to={ROUTES.SETTLEMENT.PENDING}
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800"
+              >
+                View pending
+              </Link>
+            ) : null}
+          </div>
+        ),
+      },
+    ];
+  }, [applied, appliedDateRange, page]);
+
   const downloadWorkbench = async () => {
     if (!applied) return;
     const range = validateOptionalDateRange(
@@ -323,7 +458,27 @@ export default function SettlementWorkbenchPage() {
         iconClassName="bg-[#2f3d95]"
         actions={
           resultsOpen ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <ReportAppliedRange
+                from={
+                  appliedDateRange?.ok ? appliedDateRange.fromDate : null
+                }
+                to={appliedDateRange?.ok ? appliedDateRange.toDate : null}
+                detail={
+                  [
+                    applied ? formatStatusLabel(applied.component) : null,
+                    applied?.cycle ? formatStatusLabel(applied.cycle) : null,
+                    applied?.search.trim() || null,
+                    applied
+                      ? applied.eligibleOnly
+                        ? "Eligible only"
+                        : "All suppliers"
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || null
+                }
+              />
               <button
                 type="button"
                 onClick={backToSearch}
@@ -346,7 +501,7 @@ export default function SettlementWorkbenchPage() {
                     ? exportStatusLabel(exportStatus)
                     : "Download Excel"
                 }
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+                className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
               >
                 {exporting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -583,199 +738,68 @@ export default function SettlementWorkbenchPage() {
               />
             </div>
 
-            <SettlementReportSection
+            <DataTable
               title="Workbench results"
-              description={`${totalElements.toLocaleString("en-IN")} suppliers · Page ${page + 1} of ${Math.max(totalPages, 1)}`}
-              flush
-            >
-              <div className="overflow-x-auto">
-                <table className="min-w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-[#263578] bg-[#2f3d95] text-white">
-                      <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                        Supplier
-                      </th>
-                      <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                        Period
-                      </th>
-                      <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                        Items
-                      </th>
-                      <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                        Gross
-                      </th>
-                      <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                        Payable
-                      </th>
-                      <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                        Bank
-                      </th>
-                      <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                        Readiness
-                      </th>
-                      <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {loading ? (
-                      <tr>
-                        <td
-                          colSpan={8}
-                          className="px-4 py-16 text-center text-slate-500"
-                        >
-                          <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
-                          Loading workbench…
-                        </td>
-                      </tr>
-                    ) : rows.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={8}
-                          className="px-4 py-16 text-center text-slate-500"
-                        >
-                          No suppliers found.{" "}
-                          <button
-                            type="button"
-                            onClick={backToSearch}
-                            className="font-semibold text-[#2f3d95] underline"
-                          >
-                            Change search
-                          </button>
-                        </td>
-                      </tr>
-                    ) : (
-                      rows.map((row) => (
-                        <tr
-                          key={`${row.supplierId}-${row.component}-${row.cycle || ""}`}
-                          className={cn(
-                            "transition hover:bg-slate-50/80",
-                            row.settlementReady &&
-                              !row.existingDraft &&
-                              "bg-emerald-50/30",
-                          )}
-                        >
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
-                              <div className="min-w-0">
-                                <p className="font-medium text-slate-900">
-                                  {row.supplierName.trim() || "—"}
-                                </p>
-                                <p className="text-[11px] text-slate-400">
-                                  {formatStatusLabel(
-                                    row.supplierType || row.component,
-                                  )}
-                                  {row.cycle
-                                    ? ` · ${formatStatusLabel(row.cycle)}`
-                                    : ""}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
-                            {formatSettlementPeriod(row.settlementPeriod)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <WorkbenchItemsBreakdown
-                              totalEligibleItems={row.totalEligibleItems}
-                              completedItems={row.completedItems}
-                              cancellationItems={row.cancellationItems}
-                              partialCancellationItems={
-                                row.partialCancellationItems
-                              }
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <SettlementMoney value={row.grossAmount} />
-                          </td>
-                          <td className="px-4 py-3">
-                            <SettlementMoney
-                              value={row.payableAmount}
-                              className={
-                                row.settlementReady
-                                  ? "text-emerald-700"
-                                  : undefined
-                              }
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <SettlementBankBadge verified={row.bankVerified} />
-                          </td>
-                          <td className="px-4 py-3">
-                            <WorkbenchReadinessBadge
-                              settlementReady={row.settlementReady}
-                              existingDraft={row.existingDraft}
-                              blockedReason={row.blockedReason}
-                            />
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-1.5">
-                              <Link
-                                to={buildPreviewHref(
-                                  row,
-                                  applied.cycle || undefined,
-                                  buildWorkbenchSearchHref(applied, page),
-                                  appliedDateRange?.ok
-                                    ? appliedDateRange.fromDate
-                                    : null,
-                                  appliedDateRange?.ok
-                                    ? appliedDateRange.toDate
-                                    : null,
-                                )}
-                                className={cn(
-                                  "inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-[#2f3d95] hover:bg-slate-50",
-                                  row.totalEligibleItems <= 0 &&
-                                    "pointer-events-none opacity-40",
-                                )}
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                                Preview
-                              </Link>
-                              {row.existingDraft ? (
-                                <Link
-                                  to={ROUTES.SETTLEMENT.PENDING}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800"
-                                >
-                                  View pending
-                                </Link>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-                <p className="text-xs text-slate-500">
-                  {totalElements.toLocaleString("en-IN")} suppliers · Page{" "}
-                  {page + 1} of {Math.max(totalPages, 1)}
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={page <= 0 || loading}
-                    onClick={() => goToPage(Math.max(0, page - 1))}
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium disabled:opacity-40"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                    Prev
-                  </button>
-                  <button
-                    type="button"
-                    disabled={page + 1 >= totalPages || loading}
-                    onClick={() => goToPage(page + 1)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium disabled:opacity-40"
-                  >
-                    Next
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            </SettlementReportSection>
+              subtitle={
+                <>
+                  <span className="font-medium text-slate-600">
+                    {formatListCount(totalElements, "supplier")}
+                  </span>
+                  <span className="text-slate-400">
+                    {" "}
+                    · Page {page + 1} of {Math.max(totalPages, 1)}
+                  </span>
+                </>
+              }
+              rows={rows}
+              columns={columns}
+              getRowId={(row) =>
+                `${row.supplierId}-${row.component}-${row.cycle || ""}`
+              }
+              loading={loading}
+              paginationMode="server"
+              rowCount={totalElements}
+              paginationModel={{ page, pageSize: PAGE_SIZE }}
+              onPaginationModelChange={(model) => {
+                if (model.page !== page) goToPage(model.page);
+              }}
+              pageSizeOptions={[PAGE_SIZE]}
+              disableRowSelectionOnClick
+              disableColumnFilter
+              showToolbar
+              showExport={false}
+              allowHorizontalScroll
+              getRowHeight={() => "auto"}
+              getRowClassName={(params) =>
+                params.row.settlementReady && !params.row.existingDraft
+                  ? "settlement-ready-row"
+                  : ""
+              }
+              slots={{
+                noRowsOverlay: () => (
+                  <div className="flex h-full items-center justify-center px-4 text-sm text-slate-500">
+                    No suppliers found.{" "}
+                    <button
+                      type="button"
+                      onClick={backToSearch}
+                      className="ml-1 font-semibold text-[#2f3d95] underline"
+                    >
+                      Change search
+                    </button>
+                  </div>
+                ),
+              }}
+              sx={{
+                "& .MuiDataGrid-cell": {
+                  alignItems: "center",
+                  whiteSpace: "normal",
+                  py: "8px",
+                },
+                "& .settlement-ready-row": {
+                  backgroundColor: "rgba(236, 253, 245, 0.55)",
+                },
+              }}
+            />
           </div>
         )}
       </SettlementPageShell>

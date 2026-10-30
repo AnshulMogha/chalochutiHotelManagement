@@ -82,6 +82,8 @@ function mapListItemToPartner(item: TravelAgentOnboardingListItem): TravelPartne
     email: item.email,
     agencyNumber: item.agencyName,
     agencyTier: item.agencyTier,
+    onboardedBy: item.onboardedBy ?? null,
+    onboardedByUserId: item.onboardedByUserId ?? null,
   };
 }
 
@@ -95,6 +97,8 @@ function mapOnboardingToPartner(item: TravelAgentOnboardingItem): TravelPartner 
     email: item.email,
     agencyNumber: item.agencyName,
     agencyTier: item.agencyTier,
+    onboardedBy: item.onboardedBy ?? null,
+    onboardedByUserId: item.onboardedByUserId ?? null,
     panNumber: item.panNumber,
     panCardFileUrl: item.panCardDocumentUrl,
     gstNumber: item.gstNumber,
@@ -113,25 +117,34 @@ function mapOnboardingToPartner(item: TravelAgentOnboardingItem): TravelPartner 
 
 const TAB_CONFIG: Record<
   TravelPartnerStatus,
-  { label: string; icon: typeof Clock; activeClass: string; badgeClass: string }
+  {
+    label: string;
+    icon: typeof Clock;
+    activeClass: string;
+    badgeClass: string;
+    iconWell: string;
+  }
 > = {
   PENDING: {
     label: "Pending",
     icon: Clock,
-    activeClass: "border-amber-600 text-amber-800 bg-amber-100",
-    badgeClass: "bg-amber-200 text-amber-900",
+    activeClass: "border-amber-500 text-white bg-amber-500",
+    badgeClass: "bg-white/20 text-white",
+    iconWell: "bg-amber-100 text-amber-800",
   },
   APPROVED: {
     label: "Approved",
     icon: CheckCircle,
-    activeClass: "border-emerald-700 text-emerald-800 bg-emerald-100",
-    badgeClass: "bg-emerald-200 text-emerald-900",
+    activeClass: "border-emerald-600 text-white bg-emerald-600",
+    badgeClass: "bg-white/20 text-white",
+    iconWell: "bg-emerald-100 text-emerald-800",
   },
   REJECTED: {
     label: "Rejected",
     icon: XCircle,
-    activeClass: "border-rose-700 text-rose-800 bg-rose-100",
-    badgeClass: "bg-rose-200 text-rose-900",
+    activeClass: "border-rose-600 text-white bg-rose-600",
+    badgeClass: "bg-white/20 text-white",
+    iconWell: "bg-rose-100 text-rose-800",
   },
 };
 
@@ -329,7 +342,13 @@ export default function AgentsListPage() {
     setDetailLoading(true);
     try {
       const item = await adminService.getTravelAgentOnboardingById(partner.id);
-      setSelectedPartner(mapOnboardingToPartner(item));
+      const mapped = mapOnboardingToPartner(item);
+      setSelectedPartner({
+        ...mapped,
+        onboardedBy: mapped.onboardedBy ?? partner.onboardedBy ?? null,
+        onboardedByUserId:
+          mapped.onboardedByUserId ?? partner.onboardedByUserId ?? null,
+      });
     } catch (err) {
       const message =
         err && typeof err === "object" && "message" in err
@@ -478,7 +497,7 @@ export default function AgentsListPage() {
                   <div
                     className={cn(
                       "mx-auto flex h-14 w-14 items-center justify-center rounded-2xl",
-                      config.badgeClass,
+                      config.iconWell,
                     )}
                   >
                     <Icon className="h-7 w-7" />
@@ -543,6 +562,11 @@ export default function AgentsListPage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       <span className="inline-flex items-center gap-1.5">
+                        <User className="h-3.5 w-3.5" /> Onboarded By
+                      </span>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <span className="inline-flex items-center gap-1.5">
                         <CalendarDays className="h-3.5 w-3.5" /> Submitted
                       </span>
                     </th>
@@ -581,6 +605,11 @@ export default function AgentsListPage() {
                       <td className="px-6 py-4 text-sm text-gray-600">{partner.agencyNumber}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {formatAgencyTier(partner.agencyTier)}
+                      </td>
+                      <td className="max-w-[220px] px-6 py-4 text-sm text-gray-600">
+                        <span className="block truncate" title={partner.onboardedBy || undefined}>
+                          {partner.onboardedBy || "—"}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {formatDate(partner.appliedAt)}
@@ -745,7 +774,7 @@ export default function AgentsListPage() {
                       <span
                         className={cn(
                           "inline-flex items-center gap-1 mt-0.5 text-xs font-medium rounded-full px-2 py-0.5",
-                          TAB_CONFIG[selectedPartner.status].badgeClass,
+                          TAB_CONFIG[selectedPartner.status].iconWell,
                         )}
                       >
                         {(() => {
@@ -847,6 +876,15 @@ export default function AgentsListPage() {
                               <dt className="text-gray-500">Email</dt>
                               <dd className="font-medium text-gray-900 break-all">
                                 {selectedPartner.email ?? "—"}
+                              </dd>
+                            </div>
+                          </div>
+                          <div className="sm:col-span-2 flex items-start gap-2">
+                            <User className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                            <div className="min-w-0">
+                              <dt className="text-gray-500">Onboarded by</dt>
+                              <dd className="font-medium text-gray-900 break-all">
+                                {selectedPartner.onboardedBy || "—"}
                               </dd>
                             </div>
                           </div>

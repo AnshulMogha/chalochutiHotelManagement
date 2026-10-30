@@ -3,7 +3,15 @@ import { Link } from "react-router";
 import { ROUTES } from "@/constants";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ExportButton } from "@/components/ui/ExportButton";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportRefreshButton,
+  ReportFilterDrawer,
+} from "@/features/reports/components/ReportFilterDrawer";
 import {
   exportStatusLabel,
   formatReportDateTime,
@@ -17,28 +25,25 @@ import type {
 } from "@/features/reports/services/reportExportService";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import { reviewModerationService } from "../services/reviewModerationService";
-import type { ReviewQueueItem } from "../services/reviewModerationTypes";
-import { BOOKING_TYPES } from "../services/reviewModerationTypes";
 import {
-  ReviewModerationEmptyState,
+  BOOKING_TYPES,
+  type ReviewQueueItem,
+} from "../services/reviewModerationTypes";
+import {
   ReviewModerationFlowStrip,
-  ReviewModerationPageShell,
   ReviewModerationStatCard,
   ReviewRatingStars,
   ReviewStatusBadge,
   ReviewSubjectLookupField,
 } from "../components/reviewModerationUi";
 import {
-  ChevronLeft,
-  ChevronRight,
+  Building2,
+  CalendarDays,
   Clock3,
   Eye,
-  Filter,
   Flag,
   ListOrdered,
-  Loader2,
-  RefreshCw,
-  X,
+  Users,
 } from "lucide-react";
 
 const PAGE_SIZE = 20;
@@ -225,6 +230,176 @@ export default function ReviewModerationQueuePage() {
     (row) => row.status.toUpperCase() === "REVIEW_PENDING",
   ).length;
 
+  const columns = useMemo<GridColDef<ReviewQueueItem>[]>(
+    () => [
+      {
+        field: "bookingRef",
+        headerName: "Booking",
+        width: 180,
+        sortable: false,
+        renderCell: (params) => (
+          <div className="min-w-0 leading-tight">
+            <p className="font-mono text-xs font-semibold text-[#2f3d95]">
+              {params.row.bookingRef || "—"}
+            </p>
+            <span className="mt-1 inline-flex rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
+              {formatStatusLabel(params.row.bookingType)}
+            </span>
+            {params.row.customerEmail ? (
+              <p className="mt-1 break-all text-[11px] text-slate-400">
+                {params.row.customerEmail}
+              </p>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        field: "subjectName",
+        headerName: "Hotel",
+        width: 200,
+        sortable: false,
+        renderCell: (params) => (
+          <div className="flex min-w-0 items-start gap-2">
+            <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 ring-1 ring-teal-200">
+              <Building2 className="h-3.5 w-3.5" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-medium text-slate-900">
+                {params.row.subjectName || "—"}
+              </p>
+              {params.row.subjectType ? (
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {formatStatusLabel(params.row.subjectType)}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ),
+      },
+      {
+        field: "overallRating",
+        headerName: "Rating",
+        width: 110,
+        sortable: false,
+        renderCell: (params) => (
+          <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 ring-1 ring-amber-200">
+            <ReviewRatingStars rating={params.row.overallRating} />
+          </span>
+        ),
+      },
+      {
+        field: "reviewText",
+        headerName: "Review",
+        flex: 1,
+        minWidth: 200,
+        sortable: false,
+        renderCell: (params) => (
+          <div className="min-w-0">
+            {params.row.title ? (
+              <p className="mb-0.5 font-medium text-slate-800">
+                {params.row.title}
+              </p>
+            ) : null}
+            <p className="line-clamp-2 text-sm text-slate-700">
+              {params.row.reviewText || "—"}
+            </p>
+            {params.row.media.length > 0 ? (
+              <p className="mt-1 text-[11px] font-medium text-violet-600">
+                {params.row.media.length} media
+              </p>
+            ) : null}
+            {params.row.reply?.replyText ? (
+              <p className="mt-1 text-[11px] font-semibold text-sky-600">
+                Hotel replied
+              </p>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        field: "travellerType",
+        headerName: "Traveller",
+        width: 130,
+        sortable: false,
+        renderCell: (params) =>
+          params.row.travellerType ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-xs font-semibold text-sky-800 ring-1 ring-sky-200">
+              <Users className="h-3 w-3" />
+              {formatStatusLabel(params.row.travellerType)}
+            </span>
+          ) : (
+            <span className="text-sm text-slate-400">—</span>
+          ),
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 130,
+        sortable: false,
+        renderCell: (params) => <ReviewStatusBadge status={params.row.status} />,
+      },
+      {
+        field: "autoModerated",
+        headerName: "Moderation",
+        width: 170,
+        sortable: false,
+        renderCell: (params) => (
+          <div className="min-w-0">
+            {params.row.autoModerated ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-1.5 py-0.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-200">
+                <Flag className="h-3 w-3" />
+                Auto
+              </span>
+            ) : (
+              <span className="inline-flex rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+                Manual
+              </span>
+            )}
+            {params.row.moderationReason ? (
+              <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">
+                {params.row.moderationReason}
+              </p>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        field: "createdAt",
+        headerName: "Submitted",
+        width: 170,
+        sortable: false,
+        renderCell: (params) =>
+          params.row.createdAt ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+              <CalendarDays className="h-3 w-3 shrink-0" />
+              {formatReportDateTime(params.row.createdAt)}
+            </span>
+          ) : (
+            <span className="text-sm text-slate-400">—</span>
+          ),
+      },
+      {
+        field: "actions",
+        headerName: "Action",
+        width: 120,
+        sortable: false,
+        align: "right",
+        headerAlign: "right",
+        renderCell: (params) => (
+          <Link
+            to={ROUTES.RATINGS_REVIEWS.DETAIL(params.row.id)}
+            state={{ review: params.row }}
+            className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            Review
+          </Link>
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
     <>
       <Toast
@@ -233,413 +408,245 @@ export default function ReviewModerationQueuePage() {
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-      <ReviewModerationPageShell
-        title="Review Moderation"
-        subtitle="Moderate customer reviews in the flag queue — approve, reject, flag, or unflag."
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setDraft(filtersToDraft(filters));
-                setFilterOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 ? (
-                <span className="rounded-full bg-[#2f3d95] px-1.5 text-[10px] font-semibold text-white">
-                  {activeFilterCount}
-                </span>
-              ) : null}
-            </button>
-            <button
-              type="button"
-              onClick={() => void loadQueue()}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
-            >
-              <RefreshCw
-                className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"}
-              />
-              Refresh
-            </button>
-            <ExportButton
-              iconOnly
-              disabled={loading}
-              exporting={exporting}
-              exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
-              onExportExcel={() => void handleExport("EXCEL")}
-              onExportCSV={() => void handleExport("CSV")}
-              onExportPDF={() => void handleExport("PDF")}
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+          <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+              <ReviewModerationFlowStrip embedded />
+              <div className="flex flex-wrap items-center gap-2">
+                <ReportAppliedRange
+                  from={filters.date}
+                  detail={[
+                    queueStatus
+                      ? formatStatusLabel(queueStatus)
+                      : "All statuses",
+                    filters.bookingType
+                      ? formatStatusLabel(filters.bookingType)
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                />
+                <ReportFilterButton
+                  onClick={() => {
+                    setDraft(filtersToDraft(filters));
+                    setFilterOpen(true);
+                  }}
+                  activeCount={activeFilterCount}
+                />
+                <ExportButton
+                  iconOnly
+                  disabled={loading}
+                  exporting={exporting}
+                  exportingLabel={
+                    exportStatusLabel(exportStatus) || "Exporting…"
+                  }
+                  onExportExcel={() => void handleExport("EXCEL")}
+                  onExportCSV={() => void handleExport("CSV")}
+                  onExportPDF={() => void handleExport("PDF")}
+                />
+                <ReportRefreshButton
+                  onClick={() => void loadQueue()}
+                  loading={loading}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <ReviewModerationStatCard
+              label="Queue total"
+              value={loading ? "…" : totalElements.toLocaleString("en-IN")}
+              sub={
+                queueStatus ? formatStatusLabel(queueStatus) : "All statuses"
+              }
+              icon={ListOrdered}
+              tone="navy"
+            />
+            <ReviewModerationStatCard
+              label="On this page"
+              value={loading ? "…" : rows.length}
+              sub={`Page ${page + 1} of ${totalPages}`}
+              icon={Eye}
+              tone="slate"
+            />
+            <ReviewModerationStatCard
+              label="Flagged"
+              value={loading ? "…" : flaggedCount}
+              sub="On current page"
+              icon={Flag}
+              tone="rose"
+            />
+            <ReviewModerationStatCard
+              label="Pending"
+              value={loading ? "…" : pendingCount}
+              sub="Awaiting review"
+              icon={Clock3}
+              tone="amber"
             />
           </div>
-        }
+
+          <DataTable
+            subtitle={
+              loading ? (
+                "Loading…"
+              ) : (
+                <>
+                  <span className="font-medium text-slate-600">
+                    {formatListCount(totalElements, "review")} in queue
+                  </span>
+                  <span className="text-slate-400">
+                    {activeFilterCount > 0 ? " · filtered" : ""} · Page {page + 1} of{" "}
+                    {Math.max(totalPages, 1)}
+                  </span>
+                </>
+              )
+            }
+            rows={rows}
+            columns={columns}
+            getRowId={(row) => row.id}
+            loading={loading}
+            paginationMode="server"
+            rowCount={totalElements}
+            paginationModel={{ page, pageSize: PAGE_SIZE }}
+            onPaginationModelChange={(model) => {
+              if (model.page !== page) setPage(Math.max(0, model.page));
+            }}
+            pageSizeOptions={[PAGE_SIZE]}
+            disableRowSelectionOnClick
+            disableColumnFilter
+            showToolbar
+            showExport={false}
+            allowHorizontalScroll
+            getRowHeight={() => "auto"}
+            localeText={{
+              noRowsLabel:
+                activeFilterCount > 0
+                  ? "No matching reviews. Try adjusting filters."
+                  : "Queue is clear — no reviews waiting for moderation.",
+            }}
+            sx={{
+              "& .MuiDataGrid-cell": {
+                alignItems: "flex-start",
+                whiteSpace: "normal",
+                py: "8px",
+              },
+            }}
+          />
+        </div>
+      </div>
+
+      <ReportFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onReset={resetFilters}
+        onApply={applyFilters}
+        title="Filters"
+        resetLabel="Reset"
+        applyLabel="Apply"
       >
-        <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <ReviewModerationStatCard
-            label="Queue total"
-            value={loading ? "…" : totalElements.toLocaleString("en-IN")}
-            sub={queueStatus ? formatStatusLabel(queueStatus) : "All statuses"}
-            icon={ListOrdered}
-            tone="navy"
+        <section>
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            Booking type
+          </label>
+          <select
+            value={draft.bookingType}
+            onChange={(e) =>
+              setDraft((prev) => ({
+                ...prev,
+                bookingType: e.target.value,
+                subjectId: "",
+                subjectLabel: "",
+              }))
+            }
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          >
+            <option value="">All</option>
+            {BOOKING_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {formatStatusLabel(type)}
+              </option>
+            ))}
+          </select>
+        </section>
+        <section>
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            Booking reference
+          </label>
+          <input
+            type="text"
+            value={draft.bookingRef}
+            onChange={(e) =>
+              setDraft((prev) => ({
+                ...prev,
+                bookingRef: e.target.value,
+              }))
+            }
+            placeholder="BRKFFE8"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
-          <ReviewModerationStatCard
-            label="On this page"
-            value={loading ? "…" : rows.length}
-            sub={`Page ${page + 1} of ${totalPages}`}
-            icon={Eye}
-            tone="slate"
+          <p className="mt-1 text-[11px] text-slate-400">
+            Partial match, case-insensitive
+          </p>
+        </section>
+        <section>
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            Customer email
+          </label>
+          <input
+            type="text"
+            value={draft.customerEmail}
+            onChange={(e) =>
+              setDraft((prev) => ({
+                ...prev,
+                customerEmail: e.target.value,
+              }))
+            }
+            placeholder="guest@email.com"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
-          <ReviewModerationStatCard
-            label="Flagged"
-            value={loading ? "…" : flaggedCount}
-            sub="On current page"
-            icon={Flag}
-            tone="rose"
+        </section>
+        <ReviewSubjectLookupField
+          bookingType={draft.bookingType}
+          value={draft.subjectId}
+          selectedLabel={draft.subjectLabel}
+          onChange={({ subjectId, subjectLabel }) =>
+            setDraft((prev) => ({ ...prev, subjectId, subjectLabel }))
+          }
+        />
+        <section>
+          <label className="mb-1 block text-xs font-medium text-slate-600">
+            Overall rating
+          </label>
+          <select
+            value={draft.rating}
+            onChange={(e) =>
+              setDraft((prev) => ({ ...prev, rating: e.target.value }))
+            }
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          >
+            <option value="">Any</option>
+            {RATING_OPTIONS.map((rating) => (
+              <option key={rating} value={rating}>
+                {rating}
+              </option>
+            ))}
+          </select>
+        </section>
+        <section>
+          <p className="mb-1 text-xs font-medium text-slate-600">
+            Submitted on (IST day, dd/mm/yyyy)
+          </p>
+          <ReportCustomDateFields
+            singleDate
+            singleLabel="Date"
+            fromText={draft.dateText}
+            onFromTextChange={(value) =>
+              setDraft((prev) => ({ ...prev, dateText: value }))
+            }
           />
-          <ReviewModerationStatCard
-            label="Pending"
-            value={loading ? "…" : pendingCount}
-            sub="Awaiting review"
-            icon={Clock3}
-            tone="amber"
-          />
-        </div>
-
-        <ReviewModerationFlowStrip />
-
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-900">
-                Moderation queue
-              </h2>
-              <p className="text-xs text-slate-500">
-                {loading
-                  ? "Loading…"
-                  : `${totalElements.toLocaleString("en-IN")} review${totalElements === 1 ? "" : "s"} in queue`}
-                {activeFilterCount > 0 ? " · filtered" : ""}
-                {loading ? "" : ` · Page ${page + 1} of ${totalPages}`}
-              </p>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-2.5 font-semibold">Booking</th>
-                  <th className="px-4 py-2.5 font-semibold">Hotel</th>
-                  <th className="px-4 py-2.5 font-semibold">Rating</th>
-                  <th className="px-4 py-2.5 font-semibold">Review</th>
-                  <th className="px-4 py-2.5 font-semibold">Traveller</th>
-                  <th className="px-4 py-2.5 font-semibold">Status</th>
-                  <th className="px-4 py-2.5 font-semibold">Moderation</th>
-                  <th className="px-4 py-2.5 font-semibold">Submitted</th>
-                  <th className="px-4 py-2.5 text-right font-semibold">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="px-4 py-16 text-center text-slate-500"
-                    >
-                      <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-[#2f3d95]" />
-                      Loading moderation queue…
-                    </td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={9}>
-                      <ReviewModerationEmptyState
-                        title={
-                          activeFilterCount > 0
-                            ? "No matching reviews"
-                            : undefined
-                        }
-                        description={
-                          activeFilterCount > 0
-                            ? "Try adjusting or clearing your filters to see more results."
-                            : undefined
-                        }
-                      />
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row) => (
-                    <tr
-                      key={row.id}
-                      className="align-top transition-colors hover:bg-slate-50/80"
-                    >
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-slate-800">
-                          {row.bookingRef || "—"}
-                        </p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {formatStatusLabel(row.bookingType)}
-                        </p>
-                        {row.customerEmail ? (
-                          <p className="mt-0.5 break-all text-[11px] text-slate-400">
-                            {row.customerEmail}
-                          </p>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-slate-800">
-                          {row.subjectName || "—"}
-                        </p>
-                        {row.subjectType ? (
-                          <p className="mt-0.5 text-xs text-slate-500">
-                            {formatStatusLabel(row.subjectType)}
-                          </p>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-3">
-                        <ReviewRatingStars rating={row.overallRating} />
-                      </td>
-                      <td className="max-w-xs px-4 py-3">
-                        {row.title ? (
-                          <p className="mb-0.5 font-medium text-slate-800">
-                            {row.title}
-                          </p>
-                        ) : null}
-                        <p className="line-clamp-2 text-slate-700">
-                          {row.reviewText || "—"}
-                        </p>
-                        {row.media.length > 0 ? (
-                          <p className="mt-1 text-[11px] text-slate-400">
-                            {row.media.length} media
-                          </p>
-                        ) : null}
-                        {row.reply?.replyText ? (
-                          <p className="mt-1 text-[11px] text-sky-600">
-                            Hotel replied
-                          </p>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {row.travellerType
-                          ? formatStatusLabel(row.travellerType)
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <ReviewStatusBadge status={row.status} />
-                      </td>
-                      <td className="px-4 py-3">
-                        {row.autoModerated ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 px-1.5 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-200">
-                            <Flag className="h-3 w-3" />
-                            Auto
-                          </span>
-                        ) : (
-                          <span className="text-xs text-slate-400">Manual</span>
-                        )}
-                        {row.moderationReason ? (
-                          <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">
-                            {row.moderationReason}
-                          </p>
-                        ) : null}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                        {row.createdAt
-                          ? formatReportDateTime(row.createdAt)
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Link
-                          to={ROUTES.RATINGS_REVIEWS.DETAIL(row.id)}
-                          state={{ review: row }}
-                          className="inline-flex items-center gap-1 rounded-lg bg-[#2f3d95] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#263578]"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          Review
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3">
-            <p className="text-sm text-slate-600">
-              {totalElements.toLocaleString("en-IN")} review
-              {totalElements === 1 ? "" : "s"}
-              <span className="text-slate-400"> · </span>
-              Page {page + 1} of {totalPages}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 0 || loading}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Prev
-              </button>
-              <button
-                type="button"
-                disabled={page + 1 >= totalPages || loading}
-                onClick={() => setPage((p) => p + 1)}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </ReviewModerationPageShell>
-
-      {filterOpen ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close filters"
-            className="fixed inset-0 z-40 bg-slate-900/40"
-            onClick={() => setFilterOpen(false)}
-          />
-          <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-slate-200 bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-              <h3 className="text-sm font-semibold text-slate-900">Filters</h3>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(false)}
-                className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-              <div>
-                <label className="mb-1 block text-xs text-slate-500">
-                  Booking type
-                </label>
-                <select
-                  value={draft.bookingType}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      bookingType: e.target.value,
-                      subjectId: "",
-                      subjectLabel: "",
-                    }))
-                  }
-                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                >
-                  <option value="">All</option>
-                  {BOOKING_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {formatStatusLabel(type)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-slate-500">
-                  Booking reference
-                </label>
-                <input
-                  type="text"
-                  value={draft.bookingRef}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      bookingRef: e.target.value,
-                    }))
-                  }
-                  placeholder="BRKFFE8"
-                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                />
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Partial match, case-insensitive
-                </p>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-slate-500">
-                  Customer email
-                </label>
-                <input
-                  type="text"
-                  value={draft.customerEmail}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      customerEmail: e.target.value,
-                    }))
-                  }
-                  placeholder="guest@email.com"
-                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                />
-              </div>
-              <ReviewSubjectLookupField
-                bookingType={draft.bookingType}
-                value={draft.subjectId}
-                selectedLabel={draft.subjectLabel}
-                onChange={({ subjectId, subjectLabel }) =>
-                  setDraft((prev) => ({ ...prev, subjectId, subjectLabel }))
-                }
-              />
-              <div>
-                <label className="mb-1 block text-xs text-slate-500">
-                  Overall rating
-                </label>
-                <select
-                  value={draft.rating}
-                  onChange={(e) =>
-                    setDraft((prev) => ({ ...prev, rating: e.target.value }))
-                  }
-                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                >
-                  <option value="">Any</option>
-                  {RATING_OPTIONS.map((rating) => (
-                    <option key={rating} value={rating}>
-                      {rating}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <p className="mb-1 text-xs text-slate-500">
-                  Submitted on (IST day, dd/mm/yyyy)
-                </p>
-                <ReportCustomDateFields
-                  singleDate
-                  singleLabel="Date"
-                  fromText={draft.dateText}
-                  onFromTextChange={(value) =>
-                    setDraft((prev) => ({ ...prev, dateText: value }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 border-t border-slate-100 px-4 py-3">
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700"
-              >
-                Reset
-              </button>
-              <button
-                type="button"
-                onClick={applyFilters}
-                className="flex-1 rounded-lg bg-[#2f3d95] px-3 py-2 text-sm font-medium text-white"
-              >
-                Apply
-              </button>
-            </div>
-          </aside>
-        </>
-      ) : null}
+        </section>
+      </ReportFilterDrawer>
     </>
   );
 }

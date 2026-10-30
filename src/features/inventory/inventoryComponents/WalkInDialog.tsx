@@ -118,7 +118,7 @@ export function WalkInDialog({
                   "rounded-md px-4 py-2 text-sm font-semibold transition-colors",
                   mode === option
                     ? option === "add"
-                      ? "bg-blue-600 text-white shadow-sm"
+                      ? "bg-[#2f3d95] text-white shadow-sm"
                       : "bg-rose-600 text-white shadow-sm"
                     : "text-slate-600 hover:text-slate-900",
                 )}

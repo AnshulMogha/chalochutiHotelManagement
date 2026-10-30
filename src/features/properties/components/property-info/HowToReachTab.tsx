@@ -670,7 +670,7 @@ export function HowToReachTab({ hotelId }: HowToReachTabProps) {
               <Button
                 type="submit"
                 disabled={isSaving}
-                className="bg-blue-500 hover:bg-blue-600"
+                className="bg-[#2f3d95] hover:bg-[#263578]"
               >
                 {isSaving ? "Saving..." : "SAVE"}
               </Button>

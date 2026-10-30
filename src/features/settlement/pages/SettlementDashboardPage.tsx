@@ -8,22 +8,34 @@ import {
 import { Link } from "react-router";
 import {
   AlertTriangle,
+  BadgeCheck,
+  Ban,
   BarChart3,
   Building2,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   ChevronUp,
-  Filter,
+  CircleAlert,
+  CircleDollarSign,
+  Clock,
   Loader2,
+  Percent,
   Receipt,
+  RotateCcw,
   Search,
   Wallet,
+  type LucideIcon,
 } from "lucide-react";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ExportButton } from "@/components/ui/ExportButton";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { HotelLookupFilterField } from "@/features/reports/components/HotelLookupFilterField";
 import { PackageLookupFilterField } from "@/features/reports/components/PackageLookupFilterField";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportFilterDrawer,
+} from "@/features/reports/components/ReportFilterDrawer";
 import { ROUTES } from "@/constants";
 import { cn } from "@/lib/utils";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
@@ -39,12 +51,12 @@ import type {
   ReportExportFormat,
 } from "@/features/reports/services/reportExportService";
 import {
-  SettlementFilterDrawer,
   SettlementFilterField,
   SettlementPageShell,
   SettlementRefreshButton,
   SettlementReportSection,
   SettlementReportStatCard,
+  settlementStatusSurface,
   SettlementStatusBadge,
 } from "../components/settlementUi";
 import {
@@ -161,30 +173,71 @@ const OVERALL_KPIS = [
 ] as const;
 
 const HOTEL_KPIS = [
-  ["hotelBookingValue", "Booking value"],
-  ["customerCollected", "Customer collected"],
-  ["customerOutstanding", "Customer outstanding"],
-  ["hotelPayable", "Hotel payable"],
-  ["hotelPaid", "Hotel paid"],
-  ["hotelOutstanding", "Hotel outstanding"],
-  ["otaCommission", "OTA commission"],
-  ["commissionGst", "Commission GST"],
-  ["refundPending", "Refund pending"],
+  ["hotelBookingValue", "Booking value", CircleDollarSign],
+  ["customerCollected", "Customer collected", Wallet],
+  ["customerOutstanding", "Customer outstanding", Clock],
+  ["hotelPayable", "Hotel payable", Building2],
+  ["hotelPaid", "Hotel paid", BadgeCheck],
+  ["hotelOutstanding", "Hotel outstanding", Receipt],
+  ["otaCommission", "OTA commission", Percent],
+  ["commissionGst", "Commission GST", Percent],
+  ["refundPending", "Refund pending", RotateCcw],
 ] as const;
 
 const PACKAGE_KPIS = [
-  ["packageBookingValue", "Booking value"],
-  ["customerCollected", "Customer collected"],
-  ["customerOutstanding", "Customer outstanding"],
-  ["supplierCost", "Supplier cost"],
-  ["supplierPayable", "Supplier payable"],
-  ["trackedSupplierPayable", "Tracked payable"],
-  ["supplierPaid", "Supplier paid"],
-  ["supplierOutstanding", "Supplier outstanding"],
-  ["untrackedActivityPayable", "Untracked activity"],
-  ["packageRevenue", "Package revenue"],
-  ["refundPending", "Refund pending"],
+  ["packageBookingValue", "Booking value", CircleDollarSign],
+  ["customerCollected", "Customer collected", Wallet],
+  ["customerOutstanding", "Customer outstanding", Clock],
+  ["supplierCost", "Supplier cost", Receipt],
+  ["supplierPayable", "Supplier payable", Building2],
+  ["trackedSupplierPayable", "Tracked payable", BadgeCheck],
+  ["supplierPaid", "Supplier paid", Wallet],
+  ["supplierOutstanding", "Supplier outstanding", Clock],
+  ["untrackedActivityPayable", "Untracked activity", AlertTriangle],
+  ["packageRevenue", "Package revenue", CircleDollarSign],
+  ["refundPending", "Refund pending", RotateCcw],
 ] as const;
+
+const STATUS_CARD_META: Record<
+  string,
+  { icon: LucideIcon; iconClass: string; labelClass: string }
+> = {
+  FULLY_SETTLED: {
+    icon: BadgeCheck,
+    iconClass: "bg-emerald-600",
+    labelClass: "text-emerald-700",
+  },
+  CUSTOMER_PAYMENT_PENDING: {
+    icon: Clock,
+    iconClass: "bg-amber-500",
+    labelClass: "text-amber-700",
+  },
+  SUPPLIER_PAYMENT_PENDING: {
+    icon: Building2,
+    iconClass: "bg-orange-500",
+    labelClass: "text-orange-700",
+  },
+  BOTH_PENDING: {
+    icon: AlertTriangle,
+    iconClass: "bg-rose-500",
+    labelClass: "text-rose-700",
+  },
+  REFUND_PENDING: {
+    icon: RotateCcw,
+    iconClass: "bg-rose-500",
+    labelClass: "text-rose-700",
+  },
+  NO_SETTLEMENT_DUE: {
+    icon: Ban,
+    iconClass: "bg-cyan-600",
+    labelClass: "text-cyan-700",
+  },
+  SETTLEMENT_TRACKING_INCOMPLETE: {
+    icon: CircleAlert,
+    iconClass: "bg-violet-600",
+    labelClass: "text-violet-700",
+  },
+};
 
 function getKpi(group: SettlementKpiGroup | null | undefined, key: string) {
   const value = group?.[key];
@@ -316,18 +369,18 @@ function BookingRefCell({ row }: { row: SettlementBookingRow }) {
 
   if (hotelHref) {
     return (
-      <td className="px-3 py-3">
+      <div className="min-w-0 py-1 leading-tight">
         <Link to={hotelHref} className={linkClass}>
           {refLabel}
         </Link>
         {subtitle}
-      </td>
+      </div>
     );
   }
 
   if (packageHref) {
     return (
-      <td className="px-3 py-3">
+      <div className="min-w-0 py-1 leading-tight">
         <a
           href={packageHref}
           target="_blank"
@@ -337,15 +390,15 @@ function BookingRefCell({ row }: { row: SettlementBookingRow }) {
           {refLabel}
         </a>
         {subtitle}
-      </td>
+      </div>
     );
   }
 
   return (
-    <td className="px-3 py-3">
+    <div className="min-w-0 py-1 leading-tight">
       <p className="font-semibold text-[#2f3d95]">{refLabel}</p>
       {subtitle}
-    </td>
+    </div>
   );
 }
 
@@ -358,25 +411,102 @@ function activeSharedCount(filter: SharedFilter): number {
   );
 }
 
+const MONEY_KPI_TONES = [
+  {
+    card: "border-sky-100 bg-gradient-to-br from-sky-50 to-white",
+    label: "text-sky-700",
+    icon: "bg-sky-500",
+  },
+  {
+    card: "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white",
+    label: "text-emerald-700",
+    icon: "bg-emerald-600",
+  },
+  {
+    card: "border-amber-100 bg-gradient-to-br from-amber-50 to-white",
+    label: "text-amber-700",
+    icon: "bg-amber-500",
+  },
+  {
+    card: "border-indigo-100 bg-gradient-to-br from-indigo-50 to-white",
+    label: "text-indigo-700",
+    icon: "bg-indigo-600",
+  },
+  {
+    card: "border-teal-100 bg-gradient-to-br from-teal-50 to-white",
+    label: "text-teal-700",
+    icon: "bg-teal-600",
+  },
+  {
+    card: "border-violet-100 bg-gradient-to-br from-violet-50 to-white",
+    label: "text-violet-700",
+    icon: "bg-violet-600",
+  },
+  {
+    card: "border-cyan-100 bg-gradient-to-br from-cyan-50 to-white",
+    label: "text-cyan-700",
+    icon: "bg-cyan-600",
+  },
+  {
+    card: "border-blue-100 bg-gradient-to-br from-blue-50 to-white",
+    label: "text-blue-700",
+    icon: "bg-blue-600",
+  },
+  {
+    card: "border-rose-100 bg-gradient-to-br from-rose-50 to-white",
+    label: "text-rose-700",
+    icon: "bg-rose-500",
+  },
+  {
+    card: "border-orange-100 bg-gradient-to-br from-orange-50 to-white",
+    label: "text-orange-700",
+    icon: "bg-orange-500",
+  },
+  {
+    card: "border-fuchsia-100 bg-gradient-to-br from-fuchsia-50 to-white",
+    label: "text-fuchsia-700",
+    icon: "bg-fuchsia-600",
+  },
+];
+
 function MoneyKpiGrid({
   group,
   items,
 }: {
   group: SettlementKpiGroup;
-  items: readonly (readonly [string, string])[];
+  items: readonly (readonly [string, string, LucideIcon])[];
 }) {
   return (
     <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
-      {items.map(([key, label]) => {
+      {items.map(([key, label, Icon], index) => {
         const kpi = getKpi(group, key);
+        const tone = MONEY_KPI_TONES[index % MONEY_KPI_TONES.length];
         return (
           <div
             key={key}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5"
+            className={cn(
+              "rounded-lg border px-3 py-2.5 shadow-sm",
+              tone.card,
+            )}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              {label}
-            </p>
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white",
+                  tone.icon,
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+              </span>
+              <p
+                className={cn(
+                  "min-w-0 truncate text-[11px] font-semibold uppercase tracking-wide",
+                  tone.label,
+                )}
+              >
+                {label}
+              </p>
+            </div>
             <p
               className={cn(
                 "mt-1 font-semibold tabular-nums",
@@ -397,61 +527,96 @@ function MoneyKpiGrid({
   );
 }
 
-function SupplierComponents({ rows }: { rows: SettlementSupplierComponent[] }) {
-  if (!rows.length)
-    return (
-      <p className="text-sm text-slate-500">No supplier component data.</p>
-    );
+function moneyCell(kpi: SettlementMoneyKpi, activityNote = false) {
+  const reason = kpiReason(kpi);
+  const title =
+    activityNote && !kpi.available
+      ? "Activity settlement tracking is not available in Phase 1"
+      : reason;
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-            <th className="px-3 py-2">Component</th>
-            <th className="px-3 py-2">Payable</th>
-            <th className="px-3 py-2">Paid</th>
-            <th className="px-3 py-2">Outstanding</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={row.component}
-              className="border-b border-slate-100 last:border-0"
-            >
-              <td className="px-3 py-2">
-                <SettlementStatusBadge status={row.component} />
-              </td>
-              {[row.payable, row.paid, row.outstanding].map((kpi, index) => (
-                <td
-                  key={index}
-                  className="px-3 py-2"
-                  title={
-                    row.component === "ACTIVITY" && index > 0 && !kpi.available
-                      ? "Activity settlement tracking is not available in Phase 1"
-                      : kpiReason(kpi)
-                  }
-                >
-                  <span
-                    className={cn(
-                      "font-semibold tabular-nums",
-                      kpi.available ? "text-slate-900" : "text-slate-500",
-                    )}
-                  >
-                    {kpiText(kpi)}
-                  </span>
-                  {kpiReason(kpi) ? (
-                    <p className="max-w-xs text-[10px] text-amber-700">
-                      {kpiReason(kpi)}
-                    </p>
-                  ) : null}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="min-w-0 py-1 leading-tight" title={title || undefined}>
+      <span
+        className={cn(
+          "font-semibold tabular-nums",
+          kpi.available ? "text-slate-900" : "text-slate-500",
+        )}
+      >
+        {kpiText(kpi)}
+      </span>
+      {reason ? (
+        <p className="max-w-xs text-[10px] text-amber-700">{reason}</p>
+      ) : null}
     </div>
+  );
+}
+
+function SupplierComponents({ rows }: { rows: SettlementSupplierComponent[] }) {
+  const columns: GridColDef<SettlementSupplierComponent>[] = [
+    {
+      field: "component",
+      headerName: "Component",
+      width: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <SettlementStatusBadge
+          status={params.row.component}
+          className="h-auto self-center leading-tight"
+        />
+      ),
+    },
+    {
+      field: "payable",
+      headerName: "Payable",
+      flex: 1,
+      minWidth: 140,
+      sortable: false,
+      renderCell: (params) => moneyCell(params.row.payable),
+    },
+    {
+      field: "paid",
+      headerName: "Paid",
+      flex: 1,
+      minWidth: 140,
+      sortable: false,
+      renderCell: (params) =>
+        moneyCell(params.row.paid, params.row.component === "ACTIVITY"),
+    },
+    {
+      field: "outstanding",
+      headerName: "Outstanding",
+      flex: 1.2,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (params) =>
+        moneyCell(params.row.outstanding, params.row.component === "ACTIVITY"),
+    },
+  ];
+
+  return (
+    <DataTable
+      title="Package supplier components"
+      subtitle="Availability follows Phase 1 settlement tracking coverage."
+      rows={rows}
+      columns={columns}
+      getRowId={(row) => row.component}
+      disableRowSelectionOnClick
+      disableColumnFilter
+      showToolbar
+      showExport={false}
+      getRowHeight={() => "auto"}
+      pageSizeOptions={[10, 20]}
+      initialState={{
+        pagination: { paginationModel: { page: 0, pageSize: 10 } },
+      }}
+      sx={{
+        "& .MuiDataGrid-cell": {
+          alignItems: "flex-start",
+          whiteSpace: "normal",
+          py: "8px",
+        },
+      }}
+      localeText={{ noRowsLabel: "No supplier component data." }}
+    />
   );
 }
 
@@ -699,24 +864,27 @@ export default function SettlementDashboardPage() {
       <Toast {...toast} onClose={hideToast} />
       <SettlementPageShell
         title="Settlement Dashboard"
-        subtitle={`Customer collection, supplier payable and settlement/payment tracking. · ${dateLabel} · Based on booking date`}
+        subtitle="Customer collection, supplier payable and settlement/payment tracking."
         icon={BarChart3}
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
+          <div className="flex flex-wrap items-center gap-2">
+            <ReportAppliedRange
+              from={(dashboard?.dateRange || bookings?.dateRange)?.fromDate}
+              to={(dashboard?.dateRange || bookings?.dateRange)?.toDate}
+              detail={
+                (dashboard?.dateRange || bookings?.dateRange)?.fromDate
+                  ? formatStatusLabel(
+                      dashboard?.dateAxis || bookings?.dateAxis || "BOOKING",
+                    )
+                  : dateLabel
+              }
+            />
+            <ReportFilterButton
               onClick={openFilters}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeCount ? (
-                <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {activeCount}
-                </span>
-              ) : null}
-            </button>
+              activeCount={activeCount}
+            />
             <ExportButton
+              iconOnly
               disabled={overviewLoading}
               exporting={overviewExporting}
               exportingLabel={
@@ -764,6 +932,7 @@ export default function SettlementDashboardPage() {
             sortDirection={bookingFilter.sortDirection}
             exportAction={
               <ExportButton
+                iconOnly
                 disabled={bookingsLoading}
                 exporting={bookingsExporting}
                 exportingLabel={
@@ -778,14 +947,16 @@ export default function SettlementDashboardPage() {
         </div>
       </SettlementPageShell>
 
-      <SettlementFilterDrawer
+      <ReportFilterDrawer
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
         onReset={resetFilters}
         onApply={applyFilters}
+        resetLabel="Reset"
+        applyLabel="Apply"
       >
         <BookingFilterFields draft={bookingDraft} setDraft={setBookingDraft} />
-      </SettlementFilterDrawer>
+      </ReportFilterDrawer>
     </>
   );
 }
@@ -830,17 +1001,45 @@ function OverviewTab({
       </div>
       {report.statusDistribution.length ? (
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {report.statusDistribution.map((item) => (
-            <div
-              key={item.status}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm"
-            >
-              <SettlementStatusBadge status={item.status} />
-              <p className="mt-1.5 text-lg font-semibold tabular-nums text-slate-900">
-                {item.bookingCount.toLocaleString("en-IN")}
-              </p>
-            </div>
-          ))}
+          {report.statusDistribution.map((item) => {
+            const meta = STATUS_CARD_META[item.status] ?? {
+              icon: CircleAlert,
+              iconClass: "bg-indigo-600",
+              labelClass: "text-indigo-700",
+            };
+            const StatusIcon = meta.icon;
+            return (
+              <div
+                key={item.status}
+                className={cn(
+                  "rounded-lg border px-3 py-2.5 shadow-sm",
+                  settlementStatusSurface(item.status),
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white",
+                      meta.iconClass,
+                    )}
+                  >
+                    <StatusIcon className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  </span>
+                  <p
+                    className={cn(
+                      "min-w-0 truncate text-[11px] font-semibold uppercase tracking-wide",
+                      meta.labelClass,
+                    )}
+                  >
+                    {formatStatusLabel(item.status)}
+                  </p>
+                </div>
+                <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
+                  {item.bookingCount.toLocaleString("en-IN")}
+                </p>
+              </div>
+            );
+          })}
         </div>
       ) : null}
       <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
@@ -877,13 +1076,7 @@ function OverviewTab({
           <MoneyKpiGrid group={report.packages} items={PACKAGE_KPIS} />
         </SettlementReportSection>
       )}
-      <SettlementReportSection
-        title="Package supplier components"
-        description="Availability follows Phase 1 settlement tracking coverage."
-        compact
-      >
-        <SupplierComponents rows={components} />
-      </SettlementReportSection>
+      <SupplierComponents rows={components} />
     </div>
   );
 }
@@ -1057,118 +1250,169 @@ function BookingsTab({
   if (loading && !report) return <CenteredLoading />;
   if (error && !report) return <ErrorState message={error} onRetry={onRetry} />;
   if (!report) return <EmptyState />;
+
+  const columns: GridColDef<SettlementBookingRow>[] = [
+    {
+      field: "bookingRef",
+      headerName: "Booking reference",
+      flex: 1.2,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (params) => <BookingRefCell row={params.row} />,
+    },
+    {
+      field: "serviceDate",
+      headerName: "Service date",
+      width: 140,
+      sortable: false,
+      renderHeader: () => (
+        <SortableHeader
+          label="Service date"
+          sortKey="serviceDate"
+          onSort={onSort}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+        />
+      ),
+      renderCell: (params) => (
+        <span className="whitespace-nowrap">
+          {formatReportDate(params.row.serviceDate)}
+        </span>
+      ),
+    },
+    {
+      field: "bookingValue",
+      headerName: "Booking value",
+      width: 140,
+      sortable: false,
+      renderHeader: () => (
+        <SortableHeader
+          label="Booking value"
+          sortKey="bookingValue"
+          onSort={onSort}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+        />
+      ),
+      renderCell: (params) => (
+        <span className="font-medium tabular-nums">
+          {formatFinanceCurrency(params.row.bookingValue)}
+        </span>
+      ),
+    },
+    {
+      field: "customerCollected",
+      headerName: "Customer collected",
+      width: 160,
+      sortable: false,
+      renderHeader: () => (
+        <SortableHeader
+          label="Customer collected"
+          sortKey="customerCollected"
+          onSort={onSort}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+        />
+      ),
+      renderCell: (params) => (
+        <span className="font-medium tabular-nums">
+          {formatFinanceCurrency(params.row.customerCollected)}
+        </span>
+      ),
+    },
+    {
+      field: "customerOutstanding",
+      headerName: "Customer outstanding",
+      width: 180,
+      sortable: false,
+      renderHeader: () => (
+        <SortableHeader
+          label="Customer outstanding"
+          sortKey="customerOutstanding"
+          onSort={onSort}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+        />
+      ),
+      renderCell: (params) => (
+        <span className="font-medium tabular-nums">
+          {formatFinanceCurrency(params.row.customerOutstanding)}
+        </span>
+      ),
+    },
+    {
+      field: "supplierOutstanding",
+      headerName: "Supplier outstanding",
+      width: 180,
+      sortable: false,
+      renderHeader: () => (
+        <SortableHeader
+          label="Supplier outstanding"
+          sortKey="supplierOutstanding"
+          onSort={onSort}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+        />
+      ),
+      renderCell: (params) => (
+        <span className="font-medium tabular-nums">
+          {formatFinanceCurrency(params.row.supplierOutstanding)}
+        </span>
+      ),
+    },
+    {
+      field: "settlementStatus",
+      headerName: "Settlement status",
+      width: 190,
+      sortable: false,
+      renderCell: (params) => (
+        <SettlementStatusBadge
+          status={params.row.settlementStatus}
+          className="h-auto self-center leading-tight"
+        />
+      ),
+    },
+  ];
+
   return (
-    <div className={cn("space-y-4", loading && "opacity-70")}>
-      <SettlementReportSection
+    <div className={cn(loading && "opacity-70")}>
+      <DataTable
         title="Booking settlement dashboard"
-        description={`${report.totalElements.toLocaleString("en-IN")} records · Page ${report.totalPages ? report.page + 1 : 0} of ${report.totalPages}`}
-        action={exportAction}
-        flush
-      >
-        {report.content.length ? (
-          <div className="w-full overflow-x-auto">
-            <table className="w-full min-w-275 table-auto border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-[#263578] bg-[#2f3d95] text-white">
-                  <th className="min-w-40 whitespace-nowrap px-4 py-3 text-xs font-semibold">
-                    Booking reference
-                  </th>
-                  <SortableHeader
-                    label="Service date"
-                    sortKey="serviceDate"
-                    {...{ onSort, sortBy, sortDirection }}
-                  />
-                  <SortableHeader
-                    label="Booking value"
-                    sortKey="bookingValue"
-                    {...{ onSort, sortBy, sortDirection }}
-                  />
-                  <SortableHeader
-                    label="Customer collected"
-                    sortKey="customerCollected"
-                    {...{ onSort, sortBy, sortDirection }}
-                  />
-                  <SortableHeader
-                    label="Customer outstanding"
-                    sortKey="customerOutstanding"
-                    {...{ onSort, sortBy, sortDirection }}
-                  />
-                  <SortableHeader
-                    label="Supplier outstanding"
-                    sortKey="supplierOutstanding"
-                    {...{ onSort, sortBy, sortDirection }}
-                  />
-                  <th className="min-w-44 whitespace-nowrap px-4 py-3 text-xs font-semibold">
-                    Settlement status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.content.map((row) => {
-                  const rowKey = row.bookingId ?? row.bookingRef;
-                  return (
-                    <tr
-                      key={String(rowKey)}
-                      className="border-b border-slate-100 align-top hover:bg-slate-50"
-                    >
-                      <BookingRefCell row={row} />
-                      <td className="whitespace-nowrap px-3 py-3">
-                        {formatReportDate(row.serviceDate)}
-                      </td>
-                      {[
-                        row.bookingValue,
-                        row.customerCollected,
-                        row.customerOutstanding,
-                        row.supplierOutstanding,
-                      ].map((value, index) => (
-                        <td
-                          key={index}
-                          className="whitespace-nowrap px-3 py-3 font-medium tabular-nums"
-                        >
-                          {formatFinanceCurrency(value)}
-                        </td>
-                      ))}
-                      <td className="px-3 py-3">
-                        <SettlementStatusBadge status={row.settlementStatus} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <EmptyState compact />
-        )}
-        <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-          <p className="text-xs text-slate-500">
-            {report.totalElements.toLocaleString("en-IN")} records
+        subtitle={
+          <>
+            <span className="font-medium text-slate-600">
+              {formatListCount(report.totalElements, "record")}
+            </span>
             <span className="text-slate-400">
               {" "}
               · Page {report.totalPages ? report.page + 1 : 0} of{" "}
-              {report.totalPages}
+              {Math.max(report.totalPages, 1)}
             </span>
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={!report.hasPrevious || loading}
-              onClick={() => onPage(Math.max(0, report.page - 1))}
-              className="rounded-lg border border-slate-200 p-2 disabled:opacity-40"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              disabled={!report.hasNext || loading}
-              onClick={() => onPage(report.page + 1)}
-              className="rounded-lg border border-slate-200 p-2 disabled:opacity-40"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </SettlementReportSection>
+          </>
+        }
+        headerActions={exportAction}
+        rows={report.content}
+        columns={columns}
+        getRowId={(row) => String(row.bookingId ?? row.bookingRef)}
+        loading={loading}
+        paginationMode="server"
+        rowCount={report.totalElements}
+        paginationModel={{ page: report.page, pageSize: PAGE_SIZE }}
+        onPaginationModelChange={(model) => {
+          if (model.page === report.page) return;
+          if (model.page < report.page && !report.hasPrevious) return;
+          if (model.page > report.page && !report.hasNext) return;
+          onPage(Math.max(0, model.page));
+        }}
+        pageSizeOptions={[PAGE_SIZE]}
+        disableRowSelectionOnClick
+        disableColumnFilter
+        showToolbar
+        showExport={false}
+        allowHorizontalScroll
+        rowHeight={64}
+        localeText={{ noRowsLabel: "No settlement data found." }}
+      />
     </div>
   );
 }
@@ -1187,22 +1431,20 @@ function SortableHeader({
   sortDirection: "ASC" | "DESC";
 }) {
   return (
-    <th className="min-w-36 whitespace-nowrap px-4 py-3">
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className="inline-flex items-center gap-1 text-xs font-semibold"
-      >
-        {label}
-        {sortBy === sortKey ? (
-          sortDirection === "ASC" ? (
-            <ChevronUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )
-        ) : null}
-      </button>
-    </th>
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      className="inline-flex items-center gap-1 text-[0.68rem] font-semibold uppercase tracking-wide text-slate-500"
+    >
+      {label}
+      {sortBy === sortKey ? (
+        sortDirection === "ASC" ? (
+          <ChevronUp className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5" />
+        )
+      ) : null}
+    </button>
   );
 }
 

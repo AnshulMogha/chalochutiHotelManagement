@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router";
-import { Layers } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { RoomsAndRatePlansTab } from "../components/property-info/RoomsAndRatePlansTab";
 import { useAuth } from "@/hooks";
 import { canEditModule } from "@/lib/permissions";
@@ -13,46 +13,33 @@ export default function RoomsAndRatePlansPage() {
 
   if (!selectedHotelId) {
     return (
-      <div className="container mx-auto px-4 py-4 sm:px-6">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#eef2ff] text-[#2f3d95]">
-            <Layers className="h-5 w-5" />
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+          <div className="flex min-h-60 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white">
+            <div className="text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200">
+                <Building2 className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-medium text-slate-700">
+                No hotel selected
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Select a hotel from the top bar to manage rooms and rate plans
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-semibold text-slate-900">
-              Rooms & Rate Plans
-            </h1>
-            <p className="text-sm text-slate-500">
-              Select a hotel from the dropdown above
-            </p>
-          </div>
-        </div>
-        <div className="flex min-h-60 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50">
-          <p className="text-sm text-slate-500">No hotel selected</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-4 sm:px-6">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#eef2ff] text-[#2f3d95]">
-          <Layers className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900">
-            Rooms & Rate Plans
-          </h1>
-          <p className="text-sm text-slate-500">
-            Add room types, then attach rate plans with meal and payment
-            options.
-          </p>
-        </div>
+    <div className="min-h-full bg-slate-50">
+      <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+        <ReadOnlySection isReadOnly={isReadOnly}>
+          <RoomsAndRatePlansTab hotelId={selectedHotelId} />
+        </ReadOnlySection>
       </div>
-      <ReadOnlySection isReadOnly={isReadOnly}>
-        <RoomsAndRatePlansTab hotelId={selectedHotelId} />
-      </ReadOnlySection>
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { Link, useLocation } from "react-router";
 import { ROUTES } from "@/constants";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ExportButton } from "@/components/ui/ExportButton";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
   exportStatusLabel,
@@ -11,6 +13,10 @@ import {
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+} from "@/features/reports/components/ReportFilterDrawer";
 import type {
   ExportJobStatus,
   ReportExportFormat,
@@ -31,12 +37,8 @@ import {
 } from "../components/settlementUi";
 import {
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   ClipboardList,
   Eye,
-  Filter,
-  Loader2,
   RotateCcw,
 } from "lucide-react";
 
@@ -59,6 +61,25 @@ const DEFAULT_QUEUE_FILTERS: QueueFilterDraft = {
   fromDateText: "",
   toDateText: "",
 };
+
+function QueueAppliedRange({ applied }: { applied: QueueFilterDraft }) {
+  const range = validateOptionalDateRange(
+    applied.fromDateText,
+    applied.toDateText,
+  );
+  const from = range.ok ? range.fromDate : null;
+  const to = range.ok ? range.toDate : null;
+  const detail =
+    [
+      applied.component ? formatStatusLabel(applied.component) : null,
+      applied.supplierName.trim() || null,
+      applied.settlementNo.trim() || null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || (!from && !to ? "All dates" : null);
+
+  return <ReportAppliedRange from={from} to={to} detail={detail} />;
+}
 
 function getMode(pathname: string): QueueMode {
   if (pathname.includes("/approved")) return "approved";
@@ -102,6 +123,122 @@ export default function SettlementQueuePage() {
       subtitle: "Awaiting checker approval (maker-checker)",
       icon: ClipboardList,
     };
+  }, [mode]);
+
+  const columns = useMemo<GridColDef<SettlementSummary>[]>(() => {
+    const base: GridColDef<SettlementSummary>[] = [
+      {
+        field: "settlementNo",
+        headerName: "Settlement",
+        width: 200,
+        sortable: false,
+        renderCell: (params) => {
+          const id = params.row.settlementId || params.row.settlementNo || "";
+          return (
+            <Link
+              to={ROUTES.SETTLEMENT.DETAIL(id)}
+              className="font-mono text-xs font-semibold text-[#2f3d95] hover:underline"
+            >
+              {id}
+            </Link>
+          );
+        },
+      },
+      {
+        field: "supplierName",
+        headerName: "Supplier",
+        flex: 1,
+        minWidth: 200,
+        sortable: false,
+        renderCell: (params) => (
+          <div className="min-w-0 py-1">
+            <p className="truncate font-medium text-slate-900">
+              {params.row.supplierName || "—"}
+            </p>
+            <p className="truncate text-[11px] text-slate-400">
+              {formatStatusLabel(params.row.component)}
+            </p>
+          </div>
+        ),
+      },
+      {
+        field: "period",
+        headerName: "Period",
+        width: 180,
+        sortable: false,
+        renderCell: (params) => (
+          <span className="text-xs text-slate-600">
+            {formatSettlementPeriod(params.row.period)}
+          </span>
+        ),
+      },
+      {
+        field: "payableAmount",
+        headerName: "Payable",
+        width: 140,
+        sortable: false,
+        renderCell: (params) => (
+          <SettlementMoney value={params.row.payableAmount} />
+        ),
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 150,
+        sortable: false,
+        renderCell: (params) => (
+          <SettlementStatusBadge
+            status={params.row.payoutStatus || params.row.status}
+          />
+        ),
+      },
+    ];
+    if (mode !== "pending") {
+      base.push({
+        field: "meta",
+        headerName: "Meta",
+        width: 200,
+        sortable: false,
+        renderCell: (params) => (
+          <span className="text-xs text-slate-500">
+            {mode === "approved" && params.row.approvedBy ? (
+              <>
+                {params.row.approvedBy}
+                <br />
+                {formatReportDateTime(params.row.approvedAt)}
+              </>
+            ) : mode === "rejected" ? (
+              <>
+                {params.row.rejectedBy || "—"}
+                <br />
+                {params.row.rejectionReason || "—"}
+              </>
+            ) : (
+              "—"
+            )}
+          </span>
+        ),
+      });
+    }
+    base.push({
+      field: "actions",
+      headerName: "Actions",
+      width: 110,
+      sortable: false,
+      renderCell: (params) => {
+        const id = params.row.settlementId || params.row.settlementNo || "";
+        return (
+          <Link
+            to={ROUTES.SETTLEMENT.DETAIL(id)}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            View
+          </Link>
+        );
+      },
+    });
+    return base;
   }, [mode]);
 
   const activeFilterCount = useMemo(
@@ -240,7 +377,12 @@ export default function SettlementQueuePage() {
         icon={meta.icon}
         iconClassName="bg-gradient-to-br from-indigo-500 to-violet-600"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <QueueAppliedRange applied={applied} />
+            <ReportFilterButton
+              onClick={openFilterDrawer}
+              activeCount={activeFilterCount}
+            />
             <ExportButton
               iconOnly
               exporting={exporting}
@@ -249,167 +391,48 @@ export default function SettlementQueuePage() {
               onExportCSV={() => void exportQueue("CSV")}
               onExportPDF={() => void exportQueue("PDF")}
             />
-            <button
-              type="button"
-              onClick={openFilterDrawer}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 ? (
-                <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {activeFilterCount}
-                </span>
-              ) : null}
-            </button>
             <SettlementRefreshButton loading={loading} onClick={() => void load()} />
           </div>
         }
       >
-        <div className="overflow-hidden rounded-xl border border-slate-200">
-          <div className="border-b border-slate-100 px-4 py-2.5">
-            <p className="text-xs font-medium text-slate-600">
-              {totalElements.toLocaleString("en-IN")} settlement
-              {totalElements === 1 ? "" : "s"}
-              <span className="font-normal text-slate-400">
-                {" "}
-                · Page {page + 1} of {Math.max(totalPages, 1)}
+        <DataTable
+          subtitle={
+            <>
+              <span className="font-medium text-slate-600">
+                {formatListCount(totalElements, "settlement")}
               </span>
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-2.5 font-semibold">Settlement</th>
-                  <th className="px-4 py-2.5 font-semibold">Supplier</th>
-                  <th className="px-4 py-2.5 font-semibold">Period</th>
-                  <th className="px-4 py-2.5 font-semibold">Payable</th>
-                  <th className="px-4 py-2.5 font-semibold">Status</th>
-                  {mode !== "pending" ? (
-                    <th className="px-4 py-2.5 font-semibold">Meta</th>
-                  ) : null}
-                  <th className="px-4 py-2.5 font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {loading ? (
-                  <tr>
-                    <td
-                      colSpan={mode === "pending" ? 6 : 7}
-                      className="px-4 py-16 text-center text-slate-500"
-                    >
-                      <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
-                      Loading…
-                    </td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={mode === "pending" ? 6 : 7}
-                      className="px-4 py-16 text-center text-slate-500"
-                    >
-                      No settlements in this queue.
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row) => {
-                    const id = row.settlementId || row.settlementNo || "";
-                    return (
-                      <tr key={id} className="hover:bg-slate-50/80">
-                        <td className="px-4 py-3">
-                          <Link
-                            to={ROUTES.SETTLEMENT.DETAIL(id)}
-                            className="font-mono text-xs font-semibold text-[#2f3d95] hover:underline"
-                          >
-                            {id}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-slate-900">
-                            {row.supplierName || "—"}
-                          </p>
-                          <p className="text-[11px] text-slate-400">
-                            {formatStatusLabel(row.component)}
-                          </p>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
-                          {formatSettlementPeriod(row.period)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <SettlementMoney value={row.payableAmount} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <SettlementStatusBadge
-                            status={row.payoutStatus || row.status}
-                          />
-                        </td>
-                        {mode !== "pending" ? (
-                          <td className="px-4 py-3 text-xs text-slate-500">
-                            {mode === "approved" && row.approvedBy ? (
-                              <>
-                                {row.approvedBy}
-                                <br />
-                                {formatReportDateTime(row.approvedAt)}
-                              </>
-                            ) : mode === "rejected" ? (
-                              <>
-                                {row.rejectedBy || "—"}
-                                <br />
-                                {row.rejectionReason || "—"}
-                              </>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                        ) : null}
-                        <td className="px-4 py-3">
-                          <Link
-                            to={ROUTES.SETTLEMENT.DETAIL(id)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            View
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-            <p className="text-xs text-slate-500">
-              {totalElements.toLocaleString("en-IN")} settlement
-              {totalElements === 1 ? "" : "s"}
               <span className="text-slate-400">
                 {" "}
                 · Page {page + 1} of {Math.max(totalPages, 1)}
               </span>
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={page <= 0 || loading}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium disabled:opacity-40"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Prev
-              </button>
-              <button
-                type="button"
-                disabled={page + 1 >= totalPages || loading}
-                onClick={() => setPage((p) => p + 1)}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium disabled:opacity-40"
-              >
-                Next
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          rows={rows}
+          columns={columns}
+          getRowId={(row) => row.settlementId || row.settlementNo || ""}
+          loading={loading}
+          paginationMode="server"
+          rowCount={totalElements}
+          paginationModel={{ page, pageSize: PAGE_SIZE }}
+          onPaginationModelChange={(model) => {
+            if (model.page !== page) setPage(Math.max(0, model.page));
+          }}
+          pageSizeOptions={[PAGE_SIZE]}
+          disableRowSelectionOnClick
+          disableColumnFilter
+          showToolbar
+          showExport={false}
+          allowHorizontalScroll
+          getRowHeight={() => "auto"}
+          localeText={{ noRowsLabel: "No settlements in this queue." }}
+          sx={{
+            "& .MuiDataGrid-cell": {
+              alignItems: "center",
+              whiteSpace: "normal",
+              py: "8px",
+            },
+          }}
+        />
       </SettlementPageShell>
 
       <SettlementFilterDrawer

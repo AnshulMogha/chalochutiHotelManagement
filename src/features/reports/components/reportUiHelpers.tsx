@@ -363,57 +363,150 @@ export function allocationStatusTone(status: string): string {
   return "bg-emerald-50 text-emerald-700 ring-emerald-200";
 }
 
+const SUMMARY_CARD_TONES = {
+  sky: {
+    card: "border-sky-100 bg-gradient-to-br from-sky-50 to-white",
+    label: "text-sky-700",
+    icon: "bg-sky-500",
+    ring: "ring-sky-500",
+  },
+  blue: {
+    card: "border-blue-100 bg-gradient-to-br from-blue-50 to-white",
+    label: "text-blue-700",
+    icon: "bg-blue-600",
+    ring: "ring-blue-500",
+  },
+  indigo: {
+    card: "border-indigo-100 bg-gradient-to-br from-indigo-50 to-white",
+    label: "text-indigo-700",
+    icon: "bg-indigo-600",
+    ring: "ring-indigo-500",
+  },
+  violet: {
+    card: "border-violet-100 bg-gradient-to-br from-violet-50 to-white",
+    label: "text-violet-700",
+    icon: "bg-violet-600",
+    ring: "ring-violet-500",
+  },
+  emerald: {
+    card: "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white",
+    label: "text-emerald-700",
+    icon: "bg-emerald-600",
+    ring: "ring-emerald-500",
+  },
+  amber: {
+    card: "border-amber-100 bg-gradient-to-br from-amber-50 to-white",
+    label: "text-amber-700",
+    icon: "bg-amber-500",
+    ring: "ring-amber-500",
+  },
+  rose: {
+    card: "border-rose-100 bg-gradient-to-br from-rose-50 to-white",
+    label: "text-rose-700",
+    icon: "bg-rose-500",
+    ring: "ring-rose-500",
+  },
+  orange: {
+    card: "border-orange-100 bg-gradient-to-br from-orange-50 to-white",
+    label: "text-orange-700",
+    icon: "bg-orange-500",
+    ring: "ring-orange-500",
+  },
+  teal: {
+    card: "border-teal-100 bg-gradient-to-br from-teal-50 to-white",
+    label: "text-teal-700",
+    icon: "bg-teal-600",
+    ring: "ring-teal-500",
+  },
+  cyan: {
+    card: "border-cyan-100 bg-gradient-to-br from-cyan-50 to-white",
+    label: "text-cyan-700",
+    icon: "bg-cyan-600",
+    ring: "ring-cyan-500",
+  },
+} as const;
+
+type SummaryPalette = keyof typeof SUMMARY_CARD_TONES;
+export type SummaryCardTone =
+  | SummaryPalette
+  | "default"
+  | "info"
+  | "success"
+  | "warning"
+  | "danger";
+
+const SUMMARY_TONE_ALIAS: Record<string, SummaryPalette> = {
+  default: "sky",
+  info: "blue",
+  success: "emerald",
+  warning: "amber",
+  danger: "rose",
+};
+
 export function SummaryCard({
   label,
   value,
   tone = "default",
+  icon: Icon,
+  hint,
   active = false,
   onClick,
 }: {
   label: string;
   value: string | number;
-  tone?: "default" | "success" | "warning" | "danger";
+  tone?: SummaryCardTone;
+  icon?: LucideIcon;
+  hint?: string;
   active?: boolean;
   onClick?: () => void;
 }) {
-  const tones = {
-    default: "border-slate-200 bg-white text-slate-900",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    warning: "border-amber-200 bg-amber-50 text-amber-800",
-    danger: "border-rose-200 bg-rose-50 text-rose-800",
-  };
-  const activeRing = {
-    default: "ring-2 ring-slate-400 ring-offset-1",
-    success: "ring-2 ring-emerald-500 ring-offset-1",
-    warning: "ring-2 ring-amber-500 ring-offset-1",
-    danger: "ring-2 ring-rose-500 ring-offset-1",
-  };
+  const palette =
+    SUMMARY_CARD_TONES[SUMMARY_TONE_ALIAS[tone] ?? (tone as SummaryPalette)] ??
+    SUMMARY_CARD_TONES.sky;
   const className = cn(
     "rounded-lg border px-3 py-2 text-left shadow-sm",
-    tones[tone],
+    palette.card,
     onClick && "cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md",
-    active && activeRing[tone],
+    active && `ring-2 ring-offset-1 ${palette.ring}`,
+  );
+  const body = (
+    <>
+      <div className="flex items-center gap-2">
+        {Icon ? (
+          <span
+            className={cn(
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
+              palette.icon,
+            )}
+          >
+            <Icon className="h-3.5 w-3.5 text-white" strokeWidth={2.25} />
+          </span>
+        ) : null}
+        <p
+          className={cn(
+            "min-w-0 truncate text-xs font-medium uppercase tracking-wide",
+            palette.label,
+          )}
+        >
+          {label}
+        </p>
+      </div>
+      <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
+        {value}
+      </p>
+      {hint ? <p className="mt-0.5 text-[11px] text-slate-500">{hint}</p> : null}
+    </>
   );
 
   if (onClick) {
     return (
       <button type="button" onClick={onClick} className={className}>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-          {label}
-        </p>
-        <p className="mt-0.5 text-xl font-bold tabular-nums">{value}</p>
+        {body}
       </button>
     );
   }
 
-  return (
-    <div className={className}>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-      <p className="mt-0.5 text-xl font-bold tabular-nums">{value}</p>
-    </div>
-  );
+  return <div className={className}>{body}</div>;
 }
 
 export function InsightList({

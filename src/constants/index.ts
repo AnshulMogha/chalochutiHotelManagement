@@ -581,6 +581,8 @@ export const API_ENDPOINTS = {
     HOTEL_BD_PIPELINE_EXPORT_DOWNLOAD: (jobId: string) =>
       `/reports/hotel-bd-pipeline/export/${jobId}/download`,
     SALES_MANAGER_DASHBOARD: "/reports/sales-manager-dashboard",
+    SALES_MANAGER_DASHBOARD_SALES_MANAGERS:
+      "/reports/sales-manager-dashboard/sales-managers",
     SALES_MANAGER_DASHBOARD_EXPORT:
       "/reports/sales-manager-dashboard/export",
     SALES_MANAGER_DASHBOARD_EXPORT_JOB: (jobId: string) =>

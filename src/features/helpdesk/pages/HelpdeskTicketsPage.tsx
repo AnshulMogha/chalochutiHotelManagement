@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { ROUTES } from "@/constants";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ExportButton } from "@/components/ui/ExportButton";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
   exportStatusLabel,
@@ -12,6 +14,11 @@ import {
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportRefreshButton,
+} from "@/features/reports/components/ReportFilterDrawer";
 import type {
   ExportJobStatus,
   ReportExportFormat,
@@ -36,14 +43,13 @@ import {
 } from "../components/ticketUi";
 import {
   AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
+  BadgeCheck,
+  CircleX,
   Clock3,
-  Filter,
-  Headphones,
-  Loader2,
+  Flag,
+  Inbox,
+  Play,
   Plus,
-  RefreshCw,
   Ticket,
   X,
 } from "lucide-react";
@@ -73,6 +79,38 @@ const DEFAULT_FILTERS: FilterDraft = {
 };
 
 type DashboardBucket = "OPEN" | "IN_PROGRESS" | "WAITING" | "RESOLVED" | "CLOSED" | null;
+
+function HelpdeskAppliedRange({
+  filters,
+  bucket,
+}: {
+  filters: FilterDraft;
+  bucket: DashboardBucket;
+}) {
+  const range = validateOptionalDateRange(
+    filters.fromDateText,
+    filters.toDateText,
+  );
+  const from = range.ok ? range.fromDate : null;
+  const to = range.ok ? range.toDate : null;
+  const detail =
+    [
+      filters.status
+        ? formatTicketStatus(filters.status)
+        : bucket
+          ? formatTicketStatus(bucket)
+          : null,
+      filters.priority ? formatTicketPriority(filters.priority) : null,
+      filters.category ? formatTicketStatus(filters.category) : null,
+      filters.raisedByType ? formatTicketStatus(filters.raisedByType) : null,
+      filters.ticketNo.trim() || null,
+      filters.referenceKey.trim() || null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || (!from && !to ? "All tickets" : null);
+
+  return <ReportAppliedRange from={from} to={to} detail={detail} />;
+}
 
 export default function HelpdeskTicketsPage() {
   const navigate = useNavigate();
@@ -287,6 +325,95 @@ export default function HelpdeskTicketsPage() {
     }
   };
 
+  const columns = useMemo<GridColDef<HelpdeskTicketListItem>[]>(
+    () => [
+      {
+        field: "ticketNo",
+        headerName: "Ticket",
+        width: 190,
+        sortable: false,
+        renderCell: (params) => (
+          <div className="min-w-0 leading-tight">
+            <p className="font-mono text-xs font-semibold text-[#2f3d95]">
+              {params.row.ticketNo}
+            </p>
+            <p className="text-[11px] text-slate-400">#{params.row.ticketId}</p>
+          </div>
+        ),
+      },
+      {
+        field: "subject",
+        headerName: "Subject",
+        flex: 1,
+        minWidth: 220,
+        sortable: false,
+        renderCell: (params) => (
+          <span className="truncate font-medium text-slate-900">
+            {params.row.subject}
+          </span>
+        ),
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 150,
+        sortable: false,
+        renderCell: (params) => (
+          <TicketBadge
+            label={formatTicketStatus(params.row.status)}
+            tone={ticketStatusTone(params.row.status)}
+          />
+        ),
+      },
+      {
+        field: "priority",
+        headerName: "Priority",
+        width: 130,
+        sortable: false,
+        renderCell: (params) => (
+          <TicketBadge
+            label={formatTicketPriority(params.row.priority)}
+            tone={ticketPriorityTone(params.row.priority)}
+          />
+        ),
+      },
+      {
+        field: "category",
+        headerName: "Category",
+        width: 160,
+        sortable: false,
+        renderCell: (params) => (
+          <span className="text-xs text-slate-700">
+            {formatTicketStatus(params.row.category)}
+          </span>
+        ),
+      },
+      {
+        field: "raisedByType",
+        headerName: "Raised by",
+        width: 150,
+        sortable: false,
+        renderCell: (params) => (
+          <span className="text-xs text-slate-700">
+            {formatTicketStatus(params.row.raisedByType)}
+          </span>
+        ),
+      },
+      {
+        field: "createdAt",
+        headerName: "Created",
+        width: 160,
+        sortable: false,
+        renderCell: (params) => (
+          <span className="whitespace-nowrap text-xs text-slate-600">
+            {formatReportDateTime(params.row.createdAt)}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
     <div className="min-h-full bg-linear-to-b from-slate-50 via-white to-slate-50">
       <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
@@ -297,6 +424,17 @@ export default function HelpdeskTicketsPage() {
           description="Inbox, SLA, and ticket workflow"
           actions={
             <div className="flex flex-wrap items-center gap-2">
+              <HelpdeskAppliedRange
+                filters={filters}
+                bucket={activeBucket}
+              />
+              <ReportFilterButton
+                onClick={() => {
+                  setDraft(filters);
+                  setFilterOpen(true);
+                }}
+                activeCount={activeFilterCount}
+              />
               <ExportButton
                 iconOnly
                 exporting={exporting}
@@ -305,33 +443,13 @@ export default function HelpdeskTicketsPage() {
                 onExportCSV={() => void exportTickets("CSV")}
                 onExportPDF={() => void exportTickets("PDF")}
               />
-              <button
-                type="button"
-                onClick={() => {
-                  setDraft(filters);
-                  setFilterOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-              >
-                <Filter className="h-4 w-4" />
-                Filters
-                {activeFilterCount > 0 ? (
-                  <span className="rounded-full bg-[#2f3d95] px-1.5 text-[10px] font-semibold text-white">
-                    {activeFilterCount}
-                  </span>
-                ) : null}
-              </button>
-              <button
-                type="button"
+              <ReportRefreshButton
                 onClick={() => {
                   void loadDashboard();
                   void loadTickets();
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </button>
+                loading={loading}
+              />
               <Link
                 to={ROUTES.HELPDESK.TICKET_CREATE}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[#2f3d95] px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-[#283585]"
@@ -347,198 +465,120 @@ export default function HelpdeskTicketsPage() {
           <SummaryCard
             label="Open"
             value={dashboard?.open ?? "—"}
-            tone="default"
+            tone="sky"
+            icon={Inbox}
             active={activeBucket === "OPEN"}
             onClick={() => selectBucket("OPEN")}
           />
           <SummaryCard
             label="In progress"
             value={dashboard?.inProgress ?? "—"}
-            tone="default"
+            tone="blue"
+            icon={Play}
             active={activeBucket === "IN_PROGRESS"}
             onClick={() => selectBucket("IN_PROGRESS")}
           />
           <SummaryCard
             label="Waiting"
             value={dashboard?.waiting ?? "—"}
-            tone="warning"
+            tone="amber"
+            icon={Clock3}
             active={activeBucket === "WAITING"}
             onClick={() => selectBucket("WAITING")}
           />
           <SummaryCard
             label="Resolved"
             value={dashboard?.resolved ?? "—"}
-            tone="success"
+            tone="emerald"
+            icon={BadgeCheck}
             active={activeBucket === "RESOLVED"}
             onClick={() => selectBucket("RESOLVED")}
           />
           <SummaryCard
             label="Closed"
             value={dashboard?.closed ?? "—"}
-            tone="default"
+            tone="violet"
+            icon={CircleX}
             active={activeBucket === "CLOSED"}
             onClick={() => selectBucket("CLOSED")}
           />
         </div>
 
         <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-              <Clock3 className="h-3.5 w-3.5" />
-              Avg resolution
-            </div>
-            <p className="mt-1 text-lg font-bold tabular-nums text-slate-900">
-              {sla ? `${sla.averageResolutionHours.toFixed(1)} hrs` : "—"}
-            </p>
-            <p className="text-[11px] text-slate-500">Default SLA window 48 hrs</p>
-          </div>
-          <div className="rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2.5 shadow-sm">
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-rose-600">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Beyond SLA
-            </div>
-            <p className="mt-1 text-lg font-bold tabular-nums text-rose-800">
-              {sla?.openBeyondSla ?? "—"}
-            </p>
-          </div>
-          <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5 shadow-sm">
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-amber-700">
-              <Headphones className="h-3.5 w-3.5" />
-              High priority pending
-            </div>
-            <p className="mt-1 text-lg font-bold tabular-nums text-amber-900">
-              {sla?.highPriorityPending ?? "—"}
-            </p>
-          </div>
+          <SummaryCard
+            label="Avg resolution"
+            value={sla ? `${sla.averageResolutionHours.toFixed(1)} hrs` : "—"}
+            tone="teal"
+            icon={Clock3}
+            hint="Default SLA window 48 hrs"
+          />
+          <SummaryCard
+            label="Beyond SLA"
+            value={sla?.openBeyondSla ?? "—"}
+            tone="rose"
+            icon={AlertTriangle}
+          />
+          <SummaryCard
+            label="High priority pending"
+            value={sla?.highPriorityPending ?? "—"}
+            tone="orange"
+            icon={Flag}
+          />
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-900">Ticket inbox</h2>
-              <p className="text-xs text-slate-500">
-                {totalElements.toLocaleString("en-IN")} ticket
-                {totalElements === 1 ? "" : "s"}
-                <span className="text-slate-400">
-                  {" "}
-                  · Page {page + 1} of {Math.max(totalPages, 1)}
-                </span>
-              </p>
-            </div>
+        <DataTable
+          title="Ticket inbox"
+          subtitle={
+            <>
+              <span className="font-medium text-slate-600">
+                {formatListCount(totalElements, "ticket")}
+              </span>
+              <span className="text-slate-400">
+                {" "}
+                · Page {page + 1} of {Math.max(totalPages, 1)}
+              </span>
+            </>
+          }
+          headerActions={
             <Link
               to={ROUTES.HELPDESK.LOOKUP}
               className="text-xs font-medium text-[#2f3d95] hover:underline"
             >
               Order lookup
             </Link>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-2.5 font-semibold">Ticket</th>
-                  <th className="px-4 py-2.5 font-semibold">Subject</th>
-                  <th className="px-4 py-2.5 font-semibold">Status</th>
-                  <th className="px-4 py-2.5 font-semibold">Priority</th>
-                  <th className="px-4 py-2.5 font-semibold">Category</th>
-                  <th className="px-4 py-2.5 font-semibold">Raised by</th>
-                  <th className="px-4 py-2.5 font-semibold">Created</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-16 text-center text-slate-500">
-                      <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
-                      Loading tickets…
-                    </td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-16 text-center text-slate-500">
-                      No tickets found for the selected filters.
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row) => (
-                    <tr
-                      key={row.ticketId}
-                      className="cursor-pointer hover:bg-slate-50/80"
-                      onClick={() =>
-                        navigate(ROUTES.HELPDESK.TICKET_DETAIL(row.ticketId))
-                      }
-                    >
-                      <td className="px-4 py-3">
-                        <p className="font-mono text-xs font-semibold text-[#2f3d95]">
-                          {row.ticketNo}
-                        </p>
-                        <p className="text-[11px] text-slate-400">#{row.ticketId}</p>
-                      </td>
-                      <td className="max-w-55 px-4 py-3">
-                        <p className="truncate font-medium text-slate-900">
-                          {row.subject}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <TicketBadge
-                          label={formatTicketStatus(row.status)}
-                          tone={ticketStatusTone(row.status)}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <TicketBadge
-                          label={formatTicketPriority(row.priority)}
-                          tone={ticketPriorityTone(row.priority)}
-                        />
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-700">
-                        {formatTicketStatus(row.category)}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-700">
-                        {formatTicketStatus(row.raisedByType)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
-                        {formatReportDateTime(row.createdAt)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
-            <p className="text-xs text-slate-500">
-              {totalElements.toLocaleString("en-IN")} ticket
-              {totalElements === 1 ? "" : "s"}
-              <span className="text-slate-400">
-                {" "}
-                · Page {page + 1} of {Math.max(totalPages, 1)}
-              </span>
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 0 || loading}
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Prev
-              </button>
-              <button
-                type="button"
-                disabled={page + 1 >= totalPages || loading}
-                onClick={() => setPage((p) => p + 1)}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40"
-              >
-                Next
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
+          }
+          rows={rows}
+          columns={columns}
+          getRowId={(row) => row.ticketId}
+          loading={loading}
+          paginationMode="server"
+          rowCount={totalElements}
+          paginationModel={{ page, pageSize: PAGE_SIZE }}
+          onPaginationModelChange={(model) => {
+            if (model.page !== page) setPage(Math.max(0, model.page));
+          }}
+          pageSizeOptions={[PAGE_SIZE]}
+          disableRowSelectionOnClick
+          disableColumnFilter
+          showToolbar
+          showExport={false}
+          allowHorizontalScroll
+          getRowHeight={() => "auto"}
+          onRowClick={(params) =>
+            navigate(ROUTES.HELPDESK.TICKET_DETAIL(params.row.ticketId))
+          }
+          localeText={{
+            noRowsLabel: "No tickets found for the selected filters.",
+          }}
+          sx={{
+            "& .MuiDataGrid-cell": {
+              alignItems: "center",
+              whiteSpace: "normal",
+              py: "8px",
+              cursor: "pointer",
+            },
+          }}
+        />
       </div>
 
       {filterOpen ? (

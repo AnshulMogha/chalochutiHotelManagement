@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { DataTable, formatListCount } from "@/components/ui";
+import type { GridColDef } from "@mui/x-data-grid";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,7 +11,6 @@ import {
   isSuperAdmin,
 } from "@/constants/roles";
 import {
-  formatReportDate,
   formatStatusLabel,
   getHotelOnboardingLink,
   getHotelOnboardingReadOnlyLink,
@@ -23,6 +24,11 @@ import {
   validateCustomDateRange,
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
+import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportRefreshButton,
+} from "../components/ReportFilterDrawer";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
   hotelBdDashboardReportService,
@@ -34,14 +40,19 @@ import {
 } from "../services/hotelBdDashboardReportService";
 import {
   AlertCircle,
+  Award,
+  BadgeCheck,
+  Ban,
   Building2,
   ChevronRight,
-  Filter,
+  CircleX,
+  ClipboardCheck,
+  FilePen,
   GitBranch,
-  Loader2,
-  RefreshCw,
+  Scale,
   Search,
   X,
+  type LucideIcon,
 } from "lucide-react";
 
 const DEFAULT_DATE_PRESET: HotelBdDashboardDatePreset = "THIS_MONTH";
@@ -78,13 +89,65 @@ const FUNNEL_STEPS: {
   key: keyof HotelBdDashboardReportResponse["onboardingFunnel"];
   label: string;
   tone: string;
+  card: string;
+  labelTone: string;
+  icon: LucideIcon;
+  iconWrap: string;
 }[] = [
-  { key: "draft", label: "Draft", tone: "bg-sky-500" },
-  { key: "underQc", label: "Under QC", tone: "bg-amber-500" },
-  { key: "qcRejected", label: "QC Rejected", tone: "bg-rose-500" },
-  { key: "underZonalReview", label: "Under Zonal Review", tone: "bg-violet-500" },
-  { key: "zonalRejected", label: "Zonal Rejected", tone: "bg-rose-400" },
-  { key: "live", label: "Live", tone: "bg-emerald-500" },
+  {
+    key: "draft",
+    label: "Draft",
+    tone: "bg-sky-500",
+    card: "border-sky-100 bg-gradient-to-br from-sky-50 to-white",
+    labelTone: "text-sky-700",
+    icon: FilePen,
+    iconWrap: "bg-sky-500",
+  },
+  {
+    key: "underQc",
+    label: "Under QC",
+    tone: "bg-amber-500",
+    card: "border-amber-100 bg-gradient-to-br from-amber-50 to-white",
+    labelTone: "text-amber-700",
+    icon: ClipboardCheck,
+    iconWrap: "bg-amber-500",
+  },
+  {
+    key: "qcRejected",
+    label: "QC Rejected",
+    tone: "bg-rose-500",
+    card: "border-rose-100 bg-gradient-to-br from-rose-50 to-white",
+    labelTone: "text-rose-700",
+    icon: CircleX,
+    iconWrap: "bg-rose-500",
+  },
+  {
+    key: "underZonalReview",
+    label: "Under Zonal Review",
+    tone: "bg-violet-500",
+    card: "border-violet-100 bg-gradient-to-br from-violet-50 to-white",
+    labelTone: "text-violet-700",
+    icon: Scale,
+    iconWrap: "bg-violet-600",
+  },
+  {
+    key: "zonalRejected",
+    label: "Zonal Rejected",
+    tone: "bg-orange-500",
+    card: "border-orange-100 bg-gradient-to-br from-orange-50 to-white",
+    labelTone: "text-orange-700",
+    icon: Ban,
+    iconWrap: "bg-orange-500",
+  },
+  {
+    key: "live",
+    label: "Live",
+    tone: "bg-emerald-500",
+    card: "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white",
+    labelTone: "text-emerald-700",
+    icon: BadgeCheck,
+    iconWrap: "bg-emerald-600",
+  },
 ];
 
 type FilterDraft = {
@@ -242,6 +305,133 @@ export default function HotelBdDashboardPage() {
     void loadReport(DEFAULT_DRAFT);
   }, [loadReport]);
 
+  const inboxColumns: GridColDef<HotelBdActionInboxItem & { id: string }>[] = [
+    {
+      field: "hotelName",
+      headerName: "Hotel",
+      flex: 1.3,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (params) => (
+        <div className="min-w-0 py-1 leading-tight">
+          <div className="truncate font-medium text-slate-900">
+            {params.row.hotelName}
+          </div>
+          <div className="truncate text-xs text-slate-500">
+            {params.row.hotelCode}
+            {params.row.city ? ` · ${params.row.city}` : ""}
+          </div>
+        </div>
+      ),
+    },
+    {
+      field: "category",
+      headerName: "Type",
+      width: 160,
+      sortable: false,
+      renderCell: (params) => (
+        <span
+          className={cn(
+            "inline-flex h-auto items-center self-center rounded-md border px-2 py-0.5 text-[11px] font-medium leading-tight",
+            severityTone(params.row.severity || "INFO"),
+          )}
+        >
+          {formatStatusLabel(params.row.category)}
+        </span>
+      ),
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <span
+          className={cn(
+            "inline-flex h-auto items-center self-center rounded-full px-2 py-0.5 text-xs font-medium leading-tight ring-1 ring-inset",
+            hotelStatusTone(params.row.status),
+          )}
+        >
+          {formatStatusLabel(params.row.status)}
+        </span>
+      ),
+    },
+    {
+      field: "currentStep",
+      headerName: "Current Step",
+      width: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <span>
+          {params.row.currentStep
+            ? formatStatusLabel(params.row.currentStep)
+            : "—"}
+        </span>
+      ),
+    },
+    {
+      field: "incompleteSteps",
+      headerName: "Incomplete",
+      width: 110,
+      sortable: false,
+    },
+    {
+      field: "daysStuck",
+      headerName: "Days Stuck",
+      width: 110,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="tabular-nums">
+          {params.row.daysStuck != null ? params.row.daysStuck : "—"}
+        </span>
+      ),
+    },
+    {
+      field: "message",
+      headerName: "Message / Reason",
+      flex: 1.4,
+      minWidth: 200,
+      sortable: false,
+      renderCell: (params) => (
+        <div className="min-w-0 py-1 text-xs leading-tight text-slate-600">
+          <div className="line-clamp-2">
+            {params.row.message || params.row.rejectionReason || "—"}
+          </div>
+          {params.row.message && params.row.rejectionReason ? (
+            <div className="mt-0.5 line-clamp-1 text-slate-500">
+              {params.row.rejectionReason}
+            </div>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      field: "actions",
+      headerName: "",
+      width: 88,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params) => {
+        const link = getHotelLink(params.row, isAdmin);
+        if (!link) return <span className="text-slate-400">—</span>;
+        return (
+          <Link
+            to={link}
+            className="inline-flex items-center gap-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            {isAdmin || !isHotelOnboardingEditable(params.row.status)
+              ? "View"
+              : "Edit"}
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        );
+      },
+    },
+  ];
+
   const filteredInbox = useMemo(() => {
     const items = report?.actionInbox ?? [];
     const hotelQuery = applied.inboxSearch.trim().toLowerCase();
@@ -312,38 +502,18 @@ export default function HotelBdDashboardPage() {
 
       <ReportPageHeader
         icon={Building2}
-        iconClassName="bg-gradient-to-br from-blue-500 to-indigo-600"
+        iconClassName="bg-[#2f3d95]"
         title="Dashboard"
-        descriptionClassName="mt-0.5"
-        description={
-          <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-slate-800">
-            {report?.dateRange?.fromDate && report?.dateRange?.toDate ? (
-              <span>
-                Go-live period:{" "}
-                <span className="text-[#2f3d95]">
-                  {formatReportDate(report.dateRange.fromDate)} –{" "}
-                  {formatReportDate(report.dateRange.toDate)}
-                </span>
-              </span>
-            ) : (
-              <span className="text-slate-500">Go-live period: —</span>
-            )}
-            <span className="hidden text-slate-300 sm:inline" aria-hidden>
-              ·
-            </span>
-            <span>
-              Stuck threshold:{" "}
-              <span className="text-[#2f3d95]">
-                {applied.stuckDaysThreshold} day
-                {applied.stuckDaysThreshold === 1 ? "" : "s"}
-              </span>
-            </span>
-          </span>
-        }
         actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
+          <div className="flex flex-wrap items-center gap-2">
+            <ReportAppliedRange
+              from={report?.dateRange?.fromDate}
+              to={report?.dateRange?.toDate}
+              detail={`Go-live · Stuck ${applied.stuckDaysThreshold} day${
+                applied.stuckDaysThreshold === 1 ? "" : "s"
+              }`}
+            />
+            <ReportFilterButton
               onClick={() => {
                 setDraft(applied);
                 setStuckThresholdInput(String(applied.stuckDaysThreshold));
@@ -351,36 +521,19 @@ export default function HotelBdDashboardPage() {
                 setCustomToText(isoToReportDateText(applied.toDate));
                 setFilterOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 ? (
-                <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {activeFilterCount}
-                </span>
-              ) : null}
-            </button>
-            <button
-              type="button"
+              activeCount={activeFilterCount}
+            />
+            <ReportRefreshButton
               onClick={() => void loadReport(applied)}
+              loading={loading}
               disabled={
-                loading ||
-                (applied.datePreset === "CUSTOM" &&
-                  (!applied.fromDate || !applied.toDate))
+                applied.datePreset === "CUSTOM" &&
+                (!applied.fromDate || !applied.toDate)
               }
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              Refresh
-            </button>
+            />
             <Link
               to={ROUTES.REPORTS.HOTEL_BD_PIPELINE}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#2f3d95] px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-[#263578]"
             >
               <GitBranch className="h-4 w-4" />
               Onboarding Pipeline
@@ -399,26 +552,32 @@ export default function HotelBdDashboardPage() {
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
         <SummaryCard
           label="Assigned Hotels"
+          tone="sky"
+          icon={Building2}
           value={report?.portfolioKpis.assignedHotels ?? (loading ? "…" : 0)}
         />
         <SummaryCard
           label="Live Hotels"
           tone="success"
+          icon={BadgeCheck}
           value={report?.portfolioKpis.liveHotels ?? (loading ? "…" : 0)}
         />
         <SummaryCard
           label="In Pipeline"
           tone="warning"
+          icon={GitBranch}
           value={report?.portfolioKpis.hotelsInPipeline ?? (loading ? "…" : 0)}
         />
         <SummaryCard
           label="Rejected"
           tone="danger"
+          icon={CircleX}
           value={report?.portfolioKpis.rejectedHotels ?? (loading ? "…" : 0)}
         />
         <SummaryCard
           label="Go Lives in Period"
-          tone="success"
+          tone="teal"
+          icon={Award}
           value={report?.portfolioKpis.goLivesInPeriod ?? (loading ? "…" : 0)}
         />
       </div>
@@ -434,20 +593,40 @@ export default function HotelBdDashboardPage() {
             const count = report?.onboardingFunnel[step.key] ?? 0;
             const pct =
               funnelTotal > 0 ? Math.round((count / funnelTotal) * 100) : 0;
+            const StepIcon = step.icon;
             return (
               <div
                 key={step.key}
-                className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2"
+                className={cn(
+                  "rounded-lg border px-3 py-2 shadow-sm",
+                  step.card,
+                )}
               >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium text-slate-600">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
+                      step.iconWrap,
+                    )}
+                  >
+                    <StepIcon
+                      className="h-3.5 w-3.5 text-white"
+                      strokeWidth={2.25}
+                    />
+                  </span>
+                  <p
+                    className={cn(
+                      "min-w-0 truncate text-xs font-medium uppercase tracking-wide",
+                      step.labelTone,
+                    )}
+                  >
                     {step.label}
                   </p>
-                  <span className="text-lg font-bold tabular-nums text-slate-900">
-                    {loading && !report ? "…" : count}
-                  </span>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                <p className="mt-0.5 text-xl font-bold tabular-nums text-slate-900">
+                  {loading && !report ? "…" : count}
+                </p>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
                   <div
                     className={cn("h-full rounded-full", step.tone)}
                     style={{ width: `${pct}%` }}
@@ -459,156 +638,50 @@ export default function HotelBdDashboardPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-900">Action Inbox</h2>
-          <span className="text-xs text-slate-500">
-            {filteredInbox.length} item{filteredInbox.length === 1 ? "" : "s"}
-          </span>
-        </div>
-
-        <div className="flex flex-wrap gap-1 border-b border-slate-100 px-3 py-2">
-          {INBOX_TABS.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => setInboxTab(tab.value)}
-              className={cn(
-                "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-                inboxTab === tab.value
-                  ? "bg-indigo-600 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-100 text-sm">
-            <thead className="bg-slate-50/80">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Hotel
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Type
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Status
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Current Step
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Incomplete
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Days Stuck
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Message / Reason
-                </th>
-                <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {loading && !report ? (
-                <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
-                    <Loader2 className="mx-auto h-5 w-5 animate-spin text-indigo-600" />
-                  </td>
-                </tr>
-              ) : filteredInbox.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
-                    No inbox items for this filter.
-                  </td>
-                </tr>
-              ) : (
-                filteredInbox.map((item, index) => {
-                  const link = getHotelLink(item, isAdmin);
-                  return (
-                    <tr
-                      key={`${item.hotelId ?? item.hotelCode}-${index}`}
-                      className="hover:bg-slate-50/70"
-                    >
-                      <td className="px-3 py-2">
-                        <div className="font-medium text-slate-900">
-                          {item.hotelName}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {item.hotelCode}
-                          {item.city ? ` · ${item.city}` : ""}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span
-                          className={cn(
-                            "inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium",
-                            severityTone(item.severity || "INFO"),
-                          )}
-                        >
-                          {formatStatusLabel(item.category)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span
-                          className={cn(
-                            "inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
-                            hotelStatusTone(item.status),
-                          )}
-                        >
-                          {formatStatusLabel(item.status)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-slate-700">
-                        {item.currentStep
-                          ? formatStatusLabel(item.currentStep)
-                          : "—"}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums text-slate-700">
-                        {item.incompleteSteps}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums text-slate-700">
-                        {item.daysStuck != null ? item.daysStuck : "—"}
-                      </td>
-                      <td className="max-w-56 px-3 py-2 text-xs text-slate-600">
-                        <div className="line-clamp-2">
-                          {item.message || item.rejectionReason || "—"}
-                        </div>
-                        {item.message && item.rejectionReason ? (
-                          <div className="mt-0.5 line-clamp-1 text-slate-500">
-                            {item.rejectionReason}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        {link ? (
-                          <Link
-                            to={link}
-                            className="inline-flex items-center gap-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-800"
-                          >
-                            {isAdmin || !isHotelOnboardingEditable(item.status)
-                              ? "View"
-                              : "Edit"}
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </Link>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        title="Action Inbox"
+        subtitle={
+          loading && !report
+            ? "Loading…"
+            : formatListCount(filteredInbox.length, "item")
+        }
+        afterHeader={
+          <div className="flex flex-wrap gap-1 border-b border-slate-100 px-3 py-2">
+            {INBOX_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setInboxTab(tab.value)}
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                  inboxTab === tab.value
+                    ? "bg-[#2f3d95] text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        }
+        rows={filteredInbox.map((item, index) => ({
+          ...item,
+          id: `${item.hotelId ?? item.hotelCode}-${index}`,
+        }))}
+        columns={inboxColumns}
+        loading={loading && !report}
+        getRowId={(row) => row.id}
+        disableRowSelectionOnClick
+        disableColumnFilter
+        showToolbar
+        showExport={false}
+        rowHeight={64}
+        pageSizeOptions={[10, 20, 50, 100]}
+        initialState={{
+          pagination: { paginationModel: { page: 0, pageSize: 20 } },
+        }}
+        localeText={{ noRowsLabel: "No inbox items for this filter." }}
+      />
 
       {filterOpen ? (
         <div className="fixed inset-0 z-50 flex">
@@ -799,7 +872,7 @@ export default function HotelBdDashboardPage() {
                 type="button"
                 onClick={applyFilters}
                 disabled={draftCustomInvalid || stuckThresholdInvalid}
-                className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                className="flex-1 rounded-lg bg-[#2f3d95] px-3 py-2 text-sm font-medium text-white hover:bg-[#263578] disabled:opacity-60"
               >
                 Apply
               </button>

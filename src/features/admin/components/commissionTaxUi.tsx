@@ -42,55 +42,27 @@ export function CommissionTableHeader({
   label: string;
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[0.68rem] font-bold uppercase tracking-wide text-white">
-      <Icon className="h-3.5 w-3.5 shrink-0 text-sky-200" strokeWidth={2.25} />
+    <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-normal text-slate-500">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2.25} />
       {label}
     </span>
   );
 }
 
-const PANEL_THEMES = {
-  blue: {
-    header: "bg-linear-to-r from-blue-50 to-indigo-50",
-    icon: "bg-blue-600 text-white",
-    border: "border-blue-100",
-  },
-  violet: {
-    header: "bg-linear-to-r from-violet-50 to-purple-50",
-    icon: "bg-violet-600 text-white",
-    border: "border-violet-100",
-  },
-  green: {
-    header: "bg-linear-to-r from-emerald-50 to-green-50",
-    icon: "bg-emerald-600 text-white",
-    border: "border-emerald-100",
-  },
-  purple: {
-    header: "bg-linear-to-r from-purple-50 to-fuchsia-50",
-    icon: "bg-purple-600 text-white",
-    border: "border-purple-100",
-  },
-} as const;
-
-export type CommissionPanelTheme = keyof typeof PANEL_THEMES;
+/** @deprecated Themes kept for call-site compatibility; panels use slate shell. */
+export type CommissionPanelTheme = "blue" | "violet" | "green" | "purple";
 
 export function CommissionPanelBody({
-  theme = "blue",
+  theme: _theme = "blue",
   children,
 }: {
   theme?: CommissionPanelTheme;
   children: React.ReactNode;
 }) {
-  const styles = PANEL_THEMES[theme];
-
+  void _theme;
   return (
-    <div
-      className={cn(
-        "flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-white shadow-sm",
-        styles.border,
-      )}
-    >
-      <div className="flex min-h-0 flex-1 flex-col p-3">{children}</div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="flex min-h-0 flex-1 flex-col p-3 sm:p-4">{children}</div>
     </div>
   );
 }
@@ -110,7 +82,7 @@ export function CommissionTabLoader({
 }
 
 export function CommissionPanelShell({
-  theme = "blue",
+  theme: _theme = "blue",
   icon: Icon,
   title,
   action,
@@ -122,32 +94,15 @@ export function CommissionPanelShell({
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const styles = PANEL_THEMES[theme];
-
+  void _theme;
   return (
-    <div
-      className={cn(
-        "mb-6 overflow-hidden rounded-2xl border bg-white shadow-sm",
-        styles.border,
-      )}
-    >
-      <div
-        className={cn(
-          "flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4",
-          styles.header,
-          styles.border,
-        )}
-      >
+    <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-5 py-4">
         <div className="flex items-center gap-3">
-          <div
-            className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-xl shadow-sm",
-              styles.icon,
-            )}
-          >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm">
             <Icon className="h-5 w-5" strokeWidth={2.25} />
           </div>
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         </div>
         {action}
       </div>
@@ -158,7 +113,7 @@ export function CommissionPanelShell({
 
 export function CommissionFilterBar({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-slate-200/80 bg-slate-50/60 px-2.5 py-1.5 sm:flex-nowrap">
+    <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/70 px-2.5 py-2 sm:flex-nowrap">
       {children}
     </div>
   );
@@ -176,7 +131,7 @@ export function CommissionSearchInput({
   return (
     <div className="relative min-w-[200px] max-w-sm flex-1">
       <svg
-        className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
+        className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -193,7 +148,7 @@ export function CommissionSearchInput({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-gray-200 bg-white py-1.5 pr-2.5 pl-8 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/30"
+        className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pr-2.5 pl-8 text-sm text-slate-800 placeholder:text-slate-400 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-100"
       />
     </div>
   );
@@ -207,7 +162,7 @@ export function CommissionTableWrap({
   footer?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200/90 shadow-sm">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200/80">
       <div className="min-h-0 flex-1 overflow-auto">{children}</div>
       {footer ? <div className="shrink-0">{footer}</div> : null}
     </div>
@@ -216,7 +171,7 @@ export function CommissionTableWrap({
 
 export function CommissionTableHead({ children }: { children: React.ReactNode }) {
   return (
-    <thead className="sticky top-0 z-10 border-b-2 border-[#1e2a7a] bg-[#2f3d95]">
+    <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-normal text-slate-500">
       {children}
     </thead>
   );
@@ -224,7 +179,9 @@ export function CommissionTableHead({ children }: { children: React.ReactNode })
 
 export function CommissionTh({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-3 py-2 text-left first:pl-4 last:pr-4">{children}</th>
+    <th className="whitespace-nowrap px-3 py-3 text-left font-semibold first:pl-4 last:pr-4">
+      {children}
+    </th>
   );
 }
 
@@ -250,15 +207,15 @@ export function CommissionPaginationFooter({
   onNext: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50/80 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-sm font-medium text-slate-600">{pageLabel}</div>
+    <div className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50/80 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-xs text-slate-500">{pageLabel}</div>
       <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor={pageSizeId} className="text-sm text-slate-600">
-          Rows:
+        <label htmlFor={pageSizeId} className="text-xs text-slate-500">
+          Rows
         </label>
         <select
           id={pageSizeId}
-          className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm focus:border-[#2f3d95] focus:outline-none focus:ring-2 focus:ring-[#2f3d95]/20"
+          className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-100"
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
         >
@@ -299,46 +256,47 @@ export function CommissionEmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-1 items-center justify-center py-8 text-center">
+    <div className="flex flex-1 items-center justify-center py-10 text-center">
       <div>
-      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
-        <Icon className="h-6 w-6 text-slate-400" strokeWidth={1.75} />
-      </div>
-      <p className="mb-1 text-base font-medium text-gray-700">{title}</p>
-      <p className="mb-3 text-sm text-gray-500">{description}</p>
-      {action}
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100">
+          <Icon className="h-6 w-6 text-slate-400" strokeWidth={1.75} />
+        </div>
+        <p className="mb-1 text-base font-medium text-slate-800">{title}</p>
+        <p className="mb-3 text-sm text-slate-500">{description}</p>
+        {action}
       </div>
     </div>
   );
 }
 
+const TAB_ACTIVE =
+  "bg-[#2f3d95] text-white font-semibold shadow-sm";
+const TAB_IDLE =
+  "text-slate-600 hover:bg-white hover:text-slate-900";
+
 export const COMMISSION_TAB_STYLES = {
   otaCommission: {
-    active:
-      "bg-blue-600 text-white font-semibold",
-    idle: "text-slate-600 hover:bg-blue-50 hover:text-blue-700",
+    active: TAB_ACTIVE,
+    idle: TAB_IDLE,
     iconActive: "text-white",
-    iconIdle: "text-slate-400 group-hover:text-blue-600",
+    iconIdle: "text-slate-400 group-hover:text-slate-700",
   },
   agencyCommission: {
-    active:
-      "bg-violet-600 text-white font-semibold",
-    idle: "text-slate-600 hover:bg-violet-50 hover:text-violet-700",
+    active: TAB_ACTIVE,
+    idle: TAB_IDLE,
     iconActive: "text-white",
-    iconIdle: "text-slate-400 group-hover:text-violet-600",
+    iconIdle: "text-slate-400 group-hover:text-slate-700",
   },
   tax: {
-    active:
-      "bg-emerald-600 text-white font-semibold",
-    idle: "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700",
+    active: TAB_ACTIVE,
+    idle: TAB_IDLE,
     iconActive: "text-white",
-    iconIdle: "text-slate-400 group-hover:text-emerald-600",
+    iconIdle: "text-slate-400 group-hover:text-slate-700",
   },
   serviceFee: {
-    active:
-      "bg-purple-600 text-white font-semibold",
-    idle: "text-slate-600 hover:bg-purple-50 hover:text-purple-700",
+    active: TAB_ACTIVE,
+    idle: TAB_IDLE,
     iconActive: "text-white",
-    iconIdle: "text-slate-400 group-hover:text-purple-600",
+    iconIdle: "text-slate-400 group-hover:text-slate-700",
   },
 } as const;

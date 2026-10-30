@@ -275,7 +275,7 @@ export default function BulkUpdateRestrictionsPage() {
                       type="checkbox"
                       checked={blockInventory}
                       onChange={(e) => handleBlockInventoryChange(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-[#2f3d95] focus:ring-2"
                     />
                     <span className="text-sm text-gray-700 group-hover:text-gray-900">
                       Block Inventory
@@ -286,7 +286,7 @@ export default function BulkUpdateRestrictionsPage() {
                       type="checkbox"
                       checked={unblockInventory}
                       onChange={(e) => handleUnblockInventoryChange(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-[#2f3d95] focus:ring-2"
                     />
                     <span className="text-sm text-gray-700 group-hover:text-gray-900">
                       Unblock Inventory
@@ -305,7 +305,7 @@ export default function BulkUpdateRestrictionsPage() {
                       type="checkbox"
                       checked={cta}
                       onChange={(e) => handleCtaChange(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-[#2f3d95] focus:ring-2"
                     />
                     <span className="text-sm text-gray-700 group-hover:text-gray-900">
                       Close to Arrival (CTA)
@@ -316,7 +316,7 @@ export default function BulkUpdateRestrictionsPage() {
                       type="checkbox"
                       checked={inactivateCta}
                       onChange={(e) => handleInactivateCtaChange(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-[#2f3d95] focus:ring-2"
                     />
                     <span className="text-sm text-gray-700 group-hover:text-gray-900">
                       Inactivate CTA
@@ -335,7 +335,7 @@ export default function BulkUpdateRestrictionsPage() {
                       type="checkbox"
                       checked={ctd}
                       onChange={(e) => handleCtdChange(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-[#2f3d95] focus:ring-2"
                     />
                     <span className="text-sm text-gray-700 group-hover:text-gray-900">
                       Close to Departure (CTD)
@@ -346,7 +346,7 @@ export default function BulkUpdateRestrictionsPage() {
                       type="checkbox"
                       checked={inactivateCtd}
                       onChange={(e) => handleInactivateCtdChange(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-[#2f3d95] focus:ring-2"
                     />
                     <span className="text-sm text-gray-700 group-hover:text-gray-900">
                       Inactivate CTD
@@ -368,7 +368,7 @@ export default function BulkUpdateRestrictionsPage() {
                   value={minStay}
                   onChange={(e) => setMinStay(e.target.value)}
                   placeholder="e.g. 2"
-                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 placeholder:text-gray-400"
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-[#2f3d95] placeholder:text-gray-400"
                 />
               </div>
               <div className="space-y-2">
@@ -381,7 +381,7 @@ export default function BulkUpdateRestrictionsPage() {
                   value={maxStay}
                   onChange={(e) => setMaxStay(e.target.value)}
                   placeholder="e.g. 7"
-                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 placeholder:text-gray-400"
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-[#2f3d95] placeholder:text-gray-400"
                 />
               </div>
             </div>
@@ -421,7 +421,7 @@ export default function BulkUpdateRestrictionsPage() {
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting || isReadOnly}
-              className="px-6 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              className="px-6 py-2 text-sm font-semibold text-white bg-[#2f3d95] rounded-lg hover:bg-[#263578] disabled:opacity-60"
             >
               {isSubmitting ? "Saving..." : "Save"}
             </button>

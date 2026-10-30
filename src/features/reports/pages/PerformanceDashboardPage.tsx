@@ -17,6 +17,12 @@ import {
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportFilterDrawer,
+  ReportRefreshButton,
+} from "../components/ReportFilterDrawer";
+import {
   performanceDashboardService,
   type PerformanceBreakdownsResponse,
   type PerformanceComparisonType,
@@ -45,12 +51,10 @@ import {
   Banknote,
   BedDouble,
   Building2,
-  CalendarDays,
   Download,
   Eye,
   FileImage,
   FileSpreadsheet,
-  Filter,
   LayoutDashboard,
   Loader2,
   Search,
@@ -397,7 +401,7 @@ function CompetitorManageModal({
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
           >
             {saving ? "Saving…" : "Save Competitors"}
           </button>
@@ -895,14 +899,18 @@ export default function PerformanceDashboardPage() {
 
   if (!hotelId) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <p className="text-sm text-slate-500">
-          Select a hotel from the top bar to load performance data.
-        </p>
-        <div className="mt-8 flex min-h-70 items-center justify-center rounded-xl border border-dashed border-indigo-200 bg-gradient-to-br from-indigo-50/50 to-white">
-          <div className="text-center">
-            <Building2 className="mx-auto mb-3 h-10 w-10 text-indigo-300" />
-            <p className="text-sm font-medium text-slate-600">No hotel selected</p>
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-350 px-3 py-8 sm:px-5">
+          <p className="text-sm text-slate-500">
+            Select a hotel from the top bar to load performance data.
+          </p>
+          <div className="mt-6 flex min-h-70 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white">
+            <div className="text-center">
+              <Building2 className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+              <p className="text-sm font-medium text-slate-600">
+                No hotel selected
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -938,126 +946,115 @@ export default function PerformanceDashboardPage() {
         showToast={showToast}
       />
 
-      <div className="min-h-full bg-gradient-to-b from-indigo-50/40 via-slate-50 to-slate-50">
-        <div ref={pageCaptureRef} className="container mx-auto px-4 py-6">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-0 flex-wrap items-center gap-3">
-              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
-                <CalendarDays className="h-5 w-5" />
-              </span>
+      <div className="min-h-full bg-slate-50">
+        <div ref={pageCaptureRef} className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+          <div className="relative z-20 mb-3 rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
               <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-700">
-                  <span className="font-semibold text-slate-900">
-                    {durationLabel(datePreset)}
-                  </span>
-                  {visibleFromDate && visibleToDate ? (
-                    <span className="text-slate-500">
-                      {formatReportDate(visibleFromDate)} –{" "}
-                      {formatReportDate(visibleToDate)}
-                    </span>
-                  ) : null}
+                <p className="text-sm font-semibold text-slate-900">
+                  Performance
                 </p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  {DATE_AXIS_OPTIONS.find((o) => o.value === dateAxis)?.label ??
-                    dateAxis}
-                  {" · "}
                   {comparisonLabel(comparisonType)}
                 </p>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={openFilters}
-                className={cn(
-                  "inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3.5 py-2 text-sm font-medium transition",
-                  activeFilterCount
-                    ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
-                    : "border-indigo-200 bg-white text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50",
-                )}
-              >
-                <Filter className="h-4 w-4" />
-                Filters
-                {activeFilterCount ? (
-                  <span className="rounded-full bg-white/20 px-1.5 text-[11px] font-bold text-white">
-                    {activeFilterCount}
-                  </span>
-                ) : null}
-              </button>
-              <div
-                className="relative"
-                ref={downloadMenuRef}
-                data-exclude-from-capture="true"
-              >
-                <button
-                  type="button"
-                  onClick={() => setDownloadOpen((v) => !v)}
-                  disabled={capturingPage}
-                  aria-label={
-                    capturingPage ? "Capturing" : `Download ${metricName} report`
-                  }
-                  title={
-                    capturingPage ? "Capturing…" : `Download ${metricName} report`
-                  }
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm transition hover:bg-indigo-100 disabled:opacity-60"
+              <div className="flex flex-wrap items-center gap-2">
+                <ReportAppliedRange
+                  from={visibleFromDate}
+                  to={visibleToDate}
+                  detail={`${
+                    DATE_AXIS_OPTIONS.find((o) => o.value === dateAxis)?.label ??
+                    dateAxis
+                  } · ${durationLabel(datePreset)}`}
+                />
+                <ReportFilterButton
+                  onClick={openFilters}
+                  activeCount={activeFilterCount}
+                />
+                <div
+                  className="relative"
+                  ref={downloadMenuRef}
+                  data-exclude-from-capture="true"
                 >
-                  {capturingPage ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                </button>
-                {downloadOpen ? (
-                  <div className="absolute right-0 z-30 mt-1 w-60 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                    <button
-                      type="button"
-                      onClick={downloadFullPagePng}
-                      disabled={capturingPage || !overview}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-indigo-50 disabled:opacity-50"
-                    >
-                      <LayoutDashboard className="h-4 w-4 text-indigo-500" />
-                      Full page (PNG)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={downloadFullDataCsv}
-                      disabled={!overview}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-indigo-50 disabled:opacity-50"
-                    >
-                      <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                      Full data (CSV)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={downloadChartPng}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-indigo-50"
-                    >
-                      <FileImage className="h-4 w-4 text-sky-600" />
-                      Chart image (PNG)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={downloadSeriesCsv}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-indigo-50"
-                    >
-                      <FileSpreadsheet className="h-4 w-4 text-slate-400" />
-                      Series data (CSV)
-                    </button>
-                  </div>
-                ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setDownloadOpen((v) => !v)}
+                    disabled={capturingPage}
+                    aria-label={
+                      capturingPage
+                        ? "Capturing"
+                        : `Download ${metricName} report`
+                    }
+                    title={
+                      capturingPage
+                        ? "Capturing…"
+                        : `Download ${metricName} report`
+                    }
+                    className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    {capturingPage ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                  </button>
+                  {downloadOpen ? (
+                    <div className="absolute right-0 z-50 mt-1 w-60 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                      <button
+                        type="button"
+                        onClick={downloadFullPagePng}
+                        disabled={capturingPage || !overview}
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        <LayoutDashboard className="h-4 w-4 text-slate-500" />
+                        Full page (PNG)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={downloadFullDataCsv}
+                        disabled={!overview}
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                        Full data (CSV)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={downloadChartPng}
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <FileImage className="h-4 w-4 text-sky-600" />
+                        Chart image (PNG)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={downloadSeriesCsv}
+                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 text-slate-400" />
+                        Series data (CSV)
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                <ReportRefreshButton
+                  onClick={() => void loadAll()}
+                  loading={loading}
+                  disabled={customRangeInvalid}
+                />
               </div>
             </div>
           </div>
 
           {error ? (
-            <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {error}
             </div>
           ) : null}
 
           {loading && !overview ? (
-            <div className="flex min-h-80 items-center justify-center rounded-xl border border-indigo-100 bg-white">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+            <div className="flex min-h-80 items-center justify-center rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
           ) : overview ? (
             <>
@@ -1105,7 +1102,7 @@ export default function PerformanceDashboardPage() {
                       onClick={downloadChartPng}
                       aria-label="Download chart"
                       title="Download chart"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-600 transition hover:bg-indigo-100"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
                     >
                       <FileImage className="h-4 w-4" />
                     </button>
@@ -1144,18 +1141,18 @@ export default function PerformanceDashboardPage() {
                   />
                 </AnalyticsPanel>
 
-                <aside className="flex flex-col overflow-hidden rounded-xl border border-indigo-100 bg-white shadow-sm">
-                  <div className="flex items-center justify-between border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-white px-5 py-4">
+                <aside className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-5 py-4">
                     <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100">
-                        <Building2 className="h-3.5 w-3.5 text-indigo-600" />
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100">
+                        <Building2 className="h-3.5 w-3.5 text-slate-600" />
                       </span>
                       Competitor set
                     </h3>
                     <button
                       type="button"
                       onClick={() => setManageOpen(true)}
-                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                      className="text-xs font-semibold text-violet-700 hover:text-violet-900"
                     >
                       Manage
                     </button>
@@ -1164,10 +1161,10 @@ export default function PerformanceDashboardPage() {
                     {overview.competitorShare?.eligible &&
                     overview.competitorShare.yourSharePercent != null ? (
                       <>
-                        <p className="text-xs font-medium uppercase tracking-wide text-indigo-600">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                           Your market share
                         </p>
-                        <p className="mt-2 text-4xl font-bold tabular-nums text-indigo-900">
+                        <p className="mt-2 text-4xl font-bold tabular-nums text-slate-900">
                           {overview.competitorShare.yourSharePercent}%
                         </p>
                         <p className="mt-3 text-sm leading-relaxed text-slate-600">
@@ -1187,7 +1184,7 @@ export default function PerformanceDashboardPage() {
                         <button
                           type="button"
                           onClick={() => setManageOpen(true)}
-                          className="mt-4 inline-flex items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                          className="mt-4 inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
                         >
                           Configure competitors
                         </button>
@@ -1198,7 +1195,7 @@ export default function PerformanceDashboardPage() {
               </div>
 
               <div>
-                <h2 className="mb-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-indigo-600">
+                <h2 className="mb-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
                   <LayoutDashboard className="h-4 w-4" />
                   Segment breakdown
                 </h2>
@@ -1224,142 +1221,106 @@ export default function PerformanceDashboardPage() {
         </div>
       </div>
 
-      {filterOpen ? (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <button
-            type="button"
-            aria-label="Close filters"
-            onClick={() => setFilterOpen(false)}
-            className="absolute inset-0 cursor-pointer bg-slate-900/40"
-          />
-          <div className="relative flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <h2 className="text-lg font-bold text-slate-900">Filter</h2>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(false)}
-                className="cursor-pointer rounded-lg p-1 text-slate-500 hover:bg-slate-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      <ReportFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onReset={clearAll}
+        onApply={applyFilters}
+        applyDisabled={draftCustomInvalid || loading}
+        title="Filters"
+      >
+        <section>
+          <h3 className="mb-2 text-sm font-bold text-slate-900">Duration</h3>
+          <label className="mb-1 block text-xs text-slate-500">Time period</label>
+          <select
+            value={draft.datePreset}
+            onChange={(e) => {
+              const nextPreset = e.target.value as PerformanceDatePreset;
+              setDraft((prev) => ({
+                ...prev,
+                datePreset: nextPreset,
+              }));
+              if (nextPreset !== "CUSTOM") {
+                setCustomFromText("");
+                setCustomToText("");
+              } else if (draft.fromDate && draft.toDate) {
+                setCustomFromText(formatReportDate(draft.fromDate));
+                setCustomToText(formatReportDate(draft.toDate));
+              }
+            }}
+            className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+          >
+            {DURATION_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
 
-            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
-              <section>
-                <h3 className="mb-2 text-sm font-bold text-slate-900">Duration</h3>
-                <label className="mb-1 block text-xs text-slate-500">
-                  Time period
-                </label>
-                <select
-                  value={draft.datePreset}
-                  onChange={(e) => {
-                    const nextPreset = e.target.value as PerformanceDatePreset;
+          {draft.datePreset === "CUSTOM" ? (
+            <ReportCustomDateFields
+              className="mt-3"
+              fromText={customFromText}
+              toText={customToText}
+              onFromTextChange={setCustomFromText}
+              onToTextChange={setCustomToText}
+            />
+          ) : null}
+        </section>
+
+        <section className="border-t border-slate-100 pt-5">
+          <h3 className="mb-2 text-sm font-bold text-slate-900">
+            Comparison with
+          </h3>
+          <div className="space-y-2">
+            {COMPARISON_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-slate-50"
+              >
+                <input
+                  type="radio"
+                  name="comparisonType"
+                  checked={draft.comparisonType === option.value}
+                  onChange={() =>
                     setDraft((prev) => ({
                       ...prev,
-                      datePreset: nextPreset,
-                    }));
-                    if (nextPreset !== "CUSTOM") {
-                      setCustomFromText("");
-                      setCustomToText("");
-                    } else if (draft.fromDate && draft.toDate) {
-                      setCustomFromText(formatReportDate(draft.fromDate));
-                      setCustomToText(formatReportDate(draft.toDate));
-                    }
-                  }}
-                  className="w-full cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-                >
-                  {DURATION_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-
-                {draft.datePreset === "CUSTOM" ? (
-                  <ReportCustomDateFields
-                    className="mt-3"
-                    fromText={customFromText}
-                    toText={customToText}
-                    onFromTextChange={setCustomFromText}
-                    onToTextChange={setCustomToText}
-                  />
-                ) : null}
-              </section>
-
-              <section className="border-t border-slate-100 pt-5">
-                <h3 className="mb-2 text-sm font-bold text-slate-900">
-                  Comparison with
-                </h3>
-                <div className="space-y-2">
-                  {COMPARISON_OPTIONS.map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-slate-50"
-                    >
-                      <input
-                        type="radio"
-                        name="comparisonType"
-                        checked={draft.comparisonType === option.value}
-                        onChange={() =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            comparisonType: option.value,
-                          }))
-                        }
-                      />
-                      <span className="text-sm text-slate-700">{option.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </section>
-
-              <section className="border-t border-slate-100 pt-5">
-                <h3 className="mb-2 text-sm font-bold text-slate-900">Date type</h3>
-                <div className="flex gap-2">
-                  {DATE_AXIS_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          dateAxis: option.value,
-                        }))
-                      }
-                      className={cn(
-                        "flex-1 cursor-pointer rounded-lg border px-3 py-2 text-sm font-medium transition",
-                        draft.dateAxis === option.value
-                          ? "border-indigo-600 bg-indigo-600 text-white"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50",
-                      )}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </section>
-            </div>
-
-            <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-4">
-              <button
-                type="button"
-                onClick={clearAll}
-                className="cursor-pointer text-sm font-semibold text-indigo-600 hover:text-indigo-800"
-              >
-                Clear All
-              </button>
-              <button
-                type="button"
-                onClick={applyFilters}
-                disabled={draftCustomInvalid || loading}
-                className="cursor-pointer rounded-lg bg-indigo-600 px-6 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
-              >
-                Apply Filter
-              </button>
-            </div>
+                      comparisonType: option.value,
+                    }))
+                  }
+                />
+                <span className="text-sm text-slate-700">{option.label}</span>
+              </label>
+            ))}
           </div>
-        </div>
-      ) : null}
+        </section>
+
+        <section className="border-t border-slate-100 pt-5">
+          <h3 className="mb-2 text-sm font-bold text-slate-900">Date type</h3>
+          <div className="flex gap-2">
+            {DATE_AXIS_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    dateAxis: option.value,
+                  }))
+                }
+                className={cn(
+                  "flex-1 cursor-pointer rounded-lg border px-3 py-2 text-sm font-medium transition",
+                  draft.dateAxis === option.value
+                    ? "border-violet-600 bg-violet-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:bg-violet-50",
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      </ReportFilterDrawer>
     </>
   );
 }

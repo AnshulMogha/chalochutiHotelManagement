@@ -88,7 +88,7 @@ function SegmentToggle<T extends string>({
               ? "min-w-[3.25rem] rounded-md px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-all"
               : "min-w-[5.5rem] rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide transition-all",
             value === opt.value
-              ? "bg-blue-600 text-white shadow-sm"
+              ? "bg-[#2f3d95] text-white shadow-sm"
               : "text-gray-600 hover:text-gray-900",
           )}
         >
@@ -473,7 +473,7 @@ export function LinkRatePlansSheet({
             type="button"
             onClick={handleConfirm}
             disabled={confirmDisabled}
-            className="w-full rounded-lg bg-blue-600 py-3.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            className="w-full rounded-lg bg-[#2f3d95] py-3.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#263578] focus:outline-none focus:ring-2 focus:ring-[#2f3d95] focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
           >
             {linkConfigLoading
               ? "Loading…"
