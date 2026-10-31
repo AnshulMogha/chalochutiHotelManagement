@@ -831,10 +831,6 @@ export function PoliciesStep() {
                 options={[
                   { value: "no", label: "No" },
                   { value: "yes", label: "Yes" },
-                  {
-                    value: "subject_to_availability",
-                    label: "Subject to availability",
-                  },
                 ]}
               />
               <RadioQuestion
@@ -847,10 +843,6 @@ export function PoliciesStep() {
                 options={[
                   { value: "no", label: "No" },
                   { value: "yes", label: "Yes" },
-                  {
-                    value: "subject_to_availability",
-                    label: "Subject to availability",
-                  },
                 ]}
               />
             </div>

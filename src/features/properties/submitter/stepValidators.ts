@@ -2,7 +2,6 @@ import { mapZodErrorsFlat } from "@/utils/mapZodErrors";
 import type {
   AmenitiesInfo,
   BasicInfo,
-  BedArrangement,
   LocationInfo,
   MealPlanDetails,
   RoomDetails,
@@ -13,7 +12,6 @@ import type {
 import basicInfoSchema from "../validator/basicInfo.schema";
 import locationInfoSchema from "../validator/loacationInfo.schema";
 import roomDetailsSchema from "../validator/roomStepValidators/roomDetails.schema";
-import { roomCapacityOptions } from "../components/steps/RoomsSteps/constants/roomBedsOptions";
 import mealPlanDetailsSchema from "../validator/roomStepValidators/mealPlanDetailsSchema";
 import { financeAndLegalSchema } from "../validator/financeAndLegal.schema";
 
@@ -93,62 +91,6 @@ const roomDetailsValidator = (roomDetails: RoomDetails) => {
   return null;
 };
 
-//
-type Capacity = {
-  baseAdults: number;
-  maxAdults: number;
-  baseChildren: number;
-  maxChildren: number;
-  maxOccupancy: number;
-};
-
-function calculateStandardCapacity(beds: BedArrangement[]): Capacity {
-  return beds.reduce(
-    (acc, bed) => {
-      const cap =
-        roomCapacityOptions[bed.bedType as keyof typeof roomCapacityOptions];
-      if (!cap || bed.numberOfBeds <= 0) return acc;
-
-      acc.baseAdults += cap.baseAdults * bed.numberOfBeds;
-      acc.maxAdults += cap.maxAdults * bed.numberOfBeds;
-      acc.baseChildren += cap.baseChildren * bed.numberOfBeds;
-      acc.maxChildren += cap.maxChildren * bed.numberOfBeds;
-      acc.maxOccupancy += cap.maxOccupancy * bed.numberOfBeds;
-
-      return acc;
-    },
-    {
-      baseAdults: 0,
-      maxAdults: 0,
-      baseChildren: 0,
-      maxChildren: 0,
-      maxOccupancy: 0,
-    }
-  );
-}
-function calculateExtraBedCapacity(
-  canAccommodateExtraBed: boolean,
-  numberOfExtraBeds: number
-): Capacity {
-  if (!canAccommodateExtraBed || numberOfExtraBeds <= 0) {
-    return {
-      baseAdults: 0,
-      maxAdults: 0,
-      baseChildren: 0,
-      maxChildren: 0,
-      maxOccupancy: 0,
-    };
-  }
-
-  return {
-    baseAdults: 0,
-    maxAdults: numberOfExtraBeds,
-    baseChildren: 0,
-    maxChildren: numberOfExtraBeds,
-    maxOccupancy: numberOfExtraBeds,
-  };
-}
-
 export const sleepingArrangementValidator = (
   sleepingArrangement: SleepingArrangement
 ) => {
@@ -168,7 +110,7 @@ export const sleepingArrangementValidator = (
 
     if (invalidIndex !== -1) {
       errors.standardBeds =
-        `Bed must have a bed type and quantity of at least 1.${invalidIndex}`;
+        `Bed must have a bed type and quantity of at least 1.|${invalidIndex}`;
     }
   }
 
@@ -193,61 +135,40 @@ export const sleepingArrangementValidator = (
 
       if (invalidIndex !== -1) {
         errors.alternateBeds =
-          `Alternate bed must have a bed type and quantity of at least 1.${invalidIndex}`;
+          `Alternate bed must have a bed type and quantity of at least 1.|${invalidIndex}`;
       }
     }
   }
 
   /* =====================================================
-     CAPACITY CALCULATION (STANDARD + EXTRA ONLY)
-     ===================================================== */
-
-  const standardCapacity = calculateStandardCapacity(
-    sleepingArrangement.standardBeds
-  );
-
-  const extraCapacity = calculateExtraBedCapacity(
-    sleepingArrangement.canAccommodateExtraBed,
-    sleepingArrangement.numberOfExtraBeds
-  );
-
-  const totalCapacity: Capacity = {
-    baseAdults: standardCapacity.baseAdults + extraCapacity.baseAdults,
-    maxAdults: standardCapacity.maxAdults + extraCapacity.maxAdults,
-    baseChildren:
-      standardCapacity.baseChildren + extraCapacity.baseChildren,
-    maxChildren:
-      standardCapacity.maxChildren + extraCapacity.maxChildren,
-    maxOccupancy:
-      standardCapacity.maxOccupancy + extraCapacity.maxOccupancy,
-  };
-
-  /* =====================================================
      OCCUPANCY VALIDATIONS
      ===================================================== */
 
-  // Base ≤ Max
-  if (sleepingArrangement.baseAdults > sleepingArrangement.maxAdults) {
+  // Occupancy is prefilled from the beds, then the user can adjust it.
+  // Do not require an exact match to the bed total — that blocked Next when
+  // a room had two beds and a different valid occupancy.
+  if (sleepingArrangement.baseAdults < 1) {
+    errors.baseAdults = "Base adults must be at least 1.";
+  } else if (sleepingArrangement.baseAdults > sleepingArrangement.maxAdults) {
     errors.baseAdults =
       "Base adults cannot be more than maximum adults.";
   }
 
-  // Max adults must equal combined max adults from all beds (including extra beds)
-  if (sleepingArrangement.maxAdults !== totalCapacity.maxAdults) {
+  if (sleepingArrangement.maxAdults < 1) {
+    errors.maxAdults = "Maximum adults must be at least 1.";
+  } else if (sleepingArrangement.maxAdults > sleepingArrangement.maxOccupancy) {
     errors.maxAdults =
-      `Maximum adults must equal ${totalCapacity.maxAdults} (combined max adults from all beds including extra beds).`;
+      "Maximum adults cannot be more than maximum occupancy.";
   }
 
-  // Max occupancy must equal sum of bed occupancies (including extra beds)
-  if (sleepingArrangement.maxOccupancy !== totalCapacity.maxOccupancy) {
-    errors.maxOccupancy =
-      `Maximum occupancy must equal ${totalCapacity.maxOccupancy} (sum of all bed occupancies including extra beds).`;
+  if (sleepingArrangement.maxOccupancy < 1) {
+    errors.maxOccupancy = "Maximum occupancy must be at least 1.";
   }
 
   // Ensure max children < max occupancy (at least 1 adult required)
   if (
-    sleepingArrangement.maxChildren >=
-    sleepingArrangement.maxOccupancy
+    sleepingArrangement.maxOccupancy > 0 &&
+    sleepingArrangement.maxChildren >= sleepingArrangement.maxOccupancy
   ) {
     errors.maxChildren =
       "Maximum children must be less than maximum occupancy (at least 1 adult is required).";

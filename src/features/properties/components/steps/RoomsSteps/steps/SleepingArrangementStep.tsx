@@ -35,6 +35,17 @@ type OccupancyField =
   | "maxChildren"
   | "maxOccupancy";
 
+function splitBedError(error?: string): { message?: string; index: number } {
+  if (!error) return { index: -1 };
+  const match = /^(.*)\|(\d+)$/.exec(error);
+  if (!match) return { message: error, index: -1 };
+  return { message: match[1], index: Number(match[2]) };
+}
+
+function visibleErrorText(error: string) {
+  return error.replace(/\|\d+$/, "");
+}
+
 export function SleepingArrangementStep({
   errors,
   resetFieldError,
@@ -62,6 +73,8 @@ export function SleepingArrangementStep({
   // override and marked as user-modified. This handles both async server
   // hydration and step-navigation remounts without blocking defaults.
   const didCompareToCalcRef = useRef(false);
+  const previousBedConfigRef = useRef<string | null>(null);
+  const errorBannerRef = useRef<HTMLDivElement>(null);
 
   const markUserModified = (field: OccupancyField) => {
     userModifiedRef.current[field] = true;
@@ -337,11 +350,33 @@ export function SleepingArrangementStep({
     setRoomDetailsState(setMaxOccupancy(sleepingArrangement.maxOccupancy + 1));
   };
 
-  // Auto-suggest occupancy values when beds change. Fields the user has
-  // explicitly customized (manually edited, or already saved as a value that
-  // diverges from the auto-calc baseline) are preserved and never overridden.
+  // Auto-suggest occupancy from the standard beds. A saved custom value is
+  // kept until the bed setup itself changes. Switching bed types or counts
+  // (including a second bed) applies a fresh suggestion so Next is not stuck
+  // on numbers from the previous arrangement.
+  const bedConfigKey = JSON.stringify({
+    beds: sleepingArrangement.standardBeds,
+    extra: sleepingArrangement.canAccommodateExtraBed,
+    extraCount: sleepingArrangement.numberOfExtraBeds,
+  });
+
   useEffect(() => {
-    // Calculate capacity from standard beds
+    const bedConfigChanged =
+      previousBedConfigRef.current !== null &&
+      previousBedConfigRef.current !== bedConfigKey;
+    previousBedConfigRef.current = bedConfigKey;
+
+    if (bedConfigChanged) {
+      userModifiedRef.current = {
+        baseAdults: false,
+        maxAdults: false,
+        baseChildren: false,
+        maxChildren: false,
+        maxOccupancy: false,
+      };
+      didCompareToCalcRef.current = true;
+    }
+
     let totalMaxOccupancy = 0;
     let totalMaxAdults = 0;
     let totalBaseAdults = 0;
@@ -358,7 +393,6 @@ export function SleepingArrangementStep({
       }
     });
 
-    // Add extra bed capacity if enabled (each extra bed = 1 person)
     if (
       sleepingArrangement.canAccommodateExtraBed &&
       sleepingArrangement.numberOfExtraBeds > 0
@@ -367,14 +401,14 @@ export function SleepingArrangementStep({
       totalMaxAdults += sleepingArrangement.numberOfExtraBeds;
     }
 
-    // Max children: max occupancy - 1 (at least 1 adult required)
     const calculatedMaxChildren =
       totalMaxOccupancy > 0 ? Math.max(0, totalMaxOccupancy - 1) : 0;
 
-    // First time we have a real bed configuration, compare existing values
-    // against the calculated baseline. Anything that already diverges is
-    // treated as a deliberate override (user-set or server-set custom).
-    if (!didCompareToCalcRef.current && totalMaxOccupancy > 0) {
+    if (
+      !bedConfigChanged &&
+      !didCompareToCalcRef.current &&
+      totalMaxOccupancy > 0
+    ) {
       didCompareToCalcRef.current = true;
       if (
         sleepingArrangement.maxOccupancy > 0 &&
@@ -431,16 +465,15 @@ export function SleepingArrangementStep({
       ) {
         setRoomDetailsState(setBaseAdults(totalBaseAdults));
       }
+      if (
+        bedConfigChanged &&
+        sleepingArrangement.baseChildren > calculatedMaxChildren
+      ) {
+        setRoomDetailsState(setBaseChildren(calculatedMaxChildren));
+      }
     }
-    // When totalMaxOccupancy === 0 we intentionally do NOT zero out the
-    // occupancy fields. This avoids wiping user-entered or server-loaded
-    // values just because beds were temporarily cleared during edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    JSON.stringify(sleepingArrangement.standardBeds),
-    sleepingArrangement.canAccommodateExtraBed,
-    sleepingArrangement.numberOfExtraBeds,
-  ]);
+  }, [bedConfigKey]);
 
   const getStandardBedOptions = (currentIndex: number) => {
     const selectedTypes = sleepingArrangement.standardBeds
@@ -460,23 +493,27 @@ export function SleepingArrangementStep({
       (option) => !selectedTypes.includes(option.value)
     );
   };
-  const standardBedError = errors.sleepingArrangement?.standardBeds;
-  const standardErrorIndex = Number(
-    standardBedError ? standardBedError[standardBedError.length - 1] : -1
+  const standardBedError = splitBedError(
+    errors.sleepingArrangement?.standardBeds,
   );
-  const parsedStandardErrorMessage = standardBedError?.slice(
-    0,
-    standardBedError.length - 1
+  const standardErrorIndex = standardBedError.index;
+  const parsedStandardErrorMessage = standardBedError.message;
+  const alternateBedError = splitBedError(
+    errors.sleepingArrangement?.alternateBeds,
   );
-  //alternate bed error
-  const alternateBedError = errors.sleepingArrangement?.alternateBeds;
-  const alternateErrorIndex = Number(
-    alternateBedError ? alternateBedError[alternateBedError.length - 1] : -1
-  );
-  const parsedAlternateErrorMessage = alternateBedError?.slice(
-    0,
-    alternateBedError.length - 1
-  );
+  const alternateErrorIndex = alternateBedError.index;
+  const parsedAlternateErrorMessage = alternateBedError.message;
+  const validationMessages = Object.values(errors.sleepingArrangement ?? {})
+    .filter((message): message is string => Boolean(message))
+    .map(visibleErrorText);
+
+  useEffect(() => {
+    if (validationMessages.length === 0) return;
+    errorBannerRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [validationMessages.join("|")]);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-md p-6 space-y-6">
@@ -559,6 +596,11 @@ export function SleepingArrangementStep({
             <Plus className="w-4 h-4" />
             Add Another Bed Type
           </button>
+          {standardErrorIndex < 0 && parsedStandardErrorMessage ? (
+            <p className="text-sm text-red-600" role="alert">
+              {parsedStandardErrorMessage}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -608,6 +650,7 @@ export function SleepingArrangementStep({
               <Input
                 type="number"
                 value={sleepingArrangement.numberOfExtraBeds}
+                error={errors.sleepingArrangement?.numberOfExtraBeds}
                 onChange={(e) =>
                   handleNumberOfExtraBedsChange(Number(e.target.value))
                 }
@@ -735,6 +778,13 @@ export function SleepingArrangementStep({
               <Plus className="w-4 h-4" />
               Add Another Bed Type
             </button>
+            {sleepingArrangement.alternateBeds.length === 0 ||
+            (parsedAlternateErrorMessage && alternateErrorIndex < 0) ? (
+              <p className="text-sm text-red-600" role="alert">
+                {parsedAlternateErrorMessage ||
+                  "Add at least one alternate bed type, or choose No."}
+              </p>
+            ) : null}
           </div>
         </div>
       )}
@@ -878,6 +928,20 @@ export function SleepingArrangementStep({
           ))}
         </div>
       </div>
+      {validationMessages.length > 0 ? (
+        <div
+          ref={errorBannerRef}
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          <p className="font-medium">Next is blocked until these are fixed</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5">
+            {validationMessages.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

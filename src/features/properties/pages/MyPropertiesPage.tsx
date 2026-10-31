@@ -713,17 +713,21 @@ export default function MyPropertiesPage() {
             headerName: "Rejection Reason",
             width: 220,
             sortable: false,
-            renderCell: (params) =>
-              params.row.rejectionReason ? (
+            renderCell: (params) => {
+              const status = String(params.row.status || "").toUpperCase();
+              const isActiveProperty = status === "ACTIVE" || status === "LIVE";
+              if (isActiveProperty || !params.row.rejectionReason) {
+                return <span className="text-sm text-slate-400">—</span>;
+              }
+              return (
                 <span className="inline-flex items-start gap-1.5 rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-800 ring-1 ring-rose-200">
                   <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span className="line-clamp-2">
                     {params.row.rejectionReason}
                   </span>
                 </span>
-              ) : (
-                <span className="text-sm text-slate-400">—</span>
-              ),
+              );
+            },
           } satisfies GridColDef<HotelList>,
         ]
       : []),

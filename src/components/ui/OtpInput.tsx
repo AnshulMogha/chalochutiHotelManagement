@@ -15,6 +15,8 @@ export interface OtpInputProps {
   error?: string;
   disabled?: boolean;
   className?: string;
+  inputClassName?: string;
+  showErrorText?: boolean;
 }
 
 export const OtpInput = forwardRef<HTMLDivElement, OtpInputProps>(
@@ -27,6 +29,8 @@ export const OtpInput = forwardRef<HTMLDivElement, OtpInputProps>(
       error,
       disabled = false,
       className,
+      inputClassName,
+      showErrorText = true,
     },
     ref
   ) => {
@@ -127,15 +131,17 @@ export const OtpInput = forwardRef<HTMLDivElement, OtpInputProps>(
                 "w-14 h-14 text-center text-2xl font-semibold rounded-lg border-2",
                 "focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all",
                 "disabled:bg-gray-100 disabled:cursor-not-allowed",
+                "bg-white text-gray-900",
+                inputClassName,
                 error
                   ? "border-red-500 focus:ring-red-500 focus:border-red-500"
-                  : "border-gray-300 focus:ring-blue-500 focus:border-blue-500",
-                "bg-white text-gray-900"
+                  : !inputClassName &&
+                      "border-gray-300 focus:ring-blue-500 focus:border-blue-500",
               )}
             />
           ))}
         </div>
-        {error && (
+        {showErrorText && error && (
           <p
             className="mt-1 absolute w-full top-full text-sm text-red-600 text-center"
             role="alert"

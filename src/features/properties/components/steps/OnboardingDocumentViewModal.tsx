@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, ExternalLink, FileText, FileWarning, Loader2, X } from "lucide-react";
-import {
-  getDocumentId,
-  getStoredDocumentUrl,
-  usesSignedDocumentDownloadUrls,
-} from "@/features/admin/services/documentDownloadUrl";
+import { getDocumentId } from "@/features/admin/services/documentDownloadUrl";
 import { propertyService } from "../../services/propertyService";
 import type { OnboardingDocument } from "../../services/api.types";
 
@@ -35,18 +31,15 @@ async function resolveDocumentSourceUrl(
   hotelId: string,
   document: OnboardingDocument,
 ): Promise<string> {
-  if (usesSignedDocumentDownloadUrls()) {
-    const docId = getDocumentId(document);
-    if (docId == null) {
-      throw new Error("Document id missing");
-    }
-    const data = await propertyService.getOnboardingDocumentDownloadUrl(
-      hotelId,
-      docId,
-    );
-    return String(data.downloadUrl || "").trim();
+  const docId = getDocumentId(document);
+  if (docId == null) {
+    throw new Error("Document id missing");
   }
-  return getStoredDocumentUrl(document);
+  const data = await propertyService.getOnboardingDocumentDownloadUrl(
+    hotelId,
+    docId,
+  );
+  return String(data.downloadUrl || "").trim();
 }
 
 async function fetchDocumentBlob(url: string): Promise<Blob> {

@@ -399,10 +399,9 @@ const RoomDetailsReducer = (
           ...state.sleepingArrangement,
           hasAlternateArrangement: action.payload.hasAlternateArrangement,
           alternateBeds: action.payload.hasAlternateArrangement
-            ? [
-                ...state.sleepingArrangement.alternateBeds,
-                { bedType: "", numberOfBeds: 1 },
-              ]
+            ? state.sleepingArrangement.alternateBeds.length > 0
+              ? state.sleepingArrangement.alternateBeds
+              : [{ bedType: "", numberOfBeds: 1 }]
             : [],
         },
       };

@@ -4,7 +4,8 @@ import { LoadingSpinner } from "@/components/ui";
 
 export default function AuthLayout() {
   const { pathname } = useLocation();
-  const isLoginPage = pathname.endsWith("/login");
+  const isLoginPage =
+    pathname.endsWith("/login") || pathname.endsWith("/auth/verify-otp");
 
   if (isLoginPage) {
     return (

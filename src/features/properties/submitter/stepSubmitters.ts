@@ -50,11 +50,11 @@ async function submitLocationInfo(
     metaInfo.hotelId
   );
 }
-function filterAmenitiesWithMoreThanOne(
+function filterSelectedAmenities(
   selectedAmenities: Record<string, string[]>
 ): Record<string, string[]> {
   return Object.fromEntries(
-    Object.entries(selectedAmenities).filter(([, values]) => values.length > 1)
+    Object.entries(selectedAmenities).filter(([, values]) => values.length > 0)
   );
 }
 
@@ -62,7 +62,7 @@ async function submitAmenitiesInfo(
   selectedAmenities: Record<string, string[]>,
   metaInfo: metaInfo
 ) {
-  const filteredAmenities = filterAmenitiesWithMoreThanOne(selectedAmenities);
+  const filteredAmenities = filterSelectedAmenities(selectedAmenities);
 
   await propertyService.submitAmenitiesInfo(
     {
@@ -160,7 +160,7 @@ function transformAmenitiesPayload(
 function buildAmenities(amenities: Record<string, string[]>) {
   return {
     amenities: transformAmenitiesPayload(
-      filterAmenitiesWithMoreThanOne(amenities)
+      filterSelectedAmenities(amenities)
     ),
   };
 }
@@ -348,14 +348,7 @@ function transformPoliciesToRules(policiesInfo: PoliciesInfo): PolicyRule[] {
 
   // Extra Bed Policies
   if (policiesInfo.bedToExtraAdults !== undefined) {
-    const value =
-      policiesInfo.bedToExtraAdults === "yes"
-        ? true
-        : policiesInfo.bedToExtraAdults === "no"
-        ? false
-        : policiesInfo.bedToExtraAdults === "subject_to_availability"
-        ? true
-        : false;
+    const value = policiesInfo.bedToExtraAdults === "yes";
     rules.push({
       category: "EXTRA_BED",
       ruleCode: "EXTRA_BED_ADULT_ALLOWED",
@@ -365,14 +358,7 @@ function transformPoliciesToRules(policiesInfo: PoliciesInfo): PolicyRule[] {
   }
 
   if (policiesInfo.bedToExtraKids !== undefined) {
-    const value =
-      policiesInfo.bedToExtraKids === "yes"
-        ? true
-        : policiesInfo.bedToExtraKids === "no"
-        ? false
-        : policiesInfo.bedToExtraKids === "subject_to_availability"
-        ? true
-        : false;
+    const value = policiesInfo.bedToExtraKids === "yes";
     rules.push({
       category: "EXTRA_BED",
       ruleCode: "EXTRA_BED_CHILD_ALLOWED",
