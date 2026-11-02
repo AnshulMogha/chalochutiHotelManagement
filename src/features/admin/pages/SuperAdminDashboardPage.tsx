@@ -14,6 +14,7 @@ import {
   BarChart3,
   BedDouble,
   BookOpen,
+  Bus,
   ClipboardCheck,
   CreditCard,
   FileText,
@@ -80,6 +81,14 @@ const DASHBOARD_LINKS = [
     icon: Handshake,
     color: "from-cyan-500 to-sky-600",
     key: "TRAVEL_PARTNERS",
+  },
+  {
+    title: "Transport Partner",
+    path: ROUTES.ADMIN.TRANSPORT,
+    icon: Bus,
+    color: "from-amber-500 to-orange-600",
+    key: "TRANSPORT",
+    external: true,
   },
   {
     title: "Agents",
@@ -194,7 +203,9 @@ export default function SuperAdminDashboardPage() {
     if (isSuperAdmin) {
       return item.key !== "AGENTS" && item.key !== "MY_TEAM";
     }
-    if (isZonalSales) return item.key === "TRAVEL_PARTNERS";
+    if (isZonalSales) {
+      return item.key === "TRAVEL_PARTNERS" || item.key === "TRANSPORT";
+    }
     if (isSalesManager) return item.key === "AGENTS";
     if (isReviewer) {
       return (
@@ -221,6 +232,7 @@ export default function SuperAdminDashboardPage() {
       return false;
     }
 
+    if (item.key === "TRANSPORT") return false;
     if (item.key === "MY_PROPERTIES") return true;
     return canViewModule(user, item.key as Parameters<typeof canViewModule>[1]);
   });
@@ -234,12 +246,10 @@ export default function SuperAdminDashboardPage() {
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {visibleCards.map((item) => {
           const Icon = item.icon;
-          return (
-            <Link
-              key={item.title}
-              to={item.path}
-              className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm transition-all hover:border-blue-200 hover:shadow-md"
-            >
+          const className =
+            "group flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm transition-all hover:border-blue-200 hover:shadow-md";
+          const content = (
+            <>
               <div
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-linear-to-br ${item.color} text-white`}
               >
@@ -248,6 +258,18 @@ export default function SuperAdminDashboardPage() {
               <h2 className="min-w-0 truncate text-sm font-semibold text-gray-900 group-hover:text-blue-700">
                 {item.title}
               </h2>
+            </>
+          );
+          if ("external" in item && item.external) {
+            return (
+              <a key={item.title} href={item.path} className={className}>
+                {content}
+              </a>
+            );
+          }
+          return (
+            <Link key={item.title} to={item.path} className={className}>
+              {content}
             </Link>
           );
         })}
