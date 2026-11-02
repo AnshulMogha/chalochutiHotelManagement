@@ -518,17 +518,17 @@ const getNavItems = (user: User | null): NavItem[] => {
     icon: LayoutDashboard,
   });
   if (isZonalSales) {
+    items.push({
+      label: "Travel Partners",
+      path: ROUTES.ADMIN.TRAVEL_PARTNERS,
+      icon: Handshake,
+    });
     const reportsNav = getReportsNavItem(user, {
       includeOnboardingPipeline: false,
       includeSalesManagerDashboard: canViewSalesManagerReports(userRoles),
       includeSalesManagerPortfolio: canViewSalesManagerReports(userRoles),
     });
     if (reportsNav) items.push(reportsNav);
-    items.push({
-      label: "Travel Partners",
-      path: ROUTES.ADMIN.TRAVEL_PARTNERS,
-      icon: Handshake,
-    });
     items.push({
       label: "Transport Partner",
       path: ROUTES.ADMIN.TRANSPORT,

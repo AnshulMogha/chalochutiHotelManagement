@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router";
-import { Button } from "@/components/ui";
+import { Button, DataTable, formatListCount } from "@/components/ui";
+import { ExportButton } from "@/components/ui/ExportButton";
+import type { GridColDef } from "@mui/x-data-grid";
 import { ROUTES } from "@/constants";
 import { adminService } from "../services/adminService";
 import type {
@@ -11,8 +13,6 @@ import type {
 import { useAuth } from "@/hooks/useAuth";
 import { isSalesManagerRole, isZonalManagerSalesRole } from "@/constants/roles";
 import {
-  UserRoundCog,
-  Eye,
   X,
   User,
   FileText,
@@ -24,24 +24,38 @@ import {
   Mail,
   MapPin,
   Hash,
-  CalendarDays,
-  MessageSquare,
   IdCard,
   Briefcase,
   Plus,
   Pencil,
   Loader2,
-  Filter,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
-import { ReportFilterActions } from "@/features/reports/components/ReportFilterDrawer";
 import {
+  ReportAppliedRange,
+  ReportFilterButton,
+  ReportFilterDrawer,
+  ReportRefreshButton,
+} from "@/features/reports/components/ReportFilterDrawer";
+import {
+  exportStatusLabel,
   isoToReportDateText,
   parseOptionalReportDate,
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "@/features/reports/services/reportExportService";
+import {
+  TravelPartnerBadge,
+  getAgencyTierTone,
+  getTravelPartnerRemarkTone,
+  travelPartnerTableGridSx,
+} from "../components/travelPartnerTableUi";
 import type { TravelPartnerStatus } from "./TravelPartnersPage";
 import type { TravelPartner } from "./TravelPartnersPage";
 
@@ -116,38 +130,39 @@ function mapOnboardingToPartner(item: TravelAgentOnboardingItem): TravelPartner 
   };
 }
 
-const TAB_CONFIG: Record<
-  TravelPartnerStatus,
+const AGENT_TABS: Array<{
+  value: TravelPartnerStatus;
+  label: string;
+  icon: typeof Clock;
+  activeClass: string;
+  iconWell: string;
+}> = [
   {
-    label: string;
-    icon: typeof Clock;
-    activeClass: string;
-    badgeClass: string;
-    iconWell: string;
-  }
-> = {
-  PENDING: {
+    value: "PENDING",
     label: "Pending",
     icon: Clock,
-    activeClass: "border-amber-500 text-white bg-amber-500",
-    badgeClass: "bg-white/20 text-white",
+    activeClass: "bg-amber-500 text-white",
     iconWell: "bg-amber-100 text-amber-800",
   },
-  APPROVED: {
+  {
+    value: "APPROVED",
     label: "Approved",
     icon: CheckCircle,
-    activeClass: "border-emerald-600 text-white bg-emerald-600",
-    badgeClass: "bg-white/20 text-white",
+    activeClass: "bg-emerald-600 text-white",
     iconWell: "bg-emerald-100 text-emerald-800",
   },
-  REJECTED: {
+  {
+    value: "REJECTED",
     label: "Rejected",
     icon: XCircle,
-    activeClass: "border-rose-600 text-white bg-rose-600",
-    badgeClass: "bg-white/20 text-white",
+    activeClass: "bg-rose-600 text-white",
     iconWell: "bg-rose-100 text-rose-800",
   },
-};
+];
+
+const TAB_CONFIG = Object.fromEntries(
+  AGENT_TABS.map((tab) => [tab.value, tab]),
+) as Record<(typeof AGENT_TABS)[number]["value"], (typeof AGENT_TABS)[number]>;
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", {
@@ -193,14 +208,14 @@ export default function AgentsListPage() {
   const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
-  const [hasNext, setHasNext] = useState(false);
-  const [hasPrevious, setHasPrevious] = useState(false);
   const [statusTotals, setStatusTotals] = useState<Record<TravelPartnerStatus, number>>({
     PENDING: 0,
     APPROVED: 0,
     REJECTED: 0,
   });
   const [filterOpen, setFilterOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(null);
   const [draftFilters, setDraftFilters] = useState<AgentListFilters>(
     DEFAULT_AGENT_FILTERS,
   );
@@ -208,15 +223,14 @@ export default function AgentsListPage() {
     DEFAULT_AGENT_FILTERS,
   );
 
-  const hasActiveFilters = Boolean(
-    appliedFilters.email ||
-      appliedFilters.name ||
-      appliedFilters.agencyName ||
-      appliedFilters.agencyTier ||
-      appliedFilters.createdAt ||
-      appliedFilters.createdAtFrom ||
-      appliedFilters.createdAtTo,
-  );
+  const activeFilterCount =
+    (appliedFilters.email ? 1 : 0) +
+    (appliedFilters.name ? 1 : 0) +
+    (appliedFilters.agencyName ? 1 : 0) +
+    (appliedFilters.agencyTier ? 1 : 0) +
+    (appliedFilters.createdAt ? 1 : 0) +
+    (appliedFilters.createdAtFrom || appliedFilters.createdAtTo ? 1 : 0);
+  const hasActiveFilters = activeFilterCount > 0;
 
   const applyFilters = () => {
     const createdAtIso = parseOptionalReportDate(draftFilters.createdAt);
@@ -270,6 +284,53 @@ export default function AgentsListPage() {
     setFilterOpen(true);
   };
 
+  const exportAgents = async (format: ReportExportFormat) => {
+    setExporting(true);
+    setExportStatus("QUEUED");
+    try {
+      await adminService.exportTravelAgentOnboarding({
+        params: {
+          status: activeTab,
+          ...(appliedFilters.email ? { email: appliedFilters.email } : {}),
+          ...(appliedFilters.name ? { name: appliedFilters.name } : {}),
+          ...(appliedFilters.agencyName
+            ? { agencyName: appliedFilters.agencyName }
+            : {}),
+          ...(appliedFilters.agencyTier
+            ? { agencyTier: appliedFilters.agencyTier as AgencyTier }
+            : {}),
+          ...(appliedFilters.createdAt
+            ? { createdAt: appliedFilters.createdAt }
+            : {
+                ...(appliedFilters.createdAtFrom
+                  ? {
+                      createdAtFrom: `${appliedFilters.createdAtFrom}T00:00:00.000+05:30`,
+                    }
+                  : {}),
+                ...(appliedFilters.createdAtTo
+                  ? {
+                      createdAtTo: `${appliedFilters.createdAtTo}T23:59:59.999+05:30`,
+                    }
+                  : {}),
+              }),
+        },
+        format,
+        defaultFileName: `agents-${activeTab.toLowerCase()}`,
+        onStatus: setExportStatus,
+      });
+      showToast("Agents downloaded", "success");
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: unknown }).message)
+          : "Export failed";
+      showToast(message, "error");
+    } finally {
+      setExporting(false);
+      setExportStatus(null);
+    }
+  };
+
   const fetchPartners = useCallback(async () => {
     setLoading(true);
     setListError(null);
@@ -304,8 +365,6 @@ export default function AgentsListPage() {
       setPartners(response.content.map(mapListItemToPartner));
       setTotalPages(response.totalPages);
       setTotalElements(response.totalElements);
-      setHasNext(response.hasNext);
-      setHasPrevious(response.hasPrevious);
       setStatusTotals((prev) => ({ ...prev, [activeTab]: response.totalElements }));
     } catch (err) {
       const message =
@@ -316,8 +375,6 @@ export default function AgentsListPage() {
       setPartners([]);
       setTotalPages(0);
       setTotalElements(0);
-      setHasNext(false);
-      setHasPrevious(false);
     } finally {
       setLoading(false);
     }
@@ -387,319 +444,309 @@ export default function AgentsListPage() {
     }
   }, [tierTargetPartner, selectedTier, fetchPartners]);
 
+  const columns: GridColDef<TravelPartner>[] = [
+    {
+      field: "name",
+      headerName: "Name",
+      flex: 1.1,
+      minWidth: 160,
+      sortable: false,
+      renderCell: (params) => {
+        const fullName = `${params.row.title ? `${params.row.title} ` : ""}${params.row.name}`;
+        return (
+          <span className="truncate text-sm font-semibold leading-tight text-slate-900">
+            {fullName}
+          </span>
+        );
+      },
+    },
+    {
+      field: "email",
+      headerName: "Email",
+      flex: 1.3,
+      minWidth: 200,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="truncate text-sm text-slate-700" title={params.row.email}>
+          {params.row.email || "—"}
+        </span>
+      ),
+    },
+    {
+      field: "agencyNumber",
+      headerName: "Agency No.",
+      flex: 0.9,
+      minWidth: 140,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="truncate text-sm text-slate-700">
+          {params.row.agencyNumber || "—"}
+        </span>
+      ),
+    },
+    {
+      field: "agencyTier",
+      headerName: "Agency Tier",
+      width: 130,
+      minWidth: 120,
+      sortable: false,
+      renderCell: (params) => (
+        <TravelPartnerBadge className={getAgencyTierTone(params.row.agencyTier)}>
+          {formatAgencyTier(params.row.agencyTier)}
+        </TravelPartnerBadge>
+      ),
+    },
+    {
+      field: "onboardedBy",
+      headerName: "Onboarded By",
+      flex: 1.2,
+      minWidth: 180,
+      sortable: false,
+      renderCell: (params) =>
+        params.row.onboardedBy ? (
+          <span
+            className="truncate text-sm text-slate-700"
+            title={params.row.onboardedBy}
+          >
+            {params.row.onboardedBy}
+          </span>
+        ) : (
+          <span className="text-sm text-slate-400">—</span>
+        ),
+    },
+    {
+      field: "appliedAt",
+      headerName: "Applied",
+      width: 120,
+      minWidth: 110,
+      sortable: false,
+      renderCell: (params) => (
+        <span className="whitespace-nowrap text-sm font-medium text-slate-600">
+          {formatDate(params.row.appliedAt)}
+        </span>
+      ),
+    },
+    ...(activeTab !== "PENDING"
+      ? [
+          {
+            field: "remarks",
+            headerName: "Remarks",
+            flex: 1,
+            minWidth: 160,
+            sortable: false,
+            renderCell: (params) => (
+              <TravelPartnerBadge
+                className={getTravelPartnerRemarkTone(activeTab)}
+                title={params.row.remarks || "—"}
+              >
+                {params.row.remarks || "—"}
+              </TravelPartnerBadge>
+            ),
+          } satisfies GridColDef<TravelPartner>,
+        ]
+      : []),
+    {
+      field: "actions",
+      headerName: "",
+      width: activeTab === "REJECTED" || (activeTab === "APPROVED" && canUpdateTier) ? 168 : 88,
+      minWidth: 88,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params) => (
+        <div className="flex w-full items-center justify-end gap-1.5">
+          {activeTab === "APPROVED" && canUpdateTier ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                openTierModal(params.row);
+              }}
+              className="rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+            >
+              Tier
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void openPartnerDetail(params.row);
+            }}
+            className="rounded-lg border border-[#2f3d95]/25 bg-[#eef2ff] px-3 py-1 text-xs font-semibold text-[#2f3d95] transition-colors hover:border-[#2f3d95] hover:bg-[#2f3d95] hover:text-white"
+          >
+            View
+          </button>
+          {params.row.status === "REJECTED" ? (
+            <Link
+              to={ROUTES.AGENTS.EDIT(params.row.id)}
+              onClick={(event) => event.stopPropagation()}
+              className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-800 hover:bg-rose-100"
+            >
+              Update
+            </Link>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-linear-to-b from-slate-50 to-emerald-50/30">
+    <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden bg-slate-50">
       <Toast
         message={toast.message}
         type={toast.type}
         isVisible={toast.isVisible}
         onClose={hideToast}
       />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-emerald-600 to-teal-700 text-white shadow-lg shadow-emerald-600/25">
-              <UserRoundCog className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Agents</h1>
-              <p className="text-sm text-gray-500">
-                Travel agents you onboard and their approval status
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={openFilterDrawer}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {hasActiveFilters ? (
-                <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  Active
-                </span>
-              ) : null}
-            </button>
-            <Link
-              to={ROUTES.AGENTS.CREATE}
-              className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-base font-medium text-white shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
-            >
-              <Plus className="h-4 w-4" />
-              Add agent
-            </Link>
-          </div>
-        </div>
-
-        {listError && (
-          <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4">
-            <p className="text-sm text-rose-800">{listError}</p>
-          </div>
-        )}
-
-        {loading && (
-          <div className="mb-6 py-12 text-center text-gray-500 text-sm">Loading agents…</div>
-        )}
-
-        <div className="mb-6 bg-white rounded-t-xl border border-b-0 border-gray-200 shadow-sm">
-          <nav className="flex gap-0 overflow-x-auto" aria-label="Status tabs">
-            {(["PENDING", "APPROVED", "REJECTED"] as const).map((tabId) => {
-              const config = TAB_CONFIG[tabId];
-              const Icon = config.icon;
-              const isActive = activeTab === tabId;
-              return (
-                <button
-                  key={tabId}
-                  type="button"
-                  onClick={() => {
-                    setActiveTab(tabId);
-                    setCurrentPage(0);
-                  }}
-                  className={cn(
-                    "flex items-center gap-2 px-5 py-3.5 text-sm font-medium rounded-t-lg border-b-2 transition-all shrink-0",
-                    isActive
-                      ? config.activeClass
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50",
-                  )}
-                >
-                  <Icon className={cn("h-4 w-4", isActive && "opacity-90")} />
-                  {config.label}
-                  <span
+      <div className="mx-auto flex h-full w-full max-w-350 min-h-0 flex-1 flex-col gap-3 px-3 py-4 sm:px-5">
+        <div className="shrink-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+            <div className="flex flex-wrap items-center gap-1">
+              {AGENT_TABS.map((tab) => {
+                const isActive = activeTab === tab.value;
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(tab.value);
+                      setCurrentPage(0);
+                    }}
                     className={cn(
-                      "ml-1 py-0.5 px-2 rounded-full text-xs font-semibold",
-                      isActive ? config.badgeClass : "bg-gray-200 text-gray-600",
+                      "cursor-pointer rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition",
+                      isActive
+                        ? tab.activeClass
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200",
                     )}
                   >
-                    {statusTotals[tabId]}
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="mb-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 shadow-sm">
-          <p className="text-sm font-medium text-gray-700">
-            {totalElements.toLocaleString("en-IN")} total
-            <span className="font-normal text-gray-500">
-              {" "}
-              · Page {totalPages === 0 ? 0 : currentPage + 1} of {totalPages}
-            </span>
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          {partners.length === 0 && !loading ? (
-            (() => {
-              const config = TAB_CONFIG[activeTab];
-              const Icon = config.icon;
-              return (
-                <div className="py-16 text-center">
-                  <div
-                    className={cn(
-                      "mx-auto flex h-14 w-14 items-center justify-center rounded-2xl",
-                      config.iconWell,
-                    )}
-                  >
-                    <Icon className="h-7 w-7" />
-                  </div>
-                  <p className="mt-4 text-sm font-medium text-gray-700">
-                    {hasActiveFilters
-                      ? "No agents match your filters"
-                      : `No ${activeTab.toLowerCase()} agents`}
-                  </p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {hasActiveFilters
-                      ? "Try a different name, email, agency, or date."
-                      : activeTab === "PENDING"
-                        ? "Use Add agent to submit a new onboarding."
-                        : `No ${activeTab.toLowerCase()} applications in this view.`}
-                  </p>
-                  {hasActiveFilters ? (
-                    <button
-                      type="button"
-                      onClick={resetFilters}
-                      className="mt-6 inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      <X className="h-4 w-4" />
-                      Clear filters
-                    </button>
-                  ) : activeTab === "PENDING" ? (
-                    <Link
-                      to={ROUTES.AGENTS.CREATE}
-                      className="mt-6 inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add agent
-                    </Link>
-                  ) : null}
-                </div>
-              );
-            })()
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
-                        <User className="h-3.5 w-3.5" /> Name
-                      </span>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Mail className="h-3.5 w-3.5" /> Email
-                      </span>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Building2 className="h-3.5 w-3.5" /> Agency
-                      </span>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Briefcase className="h-3.5 w-3.5" /> Agency Tier
-                      </span>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
-                        <User className="h-3.5 w-3.5" /> Onboarded By
-                      </span>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5">
-                        <CalendarDays className="h-3.5 w-3.5" /> Submitted
-                      </span>
-                    </th>
-                    {activeTab !== "PENDING" && (
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        <span className="inline-flex items-center gap-1.5">
-                          <MessageSquare className="h-3.5 w-3.5" /> Remarks
-                        </span>
-                      </th>
-                    )}
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <span className="inline-flex items-center gap-1.5 justify-end w-full">
-                        <Eye className="h-3.5 w-3.5" /> Action
-                      </span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {partners.map((partner) => (
-                    <tr
-                      key={partner.id}
+                    {tab.label}
+                    <span
                       className={cn(
-                        "hover:bg-gray-50/80 transition-colors",
-                        activeTab === "PENDING" && "hover:bg-amber-50/80",
-                        activeTab === "APPROVED" && "hover:bg-emerald-50/80",
-                        activeTab === "REJECTED" && "hover:bg-rose-50/80",
+                        "ml-1.5 rounded-full px-1.5 py-px text-[10px] font-bold",
+                        isActive
+                          ? "bg-white/20 text-white"
+                          : "bg-white text-slate-500",
                       )}
                     >
-                      <td className="px-6 py-4">
-                        <span className="font-medium text-gray-900">
-                          {partner.title ? `${partner.title} ` : ""}
-                          {partner.name}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{partner.email}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{partner.agencyNumber}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {formatAgencyTier(partner.agencyTier)}
-                      </td>
-                      <td className="max-w-[220px] px-6 py-4 text-sm text-gray-600">
-                        <span className="block truncate" title={partner.onboardedBy || undefined}>
-                          {partner.onboardedBy || "—"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {formatDate(partner.appliedAt)}
-                      </td>
-                      {activeTab !== "PENDING" && (
-                        <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px] truncate">
-                          {partner.remarks ?? "—"}
-                        </td>
-                      )}
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2 flex-wrap">
-                          {activeTab === "APPROVED" && canUpdateTier && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                              onClick={() => openTierModal(partner)}
-                            >
-                              Tier
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 border-gray-300 hover:border-emerald-600 hover:bg-emerald-50 hover:text-emerald-800"
-                            onClick={() => openPartnerDetail(partner)}
-                          >
-                            <Eye className="h-4 w-4" />
-                            View
-                          </Button>
-                          {partner.status === "REJECTED" && (
-                            <Link
-                              to={ROUTES.AGENTS.EDIT(partner.id)}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-medium text-rose-900 hover:bg-rose-100 hover:border-rose-300"
-                            >
-                              <Pencil className="h-4 w-4" />
-                              Update
-                            </Link>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      {statusTotals[tab.value]}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          )}
+            <div className="flex flex-wrap items-center gap-2">
+              <ReportAppliedRange
+                from={
+                  appliedFilters.createdAtFrom ||
+                  appliedFilters.createdAt ||
+                  null
+                }
+                to={appliedFilters.createdAtTo || null}
+                detail={
+                  [
+                    AGENT_TABS.find((tab) => tab.value === activeTab)?.label,
+                    appliedFilters.email || null,
+                    appliedFilters.name || null,
+                    appliedFilters.agencyName || null,
+                    appliedFilters.agencyTier
+                      ? formatAgencyTier(appliedFilters.agencyTier as AgencyTier)
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || null
+                }
+              />
+              <ReportFilterButton
+                onClick={openFilterDrawer}
+                activeCount={activeFilterCount}
+              />
+              <ExportButton
+                iconOnly
+                exporting={exporting}
+                exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+                onExportExcel={() => void exportAgents("EXCEL")}
+                onExportCSV={() => void exportAgents("CSV")}
+                onExportPDF={() => void exportAgents("PDF")}
+              />
+              <ReportRefreshButton
+                onClick={() => void fetchPartners()}
+                loading={loading}
+              />
+              <Link
+                to={ROUTES.AGENTS.CREATE}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#2f3d95] px-3 text-sm font-semibold text-white hover:bg-[#26317a]"
+              >
+                <Plus className="h-4 w-4" />
+                Add agent
+              </Link>
+            </div>
+          </div>
         </div>
 
-        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="text-sm text-gray-600">
-            {totalElements.toLocaleString("en-IN")} total · Page{" "}
-            {totalPages === 0 ? 0 : currentPage + 1} of {totalPages}
+        {listError ? (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-center">
+            <AlertCircle className="mb-3 h-10 w-10 text-red-400" />
+            <p className="mb-3 text-sm font-medium text-red-600">{listError}</p>
+            <Button
+              onClick={() => void fetchPartners()}
+              variant="primary"
+              className="text-sm"
+            >
+              Retry
+            </Button>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600" htmlFor="agents-page-size">
-              Rows:
-            </label>
-            <select
-              id="agents-page-size"
-              className="h-9 rounded-md border border-gray-300 px-2 text-sm"
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
+        ) : (
+          <DataTable
+            subtitle={
+              loading ? (
+                "Loading…"
+              ) : (
+                <>
+                  <span className="font-medium text-slate-600">
+                    {formatListCount(totalElements, "agent")}
+                  </span>
+                  <span className="text-slate-400">
+                    {hasActiveFilters ? " · filtered" : ""} · Page{" "}
+                    {currentPage + 1} of {Math.max(totalPages, 1)}
+                  </span>
+                </>
+              )
+            }
+            rows={partners}
+            columns={columns}
+            getRowId={(row) => row.id}
+            loading={loading}
+            paginationMode="server"
+            rowCount={totalElements}
+            paginationModel={{ page: currentPage, pageSize }}
+            onPaginationModelChange={(model) => {
+              if (model.pageSize !== pageSize) {
+                setPageSize(model.pageSize);
                 setCurrentPage(0);
-              }}
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!hasPrevious || loading}
-              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!hasNext || loading}
-              onClick={() => setCurrentPage((p) => p + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+                return;
+              }
+              if (model.page !== currentPage) setCurrentPage(model.page);
+            }}
+            pageSizeOptions={[10, 20, 50, 100]}
+            disableRowSelectionOnClick
+            disableColumnFilter
+            showToolbar
+            showExport={false}
+            fillContainer
+            dense
+            rowHeight={52}
+            sx={travelPartnerTableGridSx}
+            className="min-h-0"
+            localeText={{
+              noRowsLabel: hasActiveFilters
+                ? "No agents match your filters."
+                : `No ${activeTab.toLowerCase()} agents`,
+            }}
+          />
+        )}
       </div>
 
       {detailModalOpen && (
@@ -1061,31 +1108,13 @@ export default function AgentsListPage() {
         </div>
       )}
 
-      {filterOpen ? (
-        <div className="fixed inset-0 z-50 flex">
-          <button
-            type="button"
-            aria-label="Close filters"
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => setFilterOpen(false)}
-          />
-          <aside className="relative ml-auto flex h-full w-full max-w-sm flex-col bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
-                <p className="text-[11px] text-slate-500">
-                  Search agents, then apply to refresh
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(false)}
-                className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+      <ReportFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onReset={resetFilters}
+        onApply={applyFilters}
+        title="Filters"
+      >
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">
                   Email
@@ -1194,11 +1223,7 @@ export default function AgentsListPage() {
                   }))
                 }
               />
-            </div>
-            <ReportFilterActions onReset={resetFilters} onApply={applyFilters} />
-          </aside>
-        </div>
-      ) : null}
+      </ReportFilterDrawer>
 
       {showTierModal && tierTargetPartner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">

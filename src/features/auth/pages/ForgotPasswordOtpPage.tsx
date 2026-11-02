@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { AxiosError } from "axios";
-import { ArrowLeft, RefreshCw, Shield } from "lucide-react";
-import { Button, Card, CardContent, CardHeader, CardTitle, OtpInput } from "@/components/ui";
+import { ArrowLeft, ArrowRight, Loader2, RefreshCw } from "lucide-react";
+import { Button, OtpInput } from "@/components/ui";
 import { authService } from "../services/authService";
 import type { ApiFailureResponse } from "@/services/api/types/api";
+import { AuthSplitShell } from "../components/AuthSplitShell";
 
 interface ForgotPasswordOtpState {
   email: string;
@@ -93,74 +94,83 @@ export default function ForgotPasswordOtpPage() {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto">
-      <Card variant="elevated" className="border-0 shadow-xl">
-        <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-4 w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-            <Shield className="w-8 h-8 text-blue-600" />
+    <AuthSplitShell>
+      <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+        Verify reset code
+      </h2>
+      <p className="mt-1.5 text-sm text-gray-500">
+        We&apos;ve sent a 6-digit code to{" "}
+        <span className="font-medium text-gray-800">{email}</span>
+      </p>
+
+      <div className="mt-8 space-y-5">
+        <OtpInput
+          length={6}
+          value={otp}
+          onChange={(value) => {
+            if (error) setError("");
+            setOtp(value);
+          }}
+          onComplete={handleVerify}
+          error={error}
+          showErrorText={false}
+          disabled={isLoading || isResending}
+          inputClassName="h-12 w-12 rounded-xl border-0 bg-[#f1f3f8] text-lg font-semibold text-gray-900 focus:bg-[#eceff6] focus:ring-2 focus:ring-[#2f3d95]/30 focus:ring-offset-0"
+        />
+
+        {error ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-sm text-red-700">{error}</p>
           </div>
-          <CardTitle className="text-2xl font-bold text-gray-900">
-            Verify Reset OTP
-          </CardTitle>
-          <p className="text-gray-600 mt-2">
-            We've sent a 6-digit code to
-            <br />
-            <span className="font-semibold text-gray-900">{email}</span>
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            <OtpInput
-              length={6}
-              value={otp}
-              onChange={(value) => {
-                if (error) setError("");
-                setOtp(value);
-              }}
-              onComplete={handleVerify}
-              error={error}
-              disabled={isLoading}
-            />
+        ) : null}
 
-            <Button
-              onClick={() => handleVerify(otp)}
-              variant="primary"
-              size="lg"
-              isLoading={isLoading}
-              disabled={otp.length !== 6 || isLoading}
-              className="w-full"
-            >
-              Verify OTP
-            </Button>
+        <Button
+          type="button"
+          onClick={() => handleVerify(otp)}
+          disabled={otp.length !== 6 || isLoading || isResending}
+          className="h-12 w-full gap-2 rounded-xl bg-[#2f3d95] text-base font-semibold text-white shadow-lg shadow-[#2f3d95]/25 hover:bg-[#28357f]"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Verifying...
+            </>
+          ) : (
+            <>
+              Verify code
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </Button>
 
-            <button
-              type="button"
-              onClick={() => navigate("/auth/forgot-password", { replace: true })}
-              className="w-full flex items-center justify-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-              disabled={isLoading || isResending}
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
+        <div className="flex items-center justify-between text-sm">
+          <button
+            type="button"
+            onClick={() => navigate("/auth/forgot-password", { replace: true })}
+            className="flex items-center gap-1.5 text-gray-500 transition-colors hover:text-[#2f3d95] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isLoading || isResending}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Change email
+          </button>
 
-            <button
-              type="button"
-              onClick={handleResendOtp}
-              disabled={isLoading || isResending || resendCooldown > 0}
-              className="w-full flex items-center justify-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {resendCooldown > 0 ? (
-                <span>Resend OTP in {resendCooldown}s</span>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4" />
-                  {isResending ? "Resending..." : "Resend OTP"}
-                </>
-              )}
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          <button
+            type="button"
+            onClick={handleResendOtp}
+            disabled={isLoading || isResending || resendCooldown > 0}
+            className="flex items-center gap-1.5 font-medium text-[#2f3d95] transition-colors hover:text-[#28357f] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {resendCooldown > 0 ? (
+              <span>Resend in {resendCooldown}s</span>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" />
+                {isResending ? "Resending..." : "Resend code"}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </AuthSplitShell>
   );
 }
