@@ -141,24 +141,30 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
 
   // Show hotel selector on hotel-scoped pages for all roles.
   // Access to pages themselves is still controlled by role/permission checks.
+  const bookingsHotelPending = isBookingsPage && !user;
   const shouldShowHotelSelector =
-    isPropertyInfoPage ||
-    isInventoryPage ||
-    isPromotionsPage ||
-    isTeamPage ||
-    bookingsUseTopHotel ||
-    isHotelReviewsPage ||
-    isReviewMisPage ||
-    (isPromotionReportPage && !usesInReportHotelFilter) ||
-    isAnalyticsPage ||
-    (isRateHealthReportPage && !usesInReportHotelFilter) ||
-    (isInventoryAllocationReportPage && !usesInReportHotelFilter) ||
-    (isNetEarningsReportPage && !usesInReportHotelFilter) ||
-    (isHotelPayoutMisPage && !usesInReportHotelFilter) ||
-    isDocumentReviewPage ||
-    isMyPropertiesPage;
+    !bookingsHotelPending &&
+    (isPropertyInfoPage ||
+      isInventoryPage ||
+      isPromotionsPage ||
+      isTeamPage ||
+      bookingsUseTopHotel ||
+      isHotelReviewsPage ||
+      isReviewMisPage ||
+      (isPromotionReportPage && !usesInReportHotelFilter) ||
+      isAnalyticsPage ||
+      (isRateHealthReportPage && !usesInReportHotelFilter) ||
+      (isInventoryAllocationReportPage && !usesInReportHotelFilter) ||
+      (isNetEarningsReportPage && !usesInReportHotelFilter) ||
+      (isHotelPayoutMisPage && !usesInReportHotelFilter) ||
+      isDocumentReviewPage ||
+      isMyPropertiesPage);
   const hotelIdFromUrl = searchParams.get("hotelId");
-  const selectedHotelId = hotelIdFromUrl ?? getStoredSelectedHotelId();
+  // All-hotel booking views stay unfiltered until the user picks a hotel.
+  const bookingsKeepAllHotels = seesAllBookings && isBookingsPage;
+  const selectedHotelId = bookingsKeepAllHotels
+    ? hotelIdFromUrl
+    : (hotelIdFromUrl ?? getStoredSelectedHotelId());
 
   useEffect(() => {
     async function getUserProfile() {
@@ -173,7 +179,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
     // Don't push a ?hotelId param onto the My Properties URL.
     if (!user) return;
     if (!shouldShowHotelSelector || isMyPropertiesPage) return;
-    if (seesAllBookings && isBookingsList) return;
+    if (bookingsKeepAllHotels) return;
     const fromUrl = searchParams.get("hotelId");
     if (fromUrl) {
       setStoredSelectedHotelId(fromUrl);
@@ -195,8 +201,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   }, [
     shouldShowHotelSelector,
     isMyPropertiesPage,
-    seesAllBookings,
-    isBookingsList,
+    bookingsKeepAllHotels,
     user,
     location.pathname,
     location.search,
@@ -262,9 +267,14 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
             {shouldShowHotelSelector && (
               <div className="ml-4">
                 <HotelSelector
-                  selectedHotelId={isMyPropertiesPage ? null : selectedHotelId}
+                  selectedHotelId={
+                    isMyPropertiesPage ? null : selectedHotelId
+                  }
                   onHotelChange={handleHotelChange}
-                  autoSelectFirst={!isMyPropertiesPage}
+                  autoSelectFirst={
+                    !isMyPropertiesPage && !bookingsKeepAllHotels
+                  }
+                  useStoredFallback={!bookingsKeepAllHotels}
                 />
               </div>
             )}

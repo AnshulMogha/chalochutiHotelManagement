@@ -21,6 +21,8 @@ interface HotelSelectorProps {
   className?: string;
   /** Auto-select the first hotel when nothing is selected. Defaults to true. */
   autoSelectFirst?: boolean;
+  /** When the page has no hotel, fall back to the last saved hotel. */
+  useStoredFallback?: boolean;
 }
 
 export function HotelSelector({
@@ -28,9 +30,11 @@ export function HotelSelector({
   onHotelChange,
   className = "",
   autoSelectFirst = true,
+  useStoredFallback = true,
 }: HotelSelectorProps) {
   const effectiveSelectedHotelId =
-    selectedHotelId ?? getStoredSelectedHotelId();
+    selectedHotelId ??
+    (useStoredFallback ? getStoredSelectedHotelId() : null);
   const [hotels, setHotels] = useState<HotelLookupItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
