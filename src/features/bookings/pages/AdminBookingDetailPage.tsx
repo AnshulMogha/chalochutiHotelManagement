@@ -564,13 +564,17 @@ function RuleCard({
 
 type Props = {
   listItemId: string | undefined;
-  backHotelId: string | null;
+  /** Hotel chosen for a single-hotel role. Not used for the all-hotels list. */
+  backHotelId?: string | null;
+  /** Filters the user set on the all-hotels list, without the top-bar hotel. */
+  bookingsQuery?: string | null;
   returnTo?: string | null;
 };
 
 export default function AdminBookingDetailPage({
   listItemId,
-  backHotelId,
+  backHotelId = null,
+  bookingsQuery = null,
   returnTo = null,
 }: Props) {
   const navigate = useNavigate();
@@ -627,10 +631,15 @@ export default function AdminBookingDetailPage({
       navigate(returnTo);
       return;
     }
-    const to = backHotelId
-      ? `${ROUTES.BOOKINGS.LIST}?hotelId=${backHotelId}`
-      : ROUTES.BOOKINGS.LIST;
-    navigate(to);
+    if (bookingsQuery) {
+      navigate(`${ROUTES.BOOKINGS.LIST}?${bookingsQuery}`);
+      return;
+    }
+    navigate(
+      backHotelId
+        ? `${ROUTES.BOOKINGS.LIST}?hotelId=${encodeURIComponent(backHotelId)}`
+        : ROUTES.BOOKINGS.LIST,
+    );
   };
 
   const backLabel = getReturnBackLabel(returnTo);

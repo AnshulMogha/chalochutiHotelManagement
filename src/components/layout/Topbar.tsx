@@ -100,15 +100,14 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
   // Check team page
   const isTeamPage = location.pathname === ROUTES.TEAM.LIST;
 
-  // Bookings list for Super Admin and Auditor is all hotels; detail stays hotel-aware.
+  // All-hotel booking screens use their own filter. The top-bar hotel
+  // dropdown must not select or filter those pages.
   const isBookingsPage =
     location.pathname === ROUTES.BOOKINGS.LIST ||
     location.pathname.startsWith(`${ROUTES.BOOKINGS.LIST}/`);
-  const isBookingsList = location.pathname === ROUTES.BOOKINGS.LIST;
   const seesAllBookings =
     isSuperAdmin(user?.roles) || isAuditorRole(user?.roles);
-  const bookingsUseTopHotel =
-    isBookingsPage && !(seesAllBookings && isBookingsList);
+  const bookingsUseTopHotel = isBookingsPage && !seesAllBookings;
 
   const isHotelReviewsPage = location.pathname === ROUTES.HOTEL_REVIEWS.LIST;
   const isReviewMisPage = location.pathname === ROUTES.RATINGS_REVIEWS.MIS;
@@ -210,6 +209,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
 
   const handleHotelChange = useCallback(
     (hotelId: string) => {
+      if (bookingsKeepAllHotels) return;
       setStoredSelectedHotelId(hotelId);
       // From My Properties, selecting a hotel opens its Property Info.
       if (isMyPropertiesPage) {
@@ -225,7 +225,7 @@ export function Topbar({ onSidebarToggle, isSidebarOpen = true }: TopbarProps) {
         { replace: true },
       );
     },
-    [setSearchParams, isMyPropertiesPage, navigate],
+    [bookingsKeepAllHotels, setSearchParams, isMyPropertiesPage, navigate],
   );
 
   const getInitials = (email: string) => {

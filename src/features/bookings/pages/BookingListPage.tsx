@@ -352,9 +352,12 @@ export default function BookingListPage() {
       .map((id) => id.trim())
       .filter(Boolean);
     if (propertyIds?.length) return [...new Set(propertyIds)];
+    // The top-bar hotel dropdown writes ?hotelId=. That must not filter this
+    // list. Only hotels chosen in the bookings filter (propertyIds) apply.
+    if (seesAllBookings) return [];
     const hotelId = searchParams.get("hotelId")?.trim();
     return hotelId ? [hotelId] : [];
-  }, [searchParams]);
+  }, [searchParams, seesAllBookings]);
   const selectedHotelId =
     selectedHotelIds.length === 1 ? selectedHotelIds[0] : null;
   const bookingIdFromUrl = searchParams.get("bookingId")?.trim() || "";
@@ -600,15 +603,31 @@ export default function BookingListPage() {
     setCustomTo(nextTo);
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
 
-    const hotelId = searchParams.get("hotelId");
-    if (hotelId) {
-      navigate(
-        `${ROUTES.BOOKINGS.LIST}?hotelId=${encodeURIComponent(hotelId)}`,
-        { replace: true },
-      );
-    }
+    const hotelId = searchParams.get("hotelId")?.trim() || "";
+    const propertyIds = searchParams.get("propertyIds")?.trim() || "";
+    const next = new URLSearchParams();
+    const keptHotels = propertyIds || hotelId;
+    if (keptHotels) next.set("propertyIds", keptHotels);
+    const qs = next.toString();
+    navigate(qs ? `${ROUTES.BOOKINGS.LIST}?${qs}` : ROUTES.BOOKINGS.LIST, {
+      replace: true,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlFilterKey]);
+
+  // Drop a hotel id left by the top-bar dropdown. It is not a bookings filter.
+  useEffect(() => {
+    if (!seesAllBookings || !searchParams.has("hotelId")) return;
+    if (DRILL_PARAM_KEYS.some((key) => searchParams.has(key))) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("hotelId");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [seesAllBookings, searchParams, setSearchParams]);
 
   const hasDateFilter = dateAxis !== "NONE";
   const hasActiveFilters =
@@ -747,11 +766,19 @@ export default function BookingListPage() {
 
   const openBookingDetail = (rowId: number) => {
     const query = new URLSearchParams();
-    if (selectedHotelId) query.set("hotelId", selectedHotelId);
+    if (!seesAllBookings && selectedHotelId) {
+      query.set("hotelId", selectedHotelId);
+    }
     appendReturnToQuery(query, returnTo);
+    const listParams = new URLSearchParams(location.search);
+    listParams.delete("hotelId");
+    const bookingsQuery = listParams.toString();
     const qs = query.toString();
     navigate(`${ROUTES.BOOKINGS.DETAIL(String(rowId))}${qs ? `?${qs}` : ""}`, {
-      state: returnTo ? { returnTo } : undefined,
+      state: {
+        ...(returnTo ? { returnTo } : {}),
+        ...(seesAllBookings ? { bookingsQuery } : {}),
+      },
     });
   };
 

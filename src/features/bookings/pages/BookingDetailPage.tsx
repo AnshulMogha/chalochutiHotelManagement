@@ -12,7 +12,11 @@ import {
 } from "../services/bookingService";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ROUTES } from "@/constants";
-import { usesAdminBookingFullDetail } from "@/constants/roles";
+import {
+  isAuditorRole,
+  isSuperAdmin,
+  usesAdminBookingFullDetail,
+} from "@/constants/roles";
 import { useAuth } from "@/hooks";
 import {
   getReturnBackLabel,
@@ -374,6 +378,18 @@ function CalcSubtotal({
   );
 }
 
+/** List filters to restore. The top-bar hotel id is never part of this. */
+function readBookingsQuery(state: unknown): string | null {
+  const raw = (state as { bookingsQuery?: unknown } | null)?.bookingsQuery;
+  if (typeof raw !== "string") return null;
+  const params = new URLSearchParams(
+    raw.startsWith("?") ? raw.slice(1) : raw,
+  );
+  params.delete("hotelId");
+  const qs = params.toString();
+  return qs || null;
+}
+
 function CalcSectionHeader({ title }: { title: string }) {
   return (
     <div className="border-y border-slate-100 bg-slate-50/80 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
@@ -389,6 +405,11 @@ export default function BookingDetailPage() {
   const hotelId = searchParams.get("hotelId");
   const returnTo = readReturnToFromLocation(searchParams, location.state);
   const { isUserProfileLoading, user } = useAuth();
+  const seesAllBookings =
+    isSuperAdmin(user?.roles) || isAuditorRole(user?.roles);
+  const bookingsQuery = seesAllBookings
+    ? readBookingsQuery(location.state)
+    : null;
   const useAdminDetail = usesAdminBookingFullDetail(user?.roles);
 
   if (isUserProfileLoading) {
@@ -406,7 +427,8 @@ export default function BookingDetailPage() {
     return (
       <AdminBookingDetailPage
         listItemId={id}
-        backHotelId={hotelId}
+        backHotelId={seesAllBookings ? null : hotelId}
+        bookingsQuery={bookingsQuery}
         returnTo={returnTo}
       />
     );
