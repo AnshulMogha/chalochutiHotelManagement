@@ -51,7 +51,7 @@ export type TaxType = "CGST" | "SGST" | "IGST";
 export interface CreateTaxRequest {
   taxType: TaxType;
   percentage: number;
-  stateCode: string | null; // Optional for IGST
+  stateCode: string | null;
   minAmount?: number | null;
   maxAmount?: number | null;
   effectiveFrom: string;

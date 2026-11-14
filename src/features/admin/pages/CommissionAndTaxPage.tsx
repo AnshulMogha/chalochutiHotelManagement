@@ -42,6 +42,12 @@ import {
   type HotelLookupItem,
 } from "../services/adminService";
 import { Button, Input, Select, LoadingSpinner, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { 
   Plus, 
@@ -60,7 +66,8 @@ import {
   DollarSign,
   IndianRupee,
   Hash,
-  Search
+  Search,
+  ChevronDown,
 } from "lucide-react";
 
 // Commission Constants
@@ -709,8 +716,8 @@ function TaxFormModal({ isOpen, onClose, onSubmit, tax, mode }: TaxFormModalProp
         taxType: tax.taxType,
         percentage: tax.percentage,
         stateCode: tax.stateCode || null,
-        minAmount: tax.minAmount || null,
-        maxAmount: tax.maxAmount || null,
+        minAmount: tax.minAmount ?? null,
+        maxAmount: tax.maxAmount ?? null,
         effectiveFrom: tax.effectiveFrom.split("T")[0],
       });
       setPercentageInput(
@@ -742,8 +749,13 @@ function TaxFormModal({ isOpen, onClose, onSubmit, tax, mode }: TaxFormModalProp
       newErrors.percentage = "Percentage must be between 0 and 100";
     }
 
-    // Validate minAmount and maxAmount
-    if (formData.minAmount !== null && formData.minAmount !== undefined && formData.minAmount < 0) {
+    if (
+      formData.minAmount === null ||
+      formData.minAmount === undefined ||
+      Number.isNaN(formData.minAmount)
+    ) {
+      newErrors.minAmount = "Minimum amount is required.";
+    } else if (formData.minAmount < 0) {
       newErrors.minAmount = "Minimum amount must be greater than or equal to 0";
     }
 
@@ -761,9 +773,8 @@ function TaxFormModal({ isOpen, onClose, onSubmit, tax, mode }: TaxFormModalProp
       newErrors.maxAmount = "Maximum amount must be greater than or equal to minimum amount";
     }
 
-    // State is only required for CGST and SGST, not for IGST
-    if (formData.taxType !== "IGST" && !formData.stateCode) {
-      newErrors.stateCode = "State is required for CGST and SGST";
+    if (!formData.stateCode) {
+      newErrors.stateCode = "State is required";
     }
 
     if (!formData.effectiveFrom) {
@@ -784,14 +795,33 @@ function TaxFormModal({ isOpen, onClose, onSubmit, tax, mode }: TaxFormModalProp
     try {
       await onSubmit(formData);
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error submitting form:", error);
-      const errorMessage =
-        error?.message ||
-        error?.response?.data?.message ||
-        error?.data?.message ||
-        "Failed to save tax. Please try again.";
-      setApiError(errorMessage);
+      const body = error as {
+        message?: string;
+        data?: unknown;
+        response?: { data?: { message?: string; data?: unknown } };
+      };
+      const fieldSource =
+        body.data ?? body.response?.data?.data;
+      if (fieldSource && typeof fieldSource === "object") {
+        const fieldErrors: Record<string, string> = {};
+        Object.entries(fieldSource as Record<string, unknown>).forEach(
+          ([key, value]) => {
+            if (typeof value === "string" && value.trim()) {
+              fieldErrors[key] = value;
+            }
+          },
+        );
+        if (Object.keys(fieldErrors).length > 0) {
+          setErrors(fieldErrors);
+        }
+      }
+      setApiError(
+        body.message ||
+          body.response?.data?.message ||
+          "Failed to save tax. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -862,8 +892,6 @@ function TaxFormModal({ isOpen, onClose, onSubmit, tax, mode }: TaxFormModalProp
                 setFormData({
                   ...formData,
                   taxType: newTaxType,
-                  // Clear state code when switching to IGST
-                  stateCode: newTaxType === "IGST" ? "" : formData.stateCode,
                 });
               }}
               error={errors.taxType}
@@ -903,36 +931,80 @@ function TaxFormModal({ isOpen, onClose, onSubmit, tax, mode }: TaxFormModalProp
             />
           </div>
 
-          {/* State field - only show for CGST and SGST, not for IGST */}
-          {formData.taxType !== "IGST" && (
-            <div className="mb-6">
-              <Select
-                label="State"
-                value={formData.stateCode || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, stateCode: e.target.value || null })
-                }
-                error={errors.stateCode}
-                options={STATE_CODE_OPTIONS}
-                required
-                icon={<MapPin className="w-4 h-4 text-gray-400" />}
-              />
+          <div className="mb-6">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                State
+                <span className="ml-1 text-red-500">*</span>
+              </label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg border bg-white px-3 py-2 text-left text-sm focus:outline-none focus:ring-2",
+                      errors.stateCode
+                        ? "border-red-500 focus:ring-red-500/40"
+                        : "border-gray-300 focus:border-blue-400 focus:ring-blue-500/40",
+                    )}
+                  >
+                    <MapPin className="h-4 w-4 shrink-0 text-gray-400" />
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate",
+                        formData.stateCode ? "text-gray-900" : "text-gray-400",
+                      )}
+                    >
+                      {formData.stateCode || "Select State"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="z-[80] w-[var(--radix-dropdown-menu-trigger-width)]"
+                  style={{
+                    maxHeight:
+                      "min(18rem, var(--radix-dropdown-menu-content-available-height))",
+                  }}
+                >
+                  {STATE_CODE_OPTIONS.map((option) => (
+                    <DropdownMenuItem
+                      key={option.value}
+                      onSelect={() =>
+                        setFormData({ ...formData, stateCode: option.value })
+                      }
+                      className={cn(
+                        "cursor-pointer",
+                        formData.stateCode === option.value && "bg-[#2f3d95]/10",
+                      )}
+                    >
+                      {option.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {errors.stateCode ? (
+                <p className="mt-2 text-sm text-red-600" role="alert">
+                  {errors.stateCode}
+                </p>
+              ) : null}
             </div>
-          )}
 
           <div className="grid grid-cols-2 gap-4 mb-6">
             <Input
-              label="Min Amount (Optional)"
+              label="Min Amount"
               type="number"
               step="0.01"
               min="0"
+              required
               value={formData.minAmount !== null && formData.minAmount !== undefined ? formData.minAmount : ""}
-              onChange={(e) =>
+              onChange={(e) => {
+                const raw = e.target.value;
                 setFormData({
                   ...formData,
-                  minAmount: e.target.value ? parseFloat(e.target.value) : null,
-                })
-              }
+                  minAmount: raw === "" ? null : parseFloat(raw),
+                });
+              }}
               error={errors.minAmount}
               icon={<IndianRupee className="w-4 h-4 text-gray-400" />}
               placeholder="0.00"
@@ -1920,12 +1992,7 @@ export default function CommissionAndTaxPage() {
 
   const handleCreateTax = async (data: CreateTaxRequest) => {
     try {
-      // For IGST, ensure stateCode is null/empty
-      const taxData = {
-        ...data,
-        stateCode: data.taxType === "IGST" ? null : data.stateCode,
-      };
-      await commissionTaxService.createTax(taxData);
+      await commissionTaxService.createTax(data);
       await fetchTaxes();
     } catch (error) {
       throw error;
@@ -2123,18 +2190,45 @@ export default function CommissionAndTaxPage() {
                 />
                 <div className="flex shrink-0 items-center gap-2">
                   <span className="whitespace-nowrap text-xs font-medium text-gray-700">State</span>
-                  <select
-                    value={taxStateFilter}
-                    onChange={(e) => setTaxStateFilter(e.target.value)}
-                    className="min-w-[140px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-100"
-                  >
-                    <option value="">All states</option>
-                    {taxStates.map((state) => (
-                      <option key={state} value={state}>
-                        {state}
-                      </option>
-                    ))}
-                  </select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex min-w-[160px] items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-left text-sm text-slate-700 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-100"
+                      >
+                        <span className="truncate">
+                          {taxStateFilter || "All states"}
+                        </span>
+                        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="start"
+                      className="z-[80] max-h-72 w-56"
+                    >
+                      <DropdownMenuItem
+                        onSelect={() => setTaxStateFilter("")}
+                        className={cn(
+                          "cursor-pointer",
+                          !taxStateFilter && "bg-[#2f3d95]/10",
+                        )}
+                      >
+                        All states
+                      </DropdownMenuItem>
+                      {taxStates.map((state) => (
+                        <DropdownMenuItem
+                          key={state}
+                          onSelect={() => setTaxStateFilter(state)}
+                          className={cn(
+                            "cursor-pointer",
+                            taxStateFilter === state && "bg-[#2f3d95]/10",
+                          )}
+                        >
+                          {state}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 <Button
                   variant="primary"
