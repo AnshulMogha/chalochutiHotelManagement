@@ -201,7 +201,6 @@ export function PropertyMediaTab({
   const handleFilesUpload = async (files: File[]) => {
     if (!files || files.length === 0) return;
 
-    const minImageSize = 500 * 1024;
     const maxImageSize = 5 * 1024 * 1024;
     const maxVideoSize = 50 * 1024 * 1024;
     const maxFilesPerUpload = 10;
@@ -241,7 +240,6 @@ export function PropertyMediaTab({
         return false;
       if (isVideo && !(allowedVideoMimeTypes.has(file.type) || hasAllowedVideoExt))
         return false;
-      if (isImage && file.size < minImageSize) return false;
       if (isImage && file.size > maxImageSize) return false;
       if (isVideo && file.size > maxVideoSize) return false;
       return true;
@@ -249,7 +247,7 @@ export function PropertyMediaTab({
 
     if (validFiles.length === 0) {
       showToast(
-        "No valid files selected. Images: jpg/jpeg/png/webp between 500KB and 5MB. Videos: mp4/webm/mov up to 50MB. Max 10 files per upload.",
+        "No valid files selected. Images: jpg/jpeg/png/webp up to 5 MB. Videos: mp4/webm/mov up to 50 MB. Max 10 files per upload.",
         "error",
       );
       return;

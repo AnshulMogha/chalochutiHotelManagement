@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { FileImage, FileVideo, Loader2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import {
+  IMAGE_MIN_ORIGINAL_BYTES,
+  IMAGE_SOURCE_MAX_BYTES,
+  compressHotelImage,
+  shouldCompressHotelImage,
+} from "@/features/properties/utils/compressHotelImage";
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -10,8 +16,6 @@ interface UploadModalProps {
   isUploading?: boolean;
 }
 
-const MIN_IMAGE_SIZE_BYTES = 500 * 1024;
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
 const MAX_FILES_PER_UPLOAD = 10;
 const ALLOWED_IMAGE_MIME_TYPES = new Set([
@@ -26,10 +30,16 @@ const ALLOWED_VIDEO_MIME_TYPES = new Set([
   "video/quicktime",
 ]);
 
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+type SelectedMedia = {
+  key: string;
+  original: File;
+  output: File | null;
+  status: "compressing" | "ready" | "error";
+  error: string | null;
+};
+
+function fileKey(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
 }
 
 function isAllowedImageFile(file: File) {
@@ -49,11 +59,15 @@ export function UploadModal({
   isUploading = false,
 }: UploadModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const generationRef = useRef(0);
+  const startedKeysRef = useRef(new Set<string>());
+  const [selectedFiles, setSelectedFiles] = useState<SelectedMedia[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const resetModalState = () => {
+    generationRef.current += 1;
+    startedKeysRef.current.clear();
     setSelectedFiles([]);
     setValidationError(null);
     setIsDragActive(false);
@@ -68,12 +82,45 @@ export function UploadModal({
     }
   }, [isOpen]);
 
+  const startCompression = (item: SelectedMedia) => {
+    if (startedKeysRef.current.has(item.key)) return;
+    startedKeysRef.current.add(item.key);
+    const generation = generationRef.current;
+    void compressHotelImage(item.original)
+      .then((output) => {
+        if (generationRef.current !== generation) return;
+        setSelectedFiles((prev) =>
+          prev.map((entry) =>
+            entry.key === item.key
+              ? { ...entry, output, status: "ready", error: null }
+              : entry,
+          ),
+        );
+      })
+      .catch((error: unknown) => {
+        if (generationRef.current !== generation) return;
+        const message =
+          error instanceof Error
+            ? error.message
+            : `${item.original.name} could not be compressed`;
+        setSelectedFiles((prev) =>
+          prev.map((entry) =>
+            entry.key === item.key
+              ? { ...entry, output: null, status: "error", error: message }
+              : entry,
+          ),
+        );
+      });
+  };
+
   const validateFiles = (incomingFiles: File[]) => {
-    const valid: File[] = [];
+    const valid: SelectedMedia[] = [];
     const invalid: string[] = [];
 
     if (incomingFiles.length > MAX_FILES_PER_UPLOAD) {
-      setValidationError(`Maximum ${MAX_FILES_PER_UPLOAD} files are allowed at a time.`);
+      setValidationError(
+        `Maximum ${MAX_FILES_PER_UPLOAD} files are allowed at a time.`,
+      );
       return [];
     }
 
@@ -82,7 +129,9 @@ export function UploadModal({
       const isVideo = file.type.startsWith("video/");
       const lower = file.name.toLowerCase();
       const isAllowedVideoExt =
-        lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.endsWith(".mov");
+        lower.endsWith(".mp4") ||
+        lower.endsWith(".webm") ||
+        lower.endsWith(".mov");
 
       if (!isImage && !isVideo) {
         invalid.push(`${file.name}: unsupported file type`);
@@ -99,13 +148,13 @@ export function UploadModal({
         return;
       }
 
-      if (isImage && file.size < MIN_IMAGE_SIZE_BYTES) {
-        invalid.push(`${file.name}: image must be larger than 500 KB`);
+      if (isImage && file.size < IMAGE_MIN_ORIGINAL_BYTES) {
+        invalid.push(`${file.name}: image must be larger than 250 KB`);
         return;
       }
 
-      if (isImage && file.size > MAX_IMAGE_SIZE_BYTES) {
-        invalid.push(`${file.name}: image exceeds 5 MB`);
+      if (isImage && file.size > IMAGE_SOURCE_MAX_BYTES) {
+        invalid.push(`${file.name}: image is over 30 MB and cannot be compressed here`);
         return;
       }
 
@@ -114,7 +163,14 @@ export function UploadModal({
         return;
       }
 
-      valid.push(file);
+      const compress = shouldCompressHotelImage(file);
+      valid.push({
+        key: fileKey(file),
+        original: file,
+        output: compress ? null : file,
+        status: compress ? "compressing" : "ready",
+        error: null,
+      });
     });
 
     if (invalid.length > 0) {
@@ -132,16 +188,31 @@ export function UploadModal({
     const validFiles = validateFiles(incomingFiles);
     if (!validFiles.length) return;
     setSelectedFiles((prev) => {
-      const fileMap = new Map<string, File>();
-      [...prev, ...validFiles].forEach((file) => {
-        const key = `${file.name}-${file.size}-${file.lastModified}`;
-        fileMap.set(key, file);
+      const prevKeys = new Set(prev.map((file) => file.key));
+      const fileMap = new Map<string, SelectedMedia>();
+      prev.forEach((file) => fileMap.set(file.key, file));
+      validFiles.forEach((file) => {
+        if (!fileMap.has(file.key)) fileMap.set(file.key, file);
       });
-      const merged = Array.from(fileMap.values());
+      let merged = Array.from(fileMap.values());
       if (merged.length > MAX_FILES_PER_UPLOAD) {
-        setValidationError(`Maximum ${MAX_FILES_PER_UPLOAD} files are allowed at a time.`);
-        return merged.slice(0, MAX_FILES_PER_UPLOAD);
+        merged = merged.slice(0, MAX_FILES_PER_UPLOAD);
+        queueMicrotask(() =>
+          setValidationError(
+            `Maximum ${MAX_FILES_PER_UPLOAD} files are allowed at a time.`,
+          ),
+        );
       }
+      const kept = new Set(merged.map((file) => file.key));
+      merged.forEach((file) => {
+        if (
+          file.status === "compressing" &&
+          !prevKeys.has(file.key) &&
+          kept.has(file.key)
+        ) {
+          startCompression(file);
+        }
+      });
       return merged;
     });
   };
@@ -175,9 +246,14 @@ export function UploadModal({
     }
   };
 
+  const compressing = selectedFiles.some((file) => file.status === "compressing");
+  const readyOutputs = selectedFiles.flatMap((file) =>
+    file.status === "ready" && file.output ? [file.output] : [],
+  );
+
   const handleUpload = () => {
-    if (isUploading || selectedFiles.length === 0) return;
-    const filesToUpload = selectedFiles;
+    if (isUploading || compressing || readyOutputs.length === 0) return;
+    const filesToUpload = readyOutputs;
     setValidationError(null);
     resetModalState();
     onFilesSelect(filesToUpload);
@@ -189,14 +265,16 @@ export function UploadModal({
     onClose();
   };
 
-  const removeFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  const removeFile = (key: string) => {
+    startedKeysRef.current.delete(key);
+    setSelectedFiles((prev) => prev.filter((file) => file.key !== key));
     setValidationError(null);
   };
 
   if (!isOpen) return null;
 
   const hasFiles = selectedFiles.length > 0;
+  const compressionError = selectedFiles.find((file) => file.error)?.error ?? null;
 
   return (
     <div
@@ -230,7 +308,7 @@ export function UploadModal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
           <input
             ref={fileInputRef}
             type="file"
@@ -244,7 +322,7 @@ export function UploadModal({
             <div className="rounded-lg border border-blue-100 bg-blue-50/80 px-3 py-2.5 text-xs text-blue-900">
               <p className="mb-1 font-semibold">Images</p>
               <p className="text-blue-800">jpg, jpeg, png, webp</p>
-              <p className="mt-1 text-blue-700">Min 500 KB &middot; Max 5 MB each</p>
+              <p className="mt-1 text-blue-700">Min 250 KB each</p>
             </div>
             <div className="rounded-lg border border-indigo-100 bg-indigo-50/80 px-3 py-2.5 text-xs text-indigo-900">
               <p className="mb-1 font-semibold">Videos</p>
@@ -279,7 +357,7 @@ export function UploadModal({
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
                   className="shrink-0 gap-1.5"
-                  disabled={isUploading}
+                  disabled={isUploading || compressing}
                 >
                   <Upload className="h-3.5 w-3.5" />
                   Add files
@@ -314,32 +392,38 @@ export function UploadModal({
                   Selected files ({selectedFiles.length})
                 </p>
               </div>
-              <ul className="max-h-44 space-y-1 overflow-y-auto p-2">
-                {selectedFiles.map((file, index) => {
-                  const isVideo = file.type.startsWith("video/");
+              <ul className="max-h-64 space-y-1 overflow-y-auto p-2">
+                {selectedFiles.map((file) => {
+                  const isVideo = file.original.type.startsWith("video/");
                   const Icon = isVideo ? FileVideo : FileImage;
                   return (
                     <li
-                      key={`${file.name}-${file.size}-${file.lastModified}`}
+                      key={file.key}
                       className="flex items-center gap-2 rounded-md bg-gray-50 px-2 py-1.5"
                     >
                       <Icon className="h-4 w-4 shrink-0 text-gray-500" />
                       <div className="min-w-0 flex-1">
                         <p
                           className="truncate text-sm font-medium text-gray-800"
-                          title={file.name}
+                          title={file.original.name}
                         >
-                          {file.name}
+                          {file.original.name}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {isVideo ? "Video" : "Image"} · {formatFileSize(file.size)}
+                          {isVideo ? "Video" : "Image"}
+                          {file.status === "compressing" ? (
+                            <Loader2 className="ml-1 inline h-3 w-3 animate-spin text-blue-700" />
+                          ) : null}
                         </p>
+                        {file.error ? (
+                          <p className="text-xs text-red-600">{file.error}</p>
+                        ) : null}
                       </div>
                       <button
                         type="button"
-                        onClick={() => removeFile(index)}
+                        onClick={() => removeFile(file.key)}
                         className="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
-                        aria-label={`Remove ${file.name}`}
+                        aria-label={`Remove ${file.original.name}`}
                         disabled={isUploading}
                       >
                         <X className="h-4 w-4" />
@@ -351,9 +435,9 @@ export function UploadModal({
             </div>
           ) : null}
 
-          {validationError ? (
+          {validationError || compressionError ? (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              {validationError}
+              {validationError || compressionError}
             </div>
           ) : null}
 
@@ -372,19 +456,19 @@ export function UploadModal({
             type="button"
             variant="primary"
             onClick={handleUpload}
-            disabled={selectedFiles.length === 0 || isUploading}
+            disabled={readyOutputs.length === 0 || isUploading || compressing}
             className="flex-1 gap-2"
           >
-            {isUploading ? (
+            {isUploading || compressing ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Uploading...
+                {compressing ? "Compressing..." : "Uploading..."}
               </>
             ) : (
               <>
                 <Upload className="h-4 w-4" />
-                Upload {hasFiles ? `${selectedFiles.length} ` : ""}
-                File{selectedFiles.length !== 1 ? "s" : ""}
+                Upload {readyOutputs.length > 0 ? `${readyOutputs.length} ` : ""}
+                File{readyOutputs.length !== 1 ? "s" : ""}
               </>
             )}
           </Button>
