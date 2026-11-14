@@ -407,41 +407,51 @@ export function PropertyMediaTab({
     }
   };
 
-  const handleAssignToRoom = async (imageId: number, roomIdentifier: string) => {
+  const handleAssignToRoom = async (imageIds: number[], roomIdentifier: string) => {
+    if (imageIds.length === 0) return;
+    const assigned: number[] = [];
     try {
       setIsProcessing(true);
-      // PUT /hotel/{hotelId}/media/{imageId}/assign-room
-      await adminService.assignMediaToRoom(hotelId, imageId, { roomKey: roomIdentifier });
-      showToast("Media assigned to room successfully", "success");
-      // Resolve room by either roomKey or roomId, then refresh that room's media.
-      const room = resolveRoomByIdentifier(roomIdentifier);
-      if (room) {
-        // Immediate UI sync so assignment is visible without page refresh
-        const source = hotelMedia.find((m) => m.imageId === imageId);
-        if (source) {
-          setRoomMediaMap((prev) => {
-            const existing = prev[room.roomId] || [];
-            if (existing.some((item) => item.imageId === imageId)) return prev;
-            return {
-              ...prev,
-              [room.roomId]: [
-                ...existing,
-                {
-                  ...source,
-                  roomId: room.roomId,
-                  roomKey: room.roomKey ?? roomIdentifier,
-                  roomName: room.roomName,
-                },
-              ],
-            };
-          });
-        }
+      for (const imageId of imageIds) {
+        await adminService.assignMediaToRoom(hotelId, imageId, {
+          roomKey: roomIdentifier,
+        });
+        assigned.push(imageId);
       }
-      await loadHotelMedia({ refresh: true });
+      showToast(
+        assigned.length === 1
+          ? "Media assigned to room successfully"
+          : `${assigned.length} photos assigned to room`,
+        "success",
+      );
     } catch (error) {
       console.error("Error assigning media to room:", error);
-      showToast("Failed to assign media to room", "error");
+      showToast(
+        assigned.length > 0
+          ? `${assigned.length} assigned before the rest failed`
+          : "Failed to assign media to room",
+        "error",
+      );
     } finally {
+      const room = resolveRoomByIdentifier(roomIdentifier);
+      if (room && assigned.length > 0) {
+        setRoomMediaMap((prev) => {
+          const existing = prev[room.roomId] || [];
+          const existingIds = new Set(existing.map((item) => item.imageId));
+          const additions = assigned
+            .map((imageId) => hotelMedia.find((item) => item.imageId === imageId))
+            .filter((item): item is MediaFile => !!item && !existingIds.has(item.imageId))
+            .map((source) => ({
+              ...source,
+              roomId: room.roomId,
+              roomKey: room.roomKey ?? roomIdentifier,
+              roomName: room.roomName,
+            }));
+          if (additions.length === 0) return prev;
+          return { ...prev, [room.roomId]: [...existing, ...additions] };
+        });
+        await loadHotelMedia({ refresh: true });
+      }
       setIsProcessing(false);
     }
   };
@@ -570,9 +580,8 @@ export function PropertyMediaTab({
     setDragOverImageId(null);
   };
 
-  // Get unassigned media (not assigned to hotel or room)
   const getUnassignedMedia = () => {
-    return hotelMedia.filter(item => !item.roomId && !item.cover);
+    return hotelMedia.filter((item) => !item.roomId && !item.cover);
   };
 
   const hotelTabActive = activeTab === "hotel";
@@ -1065,10 +1074,12 @@ export function PropertyMediaTab({
             setSelectedRoomId(null);
           }}
           hotelMedia={getUnassignedMedia()}
-          onAssign={(imageId) => {
-            handleAssignToRoom(imageId, selectedRoomId);
-            setShowAssignModal(false);
-            setSelectedRoomId(null);
+          isProcessing={isProcessing}
+          onAssign={(imageIds) => {
+            void handleAssignToRoom(imageIds, selectedRoomId).finally(() => {
+              setShowAssignModal(false);
+              setSelectedRoomId(null);
+            });
           }}
         />
       )}
@@ -1330,11 +1341,33 @@ interface AssignModalProps {
   isOpen: boolean;
   onClose: () => void;
   hotelMedia: MediaFile[];
-  onAssign: (imageId: number) => void;
+  isProcessing?: boolean;
+  onAssign: (imageIds: number[]) => void;
 }
 
-function AssignModal({ isOpen, onClose, hotelMedia, onAssign }: AssignModalProps) {
+function AssignModal({
+  isOpen,
+  onClose,
+  hotelMedia,
+  isProcessing = false,
+  onAssign,
+}: AssignModalProps) {
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (isOpen) setSelectedIds([]);
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const toggleSelection = (imageId: number) => {
+    if (isProcessing) return;
+    setSelectedIds((prev) =>
+      prev.includes(imageId)
+        ? prev.filter((id) => id !== imageId)
+        : [...prev, imageId],
+    );
+  };
 
   return (
     <div
@@ -1348,7 +1381,12 @@ function AssignModal({ isOpen, onClose, hotelMedia, onAssign }: AssignModalProps
         <div className="flex items-center justify-between rounded-t-2xl px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center gap-3">
             <Plus className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-bold text-gray-900">Assign Media to Room</h2>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Assign Media to Room</h2>
+              <p className="text-sm text-gray-600">
+                {selectedIds.length} selected
+              </p>
+            </div>
           </div>
           <button
             type="button"
@@ -1372,13 +1410,31 @@ function AssignModal({ isOpen, onClose, hotelMedia, onAssign }: AssignModalProps
                 const isVideo = imageUrl?.toLowerCase().includes('.mp4') || 
                                 imageUrl?.toLowerCase().includes('.mov') ||
                                 imageUrl?.toLowerCase().includes('.webm');
+                const isSelected = selectedIds.includes(item.imageId);
                 
                 return (
                   <div
                     key={item.imageId}
-                    className="relative group rounded-lg overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => onAssign(item.imageId)}
+                    className={cn(
+                      "relative rounded-lg overflow-hidden border-2 bg-white shadow-sm transition-shadow cursor-pointer",
+                      isSelected
+                        ? "border-[#2f3d95] shadow-md"
+                        : "border-gray-200 hover:border-[#2f3d95]/40 hover:shadow-md",
+                    )}
+                    onClick={() => toggleSelection(item.imageId)}
                   >
+                    <div className="absolute top-2 right-2 z-20">
+                      <div
+                        className={cn(
+                          "flex h-6 w-6 items-center justify-center rounded border-2 bg-white/90",
+                          isSelected
+                            ? "border-[#2f3d95] bg-[#2f3d95]"
+                            : "border-gray-400",
+                        )}
+                      >
+                        {isSelected ? <Check className="h-4 w-4 text-white" /> : null}
+                      </div>
+                    </div>
                     <div className="aspect-square relative bg-gray-50 overflow-hidden">
                       {!isVideo && imageUrl ? (
                         <img
@@ -1409,16 +1465,6 @@ function AssignModal({ isOpen, onClose, hotelMedia, onAssign }: AssignModalProps
                         </div>
                       )}
                     </div>
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/40 flex items-center justify-center pointer-events-none z-20">
-                      <div className="pointer-events-auto">
-                        <Button variant="primary" onClick={(e) => {
-                          e.stopPropagation();
-                          onAssign(item.imageId);
-                        }}>
-                          Assign
-                        </Button>
-                      </div>
-                    </div>
                     {item.category && (
                       <div className="absolute top-2 left-2 z-10 text-white text-xs px-2 py-1 rounded capitalize font-medium flex items-center gap-1 bg-blue-600">
                         <Tag className="w-3 h-3" />
@@ -1432,7 +1478,7 @@ function AssignModal({ isOpen, onClose, hotelMedia, onAssign }: AssignModalProps
                       </div>
                     )}
                     {isVideo && (
-                      <div className="absolute top-2 right-2 z-10 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                      <div className="absolute bottom-2 right-2 z-10 bg-black/70 text-white text-xs px-2 py-1 rounded">
                         Video
                       </div>
                     )}
@@ -1441,6 +1487,26 @@ function AssignModal({ isOpen, onClose, hotelMedia, onAssign }: AssignModalProps
               })}
             </div>
           )}
+        </div>
+        <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-4">
+          <p className="text-sm text-gray-600">
+            {selectedIds.length} photo{selectedIds.length === 1 ? "" : "s"} selected
+          </p>
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isProcessing}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={selectedIds.length === 0 || isProcessing}
+              onClick={() => onAssign(selectedIds)}
+            >
+              {isProcessing
+                ? "Assigning..."
+                : `Assign${selectedIds.length ? ` ${selectedIds.length}` : ""}`}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
