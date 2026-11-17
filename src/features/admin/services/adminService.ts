@@ -348,6 +348,7 @@ export interface UpdateHotelProfileRequest {
   starRating: number;
   yearOfConstruction: number;
   currency: string;
+  description?: string;
 }
 
 export interface UpdateHotelStatusRequest {

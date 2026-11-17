@@ -151,8 +151,11 @@ export function PropertyDetailsTab({ hotelId }: PropertyDetailsTabProps) {
           starRating: parseInt(formData.starRating),
           yearOfConstruction: parseInt(formData.yearOfConstruction),
           currency: formData.currency,
+          ...(canEditDescription
+            ? { description: formData.description }
+            : {}),
         });
-      } else {
+      } else if (canEditDescription) {
         await adminService.updateHotelAdminProfile(hotelId, {
           description: formData.description,
         });
