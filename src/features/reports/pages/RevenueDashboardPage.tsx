@@ -313,14 +313,6 @@ export default function RevenueDashboardPage() {
           }
         />
 
-        {filters.product === "ALL" ? (
-          <p className="mb-3 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Hotel and package rows are not meant to add up to the primary cards.
-            When all products are selected, primary totals use direct hotel
-            bookings only so package hotel stays are not counted twice.
-          </p>
-        ) : null}
-
         {loading && !report ? (
           <div className="flex min-h-[40vh] items-center justify-center text-slate-500">
             <Loader2 className="h-6 w-6 animate-spin" />
