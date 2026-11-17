@@ -293,6 +293,7 @@ export const PACKAGE_BOOKING_FINANCIAL_MIS_ROLES = [
   "FINANCE_MANAGER",
   "ACCOUNTANT",
   "AUDITOR",
+  "ZONAL_MANAGER_SALES",
 ] as const;
 
 export function canViewPackageBookingFinancialMis(
@@ -312,6 +313,8 @@ export const HOTEL_BOOKING_FINANCIAL_MIS_ROLES = [
   "SUPER_ADMIN",
   "SALES_MANAGER",
   "ZONAL_MANAGER_SALES",
+  "ZONAL_MANAGER_HOTEL",
+  "ZontalHotelManager",
   "QC",
 ] as const;
 

@@ -6,6 +6,7 @@ import {
   canViewHotelBdPipeline,
   canViewHotelBdReports,
   canViewHotelBookingFinancialMis,
+  canViewPackageBookingFinancialMis,
   canViewChaloChuttiRevenueDashboard,
   canViewHotelPayoutMis,
   canViewPaymentReport,
@@ -420,6 +421,10 @@ function canViewAnyReportPath(user: User | null): boolean {
 }
 
 function canViewReportsPath(user: User | null, pathOnly: string): boolean {
+  if (pathOnly === ROUTES.REPORTS.PACKAGE_BOOKING_FINANCIAL_MIS) {
+    return canViewPackageBookingFinancialMis(user?.roles);
+  }
+
   if (pathOnly === ROUTES.REPORTS.LIST) {
     return canViewAnyReportPath(user);
   }

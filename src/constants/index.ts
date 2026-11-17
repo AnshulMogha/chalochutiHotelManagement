@@ -142,6 +142,7 @@ export const ROUTES = {
     SALES_MANAGER_DASHBOARD: "/reports/sales-manager-dashboard",
     SALES_MANAGER_AGENTS: "/reports/sales-manager-agents",
     HOTEL_BOOKING_FINANCIAL_MIS: "/reports/hotel-booking-financial-mis",
+    PACKAGE_BOOKING_FINANCIAL_MIS: "/reports/package-booking-financial-mis",
     HOTEL_BOOKING_FINANCIAL_MIS_DETAIL: (bookingId: string | number) =>
       `/reports/hotel-booking-financial-mis/${bookingId}`,
     REVENUE_DASHBOARD: "/reports/revenue-dashboard",

@@ -460,8 +460,8 @@ function getReportsNavItem(
     ...(showPackageMis
       ? [
           {
-            label: "Package MIS",
-            path: ROUTES.ADMIN.PACKAGE_BOOKING_FINANCIAL_MIS,
+            label: "Package Finance MIS",
+            path: ROUTES.REPORTS.PACKAGE_BOOKING_FINANCIAL_MIS,
             icon: Package,
             external: true,
           },

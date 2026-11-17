@@ -794,17 +794,47 @@ function SecondarySections({ secondary }: { secondary?: RevenueSecondary }) {
       label: "Pending refund",
       value: moneyLabel(secondary?.pendingRefund ?? null),
     },
+    {
+      label: "Cancelled OTA revenue (ex-GST)",
+      value: moneyLabel(secondary?.cancelledOtaRevenue ?? null),
+    },
+    {
+      label: "Cancelled OTA GST",
+      value: moneyLabel(secondary?.cancelledOtaRevenueGst ?? null),
+    },
+    {
+      label: "Cancelled OTA incl. GST",
+      value: moneyLabel(secondary?.cancelledOtaRevenueIncludingGst ?? null),
+    },
+    {
+      label: "Cancelled TDS",
+      value: moneyLabel(secondary?.cancelledTds ?? null),
+    },
+    {
+      label: "Cancelled TCS",
+      value: moneyLabel(secondary?.cancelledTcs ?? null),
+    },
+    {
+      label: "Cancelled agency commission",
+      value: moneyLabel(secondary?.cancelledAgencyCommission ?? null),
+    },
+    {
+      label: "Commission reversal",
+      value: moneyLabel(secondary?.commissionReversal ?? null),
+    },
   ];
 
   return (
-    <div className="mt-4 grid gap-4 lg:grid-cols-3">
+    <div className="mt-4 grid gap-4 lg:grid-cols-2">
       <SecondarySection title="Tax & statutory" items={taxItems} />
       <SecondarySection title="Commission" items={commissionItems} />
-      <SecondarySection
-        title="Cancellation & refund"
-        subtitle="Based on cancellation date"
-        items={cancellationItems}
-      />
+      <div className="lg:col-span-2">
+        <SecondarySection
+          title="Cancellation & refund"
+          subtitle="Based on cancellation date"
+          items={cancellationItems}
+        />
+      </div>
     </div>
   );
 }
@@ -830,8 +860,8 @@ function SecondarySection({
             key={item.label}
             className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2"
           >
-            <span className="text-xs text-slate-500">{item.label}</span>
-            <span className="text-sm font-medium tabular-nums text-slate-900">
+            <span className="min-w-0 text-xs text-slate-500">{item.label}</span>
+            <span className="shrink-0 text-sm font-medium tabular-nums text-slate-900">
               {item.value}
             </span>
           </div>

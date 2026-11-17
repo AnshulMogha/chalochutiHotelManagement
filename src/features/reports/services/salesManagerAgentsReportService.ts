@@ -290,6 +290,9 @@ function buildQuery(params: SalesManagerAgentsReportParams): string {
   if (params.agentStatus && params.agentStatus !== "ALL") {
     search.set("agentStatus", params.agentStatus);
   }
+  if (params.agencyName?.trim()) {
+    search.set("agencyName", params.agencyName.trim());
+  }
   if (params.onboardedFrom) search.set("onboardedFrom", params.onboardedFrom);
   if (params.onboardedTo) search.set("onboardedTo", params.onboardedTo);
   if (params.lastBookingFrom) {

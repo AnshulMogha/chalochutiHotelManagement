@@ -105,6 +105,7 @@ type FilterDraft = {
   stateId: string;
   state: string;
   agencyTier: string;
+  agencyName: string;
   search: string;
   agentStatus: SalesManagerAgentStatus | "ALL";
   sort: SalesManagerAgentsSortField;
@@ -124,6 +125,7 @@ const DEFAULT_DRAFT: FilterDraft = {
   stateId: "",
   state: "",
   agencyTier: "",
+  agencyName: "",
   search: "",
   agentStatus: DEFAULT_STATUS,
   sort: DEFAULT_SORT,
@@ -148,6 +150,7 @@ export default function SalesManagerAgentsReportPage() {
   const [stateId, setStateId] = useState("");
   const [state, setState] = useState("");
   const [agencyTier, setAgencyTier] = useState("");
+  const [agencyName, setAgencyName] = useState("");
   const [search, setSearch] = useState("");
   const [agentStatus, setAgentStatus] = useState<
     SalesManagerAgentStatus | "ALL"
@@ -177,6 +180,8 @@ export default function SalesManagerAgentsReportPage() {
     null,
   );
   const [error, setError] = useState<string | null>(null);
+  const [agencyOptions, setAgencyOptions] = useState<string[]>([]);
+  const [agencyQuery, setAgencyQuery] = useState("");
   const [states, setStates] = useState<
     Array<{ id: string; label: string; name: string }>
   >([]);
@@ -196,9 +201,42 @@ export default function SalesManagerAgentsReportPage() {
     (search.trim() ? 1 : 0) +
     (stateId ? 1 : 0) +
     (agencyTier ? 1 : 0) +
+    (agencyName ? 1 : 0) +
     (onboardedFrom || onboardedTo ? 1 : 0) +
     (lastBookingFrom || lastBookingTo ? 1 : 0) +
     (datePreset === "CUSTOM" && (fromDate || toDate) ? 1 : 0);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      adminService
+        .getTravelAgentOnboardingList({
+          status: "APPROVED",
+          agencyName: agencyQuery.trim() || undefined,
+          page: 0,
+          size: 50,
+        })
+        .then((response) => {
+          if (cancelled) return;
+          const names = Array.from(
+            new Set(
+              (response.content || [])
+                .map((item) => item.agencyName?.trim())
+                .filter((name): name is string => !!name),
+            ),
+          ).sort((left, right) => left.localeCompare(right));
+          setAgencyOptions(names);
+        })
+        .catch(() => {
+          if (!cancelled) setAgencyOptions([]);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [agencyQuery, filterOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -251,7 +289,11 @@ export default function SalesManagerAgentsReportPage() {
           agencyTier:
             ((overrides?.agencyTier ?? agencyTier) as SalesManagerAgencyTier) ||
             undefined,
-          search: (overrides?.search ?? search).trim() || undefined,
+          agencyName: (overrides?.agencyName ?? agencyName).trim() || undefined,
+          search:
+            (overrides?.search ?? search).trim() ||
+            (overrides?.agencyName ?? agencyName).trim() ||
+            undefined,
           agentStatus: overrides?.agentStatus ?? agentStatus,
           sort: overrides?.sort ?? sort,
           sortDir: overrides?.sortDir ?? sortDir,
@@ -286,6 +328,7 @@ export default function SalesManagerAgentsReportPage() {
       onboardedFrom,
       onboardedTo,
       page,
+      agencyName,
       search,
       showToast,
       sort,
@@ -345,6 +388,7 @@ export default function SalesManagerAgentsReportPage() {
     setStateId(nextDraft.stateId);
     setState(nextDraft.state);
     setAgencyTier(nextDraft.agencyTier);
+    setAgencyName(nextDraft.agencyName);
     setSearch(nextDraft.search);
     setAgentStatus(nextDraft.agentStatus);
     setSort(nextDraft.sort);
@@ -390,6 +434,8 @@ export default function SalesManagerAgentsReportPage() {
     setStateId("");
     setState("");
     setAgencyTier("");
+    setAgencyName("");
+    setAgencyQuery("");
     setSearch("");
     setAgentStatus(DEFAULT_DRAFT.agentStatus);
     setSort(DEFAULT_DRAFT.sort);
@@ -418,7 +464,8 @@ export default function SalesManagerAgentsReportPage() {
       stateId: stateId || undefined,
       state: state.trim() || undefined,
       agencyTier: (agencyTier as SalesManagerAgencyTier) || undefined,
-      search: search.trim() || undefined,
+      agencyName: agencyName.trim() || undefined,
+      search: search.trim() || agencyName.trim() || undefined,
       agentStatus,
       sort,
       sortDir,
@@ -438,6 +485,7 @@ export default function SalesManagerAgentsReportPage() {
       lastBookingTo,
       onboardedFrom,
       onboardedTo,
+      agencyName,
       search,
       sort,
       sortDir,
@@ -661,6 +709,7 @@ export default function SalesManagerAgentsReportPage() {
                   stateId,
                   state,
                   agencyTier,
+                  agencyName,
                   search,
                   agentStatus,
                   sort,
@@ -1012,6 +1061,36 @@ export default function SalesManagerAgentsReportPage() {
                   ).map((tier) => (
                     <option key={tier} value={tier}>
                       {formatStatusLabel(tier)}
+                    </option>
+                  ))}
+                </select>
+              </FilterField>
+              <FilterField label="Agency">
+                <input
+                  type="text"
+                  value={agencyQuery}
+                  onChange={(event) => setAgencyQuery(event.target.value)}
+                  placeholder="Search agency"
+                  className="mb-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+                <select
+                  value={draft.agencyName}
+                  onChange={(event) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      agencyName: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="">All agencies</option>
+                  {draft.agencyName &&
+                  !agencyOptions.includes(draft.agencyName) ? (
+                    <option value={draft.agencyName}>{draft.agencyName}</option>
+                  ) : null}
+                  {agencyOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
                     </option>
                   ))}
                 </select>

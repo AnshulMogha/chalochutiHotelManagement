@@ -68,6 +68,12 @@ export interface RevenueSecondary {
   cancelledBookings: number | null;
   cancellationAmount: RevenueMoney | null;
   pendingRefund: RevenueMoney | null;
+  cancelledOtaRevenue: RevenueMoney | null;
+  cancelledOtaRevenueGst: RevenueMoney | null;
+  cancelledOtaRevenueIncludingGst: RevenueMoney | null;
+  cancelledTds: RevenueMoney | null;
+  cancelledTcs: RevenueMoney | null;
+  cancelledAgencyCommission: RevenueMoney | null;
   tds: RevenueMoney | null;
   tcs: RevenueMoney | null;
   otaGst: RevenueMoney | null;
@@ -224,6 +230,14 @@ function normalizeSecondary(raw: unknown): RevenueSecondary {
         : toNumber(record.cancelledBookings),
     cancellationAmount: money(record.cancellationAmount),
     pendingRefund: money(record.pendingRefund),
+    cancelledOtaRevenue: money(record.cancelledOtaRevenue),
+    cancelledOtaRevenueGst: money(record.cancelledOtaRevenueGst),
+    cancelledOtaRevenueIncludingGst: money(
+      record.cancelledOtaRevenueIncludingGst,
+    ),
+    cancelledTds: money(record.cancelledTds),
+    cancelledTcs: money(record.cancelledTcs),
+    cancelledAgencyCommission: money(record.cancelledAgencyCommission),
     tds: money(record.tds),
     tcs: money(record.tcs),
     otaGst: money(record.otaGst),

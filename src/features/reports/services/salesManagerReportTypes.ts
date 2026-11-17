@@ -60,6 +60,7 @@ export interface SalesManagerAgentsReportParams
   sort?: SalesManagerAgentsSortField;
   sortDir?: SalesManagerSortDir;
   agentStatus?: SalesManagerAgentStatus | "ALL";
+  agencyName?: string;
   onboardedFrom?: string;
   onboardedTo?: string;
   lastBookingFrom?: string;

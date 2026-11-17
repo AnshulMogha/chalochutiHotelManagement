@@ -258,6 +258,9 @@ const SalesManagerAgentsReportPage = lazy(
 const HotelBookingFinancialMisPage = lazy(
   () => import("../features/reports/pages/HotelBookingFinancialMisPage"),
 );
+const PackageFinanceMisRedirect = lazy(
+  () => import("../features/reports/pages/PackageFinanceMisRedirect"),
+);
 const HotelBookingFinancialMisDetailPage = lazy(
   () => import("../features/reports/pages/HotelBookingFinancialMisDetailPage"),
 );
@@ -627,6 +630,10 @@ export const routes: RouteObject[] = [
       {
         path: "reports/hotel-booking-financial-mis",
         element: <HotelBookingFinancialMisPage />,
+      },
+      {
+        path: "reports/package-booking-financial-mis",
+        element: <PackageFinanceMisRedirect />,
       },
       {
         path: "reports/revenue-dashboard",
