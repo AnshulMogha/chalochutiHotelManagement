@@ -85,7 +85,6 @@ import {
   RotateCcw,
   Target,
   Percent,
-  Scale,
   Wallet,
   X,
 } from "lucide-react";
@@ -934,11 +933,6 @@ export default function HotelBookingFinancialMisPage() {
       ["Summary", "Hotel payout", formatFinanceMoney(summary.hotelPayout)],
       ["Summary", "TDS", formatFinanceMoney(summary.tds)],
       ["Summary", "TCS", formatFinanceMoney(summary.tcs)],
-      [
-        "Summary",
-        "OTA commission",
-        formatFinanceMoney(summary.commission),
-      ],
       ["Summary", "Net OTA revenue", formatFinanceMoney(summary.otaRevenue)],
       ["Summary", "OTA GST", formatFinanceMoney(summary.otaRevenueGst)],
       [
@@ -1288,24 +1282,6 @@ export default function HotelBookingFinancialMisPage() {
               hint={kpiHints?.tcs}
               icon={Percent}
               tone={FINANCE_KPI_TONES.outstanding}
-            />
-            <FinanceKpiCard
-              label="OTA Commission"
-              value={
-                summary
-                  ? formatFinanceMoney(summary.commission)
-                  : loading
-                    ? "…"
-                    : "—"
-              }
-              sub={
-                summary?.commission.rateLabel?.trim() ||
-                (summary?.commission.ratePercent != null
-                  ? `Commission @ ${summary.commission.ratePercent}%`
-                  : undefined)
-              }
-              icon={Scale}
-              tone={FINANCE_KPI_TONES.margin}
             />
             <FinanceKpiCard
               label="Net OTA Revenue"

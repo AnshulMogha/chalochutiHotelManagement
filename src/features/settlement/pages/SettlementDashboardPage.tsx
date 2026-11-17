@@ -341,25 +341,71 @@ function hotelBookingUrl(row: SettlementBookingRow): string | null {
   return `${ROUTES.BOOKINGS.LIST}?${params.toString()}`;
 }
 
-function packageFinancialMisUrl(row: SettlementBookingRow): string | null {
+const PACKAGE_MIS_DATE_PRESETS = new Set<string>([
+  "TODAY",
+  "YESTERDAY",
+  "THIS_WEEK",
+  "LAST_7_DAYS",
+  "THIS_MONTH",
+  "LAST_MONTH",
+  "CUSTOM",
+]);
+
+function packageFinancialMisUrl(
+  row: SettlementBookingRow,
+  filter: BookingFilter,
+  dateRange?: { fromDate?: string | null; toDate?: string | null },
+): string | null {
   const params = new URLSearchParams();
   const ref = String(row.bookingRef ?? "").trim();
   const id = row.bookingId != null ? String(row.bookingId).trim() : "";
-  if (ref) {
-    params.set("bookingRef", ref);
-    params.set("bookingId", ref);
-  }
+  if (!ref && !id) return null;
+  if (ref) params.set("bookingRef", ref);
   if (id) params.set("bookingId", id);
-  const query = params.toString();
-  if (!query) return null;
-  return `${ROUTES.ADMIN.PACKAGE_BOOKING_FINANCIAL_MIS}?${query}`;
+  else if (ref) params.set("bookingId", ref);
+
+  const preset = filter.datePreset;
+  if (preset) params.set("datePreset", preset);
+  const fromDate =
+    preset === "CUSTOM" ? filter.fromDate : dateRange?.fromDate || "";
+  const toDate = preset === "CUSTOM" ? filter.toDate : dateRange?.toDate || "";
+  if (preset === "CUSTOM" || (preset && !PACKAGE_MIS_DATE_PRESETS.has(preset))) {
+    if (fromDate) params.set("fromDate", fromDate);
+    if (toDate) params.set("toDate", toDate);
+  }
+
+  const packageId =
+    filter.packageId.trim() || String(row.packageId ?? "").trim();
+  if (packageId) params.set("packageId", packageId);
+  if (filter.bookingStatus.trim()) {
+    params.set("bookingStatus", filter.bookingStatus.trim());
+  }
+  if (filter.paymentStatus.trim()) {
+    params.set("paymentStatus", filter.paymentStatus.trim());
+  }
+  const businessType = filter.businessType.trim().toUpperCase();
+  if (businessType === "B2B" || businessType === "B2C") {
+    params.set("bookingSource", businessType);
+  }
+  if (filter.agencyId.trim()) params.set("agencyId", filter.agencyId.trim());
+
+  return `${ROUTES.ADMIN.PACKAGE_BOOKING_FINANCIAL_MIS}?${params.toString()}`;
 }
 
-function BookingRefCell({ row }: { row: SettlementBookingRow }) {
+function BookingRefCell({
+  row,
+  filter,
+  dateRange,
+}: {
+  row: SettlementBookingRow;
+  filter: BookingFilter;
+  dateRange?: { fromDate?: string | null; toDate?: string | null };
+}) {
   const kind = productTypeKind(row.productType);
   const refLabel = row.bookingRef || "—";
   const hotelHref = kind === "HOTEL" ? hotelBookingUrl(row) : null;
-  const packageHref = kind === "PACKAGE" ? packageFinancialMisUrl(row) : null;
+  const packageHref =
+    kind === "PACKAGE" ? packageFinancialMisUrl(row, filter, dateRange) : null;
   const linkClass = "font-semibold text-[#2f3d95] hover:underline";
   const subtitle = (
     <p className="text-xs text-slate-500">
@@ -917,6 +963,7 @@ export default function SettlementDashboardPage() {
             error={bookingsError}
             onRetry={loadBookings}
             onPage={setPage}
+            filter={bookingFilter}
             onSort={(sortBy) => {
               setBookingFilter((current) => ({
                 ...current,
@@ -1236,6 +1283,7 @@ function BookingsTab({
   sortBy,
   sortDirection,
   exportAction,
+  filter,
 }: {
   report: SettlementBookingsResponse | null;
   loading: boolean;
@@ -1246,6 +1294,7 @@ function BookingsTab({
   sortBy: SettlementBookingSort;
   sortDirection: "ASC" | "DESC";
   exportAction: ReactNode;
+  filter: BookingFilter;
 }) {
   if (loading && !report) return <CenteredLoading />;
   if (error && !report) return <ErrorState message={error} onRetry={onRetry} />;
@@ -1258,7 +1307,13 @@ function BookingsTab({
       flex: 1.2,
       minWidth: 180,
       sortable: false,
-      renderCell: (params) => <BookingRefCell row={params.row} />,
+      renderCell: (params) => (
+        <BookingRefCell
+          row={params.row}
+          filter={filter}
+          dateRange={report.dateRange}
+        />
+      ),
     },
     {
       field: "serviceDate",
