@@ -18,7 +18,6 @@ import {
   CircleDollarSign,
   Clock,
   Loader2,
-  Percent,
   Receipt,
   RotateCcw,
   Search,
@@ -179,8 +178,6 @@ const HOTEL_KPIS = [
   ["hotelPayable", "Hotel payable", Building2],
   ["hotelPaid", "Hotel paid", BadgeCheck],
   ["hotelOutstanding", "Hotel outstanding", Receipt],
-  ["otaCommission", "OTA commission", Percent],
-  ["commissionGst", "Commission GST", Percent],
   ["refundPending", "Refund pending", RotateCcw],
 ] as const;
 
@@ -188,7 +185,6 @@ const PACKAGE_KPIS = [
   ["packageBookingValue", "Booking value", CircleDollarSign],
   ["customerCollected", "Customer collected", Wallet],
   ["customerOutstanding", "Customer outstanding", Clock],
-  ["supplierCost", "Supplier cost", Receipt],
   ["supplierPayable", "Supplier payable", Building2],
   ["trackedSupplierPayable", "Tracked payable", BadgeCheck],
   ["supplierPaid", "Supplier paid", Wallet],
@@ -369,7 +365,10 @@ function packageFinancialMisUrl(
   const fromDate =
     preset === "CUSTOM" ? filter.fromDate : dateRange?.fromDate || "";
   const toDate = preset === "CUSTOM" ? filter.toDate : dateRange?.toDate || "";
-  if (preset === "CUSTOM" || (preset && !PACKAGE_MIS_DATE_PRESETS.has(preset))) {
+  if (
+    preset === "CUSTOM" ||
+    (preset && !PACKAGE_MIS_DATE_PRESETS.has(preset))
+  ) {
     if (fromDate) params.set("fromDate", fromDate);
     if (toDate) params.set("toDate", toDate);
   }
@@ -530,10 +529,7 @@ function MoneyKpiGrid({
         return (
           <div
             key={key}
-            className={cn(
-              "rounded-lg border px-3 py-2.5 shadow-sm",
-              tone.card,
-            )}
+            className={cn("rounded-lg border px-3 py-2.5 shadow-sm", tone.card)}
           >
             <div className="flex items-center gap-2">
               <span
