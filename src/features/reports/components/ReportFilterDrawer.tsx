@@ -38,6 +38,41 @@ export function ReportFilterButton({
   );
 }
 
+export type ReportAppliedFilterItem = {
+  label: string;
+  value: string;
+};
+
+export function ReportAppliedFilters({
+  items,
+  className,
+}: {
+  items: Array<ReportAppliedFilterItem | null | false | undefined>;
+  className?: string;
+}) {
+  const visible = items.filter(
+    (item): item is ReportAppliedFilterItem =>
+      Boolean(item && item.label && item.value.trim()),
+  );
+  if (visible.length === 0) return null;
+
+  return (
+    <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
+      {visible.map((item) => (
+        <span
+          key={item.label}
+          className="inline-flex max-w-full items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs shadow-sm"
+        >
+          <span className="shrink-0 text-slate-500">{item.label}</span>
+          <span className="truncate font-semibold text-slate-800">
+            {item.value}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function ReportAppliedRange({
   from,
   to,

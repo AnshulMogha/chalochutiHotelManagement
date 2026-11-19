@@ -15,6 +15,7 @@ import {
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterActions,
   ReportFilterButton,
@@ -576,6 +577,20 @@ export default function InventoryAllocationReportPage() {
     "Rate plan",
     "rate plans",
   );
+  const appliedFilterItems = [
+    canFilterHotels
+      ? {
+          label: "Hotels",
+          value: propertyIds.length
+            ? propertyIds.length === 1
+              ? "1 hotel"
+              : `${propertyIds.length} hotels`
+            : "All",
+        }
+      : null,
+    { label: "Room type", value: selectedRoomTypeName || "All" },
+    { label: "Rate plan", value: selectedRatePlanName || "All" },
+  ];
 
   return (
     <>
@@ -680,6 +695,8 @@ export default function InventoryAllocationReportPage() {
               />
             </div>
           </div>
+
+          <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
           {error ? (
             <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

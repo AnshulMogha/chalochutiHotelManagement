@@ -13,6 +13,7 @@ import { DataTable, formatListCount } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterButton,
   ReportRefreshButton,
@@ -193,6 +194,7 @@ type AppliedFilters = {
   status?: string;
   bookingRef?: string;
   subjectId?: string;
+  subjectLabel?: string;
   fromDate?: string;
   toDate?: string;
 };
@@ -569,6 +571,7 @@ export default function ReviewMisPage() {
         bookingType,
         filterSubjectId: draft.subjectId,
       }),
+      subjectLabel: draft.subjectLabel.trim() || undefined,
       fromDate: range.fromDate || undefined,
       toDate: range.toDate || undefined,
     });
@@ -956,11 +959,7 @@ export default function ReviewMisPage() {
                   from={filters.fromDate}
                   to={filters.toDate}
                   detail={
-                    filters.bookingType
-                      ? formatStatusLabel(filters.bookingType)
-                      : filters.fromDate || filters.toDate
-                        ? null
-                        : "All dates"
+                    filters.fromDate || filters.toDate ? null : "All dates"
                   }
                 />
                 <ReportFilterButton
@@ -988,6 +987,41 @@ export default function ReviewMisPage() {
               </div>
             </div>
           </div>
+
+          <ReportAppliedFilters
+            className="mb-3"
+            items={[
+              {
+                label: "Booking type",
+                value: isHotelScopedMis
+                  ? "Hotel booking"
+                  : filters.bookingType
+                    ? formatStatusLabel(filters.bookingType)
+                    : "All types",
+              },
+              {
+                label: "Status",
+                value: filters.status
+                  ? formatStatusLabel(filters.status.replace(/^REVIEW_/, ""))
+                  : "All statuses",
+              },
+              filters.bookingRef
+                ? { label: "Booking reference", value: filters.bookingRef }
+                : null,
+              filters.subjectId &&
+              !(
+                !isHotelScopedMis &&
+                hotelId &&
+                filters.subjectId === hotelId &&
+                shouldApplyTopBarHotelSubject(filters.bookingType)
+              )
+                ? {
+                    label: "Subject",
+                    value: filters.subjectLabel || "Selected",
+                  }
+                : null,
+            ]}
+          />
 
           <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <MisKpiCard
@@ -1758,7 +1792,7 @@ function filtersToDraft(filters: AppliedFilters): FilterDraft {
     status: filters.status || "",
     bookingRef: filters.bookingRef || "",
     subjectId: filters.subjectId || "",
-    subjectLabel: "",
+    subjectLabel: filters.subjectLabel || "",
     fromDateText: filters.fromDate ? isoToReportDateText(filters.fromDate) : "",
     toDateText: filters.toDate ? isoToReportDateText(filters.toDate) : "",
   };

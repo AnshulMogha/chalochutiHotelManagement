@@ -31,6 +31,7 @@ import {
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterActions,
   ReportFilterButton,
@@ -1010,6 +1011,30 @@ export default function SalesManagerDashboardReportPage() {
     }
   };
 
+  const appliedFilterItems = [
+    {
+      label: "Date type",
+      value: dateAxis === "TRAVEL" ? "Travel date" : "Booking date",
+    },
+    {
+      label: "Booking type",
+      value:
+        bookingType === "HOTEL"
+          ? "Hotel"
+          : bookingType === "PACKAGE"
+            ? "Package"
+            : "All",
+    },
+    {
+      label: "State",
+      value: states.find((item) => item.id === stateId)?.label || "All",
+    },
+    {
+      label: "Agency tier",
+      value: agencyTier ? formatStatusLabel(agencyTier) : "All",
+    },
+  ];
+
   return (
     <div className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4">
       <Toast toast={toast} onClose={hideToast} />
@@ -1024,9 +1049,14 @@ export default function SalesManagerDashboardReportPage() {
               from={report?.dateRange?.fromDate}
               to={report?.dateRange?.toDate}
               detail={
-                report
-                  ? `${report.scope ? `${formatStatusLabel(report.scope)} · ` : ""}${formatStatusLabel(report.dateAxis || "BOOKING")} period`
-                  : null
+                [
+                  report?.scope ? formatStatusLabel(report.scope) : null,
+                  DATE_PRESET_OPTIONS.find(
+                    (option) => option.value === datePreset,
+                  )?.label,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || null
               }
             />
             <ReportFilterButton
@@ -1097,6 +1127,8 @@ export default function SalesManagerDashboardReportPage() {
           </div>
         }
       />
+
+      <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
       {error ? (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

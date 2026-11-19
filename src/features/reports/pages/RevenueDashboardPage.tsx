@@ -9,6 +9,7 @@ import { HotelLookupFilterField } from "../components/HotelLookupFilterField";
 import { PackageLookupFilterField } from "../components/PackageLookupFilterField";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterButton,
   ReportFilterDrawer,
@@ -215,6 +216,64 @@ export default function RevenueDashboardPage() {
     return count;
   }, [filters]);
 
+  const appliedFilterItems = useMemo(() => {
+    const stateName = states.find(
+      (state) => String(state.id) === filters.stateId,
+    )?.name;
+    const cityName = cities.find(
+      (city) => String(city.id) === filters.cityId,
+    )?.name;
+    return [
+      {
+        label: "Product",
+        value:
+          filters.product === "HOTEL"
+            ? "Hotel"
+            : filters.product === "PACKAGE"
+              ? "Package"
+              : "All",
+      },
+      {
+        label: "Channel",
+        value:
+          filters.channel === "B2C"
+            ? "B2C (direct)"
+            : filters.channel === "B2B"
+              ? "B2B (agent)"
+              : "All",
+      },
+      {
+        label: "Payment status",
+        value:
+          filters.paymentStatus === "PAID"
+            ? "Paid"
+            : filters.paymentStatus === "PARTIAL"
+              ? "Partial"
+              : filters.paymentStatus === "PENDING"
+                ? "Pending"
+                : "All",
+      },
+      filters.hotelId
+        ? { label: "Hotel", value: filters.hotelLabel || "Selected hotel" }
+        : null,
+      filters.packageId
+        ? {
+            label: "Package",
+            value: filters.packageLabel || "Selected package",
+          }
+        : null,
+      filters.supplierId.trim()
+        ? { label: "Supplier", value: filters.supplierId.trim() }
+        : null,
+      filters.stateId
+        ? { label: "State", value: stateName || filters.stateId }
+        : null,
+      filters.cityId
+        ? { label: "City", value: cityName || filters.cityId }
+        : null,
+    ];
+  }, [cities, filters, states]);
+
   const openFilters = () => {
     setDraft(filters);
     setCustomFromText(isoToReportDateText(filters.fromDate));
@@ -312,6 +371,8 @@ export default function RevenueDashboardPage() {
             </div>
           }
         />
+
+        <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
         {loading && !report ? (
           <div className="flex min-h-[40vh] items-center justify-center text-slate-500">

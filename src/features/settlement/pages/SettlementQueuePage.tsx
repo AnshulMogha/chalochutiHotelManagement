@@ -14,6 +14,7 @@ import {
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterButton,
 } from "@/features/reports/components/ReportFilterDrawer";
@@ -69,16 +70,13 @@ function QueueAppliedRange({ applied }: { applied: QueueFilterDraft }) {
   );
   const from = range.ok ? range.fromDate : null;
   const to = range.ok ? range.toDate : null;
-  const detail =
-    [
-      applied.component ? formatStatusLabel(applied.component) : null,
-      applied.supplierName.trim() || null,
-      applied.settlementNo.trim() || null,
-    ]
-      .filter(Boolean)
-      .join(" · ") || (!from && !to ? "All dates" : null);
-
-  return <ReportAppliedRange from={from} to={to} detail={detail} />;
+  return (
+    <ReportAppliedRange
+      from={from}
+      to={to}
+      detail={!from && !to ? "All dates" : null}
+    />
+  );
 }
 
 function getMode(pathname: string): QueueMode {
@@ -395,6 +393,26 @@ export default function SettlementQueuePage() {
           </div>
         }
       >
+        <ReportAppliedFilters
+          className="mb-3"
+          items={[
+            {
+              label: "Component",
+              value: applied.component
+                ? formatStatusLabel(applied.component)
+                : "All",
+            },
+            applied.supplierName.trim()
+              ? { label: "Supplier", value: applied.supplierName.trim() }
+              : null,
+            applied.settlementNo.trim()
+              ? {
+                  label: "Settlement no",
+                  value: applied.settlementNo.trim(),
+                }
+              : null,
+          ]}
+        />
         <DataTable
           subtitle={
             <>

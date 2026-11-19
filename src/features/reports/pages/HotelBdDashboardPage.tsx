@@ -25,6 +25,7 @@ import {
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterActions,
   ReportFilterButton,
@@ -492,6 +493,36 @@ export default function HotelBdDashboardPage() {
     void loadReport(DEFAULT_DRAFT);
   };
 
+  const appliedFilterItems = [
+    {
+      label: "Stuck after",
+      value: `${applied.stuckDaysThreshold} day${
+        applied.stuckDaysThreshold === 1 ? "" : "s"
+      }`,
+    },
+    canFilterByBd
+      ? {
+          label: "BD user",
+          value: applied.bdUserId.length
+            ? applied.bdUserId
+                .map(
+                  (id) => bdUsers.find((user) => user.id === id)?.label || id,
+                )
+                .join(", ")
+            : "All",
+        }
+      : null,
+    applied.inboxSearch.trim()
+      ? { label: "Search", value: applied.inboxSearch.trim() }
+      : null,
+    applied.inboxCity.trim()
+      ? { label: "City", value: applied.inboxCity.trim() }
+      : null,
+    applied.inboxState.trim()
+      ? { label: "State", value: applied.inboxState.trim() }
+      : null,
+  ];
+
   return (
     <div className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4">
       <Toast
@@ -510,9 +541,11 @@ export default function HotelBdDashboardPage() {
             <ReportAppliedRange
               from={report?.dateRange?.fromDate}
               to={report?.dateRange?.toDate}
-              detail={`Go-live · Stuck ${applied.stuckDaysThreshold} day${
-                applied.stuckDaysThreshold === 1 ? "" : "s"
-              }`}
+              detail={
+                DATE_PRESET_OPTIONS.find(
+                  (option) => option.value === applied.datePreset,
+                )?.label
+              }
             />
             <ReportFilterButton
               onClick={() => {
@@ -542,6 +575,8 @@ export default function HotelBdDashboardPage() {
           </div>
         }
       />
+
+      <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
       {error ? (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

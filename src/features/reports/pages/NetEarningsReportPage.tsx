@@ -17,6 +17,7 @@ import { setStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 import { cn } from "@/lib/utils";
 import { PaymentsTabNav } from "../components/payoutMisUi";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterButton,
   ReportFilterDrawer,
@@ -842,6 +843,49 @@ export default function NetEarningsReportPage() {
   const summary = report?.summary;
   const totalPages = report?.page.totalPages ?? 0;
   const totalElements = report?.page.totalElements ?? 0;
+  const appliedFilterItems = [
+    {
+      label: "Date type",
+      value:
+        DATE_AXIS_OPTIONS.find((option) => option.value === dateAxis)?.label ??
+        "Default",
+    },
+    {
+      label: "Booking type",
+      value:
+        BOOKING_TYPE_OPTIONS.find((option) => option.value === bookingType)
+          ?.label ?? "All",
+    },
+    {
+      label: "Booking status",
+      value: bookingStatuses.length
+        ? bookingStatuses
+            .map(
+              (status) =>
+                BOOKING_STATUS_OPTIONS.find((option) => option.value === status)
+                  ?.label ?? status,
+            )
+            .join(", ")
+        : "All",
+    },
+    {
+      label: "Payment status",
+      value:
+        PAYMENT_STATUS_OPTIONS.find((option) => option.value === paymentStatus)
+          ?.label ?? "All",
+    },
+    canFilterHotels
+      ? {
+          label: "Hotels",
+          value: propertyIds.length
+            ? propertyIds.length === 1
+              ? "1 hotel"
+              : `${propertyIds.length} hotels`
+            : "All",
+        }
+      : null,
+    search.trim() ? { label: "Search", value: search.trim() } : null,
+  ];
   return (
     <>
       <Toast
@@ -875,13 +919,9 @@ export default function NetEarningsReportPage() {
                   from={report?.dateRange.fromDate}
                   to={report?.dateRange.toDate}
                   detail={
-                    report?.dateAxis || dateAxis
-                      ? (DATE_AXIS_OPTIONS.find(
-                          (option) =>
-                            option.value === (report?.dateAxis || dateAxis),
-                        )?.label ??
-                        formatStatusLabel(report?.dateAxis || dateAxis))
-                      : null
+                    DATE_PRESET_OPTIONS.find(
+                      (option) => option.value === datePreset,
+                    )?.label
                   }
                 />
                 <ReportFilterButton
@@ -905,6 +945,10 @@ export default function NetEarningsReportPage() {
                   disabled={customRangeInvalid}
                 />
               </div>
+            </div>
+
+            <div className="border-b border-slate-100 px-4 py-2">
+              <ReportAppliedFilters items={appliedFilterItems} />
             </div>
 
             <div className="px-4 py-3">

@@ -38,6 +38,7 @@ import {
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterActions,
   ReportFilterButton,
@@ -707,6 +708,41 @@ export default function BookingSummaryPage() {
                   />
                 </button>
               </div>
+            </div>
+
+            <div className="border-t border-slate-100 px-4 py-2">
+              <ReportAppliedFilters
+                items={[
+                  {
+                    label: "Hotels",
+                    value: selectedPropertyIds.length
+                      ? selectedPropertyIds
+                          .map(
+                            (id) =>
+                              propertyOptions.find((hotel) => hotel.hotelId === id)
+                                ?.hotelName || "Hotel",
+                          )
+                          .join(", ")
+                      : "All",
+                  },
+                  {
+                    label: "Cities",
+                    value: selectedCityIds.length
+                      ? selectedCityIds
+                          .map(
+                            (id) =>
+                              cityOptions.find(
+                                (city) => String(city.id) === String(id),
+                              )?.name || "City",
+                          )
+                          .join(", ")
+                      : "All",
+                  },
+                  search.trim()
+                    ? { label: "Search", value: search.trim() }
+                    : null,
+                ]}
+              />
             </div>
 
             <div

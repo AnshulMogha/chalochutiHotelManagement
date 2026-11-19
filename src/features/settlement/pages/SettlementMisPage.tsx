@@ -15,6 +15,7 @@ import {
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterButton,
 } from "@/features/reports/components/ReportFilterDrawer";
@@ -381,21 +382,7 @@ export default function SettlementMisPage() {
             <ReportAppliedRange
               from={visibleFrom}
               to={visibleTo}
-              detail={
-                [
-                  applied.component
-                    ? formatStatusLabel(applied.component)
-                    : null,
-                  applied.payoutStatus
-                    ? formatStatusLabel(applied.payoutStatus)
-                    : null,
-                  applied.supplierName.trim() || null,
-                  applied.settlementNo.trim() || null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ") ||
-                (!visibleFrom && !visibleTo ? "All dates" : null)
-              }
+              detail={!visibleFrom && !visibleTo ? "All dates" : null}
             />
             <ReportFilterButton
               onClick={openFilterDrawer}
@@ -427,6 +414,29 @@ export default function SettlementMisPage() {
           </div>
         }
       >
+        <ReportAppliedFilters
+          className="mb-3"
+          items={[
+            {
+              label: "Component",
+              value: applied.component
+                ? formatStatusLabel(applied.component)
+                : "All",
+            },
+            {
+              label: "Payout status",
+              value: applied.payoutStatus
+                ? formatStatusLabel(applied.payoutStatus)
+                : "All",
+            },
+            applied.supplierName.trim()
+              ? { label: "Supplier", value: applied.supplierName.trim() }
+              : null,
+            applied.settlementNo.trim()
+              ? { label: "Settlement no", value: applied.settlementNo.trim() }
+              : null,
+          ]}
+        />
         <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
           <SettlementReportStatCard
             label="Total payable"

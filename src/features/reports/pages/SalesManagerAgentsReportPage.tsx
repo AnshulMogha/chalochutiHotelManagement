@@ -20,6 +20,7 @@ import {
   SummaryCard,
   agentStatusTone,
   exportStatusLabel,
+  formatReportDate,
   formatReportDateTime,
   formatReportMoney,
   formatStatusLabel,
@@ -30,6 +31,7 @@ import {
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterActions,
   ReportFilterButton,
@@ -679,6 +681,51 @@ export default function SalesManagerAgentsReportPage() {
     },
   ];
 
+  const dateSpan = (from: string, to: string) => {
+    if (from && to) return `${formatReportDate(from)} – ${formatReportDate(to)}`;
+    if (from) return `From ${formatReportDate(from)}`;
+    if (to) return `Until ${formatReportDate(to)}`;
+    return "";
+  };
+  const onboardedSpan = dateSpan(onboardedFrom, onboardedTo);
+  const lastBookingSpan = dateSpan(lastBookingFrom, lastBookingTo);
+  const appliedFilterItems = [
+    {
+      label: "Date type",
+      value: dateAxis === "TRAVEL" ? "Travel date" : "Booking date",
+    },
+    {
+      label: "Booking type",
+      value:
+        bookingType === "HOTEL"
+          ? "Hotel"
+          : bookingType === "PACKAGE"
+            ? "Package"
+            : "All",
+    },
+    {
+      label: "Agent status",
+      value: agentStatus === "ALL" ? "All" : formatStatusLabel(agentStatus),
+    },
+    { label: "State", value: state || "All" },
+    {
+      label: "Agency tier",
+      value: agencyTier ? formatStatusLabel(agencyTier) : "All",
+    },
+    { label: "Agency", value: agencyName || "All" },
+    search.trim() ? { label: "Search", value: search.trim() } : null,
+    onboardedSpan ? { label: "Onboarded", value: onboardedSpan } : null,
+    lastBookingSpan ? { label: "Last booking", value: lastBookingSpan } : null,
+    sort !== DEFAULT_SORT || sortDir !== "DESC"
+      ? {
+          label: "Sort",
+          value: `${
+            SORT_OPTIONS.find((option) => option.value === sort)?.label ?? sort
+          } · ${sortDir === "ASC" ? "Ascending" : "Descending"}`,
+        }
+      : null,
+  ];
+
   return (
     <div className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4">
       <Toast toast={toast} onClose={hideToast} />
@@ -693,9 +740,8 @@ export default function SalesManagerAgentsReportPage() {
               from={report?.dateRange?.fromDate}
               to={report?.dateRange?.toDate}
               detail={
-                report?.metricWindow
-                  ? `${formatStatusLabel(report.metricWindow)} metrics`
-                  : null
+                DATE_PRESET_OPTIONS.find((option) => option.value === datePreset)
+                  ?.label
               }
             />
             <ReportFilterButton
@@ -760,6 +806,8 @@ export default function SalesManagerAgentsReportPage() {
           </div>
         }
       />
+
+      <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
       {error ? (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
