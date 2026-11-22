@@ -2,7 +2,6 @@ import { useSearchParams } from "react-router";
 import { FinanceTab } from "../components/property-info/FinanceTab";
 import { useAuth } from "@/hooks";
 import { canEditHotelFinanceDetails } from "@/lib/permissions";
-import { canVerifyHotelBank } from "@/constants/roles";
 import { ReadOnlySection } from "@/components/ui/ReadOnlySection";
 import { FinanceSectionCard } from "../components/property-info/financeTabUi";
 
@@ -11,11 +10,8 @@ export default function FinancePage() {
   const { user } = useAuth();
   const selectedHotelId = searchParams.get("hotelId");
   const canEditFinance = canEditHotelFinanceDetails(user);
-  const canVerifyBank = canVerifyHotelBank(user?.roles);
   const isReadOnly = !canEditFinance;
-  const readOnlyMessage = canVerifyBank
-    ? ""
-    : "You have view-only access for this section.";
+  const readOnlyMessage = "";
 
   if (!selectedHotelId) {
     return (
@@ -39,7 +35,7 @@ export default function FinancePage() {
   }
 
   return (
-    <div className="container mx-auto px-4 pb-4">
+    <div className="container mx-auto max-w-7xl px-4 pb-3">
       <ReadOnlySection isReadOnly={isReadOnly} message={readOnlyMessage}>
         <FinanceTab hotelId={selectedHotelId} />
       </ReadOnlySection>

@@ -15,6 +15,8 @@ import {
   canViewHotelBdReports,
   canViewSalesManagerReports,
   canViewSupplierSettlement,
+  canViewVendorBeneficiaryMis,
+  canViewVendorBankVerificationMis,
   canModerateReviews,
   canManageHotelReviews,
   isAuditorRole,
@@ -60,6 +62,7 @@ import {
   GitBranch,
   Ticket,
   Landmark,
+  ShieldCheck,
   CheckCircle2,
   ClipboardList,
   RotateCcw,
@@ -337,6 +340,10 @@ function getReportsNavItem(
     !paymentsOnly && canViewChaloChuttiRevenueDashboard(user?.roles);
   const showSettlementDashboard =
     !paymentsOnly && canViewSupplierSettlement(user?.roles);
+  const showVendorBeneficiaries =
+    !paymentsOnly && canViewVendorBeneficiaryMis(user?.roles);
+  const showVendorBankVerification =
+    !paymentsOnly && canViewVendorBankVerificationMis(user?.roles);
   const showHotelPayments = showPaymentReport || showHotelPayouts;
 
   if (
@@ -354,7 +361,9 @@ function getReportsNavItem(
     !showTransportBookingMis &&
     !showPackageMis &&
     !showRevenueDashboard &&
-    !showSettlementDashboard
+    !showSettlementDashboard &&
+    !showVendorBeneficiaries &&
+    !showVendorBankVerification
   ) {
     return null;
   }
@@ -375,6 +384,24 @@ function getReportsNavItem(
             label: "Settlement Dashboard",
             path: ROUTES.SETTLEMENT.DASHBOARD,
             icon: LayoutDashboard,
+          },
+        ]
+      : []),
+    ...(showVendorBeneficiaries
+      ? [
+          {
+            label: "Vendor Beneficiaries",
+            path: ROUTES.REPORTS.VENDOR_BENEFICIARIES,
+            icon: Landmark,
+          },
+        ]
+      : []),
+    ...(showVendorBankVerification
+      ? [
+          {
+            label: "Bank Verification",
+            path: ROUTES.REPORTS.VENDOR_BANK_VERIFICATION,
+            icon: ShieldCheck,
           },
         ]
       : []),

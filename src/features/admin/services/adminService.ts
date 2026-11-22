@@ -115,9 +115,19 @@ export interface TravelAgentOnboardingListItem {
   agencyName: string;
   agencyTier?: AgencyTier;
   status: TravelAgentOnboardingStatus;
+  rejectionRemarks?: string | null;
+  reviewedBy?: number | null;
+  reviewedAt?: string | null;
   onboardedByUserId?: number | null;
   onboardedBy?: string | null;
   createdAt: string;
+}
+
+export interface TravelAgentOnboardingStatusSummary {
+  pending: number;
+  approved: number;
+  rejected: number;
+  total: number;
 }
 
 export interface TravelAgentOnboardingListResponse {
@@ -130,12 +140,14 @@ export interface TravelAgentOnboardingListResponse {
   last: boolean;
   hasNext: boolean;
   hasPrevious: boolean;
+  statusSummary?: TravelAgentOnboardingStatusSummary;
 }
 
 export interface TravelAgentOnboardingListParams {
   page?: number;
   size?: number;
-  status?: TravelAgentOnboardingStatus;
+  /** Omit / leave empty for ALL statuses (same as transport vendors). */
+  status?: TravelAgentOnboardingStatus | "";
   email?: string;
   name?: string;
   agencyName?: string;
@@ -925,6 +937,8 @@ export interface Document {
   docType: DocumentType;
   fileUrl?: string;
   documentUrl?: string;
+  /** Present on upload/update responses; used as bank change proof key. */
+  storageKey?: string | null;
   fileName: string;
   fileSize: number;
   contentType: string;
@@ -951,6 +965,8 @@ export interface FinanceData {
   bankName: string;
   bankIfsc: string;
   bankBranch: string;
+  /** Cancelled cheque / bank proof storage key when bank details change. */
+  bankProofDocumentKey?: string;
 }
 
 export type BankVerificationStatus =
@@ -986,6 +1002,11 @@ export interface FinanceItem {
   bankVerifiedAt?: string | null;
   bankVerificationReference?: string | null;
   alreadyVerified?: boolean | null;
+  /** Finance asked owner to correct bank details for beneficiary registration. */
+  bankCorrectionRequired?: boolean | null;
+  bankCorrectionRemarks?: string | null;
+  bankCorrectionReason?: string | null;
+  bankCorrectionAt?: string | null;
   createdBy: number;
   createdByEmail: string;
   updatedBy: number;

@@ -335,7 +335,10 @@ export function hasRole(userRoles: string[] | undefined, role: Role): boolean {
   return userRoles.includes(role);
 }
 
-/** Who may verify a hotel bank account from the Finance tab. */
+/**
+ * Platform finance / super-admin may view property Finance (read-only).
+ * Bank approval is done on Vendor Bank Verification MIS — not via a Verify button on Finance tab.
+ */
 export function canVerifyHotelBank(userRoles: string[] | undefined): boolean {
   if (!userRoles?.length) return false;
   return (
@@ -505,7 +508,85 @@ export function isPlatformAccountantRole(
   if (!userRoles?.length) return false;
   if (userRoles.includes("SUPER_ADMIN")) return false;
   return (
-    userRoles.includes("ACCOUNTANT") || userRoles.includes("FINANCE_MANAGER")
+    userRoles.includes("ACCOUNTANT") ||
+    userRoles.includes("FINANCE_MANAGER") ||
+    userRoles.includes("FINANCE")
+  );
+}
+
+/** Roles allowed to view Vendor Beneficiary MIS (Finance bank beneficiary ledger). */
+export const VENDOR_BENEFICIARY_MIS_ROLES = [
+  "SUPER_ADMIN",
+  "FINANCE",
+  "FINANCE_MANAGER",
+  "ACCOUNTANT",
+  "AUDITOR",
+] as const;
+
+export function canViewVendorBeneficiaryMis(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (VENDOR_BENEFICIARY_MIS_ROLES as readonly string[]).includes(role),
+  );
+}
+
+/** Rebuild vendor_beneficiary from live bank sources. */
+export function canRebuildVendorBeneficiaryMis(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    ["SUPER_ADMIN", "FINANCE_MANAGER"].includes(role),
+  );
+}
+
+/** Generate bank beneficiary upload file (Auditor excluded). */
+export function canGenerateVendorBeneficiaryFile(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    ["SUPER_ADMIN", "FINANCE_MANAGER", "ACCOUNTANT"].includes(role),
+  );
+}
+
+/** Finance actions on bank-rejected beneficiaries (correction / retry). */
+export function canActionSbiRejectedBeneficiary(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    ["FINANCE_MANAGER", "ACCOUNTANT"].includes(role),
+  );
+}
+
+/** Roles allowed to view Vendor Bank Account Verification MIS. */
+export const VENDOR_BANK_VERIFICATION_MIS_ROLES = [
+  "SUPER_ADMIN",
+  "FINANCE",
+  "FINANCE_MANAGER",
+  "ACCOUNTANT",
+  "AUDITOR",
+] as const;
+
+export function canViewVendorBankVerificationMis(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    (VENDOR_BANK_VERIFICATION_MIS_ROLES as readonly string[]).includes(role),
+  );
+}
+
+/** Single approval of bank detail change requests. */
+export function canApproveVendorBankChange(
+  userRoles: string[] | undefined,
+): boolean {
+  if (!userRoles?.length) return false;
+  return userRoles.some((role) =>
+    ["SUPER_ADMIN", "FINANCE_MANAGER", "ACCOUNTANT"].includes(role),
   );
 }
 

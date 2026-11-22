@@ -146,6 +146,17 @@ export const ROUTES = {
     HOTEL_BOOKING_FINANCIAL_MIS_DETAIL: (bookingId: string | number) =>
       `/reports/hotel-booking-financial-mis/${bookingId}`,
     REVENUE_DASHBOARD: "/reports/revenue-dashboard",
+    VENDOR_BENEFICIARIES: "/reports/vendor-beneficiaries",
+    VENDOR_BENEFICIARY_FILE_HISTORY:
+      "/reports/vendor-beneficiaries/file-history",
+    VENDOR_BENEFICIARY_BATCH_DETAIL: (batchId: number | string) =>
+      `/reports/vendor-beneficiaries/file-history/${batchId}`,
+    VENDOR_BENEFICIARY_SBI_IMPORT:
+      "/reports/vendor-beneficiaries/bank-import",
+    /** @deprecated old path; kept for redirects */
+    VENDOR_BENEFICIARY_SBI_IMPORT_LEGACY:
+      "/reports/vendor-beneficiaries/sbi-import",
+    VENDOR_BANK_VERIFICATION: "/reports/vendor-bank-verification",
   },
   RATINGS_REVIEWS: {
     LIST: "/ratings-reviews",
@@ -610,6 +621,37 @@ export const API_ENDPOINTS = {
       `/reports/revenue/chalochutti-dashboard/export/${jobId}`,
     REVENUE_DASHBOARD_EXPORT_DOWNLOAD: (jobId: string) =>
       `/reports/revenue/chalochutti-dashboard/export/${jobId}/download`,
+    VENDOR_BENEFICIARIES: "/finance/vendor-beneficiaries",
+    VENDOR_BANK_CHANGE_REQUESTS: "/finance/vendor-bank-change-requests",
+    VENDOR_BANK_CHANGE_LATEST: "/finance/vendor-bank-change-requests/latest",
+    VENDOR_BENEFICIARIES_REBUILD: "/finance/vendor-beneficiaries/rebuild",
+    VENDOR_BENEFICIARY_GENERATED_FILE: (beneficiaryId: number | string) =>
+      `/finance/vendor-beneficiaries/${beneficiaryId}/generated-file`,
+    VENDOR_BENEFICIARY_VENDOR_CORRECTION: (beneficiaryId: number | string) =>
+      `/finance/vendor-beneficiaries/${beneficiaryId}/vendor-correction-required`,
+    VENDOR_BENEFICIARY_RETRY_SBI: (beneficiaryId: number | string) =>
+      `/finance/vendor-beneficiaries/${beneficiaryId}/retry-sbi-registration`,
+    VENDOR_BENEFICIARY_BATCHES: "/finance/vendor-beneficiaries/batches",
+    VENDOR_BENEFICIARY_BATCH_GENERATE:
+      "/finance/vendor-beneficiaries/batches/generate",
+    VENDOR_BENEFICIARY_BATCH_DOWNLOAD: (batchId: number | string) =>
+      `/finance/vendor-beneficiaries/batches/${batchId}/download`,
+    VENDOR_BENEFICIARY_BATCH_SUBMIT: (batchId: number | string) =>
+      `/finance/vendor-beneficiaries/batches/${batchId}/submit-to-bank`,
+    VENDOR_BENEFICIARY_BATCH_PENDING: (batchId: number | string) =>
+      `/finance/vendor-beneficiaries/batches/${batchId}/mark-pending-approval`,
+    VENDOR_BENEFICIARY_SBI_IMPORTS:
+      "/finance/vendor-beneficiaries/sbi-imports",
+    VENDOR_BENEFICIARY_SBI_IMPORT_UPLOAD:
+      "/finance/vendor-beneficiaries/sbi-imports/upload",
+    VENDOR_BENEFICIARY_SBI_IMPORT_DETAIL: (importId: number | string) =>
+      `/finance/vendor-beneficiaries/sbi-imports/${importId}`,
+    VENDOR_BENEFICIARY_SBI_IMPORT_CONFIRM: (importId: number | string) =>
+      `/finance/vendor-beneficiaries/sbi-imports/${importId}/confirm`,
+    VENDOR_BENEFICIARY_SBI_IMPORT_RECORDS: (importId: number | string) =>
+      `/finance/vendor-beneficiaries/sbi-imports/${importId}/records`,
+    VENDOR_BENEFICIARY_SBI_IMPORT_DOWNLOAD: (importId: number | string) =>
+      `/finance/vendor-beneficiaries/sbi-imports/${importId}/download`,
     SETTLEMENT_DASHBOARD: "/reports/settlement-dashboard",
     SETTLEMENT_DASHBOARD_EXPORT: "/reports/settlement-dashboard/export",
     SETTLEMENT_DASHBOARD_EXPORT_JOB: (jobId: string) =>

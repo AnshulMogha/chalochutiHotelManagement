@@ -75,7 +75,7 @@ export function FinanceFieldLabel({
     <label
       htmlFor={htmlFor}
       className={cn(
-        "mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide",
+        "mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide",
         colors[theme],
       )}
     >
@@ -109,7 +109,7 @@ export function FinanceFieldWrap({
   return (
     <div
       className={cn(
-        "rounded-lg border p-3",
+        "rounded-md border px-2.5 py-2",
         panel[theme],
         className,
       )}
@@ -129,7 +129,7 @@ export function FinanceFieldHint({
   return (
     <p
       className={cn(
-        "mt-1.5 text-xs leading-relaxed",
+        "mt-1 text-[11px] leading-snug",
         error ? "font-medium text-red-600" : "text-gray-500",
       )}
     >

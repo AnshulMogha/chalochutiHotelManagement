@@ -13,6 +13,8 @@ import {
   canViewTransportPayoutMis,
   canViewSalesManagerReports,
   canViewSupplierSettlement,
+  canViewVendorBeneficiaryMis,
+  canViewVendorBankVerificationMis,
   canVerifyHotelBank,
   canModerateReviews,
   canManageHotelReviews,
@@ -385,7 +387,9 @@ function canViewAnyReportPath(user: User | null): boolean {
       canViewPaymentReport(user?.roles) ||
       canViewHotelPayoutMis(user?.roles) ||
       canViewTransportPayoutMis(user?.roles) ||
-      canViewHotelBookingFinancialMis(user?.roles)
+      canViewHotelBookingFinancialMis(user?.roles) ||
+      canViewVendorBeneficiaryMis(user?.roles) ||
+      canViewVendorBankVerificationMis(user?.roles)
     );
   }
   if (isAuditorRole(user?.roles)) {
@@ -394,7 +398,9 @@ function canViewAnyReportPath(user: User | null): boolean {
       canViewHotelPayoutMis(user?.roles) ||
       canViewTransportPayoutMis(user?.roles) ||
       canViewHotelBookingFinancialMis(user?.roles) ||
-      canViewHotelBdReports(user?.roles)
+      canViewHotelBdReports(user?.roles) ||
+      canViewVendorBeneficiaryMis(user?.roles) ||
+      canViewVendorBankVerificationMis(user?.roles)
     );
   }
   if (isHotelAccountantRole(user?.roles)) {
@@ -416,7 +422,9 @@ function canViewAnyReportPath(user: User | null): boolean {
     canViewHotelBdReports(user?.roles) ||
     canViewHotelBdPipeline(user?.roles) ||
     canViewSalesManagerReports(user?.roles) ||
-    canViewHotelBookingFinancialMis(user?.roles)
+    canViewHotelBookingFinancialMis(user?.roles) ||
+    canViewVendorBeneficiaryMis(user?.roles) ||
+    canViewVendorBankVerificationMis(user?.roles)
   );
 }
 
@@ -455,6 +463,15 @@ function canViewReportsPath(user: User | null, pathOnly: string): boolean {
       pathOnly.startsWith(`${ROUTES.REPORTS.TRANSPORT_PAYOUTS}/`)
     ) {
       return canViewTransportPayoutMis(user?.roles);
+    }
+    if (
+      pathOnly === ROUTES.REPORTS.VENDOR_BENEFICIARIES ||
+      pathOnly.startsWith(`${ROUTES.REPORTS.VENDOR_BENEFICIARIES}/`)
+    ) {
+      return canViewVendorBeneficiaryMis(user?.roles);
+    }
+    if (pathOnly === ROUTES.REPORTS.VENDOR_BANK_VERIFICATION) {
+      return canViewVendorBankVerificationMis(user?.roles);
     }
     if (pathOnly === ROUTES.REPORTS.HOTEL_BD_DASHBOARD) {
       return canViewHotelBdReports(user?.roles);
@@ -560,6 +577,17 @@ function canViewReportsPath(user: User | null, pathOnly: string): boolean {
     pathOnly.startsWith(`${ROUTES.REPORTS.TRANSPORT_PAYOUTS}/`)
   ) {
     return canViewTransportPayoutMis(user?.roles);
+  }
+
+  if (
+    pathOnly === ROUTES.REPORTS.VENDOR_BENEFICIARIES ||
+    pathOnly.startsWith(`${ROUTES.REPORTS.VENDOR_BENEFICIARIES}/`)
+  ) {
+    return canViewVendorBeneficiaryMis(user?.roles);
+  }
+
+  if (pathOnly === ROUTES.REPORTS.VENDOR_BANK_VERIFICATION) {
+    return canViewVendorBankVerificationMis(user?.roles);
   }
 
   if (pathOnly === ROUTES.REPORTS.HOTEL_BD_DASHBOARD) {

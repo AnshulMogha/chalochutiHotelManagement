@@ -153,26 +153,28 @@ export function PolicySectionHeader({
   title,
   subtitle,
   theme = "blue",
+  className,
 }: {
   icon: LucideIcon;
   title: string;
   subtitle?: string;
   theme?: PolicySectionTheme;
+  className?: string;
 }) {
   return (
-    <div className="mb-4 flex items-start gap-3">
+    <div className={cn("mb-3 flex items-start gap-2.5", className)}>
       <span
         className={cn(
-          "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1",
+          "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ring-1",
           SECTION_THEMES[theme],
         )}
       >
-        <Icon className="h-4 w-4" strokeWidth={2.25} />
+        <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
       </span>
       <div className="min-w-0">
-        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
         {subtitle ? (
-          <p className="mt-0.5 text-sm text-gray-500">{subtitle}</p>
+          <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>
         ) : null}
       </div>
     </div>

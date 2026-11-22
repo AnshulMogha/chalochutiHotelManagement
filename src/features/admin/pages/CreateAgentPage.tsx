@@ -19,6 +19,16 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  GSTIN_PAN_MISMATCH_MESSAGE,
+  gstinMatchesPan,
+} from "@/lib/gstinPanConsistency";
+import {
+  BANK_HOLDER_LEGAL_NAME_MISMATCH_MESSAGE,
+  BANK_HOLDER_LEGAL_NAME_MISSING_MESSAGE,
+  hasVerifiedLegalName,
+  legalNamesMatch,
+} from "@/lib/legalNameMatch";
 
 const TITLE_OPTIONS = [
   { value: "Mr", label: "Mr" },
@@ -494,6 +504,24 @@ export default function CreateAgentPage() {
       return;
     }
     setGstError(null);
+    if (!gstinMatchesPan(normalizedGst, normalizedPan)) {
+      setPanError(GSTIN_PAN_MISMATCH_MESSAGE);
+      setGstError(GSTIN_PAN_MISMATCH_MESSAGE);
+      showToast(GSTIN_PAN_MISMATCH_MESSAGE, "error");
+      return;
+    }
+    if (!hasVerifiedLegalName(trimmedAgencyName)) {
+      const message = BANK_HOLDER_LEGAL_NAME_MISSING_MESSAGE;
+      setAgencyNameError(message);
+      showToast(message, "error");
+      return;
+    }
+    if (!legalNamesMatch(trimmedAgencyName, trimmedAccountHolderName)) {
+      setAccountHolderNameError(BANK_HOLDER_LEGAL_NAME_MISMATCH_MESSAGE);
+      showToast(BANK_HOLDER_LEGAL_NAME_MISMATCH_MESSAGE, "error");
+      return;
+    }
+    setAccountHolderNameError(null);
     const normalizedPinCode = pinCode.trim();
     if (!/^\d{6}$/.test(normalizedPinCode)) {
       const message = "PIN code must be exactly 6 digits.";
@@ -741,17 +769,32 @@ export default function CreateAgentPage() {
                       onChange={(e) => {
                         setPanNumber(e.target.value.toUpperCase());
                         if (panError) setPanError(null);
+                        if (gstError === GSTIN_PAN_MISMATCH_MESSAGE) setGstError(null);
                       }}
                       placeholder="ABCDE1234F"
                       maxLength={10}
                       className={cn(
                         "mt-1 font-mono uppercase",
-                        panError && "border-rose-400 focus-visible:ring-rose-500",
+                        (panError ||
+                          (gstNumber.length === 15 &&
+                            panNumber.length === 10 &&
+                            !gstinMatchesPan(gstNumber, panNumber))) &&
+                          "border-rose-400 focus-visible:ring-rose-500",
                       )}
                     />
-                    {panError && (
+                    {panError ? (
                       <p className="mt-1 text-xs font-medium text-rose-600">
                         {panError}
+                      </p>
+                    ) : gstNumber.length === 15 &&
+                      panNumber.length === 10 &&
+                      !gstinMatchesPan(gstNumber, panNumber) ? (
+                      <p className="mt-1 text-xs font-medium text-rose-600">
+                        {GSTIN_PAN_MISMATCH_MESSAGE}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Must match characters 3–12 of GSTIN
                       </p>
                     )}
                   </div>
@@ -766,18 +809,30 @@ export default function CreateAgentPage() {
                       onChange={(e) => {
                         setGstNumber(e.target.value.toUpperCase());
                         if (gstError) setGstError(null);
+                        if (panError === GSTIN_PAN_MISMATCH_MESSAGE) setPanError(null);
                       }}
                       placeholder="09ABCDE1234F1Z5"
+                      maxLength={15}
                       className={cn(
                         "mt-1 font-mono uppercase",
-                        gstError && "border-rose-400 focus-visible:ring-rose-500",
+                        (gstError ||
+                          (gstNumber.length === 15 &&
+                            panNumber.length === 10 &&
+                            !gstinMatchesPan(gstNumber, panNumber))) &&
+                          "border-rose-400 focus-visible:ring-rose-500",
                       )}
                     />
-                    {gstError && (
+                    {gstError ? (
                       <p className="mt-1 text-xs font-medium text-rose-600">
                         {gstError}
                       </p>
-                    )}
+                    ) : gstNumber.length === 15 &&
+                      panNumber.length === 10 &&
+                      !gstinMatchesPan(gstNumber, panNumber) ? (
+                      <p className="mt-1 text-xs font-medium text-rose-600">
+                        {GSTIN_PAN_MISMATCH_MESSAGE}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="sm:col-span-2">
                     <Label>
@@ -918,6 +973,18 @@ export default function CreateAgentPage() {
                 </h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="sm:col-span-2">
+                    <Label htmlFor="verifiedLegalName">Verified legal name</Label>
+                    <Input
+                      id="verifiedLegalName"
+                      value={agencyName}
+                      readOnly
+                      className="mt-1 bg-slate-50 text-slate-700"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      From agency name / GST-PAN details (read-only)
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
                     <Label htmlFor="accountHolderName">
                       Account holder name
                       <span className="ml-1 text-red-500">*</span>
@@ -933,13 +1000,34 @@ export default function CreateAgentPage() {
                       maxLength={MAX_ACCOUNT_HOLDER_NAME_LENGTH}
                       className={cn(
                         "mt-1",
-                        accountHolderNameError &&
+                        (accountHolderNameError ||
+                          (!!accountHolderName.trim() &&
+                            hasVerifiedLegalName(agencyName) &&
+                            !legalNamesMatch(agencyName, accountHolderName))) &&
                           "border-rose-400 focus-visible:ring-rose-500",
                       )}
                     />
-                    {accountHolderNameError && (
+                    {accountHolderNameError ? (
                       <p className="mt-1 text-xs font-medium text-rose-600">
                         {accountHolderNameError}
+                      </p>
+                    ) : !hasVerifiedLegalName(agencyName) ? (
+                      <p className="mt-1 text-xs font-medium text-rose-600">
+                        {BANK_HOLDER_LEGAL_NAME_MISSING_MESSAGE}
+                      </p>
+                    ) : accountHolderName.trim() &&
+                      legalNamesMatch(agencyName, accountHolderName) ? (
+                      <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                        Matches verified legal name
+                      </p>
+                    ) : accountHolderName.trim() ? (
+                      <p className="mt-1 text-xs font-medium text-rose-600">
+                        {BANK_HOLDER_LEGAL_NAME_MISMATCH_MESSAGE}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Must match agency legal name (spacing/case differences are OK)
                       </p>
                     )}
                   </div>

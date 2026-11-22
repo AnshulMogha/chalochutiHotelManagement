@@ -21,6 +21,7 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  LayoutGrid,
   Mail,
   MapPin,
   Hash,
@@ -56,8 +57,11 @@ import {
   getTravelPartnerRemarkTone,
   travelPartnerTableGridSx,
 } from "../components/travelPartnerTableUi";
-import type { TravelPartnerStatus } from "./TravelPartnersPage";
-import type { TravelPartner } from "./TravelPartnersPage";
+import type {
+  TravelPartner,
+  TravelPartnerRowStatus,
+  TravelPartnerStatus,
+} from "./TravelPartnersPage";
 
 const AGENCY_TIER_OPTIONS: Array<{ value: AgencyTier; label: string }> = [
   { value: "DIAMOND", label: "Diamond" },
@@ -99,6 +103,8 @@ function mapListItemToPartner(item: TravelAgentOnboardingListItem): TravelPartne
     agencyTier: item.agencyTier,
     onboardedBy: item.onboardedBy ?? null,
     onboardedByUserId: item.onboardedByUserId ?? null,
+    reviewedAt: item.reviewedAt ?? undefined,
+    remarks: item.rejectionRemarks ?? undefined,
   };
 }
 
@@ -138,6 +144,13 @@ const AGENT_TABS: Array<{
   iconWell: string;
 }> = [
   {
+    value: "ALL",
+    label: "All",
+    icon: LayoutGrid,
+    activeClass: "bg-[#2f3d95] text-white",
+    iconWell: "bg-indigo-100 text-[#2f3d95]",
+  },
+  {
     value: "PENDING",
     label: "Pending",
     icon: Clock,
@@ -159,6 +172,12 @@ const AGENT_TABS: Array<{
     iconWell: "bg-rose-100 text-rose-800",
   },
 ];
+
+const AGENT_STATUS_BADGE: Record<TravelPartnerRowStatus, string> = {
+  PENDING: "bg-amber-100 text-amber-800",
+  APPROVED: "bg-emerald-100 text-emerald-800",
+  REJECTED: "bg-rose-100 text-rose-800",
+};
 
 const TAB_CONFIG = Object.fromEntries(
   AGENT_TABS.map((tab) => [tab.value, tab]),
@@ -209,6 +228,7 @@ export default function AgentsListPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [statusTotals, setStatusTotals] = useState<Record<TravelPartnerStatus, number>>({
+    ALL: 0,
     PENDING: 0,
     APPROVED: 0,
     REJECTED: 0,
@@ -290,7 +310,7 @@ export default function AgentsListPage() {
     try {
       await adminService.exportTravelAgentOnboarding({
         params: {
-          status: activeTab,
+          ...(activeTab !== "ALL" ? { status: activeTab } : {}),
           ...(appliedFilters.email ? { email: appliedFilters.email } : {}),
           ...(appliedFilters.name ? { name: appliedFilters.name } : {}),
           ...(appliedFilters.agencyName
@@ -338,7 +358,7 @@ export default function AgentsListPage() {
       const response = await adminService.getTravelAgentOnboardingList({
         page: currentPage,
         size: pageSize,
-        status: activeTab,
+        ...(activeTab !== "ALL" ? { status: activeTab } : {}),
         ...(appliedFilters.email ? { email: appliedFilters.email } : {}),
         ...(appliedFilters.name ? { name: appliedFilters.name } : {}),
         ...(appliedFilters.agencyName
@@ -365,7 +385,20 @@ export default function AgentsListPage() {
       setPartners(response.content.map(mapListItemToPartner));
       setTotalPages(response.totalPages);
       setTotalElements(response.totalElements);
-      setStatusTotals((prev) => ({ ...prev, [activeTab]: response.totalElements }));
+      const summary = response.statusSummary;
+      if (summary) {
+        setStatusTotals({
+          ALL: summary.total ?? 0,
+          PENDING: summary.pending ?? 0,
+          APPROVED: summary.approved ?? 0,
+          REJECTED: summary.rejected ?? 0,
+        });
+      } else {
+        setStatusTotals((prev) => ({
+          ...prev,
+          [activeTab]: response.totalElements,
+        }));
+      }
     } catch (err) {
       const message =
         err && typeof err === "object" && "message" in err
@@ -496,6 +529,24 @@ export default function AgentsListPage() {
         </TravelPartnerBadge>
       ),
     },
+    ...(activeTab === "ALL"
+      ? [
+          {
+            field: "status",
+            headerName: "Status",
+            width: 120,
+            minWidth: 110,
+            sortable: false,
+            renderCell: (params) => (
+              <TravelPartnerBadge
+                className={AGENT_STATUS_BADGE[params.row.status]}
+              >
+                {params.row.status}
+              </TravelPartnerBadge>
+            ),
+          } satisfies GridColDef<TravelPartner>,
+        ]
+      : []),
     {
       field: "onboardedBy",
       headerName: "Onboarded By",
@@ -536,7 +587,9 @@ export default function AgentsListPage() {
             sortable: false,
             renderCell: (params) => (
               <TravelPartnerBadge
-                className={getTravelPartnerRemarkTone(activeTab)}
+                className={getTravelPartnerRemarkTone(
+                  activeTab === "ALL" ? params.row.status : activeTab,
+                )}
                 title={params.row.remarks || "—"}
               >
                 {params.row.remarks || "—"}
@@ -548,7 +601,7 @@ export default function AgentsListPage() {
     {
       field: "actions",
       headerName: "",
-      width: activeTab === "REJECTED" || (activeTab === "APPROVED" && canUpdateTier) ? 168 : 88,
+      width: 168,
       minWidth: 88,
       sortable: false,
       filterable: false,
@@ -557,7 +610,7 @@ export default function AgentsListPage() {
       headerAlign: "right",
       renderCell: (params) => (
         <div className="flex w-full items-center justify-end gap-1.5">
-          {activeTab === "APPROVED" && canUpdateTier ? (
+          {params.row.status === "APPROVED" && canUpdateTier ? (
             <button
               type="button"
               onClick={(event) => {
@@ -743,7 +796,9 @@ export default function AgentsListPage() {
             localeText={{
               noRowsLabel: hasActiveFilters
                 ? "No agents match your filters."
-                : `No ${activeTab.toLowerCase()} agents`,
+                : activeTab === "ALL"
+                  ? "No agents yet"
+                  : `No ${activeTab.toLowerCase()} agents`,
             }}
           />
         )}

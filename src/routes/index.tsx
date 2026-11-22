@@ -243,6 +243,21 @@ const NetEarningsReportPage = lazy(
 const HotelPayoutMisPage = lazy(
   () => import("../features/reports/pages/HotelPayoutMisPage"),
 );
+const VendorBeneficiaryMisPage = lazy(
+  () => import("../features/reports/pages/VendorBeneficiaryMisPage"),
+);
+const VendorBankVerificationMisPage = lazy(
+  () => import("../features/reports/pages/VendorBankVerificationMisPage"),
+);
+const VendorBeneficiaryFileHistoryPage = lazy(
+  () => import("../features/reports/pages/VendorBeneficiaryFileHistoryPage"),
+);
+const VendorBeneficiaryBatchDetailPage = lazy(
+  () => import("../features/reports/pages/VendorBeneficiaryBatchDetailPage"),
+);
+const VendorBeneficiarySbiImportPage = lazy(
+  () => import("../features/reports/pages/VendorBeneficiarySbiImportPage"),
+);
 const HotelBdDashboardPage = lazy(
   () => import("../features/reports/pages/HotelBdDashboardPage"),
 );
@@ -610,6 +625,32 @@ export const routes: RouteObject[] = [
       {
         path: "reports/hotel-payouts",
         element: <HotelPayoutMisPage />,
+      },
+      {
+        path: "reports/vendor-beneficiaries/file-history/:batchId",
+        element: <VendorBeneficiaryBatchDetailPage />,
+      },
+      {
+        path: "reports/vendor-beneficiaries/file-history",
+        element: <VendorBeneficiaryFileHistoryPage />,
+      },
+      {
+        path: "reports/vendor-beneficiaries/bank-import",
+        element: <VendorBeneficiarySbiImportPage />,
+      },
+      {
+        path: "reports/vendor-beneficiaries/sbi-import",
+        element: (
+          <Navigate to="/reports/vendor-beneficiaries/bank-import" replace />
+        ),
+      },
+      {
+        path: "reports/vendor-beneficiaries",
+        element: <VendorBeneficiaryMisPage />,
+      },
+      {
+        path: "reports/vendor-bank-verification",
+        element: <VendorBankVerificationMisPage />,
       },
       {
         path: "reports/hotel-bd-dashboard",
