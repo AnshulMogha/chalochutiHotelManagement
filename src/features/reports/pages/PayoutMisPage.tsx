@@ -11,6 +11,7 @@ import { canViewModule } from "@/lib/permissions";
 import { getStoredSelectedHotelId } from "@/lib/selectedHotelStorage";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterButton,
   ReportFilterDrawer,
@@ -345,6 +346,33 @@ export default function PayoutMisPage() {
   }
 
   const summary = report?.summary;
+  const appliedFilterItems = [
+    {
+      label: "Date type",
+      value:
+        DATE_AXIS_OPTIONS.find((option) => option.value === dateAxis)?.label ??
+        "Default",
+    },
+    canFilterHotels
+      ? {
+          label: "Hotels",
+          value: propertyIds.length
+            ? propertyIds.length === 1
+              ? "1 hotel"
+              : `${propertyIds.length} hotels`
+            : "All",
+        }
+      : null,
+    search.trim() ? { label: "Search", value: search.trim() } : null,
+    sortField !== DEFAULT_SORT || sortDir !== "desc"
+      ? {
+          label: "Sort",
+          value: `${formatStatusLabel(sortField)} · ${
+            sortDir === "asc" ? "Ascending" : "Descending"
+          }`,
+        }
+      : null,
+  ];
 
   return (
     <>
@@ -383,13 +411,9 @@ export default function PayoutMisPage() {
                   from={report?.dateRange.fromDate}
                   to={report?.dateRange.toDate}
                   detail={
-                    report?.dateAxis || dateAxis
-                      ? (DATE_AXIS_OPTIONS.find(
-                          (option) =>
-                            option.value === (report?.dateAxis || dateAxis),
-                        )?.label ??
-                        formatStatusLabel(report?.dateAxis || dateAxis))
-                      : null
+                    DATE_PRESET_OPTIONS.find(
+                      (option) => option.value === datePreset,
+                    )?.label
                   }
                 />
                 <ReportFilterButton
@@ -413,6 +437,10 @@ export default function PayoutMisPage() {
                   disabled={customRangeInvalid}
                 />
               </div>
+            </div>
+
+            <div className="border-b border-slate-100 px-4 py-2">
+              <ReportAppliedFilters items={appliedFilterItems} />
             </div>
 
             <div className="px-4 py-3">

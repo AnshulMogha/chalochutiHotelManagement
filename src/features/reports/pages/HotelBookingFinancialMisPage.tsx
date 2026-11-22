@@ -51,6 +51,7 @@ import {
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterActions,
   ReportFilterButton,
@@ -677,6 +678,7 @@ export default function HotelBookingFinancialMisPage() {
     if (filters.paymentStatus !== "ALL") count += 1;
     if (filters.refundStatus !== "ALL") count += 1;
     if (filters.hotelId) count += 1;
+    if (filters.agencyId.trim()) count += 1;
     if (filters.search.trim()) count += 1;
     if (filters.checkInFrom || filters.checkInTo) count += 1;
     if (filters.checkOutFrom || filters.checkOutTo) count += 1;
@@ -1072,6 +1074,62 @@ export default function HotelBookingFinancialMisPage() {
     }
   };
 
+  const appliedFilterItems = useMemo(() => {
+    const optionLabel = <T extends string>(
+      options: { value: T; label: string }[],
+      value: T,
+    ) => options.find((option) => option.value === value)?.label || value;
+    const dateSpan = (from: string, to: string) => {
+      if (from && to) {
+        return `${formatReportDate(from)} – ${formatReportDate(to)}`;
+      }
+      if (from) return `From ${formatReportDate(from)}`;
+      if (to) return `Until ${formatReportDate(to)}`;
+      return "";
+    };
+    const checkIn = dateSpan(filters.checkInFrom, filters.checkInTo);
+    const checkOut = dateSpan(filters.checkOutFrom, filters.checkOutTo);
+    const sortChanged =
+      filters.sort !== "BOOKING_DATE" || filters.sortDir !== "desc";
+    return [
+      {
+        label: "Date type",
+        value: optionLabel(DATE_AXIS_OPTIONS, filters.dateAxis),
+      },
+      {
+        label: "Booking status",
+        value: optionLabel(BOOKING_STATUS_OPTIONS, filters.bookingStatus),
+      },
+      {
+        label: "Payment status",
+        value: optionLabel(PAYMENT_STATUS_OPTIONS, filters.paymentStatus),
+      },
+      {
+        label: "Refund status",
+        value: optionLabel(REFUND_STATUS_OPTIONS, filters.refundStatus),
+      },
+      filters.hotelId
+        ? { label: "Hotel", value: hotelFilterLabel || "Selected hotel" }
+        : null,
+      filters.agencyId.trim()
+        ? { label: "Agency", value: filters.agencyId.trim() }
+        : null,
+      filters.search.trim()
+        ? { label: "Search", value: filters.search.trim() }
+        : null,
+      checkIn ? { label: "Check-in", value: checkIn } : null,
+      checkOut ? { label: "Check-out", value: checkOut } : null,
+      sortChanged
+        ? {
+            label: "Sort",
+            value: `${optionLabel(SORT_OPTIONS, filters.sort)} · ${
+              filters.sortDir === "asc" ? "Ascending" : "Descending"
+            }`,
+          }
+        : null,
+    ];
+  }, [filters, hotelFilterLabel]);
+
   const summary = report?.summary;
   const kpiHints = summary ? hotelMisSummaryKpiHints(summary) : null;
   const listIsB2b = Boolean(
@@ -1116,7 +1174,9 @@ export default function HotelBookingFinancialMisPage() {
                   from={report?.dateRange?.fromDate}
                   to={report?.dateRange?.toDate}
                   detail={
-                    report?.dateAxis ? formatStatusLabel(report.dateAxis) : null
+                    UI_DATE_PRESET_OPTIONS.find(
+                      (option) => option.value === filters.uiDatePreset,
+                    )?.label
                   }
                 />
                 <ReportFilterButton
@@ -1207,6 +1267,8 @@ export default function HotelBookingFinancialMisPage() {
               </div>
             }
           />
+
+          <ReportAppliedFilters items={appliedFilterItems} />
 
           {error ? (
             <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

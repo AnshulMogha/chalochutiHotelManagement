@@ -10,6 +10,7 @@ import { canUseCrossHotelReportFilter } from "@/constants/roles";
 import { HotelLookupMultiSelectField } from "../components/HotelLookupFilterField";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterButton,
   ReportFilterDrawer,
@@ -648,6 +649,56 @@ export default function PromotionReportPage() {
     [summary.activeCount, summary.expiredCount],
   );
 
+  const appliedFilterItems = [
+    {
+      label: "Status",
+      value: lifecycleTab === "ACTIVE" ? "Active" : "Expired",
+    },
+    {
+      label: "Performance dates",
+      value: performanceAxis === "STAY" ? "Stay dates" : "Booking dates",
+    },
+    {
+      label: "Tier",
+      value: tiers.length
+        ? tiers
+            .map(
+              (tier) =>
+                TIER_OPTIONS.find((option) => option.value === tier)?.label ??
+                tier,
+            )
+            .join(", ")
+        : "All",
+    },
+    canFilterHotels
+      ? {
+          label: "Hotels",
+          value: propertyIds.length
+            ? propertyIds.length === 1
+              ? "1 hotel"
+              : `${propertyIds.length} hotels`
+            : "All",
+        }
+      : null,
+    {
+      label: "Applicability",
+      value: applicability
+        ? [
+            APPLICABILITY_OPTIONS.find((option) => option.value === applicability)
+              ?.label,
+            applicability === "NAME"
+              ? promotionName.trim()
+              : [applicabilityFrom, applicabilityTo]
+                  .filter(Boolean)
+                  .map((value) => formatReportDate(value))
+                  .join(" – "),
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : "All",
+    },
+  ];
+
   if (!canFilterHotels && !hotelId) {
     return (
       <div className="container mx-auto px-4 py-4">
@@ -749,9 +800,11 @@ export default function PromotionReportPage() {
                 <ReportAppliedRange
                   from={performanceRange.fromDate}
                   to={performanceRange.toDate}
-                  detail={`${performanceAxis === "BOOKING" ? "Booking" : "Stay"}${
-                    tiers.length ? ` · ${tiers.length} tier(s)` : ""
-                  }`}
+                  detail={
+                    DATE_PRESET_OPTIONS.find(
+                      (option) => option.value === datePreset,
+                    )?.label
+                  }
                 />
                 <ReportFilterButton
                   onClick={openFilters}
@@ -783,6 +836,8 @@ export default function PromotionReportPage() {
               </div>
             </div>
           </div>
+
+          <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
           <DataTable
             subtitle={

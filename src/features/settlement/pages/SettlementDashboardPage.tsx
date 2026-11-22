@@ -31,6 +31,7 @@ import type { GridColDef } from "@mui/x-data-grid";
 import { HotelLookupFilterField } from "@/features/reports/components/HotelLookupFilterField";
 import { PackageLookupFilterField } from "@/features/reports/components/PackageLookupFilterField";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterButton,
   ReportFilterDrawer,
@@ -160,6 +161,18 @@ const TRACKED_PAYMENT_STATUSES = [
   "PENDING",
   "NOT_APPLICABLE",
 ];
+const SETTLEMENT_SORT_LABELS: Record<SettlementBookingSort, string> = {
+  bookingDate: "Booking date",
+  serviceDate: "Service date",
+  bookingValue: "Booking value",
+  customerCollected: "Customer collected",
+  customerOutstanding: "Customer outstanding",
+  supplierPayable: "Supplier payable",
+  supplierPaid: "Supplier paid",
+  supplierOutstanding: "Supplier outstanding",
+  platformRevenue: "Platform revenue",
+};
+
 const PAGE_SIZE = 20;
 const fieldClass =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100";
@@ -835,6 +848,81 @@ export default function SettlementDashboardPage() {
     );
   }, [bookingFilter]);
 
+  const appliedFilterItems = useMemo(() => {
+    const chosen = (value: string, emptyLabel = "All") => {
+      const trimmed = value.trim();
+      return trimmed ? formatStatusLabel(trimmed) : emptyLabel;
+    };
+    const sortChanged =
+      bookingFilter.sortBy !== "bookingDate" ||
+      bookingFilter.sortDirection !== "DESC";
+    return [
+      {
+        label: "Product",
+        value:
+          bookingFilter.product === "HOTEL"
+            ? "Hotel"
+            : bookingFilter.product === "PACKAGE"
+              ? "Package"
+              : "All",
+      },
+      {
+        label: "Settlement status",
+        value: chosen(bookingFilter.settlementStatus),
+      },
+      {
+        label: "Customer payment",
+        value: chosen(bookingFilter.customerPaymentStatus),
+      },
+      {
+        label: "Supplier payment",
+        value: chosen(bookingFilter.supplierPaymentStatus),
+      },
+      {
+        label: "Booking status",
+        value: chosen(bookingFilter.bookingStatus),
+      },
+      {
+        label: "Payment status",
+        value: chosen(bookingFilter.paymentStatus),
+      },
+      { label: "Channel", value: chosen(bookingFilter.channel) },
+      {
+        label: "Business type",
+        value: chosen(bookingFilter.businessType, "All types"),
+      },
+      bookingFilter.hotelId
+        ? {
+            label: "Hotel",
+            value: bookingFilter.hotelLabel || "Selected hotel",
+          }
+        : null,
+      bookingFilter.packageId
+        ? {
+            label: "Package",
+            value: bookingFilter.packageLabel || "Selected package",
+          }
+        : null,
+      bookingFilter.supplierId.trim()
+        ? { label: "Supplier", value: bookingFilter.supplierId.trim() }
+        : null,
+      bookingFilter.agencyId.trim()
+        ? { label: "Agency", value: bookingFilter.agencyId.trim() }
+        : null,
+      bookingFilter.search.trim()
+        ? { label: "Search", value: bookingFilter.search.trim() }
+        : null,
+      sortChanged
+        ? {
+            label: "Sort",
+            value: `${SETTLEMENT_SORT_LABELS[bookingFilter.sortBy]} · ${
+              bookingFilter.sortDirection === "ASC" ? "Ascending" : "Descending"
+            }`,
+          }
+        : null,
+    ];
+  }, [bookingFilter]);
+
   const openFilters = () => {
     setBookingDraft(bookingFilter);
     setFilterOpen(true);
@@ -946,6 +1034,7 @@ export default function SettlementDashboardPage() {
           </div>
         }
       >
+        <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
         <OverviewTab
           report={dashboard}
           loading={overviewLoading}

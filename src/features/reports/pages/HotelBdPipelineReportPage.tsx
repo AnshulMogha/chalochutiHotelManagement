@@ -25,7 +25,7 @@ import {
 } from "../components/reportUiHelpers";
 import { extractErrorMessage } from "../components/ReportJsonPanel";
 import {
-  ReportAppliedRange,
+  ReportAppliedFilters,
   ReportFilterActions,
   ReportFilterButton,
   ReportRefreshButton,
@@ -551,6 +551,36 @@ export default function HotelBdPipelineReportPage() {
     },
   ];
 
+  const appliedFilterItems = [
+    {
+      label: "Status",
+      value:
+        STATUS_OPTIONS.find((option) => option.value === status)?.label ??
+        "All statuses",
+    },
+    search.trim() ? { label: "Search", value: search.trim() } : null,
+    city.trim() ? { label: "City", value: city.trim() } : null,
+    stateFilter.trim() ? { label: "State", value: stateFilter.trim() } : null,
+    bdUserId.length
+      ? {
+          label: "BD user",
+          value: bdUserId
+            .map(
+              (id) => bdUsers.find((user) => user.id === id)?.label || id,
+            )
+            .join(", "),
+        }
+      : null,
+    sort !== DEFAULT_SORT || direction !== "DESC"
+      ? {
+          label: "Sort",
+          value: `${
+            SORT_OPTIONS.find((option) => option.value === sort)?.label ?? sort
+          } · ${direction === "ASC" ? "Ascending" : "Descending"}`,
+        }
+      : null,
+  ];
+
   return (
     <div className="mx-auto max-w-[1400px] px-3 py-4 sm:px-4">
       <Toast toast={toast} onClose={hideToast} />
@@ -562,17 +592,6 @@ export default function HotelBdPipelineReportPage() {
         description="Paginated onboarding pipeline with steps and days stuck"
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <ReportAppliedRange
-              detail={[
-                STATUS_OPTIONS.find((option) => option.value === status)?.label ??
-                  status,
-                search.trim() || null,
-                [city.trim(), stateFilter.trim()].filter(Boolean).join(", ") ||
-                  null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            />
             <ReportFilterButton
               onClick={() => {
                 setDraft({ status, search, city, state: stateFilter, sort, direction, bdUserId });
@@ -618,6 +637,8 @@ export default function HotelBdPipelineReportPage() {
           </div>
         }
       />
+
+      <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
       {error ? (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

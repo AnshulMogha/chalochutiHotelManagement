@@ -17,6 +17,7 @@ import {
 } from "../components/reportUiHelpers";
 import { ReportCustomDateFields } from "../components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterButton,
   ReportFilterDrawer,
@@ -962,10 +963,7 @@ export default function PerformanceDashboardPage() {
                 <ReportAppliedRange
                   from={visibleFromDate}
                   to={visibleToDate}
-                  detail={`${
-                    DATE_AXIS_OPTIONS.find((o) => o.value === dateAxis)?.label ??
-                    dateAxis
-                  } · ${durationLabel(datePreset)}`}
+                  detail={durationLabel(datePreset)}
                 />
                 <ReportFilterButton
                   onClick={openFilters}
@@ -1045,6 +1043,25 @@ export default function PerformanceDashboardPage() {
               </div>
             </div>
           </div>
+
+          <ReportAppliedFilters
+            className="mb-3"
+            items={[
+              {
+                label: "Date type",
+                value:
+                  DATE_AXIS_OPTIONS.find((option) => option.value === dateAxis)
+                    ?.label ?? dateAxis,
+              },
+              {
+                label: "Comparison",
+                value:
+                  COMPARISON_OPTIONS.find(
+                    (option) => option.value === comparisonType,
+                  )?.label ?? comparisonType,
+              },
+            ]}
+          />
 
           {error ? (
             <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
