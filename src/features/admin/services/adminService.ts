@@ -8,6 +8,15 @@ import {
   type ReportExportFormat,
 } from "@/features/reports/services/reportExportService";
 
+export type HotelReviewBucketStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface HotelReviewStatusSummary {
+  pending: number;
+  approved: number;
+  rejected: number;
+  total: number;
+}
+
 export interface HotelReviewItem {
   hotelId: string;
   hotelCode: string;
@@ -15,6 +24,7 @@ export interface HotelReviewItem {
   hotelCity?: string;
   submittedAt: string;
   requestedBy: string;
+  reviewStatus?: HotelReviewBucketStatus | string;
   qcRemarks?: ReviewRemark[];
 }
 
@@ -25,6 +35,7 @@ export interface ApprovedHotelItem {
   hotelCity?: string;
   submittedAt: string;
   requestedBy: string;
+  reviewStatus?: HotelReviewBucketStatus | string;
   qcRemarks?: ReviewRemark[];
 }
 
@@ -35,6 +46,7 @@ export interface RejectedHotelItem {
   hotelCity?: string;
   submittedAt: string;
   requestedBy: string;
+  reviewStatus?: HotelReviewBucketStatus | string;
   qcRemarks?: ReviewRemark[];
 }
 
@@ -70,6 +82,7 @@ export interface PaginatedResponse<T> {
   first: boolean;
   last: boolean;
   empty: boolean;
+  statusSummary?: HotelReviewStatusSummary;
 }
 
 export interface PaginationParams {
@@ -1185,6 +1198,18 @@ export const adminService = {
       content: normalizeReviewRemarks(payload.content),
     };
   },
+  getAllHotelsForReviewPaginated: async (
+    params?: HotelReviewListParams,
+  ): Promise<PaginatedResponse<HotelReviewItem>> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<PaginatedResponse<HotelReviewItem>>
+    >(API_ENDPOINTS.ADMIN.GET_ALL_HOTELS_FOR_REVIEW, { params });
+    const payload = response.data;
+    return {
+      ...payload,
+      content: normalizeReviewRemarks(payload.content),
+    };
+  },
   getQcPendingHotelsPaginated: async (
     params?: HotelReviewListParams,
   ): Promise<PaginatedResponse<HotelReviewItem>> => {
@@ -1221,6 +1246,18 @@ export const adminService = {
       content: normalizeReviewRemarks(payload.content),
     };
   },
+  getQcAllHotelsPaginated: async (
+    params?: HotelReviewListParams,
+  ): Promise<PaginatedResponse<HotelReviewItem>> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<PaginatedResponse<HotelReviewItem>>
+    >(API_ENDPOINTS.ADMIN.GET_QC_ALL_HOTELS, { params });
+    const payload = response.data;
+    return {
+      ...payload,
+      content: normalizeReviewRemarks(payload.content),
+    };
+  },
   getZonalPendingHotelsPaginated: async (
     params?: HotelReviewListParams,
   ): Promise<PaginatedResponse<HotelReviewItem>> => {
@@ -1251,6 +1288,18 @@ export const adminService = {
     const response = await apiClient.get<
       ApiSuccessResponse<PaginatedResponse<RejectedHotelItem>>
     >(API_ENDPOINTS.ADMIN.GET_ZONAL_REJECTED_HOTELS, { params });
+    const payload = response.data;
+    return {
+      ...payload,
+      content: normalizeReviewRemarks(payload.content),
+    };
+  },
+  getZonalAllHotelsPaginated: async (
+    params?: HotelReviewListParams,
+  ): Promise<PaginatedResponse<HotelReviewItem>> => {
+    const response = await apiClient.get<
+      ApiSuccessResponse<PaginatedResponse<HotelReviewItem>>
+    >(API_ENDPOINTS.ADMIN.GET_ZONAL_ALL_HOTELS, { params });
     const payload = response.data;
     return {
       ...payload,

@@ -23,6 +23,7 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  LayoutGrid,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
 import type { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
@@ -48,7 +49,7 @@ import {
 } from "../components/hotelReviewTableUi";
 
 type HotelReviewFetchMode = "super_admin" | "qc" | "zonal";
-type ReviewBucket = "pending" | "approved" | "rejected";
+type ReviewBucket = "all" | "pending" | "approved" | "rejected";
 type ReviewFilters = {
   city: string;
   hotelName: string;
@@ -70,15 +71,23 @@ const REVIEW_TABS: {
   label: string;
   icon: typeof Clock;
 }[] = [
+  { value: "all", label: "All", icon: LayoutGrid },
   { value: "pending", label: "Pending", icon: Clock },
   { value: "approved", label: "Approved", icon: CheckCircle2 },
   { value: "rejected", label: "Rejected", icon: XCircle },
 ];
 
 const REVIEW_TAB_ACTIVE: Record<ReviewBucket, string> = {
+  all: "bg-[#2f3d95] text-white",
   pending: "bg-amber-500 text-white",
   approved: "bg-emerald-600 text-white",
   rejected: "bg-rose-600 text-white",
+};
+
+const REVIEW_STATUS_BADGE: Record<string, string> = {
+  PENDING: "bg-amber-100 text-amber-800 ring-amber-200",
+  APPROVED: "bg-emerald-100 text-emerald-800 ring-emerald-200",
+  REJECTED: "bg-rose-100 text-rose-800 ring-rose-200",
 };
 
 function getHotelReviewFetchMode(
@@ -91,6 +100,7 @@ function getHotelReviewFetchMode(
 
 export default function HotelReviewListPage() {
   const [activeTab, setActiveTab] = useState<ReviewBucket>("pending");
+  const [allHotels, setAllHotels] = useState<HotelReviewItem[]>([]);
   const [pendingHotels, setPendingHotels] = useState<HotelReviewItem[]>([]);
   const [approvedHotels, setApprovedHotels] = useState<ApprovedHotelItem[]>([]);
   const [rejectedHotels, setRejectedHotels] = useState<RejectedHotelItem[]>([]);
@@ -99,10 +109,13 @@ export default function HotelReviewListPage() {
     pageSize: 20,
   });
   const [totalRows, setTotalRows] = useState({
+    all: 0,
     pending: 0,
     approved: 0,
     rejected: 0,
   });
+  /** Server page total for the active tab table (may differ from chip sum on All). */
+  const [activeTotalElements, setActiveTotalElements] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -154,7 +167,41 @@ export default function HotelReviewListPage() {
             ? { submittedAt: appliedFilters.submittedAt }
             : {}),
         };
-        if (activeTab === "pending") {
+        const applyStatusSummary = (
+          summary?: {
+            pending?: number;
+            approved?: number;
+            rejected?: number;
+            total?: number;
+          },
+          fallbackTotal?: number,
+        ) => {
+          if (summary) {
+            setTotalRows({
+              all: summary.total ?? 0,
+              pending: summary.pending ?? 0,
+              approved: summary.approved ?? 0,
+              rejected: summary.rejected ?? 0,
+            });
+            return;
+          }
+          setTotalRows((prev) => ({
+            ...prev,
+            [activeTab]: fallbackTotal || 0,
+          }));
+        };
+
+        if (activeTab === "all") {
+          const response =
+            fetchMode === "zonal"
+              ? await adminService.getZonalAllHotelsPaginated(params)
+              : fetchMode === "qc"
+                ? await adminService.getQcAllHotelsPaginated(params)
+                : await adminService.getAllHotelsForReviewPaginated(params);
+          setAllHotels(response.content || []);
+          setActiveTotalElements(response.totalElements || 0);
+          applyStatusSummary(response.statusSummary, response.totalElements);
+        } else if (activeTab === "pending") {
           const response =
             fetchMode === "zonal"
               ? await adminService.getZonalPendingHotelsPaginated(params)
@@ -162,10 +209,8 @@ export default function HotelReviewListPage() {
                 ? await adminService.getQcPendingHotelsPaginated(params)
                 : await adminService.getHotelsForReviewPaginated(params);
           setPendingHotels(response.content || []);
-          setTotalRows((prev) => ({
-            ...prev,
-            pending: response.totalElements || 0,
-          }));
+          setActiveTotalElements(response.totalElements || 0);
+          applyStatusSummary(response.statusSummary, response.totalElements);
         } else if (activeTab === "approved") {
           const response =
             fetchMode === "zonal"
@@ -174,10 +219,8 @@ export default function HotelReviewListPage() {
                 ? await adminService.getQcApprovedHotelsPaginated(params)
                 : await adminService.getApprovedHotelsPaginated(params);
           setApprovedHotels(response.content || []);
-          setTotalRows((prev) => ({
-            ...prev,
-            approved: response.totalElements || 0,
-          }));
+          setActiveTotalElements(response.totalElements || 0);
+          applyStatusSummary(response.statusSummary, response.totalElements);
         } else {
           const response =
             fetchMode === "zonal"
@@ -186,10 +229,8 @@ export default function HotelReviewListPage() {
                 ? await adminService.getQcRejectedHotelsPaginated(params)
                 : await adminService.getRejectedHotelsPaginated(params);
           setRejectedHotels(response.content || []);
-          setTotalRows((prev) => ({
-            ...prev,
-            rejected: response.totalElements || 0,
-          }));
+          setActiveTotalElements(response.totalElements || 0);
+          applyStatusSummary(response.statusSummary, response.totalElements);
         }
       } catch (err) {
         setError("Failed to load hotels");
@@ -273,6 +314,8 @@ export default function HotelReviewListPage() {
 
   const getCurrentHotels = () => {
     switch (activeTab) {
+      case "all":
+        return allHotels;
       case "pending":
         return pendingHotels;
       case "approved":
@@ -284,17 +327,16 @@ export default function HotelReviewListPage() {
     }
   };
 
-  const getCurrentTotalRows = () => {
-    switch (activeTab) {
-      case "pending":
-        return totalRows.pending;
-      case "approved":
-        return totalRows.approved;
-      case "rejected":
-        return totalRows.rejected;
-      default:
-        return 0;
-    }
+  const getCurrentTotalRows = () => activeTotalElements;
+
+  const resolveReviewTabForRow = (
+    row: HotelReviewItem | ApprovedHotelItem | RejectedHotelItem,
+  ): Exclude<ReviewBucket, "all"> => {
+    const status = String(row.reviewStatus || "").toUpperCase();
+    if (status === "APPROVED") return "approved";
+    if (status === "REJECTED") return "rejected";
+    if (status === "PENDING") return "pending";
+    return activeTab === "all" ? "pending" : activeTab;
   };
 
   const handleExportCSV = () => {
@@ -359,6 +401,30 @@ export default function HotelReviewListPage() {
         </span>
       ),
     },
+    ...(activeTab === "all"
+      ? [
+          {
+            field: "reviewStatus",
+            headerName: "Status",
+            width: 120,
+            minWidth: 110,
+            sortable: false,
+            renderCell: (params) => {
+              const status = String(params.value || "PENDING").toUpperCase();
+              return (
+                <HotelReviewBadge
+                  className={
+                    REVIEW_STATUS_BADGE[status] ||
+                    "bg-slate-100 text-slate-700 ring-slate-200"
+                  }
+                >
+                  {status}
+                </HotelReviewBadge>
+              );
+            },
+          } satisfies GridColDef,
+        ]
+      : []),
     {
       field: "hotelCity",
       headerName: "Hotel City",
@@ -479,17 +545,15 @@ export default function HotelReviewListPage() {
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            persistReviewContext(
-              activeTab as ReviewBucket,
-              String(params.row.hotelId),
-            );
+            const reviewTab = resolveReviewTabForRow(params.row);
+            persistReviewContext(reviewTab, String(params.row.hotelId));
             const q = new URLSearchParams({
               draftId: String(params.row.hotelId),
-              reviewTab: activeTab,
+              reviewTab,
             });
             if (useReviewerReadOnlyView) q.set("readOnly", "true");
             navigate(`${ROUTES.PROPERTIES.CREATE}?${q.toString()}`, {
-              state: { reviewTab: activeTab },
+              state: { reviewTab },
             });
           }}
           className="rounded-lg border border-[#2f3d95]/25 bg-[#eef2ff] px-3 py-1 text-xs font-semibold text-[#2f3d95] transition-colors hover:border-[#2f3d95] hover:bg-[#2f3d95] hover:text-white"
@@ -504,6 +568,10 @@ export default function HotelReviewListPage() {
     ReviewBucket,
     { title: string; description: string }
   > = {
+    all: {
+      title: "No hotels in review",
+      description: "No hotel review requests found",
+    },
     pending: {
       title: "No hotels pending review",
       description: "All hotel requests have been processed",
@@ -708,6 +776,13 @@ export default function HotelReviewListPage() {
               />
             </div>
           </div>
+
+          <TabsContent
+            value="all"
+            className="mt-0 flex min-h-0 flex-1 flex-col"
+          >
+            {renderPanel(allHotels)}
+          </TabsContent>
 
           <TabsContent
             value="pending"
