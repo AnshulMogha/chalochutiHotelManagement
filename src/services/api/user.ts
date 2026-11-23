@@ -1,6 +1,7 @@
 import { apiClient } from "./client";
 import type { User } from "@/types";
 import { API_ENDPOINTS } from "@/constants";
+import { resolveStaycoreUploadUrl } from "@/features/reviews/services/reviewMediaUrl";
 import type { ApiSuccessResponse } from "./types";
 
 export interface UpdateMyProfileRequest {
@@ -29,7 +30,26 @@ function normalizeRolesFromApi(
   return [];
 }
 
+function readAvatarValue(
+  user?: (Partial<User> & Record<string, unknown>) | null,
+): string | null {
+  if (!user) return null;
+  const candidates = [
+    user.avatarUrl,
+    user.profileImageUrl,
+    user.profileImage,
+    user.profilePicture,
+    user.pictureUrl,
+    user.imageUrl,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) return candidate;
+  }
+  return null;
+}
+
 function normalizeUser(user?: Partial<User> | null, fallback: Partial<User> = {}): User {
+  const rawAvatar = readAvatarValue(user) ?? fallback.avatarUrl ?? null;
   return {
     userId: user?.userId ?? fallback.userId ?? 0,
     email: user?.email ?? fallback.email ?? "",
@@ -48,7 +68,7 @@ function normalizeUser(user?: Partial<User> | null, fallback: Partial<User> = {}
     accountStatus: user?.accountStatus ?? fallback.accountStatus ?? "ACTIVE",
     firstName: user?.firstName ?? fallback.firstName ?? null,
     lastName: user?.lastName ?? fallback.lastName ?? null,
-    avatarUrl: user?.avatarUrl ?? fallback.avatarUrl ?? null,
+    avatarUrl: resolveStaycoreUploadUrl(rawAvatar),
     gender: user?.gender ?? fallback.gender ?? null,
     dob: user?.dob ?? fallback.dob ?? null,
     roles: normalizeRolesFromApi(user) ?? fallback.roles ?? [],

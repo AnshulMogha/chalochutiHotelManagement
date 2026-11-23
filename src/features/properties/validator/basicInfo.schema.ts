@@ -11,9 +11,9 @@ const basicInfoSchema = z
       .max(120, {
         message: "Property name must be at most 120 characters",
       })
-      .regex(/^[A-Za-z0-9 ]+$/, {
+      .regex(/^[A-Za-z0-9 &\-()]+$/, {
         message:
-          "Property name can contain only letters, numbers, and spaces",
+          "Property name can contain only letters, numbers, spaces, and & - ( )",
       }),
 
     starRating: z

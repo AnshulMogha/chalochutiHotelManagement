@@ -1501,7 +1501,7 @@ export default function EditPromotionPage() {
                       </div>
                     </div>
 
-                    {/* Pay at hotel */}
+                    {/* Pay at Hotel is not applicable.
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-3">
                         Do you want to pay at hotel?
@@ -1533,6 +1533,7 @@ export default function EditPromotionPage() {
                         </label>
                       </div>
                     </div>
+                    */}
                   </>
                 )}
               </div>

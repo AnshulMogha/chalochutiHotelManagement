@@ -3106,7 +3106,9 @@ export function PolicyAndRulesTab({ hotelId }: PolicyAndRulesTabProps) {
                             }
                           >
                             <option value="FULL_PREPAID">Full Prepaid</option>
+                            {/* Pay at Hotel is not applicable.
                             <option value="PAY_AT_HOTEL">Pay at Hotel</option>
+                            */}
                           </select>
                         </div>
                         <div>

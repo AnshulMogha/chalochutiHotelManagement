@@ -21,6 +21,31 @@ export function getStaycoreUploadsBaseUrl(): string {
   return "https://thedemonstrate.com/staycore/uploads";
 }
 
+/**
+ * Turn a stored upload value into one file URL.
+ * The profile API can already return
+ * https://thedemonstrate.com/staycore/uploads/profile_1_….png
+ * Prefixing the uploads folder again produces
+ * …/uploads/https://thedemonstrate.com/staycore/uploads/profile_1_….png
+ */
+export function resolveStaycoreUploadUrl(
+  value: string | null | undefined,
+): string | null {
+  if (value == null) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+
+  const absoluteUrls = trimmed.match(/https?:\/\/\S+/gi);
+  if (absoluteUrls?.length) {
+    return absoluteUrls[absoluteUrls.length - 1];
+  }
+
+  let relative = trimmed.replace(/^\/+/, "");
+  relative = relative.replace(/^(?:staycore\/)?uploads\//i, "");
+  const base = getStaycoreUploadsBaseUrl().replace(/\/$/, "");
+  return `${base}/${relative}`;
+}
+
 export function resolveReviewMediaUrl(media: {
   storageKey?: string | null;
   url?: string | null;
@@ -32,11 +57,7 @@ export function resolveReviewMediaUrl(media: {
     media.fileUrl?.trim() ||
     media.signedUrl?.trim() ||
     "";
-  if (direct) return direct;
+  if (direct) return resolveStaycoreUploadUrl(direct);
 
-  const key = media.storageKey?.trim();
-  if (!key) return null;
-  if (/^https?:\/\//i.test(key)) return key;
-
-  return `${getStaycoreUploadsBaseUrl()}/${key.replace(/^\//, "")}`;
+  return resolveStaycoreUploadUrl(media.storageKey);
 }
