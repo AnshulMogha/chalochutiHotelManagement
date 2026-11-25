@@ -814,8 +814,16 @@ export const API_ENDPOINTS = {
     CREATE_SINGLE_DERIVED: "/hotel/rates/single-derived",
     GET_RATE_PLANS: (hotelId: string) => `/hotel/${hotelId}/rate-plans`,
     LINK_RATE_PLANS: "/hotel/rate-plan/link",
-    GET_RATE_PLAN_LINKS_BY_MASTER: (masterRatePlanId: number) =>
-      `/hotel/rate-plan/link?masterRatePlanId=${masterRatePlanId}`,
+    GET_RATE_PLAN_LINKS_BY_MASTER: (
+      masterRatePlanId: number,
+      customerType?: string,
+    ) => {
+      const params = new URLSearchParams({
+        masterRatePlanId: String(masterRatePlanId),
+      });
+      if (customerType) params.set("customerType", customerType);
+      return `/hotel/rate-plan/link?${params.toString()}`;
+    },
     UPDATE_RATE_PLAN_LINK: (linkId: number) =>
       `/hotel/rate-plan/link/${linkId}`,
     MISSING_RATES: "/hotel/missing-rates",

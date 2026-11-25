@@ -266,6 +266,7 @@ export default function Layout() {
         const matchLink = await resolveRatePlanLinkRecord(
           clickedRatePlanId,
           all,
+          currentCustomerType,
         );
         if (cancelled) return;
         setLinkExistingRecord(matchLink);
@@ -298,6 +299,7 @@ export default function Layout() {
     linkRatePlansContext?.roomName,
     linkRatePlansContext?.currentRatePlanId,
     linkRatePlansContext?.linkMode,
+    currentCustomerType,
     rateRooms,
     // showToast omitted: not referentially stable from useToast
   ]);
@@ -1375,6 +1377,7 @@ export default function Layout() {
           const body = toLinkRatePlanLinkPayload(
             masterRatePlanId,
             slaveRatePlanId,
+            currentCustomerType,
             payload.direction,
             payload.unit,
             payload.adjustmentAmount,

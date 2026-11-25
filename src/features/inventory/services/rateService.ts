@@ -108,6 +108,8 @@ export type LinkRatePlanAdjustmentType = "FIXED" | "PERCENTAGE";
 export interface LinkRatePlanLinkApiPayload {
   masterRatePlanId: number;
   slaveRatePlanId: number;
+  /** RETAIL (B2C) / AGENT (B2B) / PACKAGE (bundle) — link is per channel. */
+  customerType: string;
   adjustmentDirection: LinkRatePlanAdjustmentDirection;
   adjustmentType: LinkRatePlanAdjustmentType;
   adjustmentValue: number;
@@ -170,6 +172,8 @@ export interface RatePlanLinkRecord {
   slaveRoomId?: number;
   masterRatePlanId: number;
   slaveRatePlanId: number;
+  /** RETAIL / AGENT / PACKAGE — this link only applies to that channel. */
+  customerType?: string;
   adjustmentType: LinkRatePlanAdjustmentType;
   adjustmentDirection: LinkRatePlanAdjustmentDirection;
   adjustmentValue: number;
@@ -184,6 +188,7 @@ export interface RatePlanLinkRecord {
 export function toLinkRatePlanLinkPayload(
   masterRatePlanId: number,
   slaveRatePlanId: number,
+  customerType: string,
   adjustmentDirection: LinkRatePlanAdjustmentDirection,
   unit: "PERCENT" | "INR",
   adjustmentValue: number,
@@ -194,6 +199,7 @@ export function toLinkRatePlanLinkPayload(
   const base: LinkRatePlanLinkApiPayload = {
     masterRatePlanId,
     slaveRatePlanId,
+    customerType,
     adjustmentDirection,
     adjustmentType,
     adjustmentValue,
@@ -337,10 +343,16 @@ export const rateService = {
 
   getRatePlanLinksByMaster: async (
     masterRatePlanId: number,
+    customerType?: string,
   ): Promise<RatePlanLinkRecord[]> => {
     const response = await apiClient.get<
       ApiSuccessResponse<RatePlanLinkRecord[]>
-    >(API_ENDPOINTS.RATES.GET_RATE_PLAN_LINKS_BY_MASTER(masterRatePlanId));
+    >(
+      API_ENDPOINTS.RATES.GET_RATE_PLAN_LINKS_BY_MASTER(
+        masterRatePlanId,
+        customerType,
+      ),
+    );
     const raw = response.data;
     if (!Array.isArray(raw)) return [];
     return raw

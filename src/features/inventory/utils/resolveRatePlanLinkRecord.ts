@@ -20,10 +20,17 @@ export function normalizeRatePlanLinkRecord(
 function pickExistingLink(
   links: LinkRecordRaw[],
   clickedRatePlanId: number,
+  customerType?: string,
 ): RatePlanLinkRecord | null {
   const normalized = links
     .map(normalizeRatePlanLinkRecord)
-    .filter((link): link is RatePlanLinkRecord => link != null);
+    .filter((link): link is RatePlanLinkRecord => link != null)
+    .filter((link) =>
+      customerType
+        ? !link.customerType ||
+          link.customerType.toUpperCase() === customerType.toUpperCase()
+        : true,
+    );
 
   return (
     normalized.find(
@@ -40,17 +47,19 @@ function pickExistingLink(
   );
 }
 
-/** Resolve the active link for the clicked rate plan (as master or slave). */
+/** Resolve the active link for the clicked rate plan (as master or slave) on this channel. */
 export async function resolveRatePlanLinkRecord(
   clickedRatePlanId: number,
   allRatePlans: HotelRatePlanListItem[],
+  customerType?: string,
 ): Promise<RatePlanLinkRecord | null> {
   const linksForClickedAsMaster = await rateService
-    .getRatePlanLinksByMaster(clickedRatePlanId)
+    .getRatePlanLinksByMaster(clickedRatePlanId, customerType)
     .catch(() => []);
   const fromClickedMaster = pickExistingLink(
     linksForClickedAsMaster as LinkRecordRaw[],
     clickedRatePlanId,
+    customerType,
   );
   if (fromClickedMaster) return fromClickedMaster;
 
@@ -61,12 +70,15 @@ export async function resolveRatePlanLinkRecord(
 
   const linksByMaster = await Promise.all(
     candidateMasters.map((plan) =>
-      rateService.getRatePlanLinksByMaster(plan.ratePlanId).catch(() => []),
+      rateService
+        .getRatePlanLinksByMaster(plan.ratePlanId, customerType)
+        .catch(() => []),
     ),
   );
 
   return pickExistingLink(
     linksByMaster.flat() as LinkRecordRaw[],
     clickedRatePlanId,
+    customerType,
   );
 }
