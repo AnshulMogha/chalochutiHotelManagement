@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { DownloadToolbarButton } from "@/components/ui/reportToolbar";
 import { DataTable, formatListCount } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import { cn } from "@/lib/utils";
@@ -48,11 +49,9 @@ import {
   ChevronRight,
   CircleX,
   ClipboardCheck,
-  Download,
   FilePen,
   GitBranch,
   LayoutDashboard,
-  Loader2,
   MapPinned,
   X,
   type LucideIcon,
@@ -599,28 +598,16 @@ export default function HotelBdPipelineReportPage() {
               }}
               activeCount={activeFilterCount}
             />
-            <button
-              type="button"
+            <DownloadToolbarButton
               onClick={() => void handleExport()}
-              disabled={exporting || loading}
-              aria-label={
+              busy={exporting}
+              disabled={loading}
+              tooltip={
                 exportStatus
                   ? exportStatusLabel(exportStatus)
                   : "Download report"
               }
-              title={
-                exportStatus
-                  ? exportStatusLabel(exportStatus)
-                  : "Download report"
-              }
-              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              {exporting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-            </button>
+            />
             <ReportRefreshButton
               onClick={() => void loadReport()}
               loading={loading}

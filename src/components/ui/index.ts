@@ -58,6 +58,18 @@ export { StatusBadge } from "./badges/StatusBadge";
 export { RoleBadge } from "./badges/RoleBadge";
 export { ExportButton } from "./ExportButton";
 export {
+  DownloadToolbarButton,
+  RefreshToolbarButton,
+  ReportSectionTabBar,
+  ReportSectionTabs,
+  ToolbarIconButton,
+  ToolbarMenu,
+  reportSectionTabBadgeClass,
+  reportSectionTabClass,
+  toolbarIconButtonActiveClassName,
+  toolbarIconButtonClassName,
+} from "./reportToolbar";
+export {
   Sheet,
   SheetPortal,
   SheetOverlay,

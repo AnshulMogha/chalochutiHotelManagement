@@ -14,6 +14,7 @@ import {
   ReportAppliedRange,
   ReportFilterButton,
   ReportFilterDrawer,
+  ReportRefreshButton,
 } from "../components/ReportFilterDrawer";
 import {
   exportStatusLabel,
@@ -821,18 +822,7 @@ export default function PromotionReportPage() {
                   onExportCSV={() => void handleExport("CSV")}
                   onExportPDF={() => void handleExport("PDF")}
                 />
-                <button
-                  type="button"
-                  onClick={fetchReport}
-                  disabled={loading}
-                  aria-label="Refresh"
-                  title="Refresh"
-                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                >
-                  <RefreshCw
-                    className={cn("h-3.5 w-3.5", loading && "animate-spin")}
-                  />
-                </button>
+                <ReportRefreshButton onClick={fetchReport} loading={loading} />
               </div>
             </div>
           </div>

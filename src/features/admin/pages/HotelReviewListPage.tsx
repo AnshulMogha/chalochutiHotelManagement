@@ -33,6 +33,7 @@ import { isZonalHotelReviewerRole, isQcReviewerRole } from "@/constants/roles";
 import { cn } from "@/lib/utils";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterActions,
   ReportFilterButton,
@@ -311,6 +312,21 @@ export default function HotelReviewListPage() {
     appliedFilters.submittedAt,
   ].filter(Boolean).length;
   const hasActiveFilters = activeFilterCount > 0;
+
+  const appliedFilterItems = [
+    appliedFilters.city.trim()
+      ? { label: "City", value: appliedFilters.city.trim() }
+      : null,
+    appliedFilters.hotelName.trim()
+      ? { label: "Hotel name", value: appliedFilters.hotelName.trim() }
+      : null,
+    appliedFilters.hotelCode.trim()
+      ? { label: "Hotel code", value: appliedFilters.hotelCode.trim() }
+      : null,
+    appliedFilters.submittedBy.trim()
+      ? { label: "Submitted by", value: appliedFilters.submittedBy.trim() }
+      : null,
+  ];
 
   const getCurrentHotels = () => {
     switch (activeTab) {
@@ -702,78 +718,74 @@ export default function HotelReviewListPage() {
           }}
           className="flex min-h-0 flex-1 flex-col gap-3"
         >
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-2 shadow-sm">
-            <div className="flex flex-wrap items-center gap-1">
-              {REVIEW_TABS.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.value;
-                return (
-                  <button
-                    key={tab.value}
-                    type="button"
-                    onClick={() => {
-                      persistReviewContext(tab.value);
-                      setActiveTab(tab.value);
-                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                    }}
-                    className={cn(
-                      "inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold transition",
-                      isActive
-                        ? REVIEW_TAB_ACTIVE[tab.value]
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
-                    {tab.label}
-                    <span
+          <div className="shrink-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-1">
+                {REVIEW_TABS.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => {
+                        persistReviewContext(tab.value);
+                        setActiveTab(tab.value);
+                        setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                      }}
                       className={cn(
-                        "rounded-full px-1.5 text-[10px] font-bold",
+                        "inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold transition",
                         isActive
-                          ? "bg-white/20 text-white"
-                          : "bg-white text-slate-500",
+                          ? REVIEW_TAB_ACTIVE[tab.value]
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200",
                       )}
                     >
-                      {totalRows[tab.value]}
-                    </span>
-                  </button>
-                );
-              })}
+                      <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+                      {tab.label}
+                      <span
+                        className={cn(
+                          "rounded-full px-1.5 text-[10px] font-bold",
+                          isActive
+                            ? "bg-white/20 text-white"
+                            : "bg-white text-slate-500",
+                        )}
+                      >
+                        {totalRows[tab.value]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <ReportAppliedRange
+                  from={appliedFilters.submittedAt || null}
+                />
+                <ReportFilterButton
+                  onClick={() => {
+                    setSubmittedDateError("");
+                    setDraftFilters({
+                      ...appliedFilters,
+                      submittedAt: isoToReportDateText(appliedFilters.submittedAt),
+                    });
+                    setFilterOpen(true);
+                  }}
+                  activeCount={activeFilterCount}
+                  open={filterOpen}
+                />
+                <ExportButton
+                  iconOnly
+                  onExportCSV={handleExportCSV}
+                  onExportExcel={handleExportExcel}
+                  disabled={isLoading || currentHotels.length === 0}
+                />
+                <ReportRefreshButton
+                  onClick={() => setRefreshNonce((n) => n + 1)}
+                  loading={isLoading}
+                />
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <ReportAppliedRange
-                from={appliedFilters.submittedAt || null}
-                detail={
-                  [
-                    appliedFilters.city || null,
-                    appliedFilters.hotelName || null,
-                    appliedFilters.hotelCode || null,
-                    appliedFilters.submittedBy || null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || null
-                }
-              />
-              <ReportFilterButton
-                onClick={() => {
-                  setSubmittedDateError("");
-                  setDraftFilters({
-                    ...appliedFilters,
-                    submittedAt: isoToReportDateText(appliedFilters.submittedAt),
-                  });
-                  setFilterOpen(true);
-                }}
-                activeCount={activeFilterCount}
-              />
-              <ExportButton
-                iconOnly
-                onExportCSV={handleExportCSV}
-                onExportExcel={handleExportExcel}
-                disabled={isLoading || currentHotels.length === 0}
-              />
-              <ReportRefreshButton
-                onClick={() => setRefreshNonce((n) => n + 1)}
-                loading={isLoading}
-              />
+            <div className="border-t border-slate-100 px-4 py-2">
+              <ReportAppliedFilters items={appliedFilterItems} />
             </div>
           </div>
 

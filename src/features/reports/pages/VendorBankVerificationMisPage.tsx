@@ -39,9 +39,10 @@ import {
   canViewVendorBankVerificationMis,
 } from "@/constants/roles";
 import {
-  ReportAppliedRange,
+  ReportAppliedFilters,
   ReportFilterActions,
   ReportFilterButton,
+  ReportRefreshButton,
 } from "@/features/reports/components/ReportFilterDrawer";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
@@ -252,6 +253,36 @@ export default function VendorBankVerificationMisPage() {
       (applied.search.trim() ? 1 : 0),
     [applied],
   );
+
+  const appliedFilterItems = [
+    {
+      label: "Vendor type",
+      value:
+        VENDOR_TYPE_OPTIONS.find((opt) => opt.value === applied.vendorType)
+          ?.label ?? "All vendors",
+    },
+    {
+      label: "Internal bank verification",
+      value: applied.internalBankVerificationStatus
+        ? formatStatusLabel(applied.internalBankVerificationStatus)
+        : "All",
+    },
+    applied.changeRequestStatus
+      ? {
+          label: "Change request",
+          value: formatStatusLabel(applied.changeRequestStatus),
+        }
+      : null,
+    applied.beneficiaryStatus
+      ? {
+          label: "Beneficiary status",
+          value: formatStatusLabel(applied.beneficiaryStatus),
+        }
+      : null,
+    applied.search.trim()
+      ? { label: "Search", value: applied.search.trim() }
+      : null,
+  ];
 
   const notifyCopied = useCallback(
     (label: string) => showToast(`${label} copied`, "success"),
@@ -657,47 +688,20 @@ export default function VendorBankVerificationMisPage() {
             borderClassName="border-indigo-100"
             actions={
               <div className="flex flex-wrap items-center gap-2">
-                <ReportAppliedRange
-                  from={null}
-                  to={null}
-                  detail={
-                    [
-                      applied.vendorType !== "ALL"
-                        ? formatStatusLabel(applied.vendorType)
-                        : "All vendors",
-                      applied.changeRequestStatus
-                        ? "Change request pending"
-                        : applied.beneficiaryStatus === "UPDATE_REQUIRED"
-                          ? "Re-verification required"
-                          : applied.internalBankVerificationStatus
-                            ? `Bank ${formatStatusLabel(applied.internalBankVerificationStatus)}`
-                            : null,
-                      applied.search.trim() || null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "All bank accounts"
-                  }
-                />
                 <ReportFilterButton
                   onClick={openFilterDrawer}
                   activeCount={activeFilterCount}
+                  open={filterOpen}
                 />
-                <button
-                  type="button"
+                <ReportRefreshButton
                   onClick={() => void load()}
-                  disabled={loading}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                  title="Refresh"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                </button>
+                  loading={loading}
+                />
               </div>
             }
           />
+
+          <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
           <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
             <SummaryCard

@@ -13,7 +13,7 @@ import { ROUTES } from "@/constants";
 import { DataTable, formatListCount } from "@/components/ui";
 import { Toast, useToast } from "@/components/ui/Toast";
 import {
-  ReportAppliedRange,
+  ReportAppliedFilters,
   ReportFilterButton,
   ReportFilterDrawer,
   ReportRefreshButton,
@@ -59,6 +59,11 @@ export default function VendorBeneficiaryBatchDetailPage() {
   const [downloading, setDownloading] = useState(false);
 
   const activeFilterCount = appliedSearch.trim() ? 1 : 0;
+  const appliedFilterItems = [
+    appliedSearch.trim()
+      ? { label: "Search", value: appliedSearch.trim() }
+      : null,
+  ];
 
   const load = useCallback(async () => {
     if (!Number.isFinite(batchId) || batchId <= 0) {
@@ -265,17 +270,13 @@ export default function VendorBeneficiaryBatchDetailPage() {
           }
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <ReportAppliedRange
-                from={null}
-                to={null}
-                detail={appliedSearch.trim() || "All beneficiaries in batch"}
-              />
               <ReportFilterButton
                 onClick={() => {
                   setDraftSearch(appliedSearch);
                   setFilterOpen(true);
                 }}
                 activeCount={activeFilterCount}
+                open={filterOpen}
               />
               <Link
                 to={ROUTES.REPORTS.VENDOR_BENEFICIARY_FILE_HISTORY}
@@ -301,6 +302,8 @@ export default function VendorBeneficiaryBatchDetailPage() {
             </div>
           }
         />
+
+        <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
         {loading && !detail ? (
           <div className="flex min-h-56 items-center justify-center rounded-xl border border-slate-200 bg-white">

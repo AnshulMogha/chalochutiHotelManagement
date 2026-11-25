@@ -13,6 +13,7 @@ import {
   ReportAppliedRange,
   ReportFilterButton,
   ReportFilterDrawer,
+  ReportRefreshButton,
 } from "../components/ReportFilterDrawer";
 import {
   adminService,
@@ -57,7 +58,6 @@ import {
   Loader2,
   Package,
   Receipt,
-  RefreshCw,
   RotateCcw,
   Wallet,
 } from "lucide-react";
@@ -357,17 +357,10 @@ export default function RevenueDashboardPage() {
                 onExportCSV={() => void exportDashboard("CSV")}
                 onExportPDF={() => void exportDashboard("PDF")}
               />
-              <button
-                type="button"
+              <ReportRefreshButton
                 onClick={() => void load(filters)}
-                disabled={loading}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                aria-label="Refresh"
-              >
-                <RefreshCw
-                  className={cn("h-4 w-4", loading && "animate-spin")}
-                />
-              </button>
+                loading={loading}
+              />
             </div>
           }
         />

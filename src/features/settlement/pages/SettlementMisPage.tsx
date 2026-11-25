@@ -4,6 +4,7 @@ import { ROUTES } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { canApproveSupplierSettlement } from "@/constants/roles";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { DownloadToolbarButton } from "@/components/ui/reportToolbar";
 import { DataTable, formatListCount } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
@@ -40,7 +41,6 @@ import {
   BarChart3,
   Building2,
   Clock,
-  Download,
   IndianRupee,
   Loader2,
   RotateCcw,
@@ -388,28 +388,16 @@ export default function SettlementMisPage() {
               onClick={openFilterDrawer}
               activeCount={activeFilterCount}
             />
-            <button
-              type="button"
+            <DownloadToolbarButton
               onClick={() => void downloadMis()}
-              disabled={exporting || loading}
-              aria-label={
-                exportStatus
-                  ? exportStatusLabel(exportStatus)
-                  : "Download Settlement MIS"
-              }
-              title={
+              busy={exporting}
+              disabled={loading}
+              tooltip={
                 exportStatus
                   ? exportStatusLabel(exportStatus)
                   : "Download Excel"
               }
-              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              {exporting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-            </button>
+            />
             <SettlementRefreshButton loading={loading} onClick={() => void load()} />
           </div>
         }

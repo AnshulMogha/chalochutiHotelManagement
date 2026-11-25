@@ -15,6 +15,7 @@ import {
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterActions,
   ReportFilterButton,
@@ -81,38 +82,6 @@ const DEFAULT_FILTERS: FilterDraft = {
 
 type DashboardBucket = "OPEN" | "IN_PROGRESS" | "WAITING" | "RESOLVED" | "CLOSED" | null;
 
-function HelpdeskAppliedRange({
-  filters,
-  bucket,
-}: {
-  filters: FilterDraft;
-  bucket: DashboardBucket;
-}) {
-  const range = validateOptionalDateRange(
-    filters.fromDateText,
-    filters.toDateText,
-  );
-  const from = range.ok ? range.fromDate : null;
-  const to = range.ok ? range.toDate : null;
-  const detail =
-    [
-      filters.status
-        ? formatTicketStatus(filters.status)
-        : bucket
-          ? formatTicketStatus(bucket)
-          : null,
-      filters.priority ? formatTicketPriority(filters.priority) : null,
-      filters.category ? formatTicketStatus(filters.category) : null,
-      filters.raisedByType ? formatTicketStatus(filters.raisedByType) : null,
-      filters.ticketNo.trim() || null,
-      filters.referenceKey.trim() || null,
-    ]
-      .filter(Boolean)
-      .join(" · ") || (!from && !to ? "All tickets" : null);
-
-  return <ReportAppliedRange from={from} to={to} detail={detail} />;
-}
-
 export default function HelpdeskTicketsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -140,6 +109,49 @@ export default function HelpdeskTicketsPage() {
   );
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(null);
+
+  const appliedDateRange = useMemo(
+    () => validateOptionalDateRange(filters.fromDateText, filters.toDateText),
+    [filters.fromDateText, filters.toDateText],
+  );
+
+  const appliedFilterItems = useMemo(
+    () => [
+      {
+        label: "Status",
+        value: filters.status
+          ? formatTicketStatus(filters.status)
+          : activeBucket
+            ? formatTicketStatus(activeBucket)
+            : "All",
+      },
+      {
+        label: "Priority",
+        value: filters.priority
+          ? formatTicketPriority(filters.priority)
+          : "All",
+      },
+      {
+        label: "Category",
+        value: filters.category
+          ? formatTicketStatus(filters.category)
+          : "All",
+      },
+      {
+        label: "Raised by type",
+        value: filters.raisedByType
+          ? formatTicketStatus(filters.raisedByType)
+          : "All",
+      },
+      filters.ticketNo.trim()
+        ? { label: "Ticket no", value: filters.ticketNo.trim() }
+        : null,
+      filters.referenceKey.trim()
+        ? { label: "Reference key", value: filters.referenceKey.trim() }
+        : null,
+    ],
+    [activeBucket, filters],
+  );
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -425,9 +437,9 @@ export default function HelpdeskTicketsPage() {
           description="Inbox, SLA, and ticket workflow"
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <HelpdeskAppliedRange
-                filters={filters}
-                bucket={activeBucket}
+              <ReportAppliedRange
+                from={appliedDateRange.ok ? appliedDateRange.fromDate : null}
+                to={appliedDateRange.ok ? appliedDateRange.toDate : null}
               />
               <ReportFilterButton
                 onClick={() => {
@@ -435,6 +447,7 @@ export default function HelpdeskTicketsPage() {
                   setFilterOpen(true);
                 }}
                 activeCount={activeFilterCount}
+                open={filterOpen}
               />
               <ExportButton
                 iconOnly
@@ -461,6 +474,8 @@ export default function HelpdeskTicketsPage() {
             </div>
           }
         />
+
+        <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
         <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           <SummaryCard

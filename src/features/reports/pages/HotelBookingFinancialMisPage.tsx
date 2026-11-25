@@ -17,6 +17,10 @@ import {
 } from "date-fns";
 import { toPng } from "html-to-image";
 import { Toast, useToast } from "@/components/ui/Toast";
+import {
+  RefreshToolbarButton,
+  ToolbarMenu,
+} from "@/components/ui/reportToolbar";
 import { DataTable, formatListCount } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import { ROUTES } from "@/constants";
@@ -74,7 +78,6 @@ import {
   ArrowLeft,
   Building2,
   CircleDollarSign,
-  Download,
   Eye,
   FileSpreadsheet,
   HandCoins,
@@ -82,7 +85,6 @@ import {
   LayoutDashboard,
   Loader2,
   Receipt,
-  RefreshCw,
   RotateCcw,
   Target,
   Percent,
@@ -655,13 +657,11 @@ export default function HotelBookingFinancialMisPage() {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [downloadOpen, setDownloadOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState<ExportJobStatus | null>(
     null,
   );
   const [capturingPage, setCapturingPage] = useState(false);
-  const downloadMenuRef = useRef<HTMLDivElement>(null);
   const pageCaptureRef = useRef<HTMLDivElement>(null);
 
   const customInvalid =
@@ -865,17 +865,6 @@ export default function HotelBookingFinancialMisPage() {
     void loadReport(DEFAULT_DRAFT, 0);
   };
 
-  useEffect(() => {
-    if (!downloadOpen) return;
-    const onPointerDown = (event: MouseEvent) => {
-      if (!downloadMenuRef.current?.contains(event.target as Node)) {
-        setDownloadOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [downloadOpen]);
-
   const exportBaseName = () => {
     const from = report?.dateRange.fromDate || "from";
     const to = report?.dateRange.toDate || "to";
@@ -884,7 +873,6 @@ export default function HotelBookingFinancialMisPage() {
 
   const downloadMisExcel = async () => {
     if (customInvalid) return;
-    setDownloadOpen(false);
     setExporting(true);
     setExportStatus("QUEUED");
     try {
@@ -908,7 +896,6 @@ export default function HotelBookingFinancialMisPage() {
       showToast("Load the report before downloading", "error");
       return;
     }
-    setDownloadOpen(false);
     const summary = report.summary;
     const rows: (string | number | null | undefined)[][] = [
       ["Section", "Field", "Value"],
@@ -1046,7 +1033,6 @@ export default function HotelBookingFinancialMisPage() {
       showToast("Load the report before downloading", "error");
       return;
     }
-    setDownloadOpen(false);
     setCapturingPage(true);
     try {
       await new Promise((resolve) =>
@@ -1187,83 +1173,46 @@ export default function HotelBookingFinancialMisPage() {
                   }}
                   activeCount={activeFilterCount}
                 />
-                <div
-                  className="relative"
-                  ref={downloadMenuRef}
-                  data-exclude-from-capture="true"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setDownloadOpen((open) => !open)}
-                    disabled={exporting || capturingPage || customInvalid}
-                    aria-label={
-                      exporting
-                        ? exportStatusLabel(exportStatus) || "Exporting"
-                        : capturingPage
-                          ? "Capturing"
-                          : "Download MIS"
-                    }
-                    title={
-                      exporting
-                        ? exportStatusLabel(exportStatus) || "Exporting…"
-                        : capturingPage
-                          ? "Capturing…"
-                          : "Download MIS"
-                    }
-                    className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                  >
-                    {exporting || capturingPage ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                  </button>
-                  {downloadOpen && !exporting && !capturingPage ? (
-                    <div className="absolute right-0 z-30 mt-1 w-60 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                      <button
-                        type="button"
-                        onClick={() => void downloadMisExcel()}
-                        disabled={!report}
-                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-blue-50 disabled:opacity-50"
-                      >
-                        <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                        Download MIS (Excel)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void downloadFullPagePng()}
-                        disabled={!report}
-                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-blue-50 disabled:opacity-50"
-                      >
-                        <LayoutDashboard className="h-4 w-4 text-indigo-600" />
-                        Full page (PNG)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={downloadCurrentViewCsv}
-                        disabled={!report}
-                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-blue-50 disabled:opacity-50"
-                      >
-                        <FileSpreadsheet className="h-4 w-4 text-slate-500" />
-                        Current view (CSV)
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
+                <ToolbarMenu
+                  excludeFromCapture
+                  busy={exporting || capturingPage}
+                  disabled={customInvalid}
+                  tooltip={
+                    exporting
+                      ? exportStatusLabel(exportStatus) || "Exporting…"
+                      : capturingPage
+                        ? "Capturing…"
+                        : "Download MIS"
+                  }
+                  items={[
+                    {
+                      id: "excel",
+                      label: "Download MIS (Excel)",
+                      icon: FileSpreadsheet,
+                      onClick: () => void downloadMisExcel(),
+                      disabled: !report,
+                    },
+                    {
+                      id: "png",
+                      label: "Full page (PNG)",
+                      icon: LayoutDashboard,
+                      onClick: () => void downloadFullPagePng(),
+                      disabled: !report,
+                    },
+                    {
+                      id: "csv",
+                      label: "Current view (CSV)",
+                      icon: FileSpreadsheet,
+                      onClick: downloadCurrentViewCsv,
+                      disabled: !report,
+                    },
+                  ]}
+                />
+                <RefreshToolbarButton
                   onClick={() => void loadReport()}
-                  disabled={loading || customInvalid}
-                  aria-label="Refresh"
-                  title="Refresh"
-                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                </button>
+                  busy={loading}
+                  disabled={customInvalid}
+                />
               </div>
             }
           />

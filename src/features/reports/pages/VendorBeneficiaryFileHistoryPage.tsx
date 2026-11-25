@@ -15,7 +15,7 @@ import { Toast, useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/hooks/useAuth";
 import { canGenerateVendorBeneficiaryFile } from "@/constants/roles";
 import {
-  ReportAppliedRange,
+  ReportAppliedFilters,
   ReportFilterButton,
   ReportFilterDrawer,
   ReportRefreshButton,
@@ -98,15 +98,19 @@ export default function VendorBeneficiaryFileHistoryPage() {
     [applied],
   );
 
-  const appliedDetail = useMemo(
-    () =>
-      [
-        applied.batchNumber.trim() || null,
-        applied.fileName.trim() || null,
-        statusFilterLabel(applied.batchStatus),
-      ]
-        .filter(Boolean)
-        .join(" · ") || "All batches",
+  const appliedFilterItems = useMemo(
+    () => [
+      {
+        label: "Status",
+        value: statusFilterLabel(applied.batchStatus) ?? "All",
+      },
+      applied.batchNumber.trim()
+        ? { label: "Batch number", value: applied.batchNumber.trim() }
+        : null,
+      applied.fileName.trim()
+        ? { label: "File name", value: applied.fileName.trim() }
+        : null,
+    ],
     [applied],
   );
 
@@ -378,10 +382,10 @@ export default function VendorBeneficiaryFileHistoryPage() {
           description="Generated beneficiary TXT batches, downloads, and submission workflow"
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <ReportAppliedRange from={null} to={null} detail={appliedDetail} />
               <ReportFilterButton
                 onClick={openFilterDrawer}
                 activeCount={activeFilterCount}
+                open={filterOpen}
               />
               <Link
                 to={ROUTES.REPORTS.VENDOR_BENEFICIARY_SBI_IMPORT}
@@ -403,6 +407,8 @@ export default function VendorBeneficiaryFileHistoryPage() {
             </div>
           }
         />
+
+        <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
         <DataTable
           title="Beneficiary batches"

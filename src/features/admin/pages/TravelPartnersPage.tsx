@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterButton,
   ReportFilterDrawer,
@@ -302,6 +303,24 @@ export default function TravelPartnersPage() {
     (appliedFilters.createdAtFrom || appliedFilters.createdAtTo ? 1 : 0);
   const hasActiveFilters = activeFilterCount > 0;
   const totalPages = Math.max(1, Math.ceil(totalElements / pageSize) || 1);
+
+  const appliedFilterItems = [
+    {
+      label: "Agency tier",
+      value: appliedFilters.agencyTier
+        ? formatAgencyTier(appliedFilters.agencyTier as AgencyTier)
+        : "All",
+    },
+    appliedFilters.email.trim()
+      ? { label: "Email", value: appliedFilters.email.trim() }
+      : null,
+    appliedFilters.name.trim()
+      ? { label: "Name", value: appliedFilters.name.trim() }
+      : null,
+    appliedFilters.agencyName.trim()
+      ? { label: "Agency name", value: appliedFilters.agencyName.trim() }
+      : null,
+  ];
 
   const applyFilters = () => {
     const createdAtIso = parseOptionalReportDate(draftFilters.createdAt);
@@ -761,25 +780,11 @@ export default function TravelPartnersPage() {
                   null
                 }
                 to={appliedFilters.createdAtTo || null}
-                detail={
-                  [
-                    PARTNER_TABS.find((tab) => tab.value === activeTab)?.label,
-                    appliedFilters.email || null,
-                    appliedFilters.name || null,
-                    appliedFilters.agencyName || null,
-                    appliedFilters.agencyTier
-                      ? formatAgencyTier(
-                          appliedFilters.agencyTier as AgencyTier,
-                        )
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || null
-                }
               />
               <ReportFilterButton
                 onClick={openFilterDrawer}
                 activeCount={activeFilterCount}
+                open={filterOpen}
               />
               <ExportButton
                 iconOnly
@@ -794,6 +799,9 @@ export default function TravelPartnersPage() {
                 loading={loading}
               />
             </div>
+          </div>
+          <div className="border-t border-slate-100 px-4 py-2">
+            <ReportAppliedFilters items={appliedFilterItems} />
           </div>
         </div>
 

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { DataTable, formatListCount } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import { cn } from "@/lib/utils";
@@ -48,11 +49,7 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
-  Download,
-  FileSpreadsheet,
-  FileText,
   Layers,
-  Loader2,
   Package,
   Percent,
   ShoppingBag,
@@ -204,15 +201,6 @@ const DATE_PRESET_OPTIONS: {
   { value: "CUSTOM", label: "Custom" },
 ];
 
-const EXPORT_FORMATS: {
-  value: ReportExportFormat;
-  label: string;
-  icon: LucideIcon;
-}[] = [
-  { value: "EXCEL", label: "Excel (.xlsx)", icon: FileSpreadsheet },
-  { value: "CSV", label: "CSV (.csv)", icon: FileText },
-];
-
 function MetricCard({
   label,
   value,
@@ -285,8 +273,6 @@ export default function InventoryAllocationReportPage() {
   const [ratePlanOptions, setRatePlanOptions] = useState<ReportIdOption[]>([]);
   const [page, setPage] = useState(0);
   const [pageSize] = useState(INVENTORY_PAGE_SIZE);
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [customFromText, setCustomFromText] = useState("");
   const [customToText, setCustomToText] = useState("");
@@ -445,17 +431,6 @@ export default function InventoryAllocationReportPage() {
     );
   }, [report]);
 
-  useEffect(() => {
-    if (!exportMenuOpen) return;
-    const onPointerDown = (event: MouseEvent) => {
-      if (!exportMenuRef.current?.contains(event.target as Node)) {
-        setExportMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [exportMenuOpen]);
-
   const openFilters = () => {
     setDraft({
       propertyIds,
@@ -510,7 +485,6 @@ export default function InventoryAllocationReportPage() {
 
   const handleExport = async (format: ReportExportFormat) => {
     if ((!canFilterHotels && !hotelId) || customRangeInvalid) return;
-    setExportMenuOpen(false);
     setExporting(true);
     setExportStatus("QUEUED");
     try {
@@ -639,55 +613,14 @@ export default function InventoryAllocationReportPage() {
                 onClick={openFilters}
                 activeCount={activeFilterCount}
               />
-              <div className="relative" ref={exportMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setExportMenuOpen((v) => !v)}
-                  disabled={exporting || loading || customRangeInvalid}
-                  aria-label={
-                    exporting
-                      ? exportStatusLabel(exportStatus) || "Exporting"
-                      : "Download report"
-                  }
-                  title={
-                    exporting
-                      ? exportStatusLabel(exportStatus) || "Exporting…"
-                      : "Download"
-                  }
-                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                >
-                  {exporting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                </button>
-                {exportMenuOpen && !exporting ? (
-                  <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                    {EXPORT_FORMATS.map((format) => {
-                      const Icon = format.icon;
-                      return (
-                        <button
-                          key={format.value}
-                          type="button"
-                          onClick={() => handleExport(format.value)}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-violet-50"
-                        >
-                          <Icon
-                            className={cn(
-                              "h-4 w-4",
-                              format.value === "EXCEL"
-                                ? "text-emerald-600"
-                                : "text-sky-600",
-                            )}
-                          />
-                          {format.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </div>
+              <ExportButton
+                iconOnly
+                disabled={loading || customRangeInvalid}
+                exporting={exporting}
+                exportingLabel={exportStatusLabel(exportStatus) || "Exporting…"}
+                onExportExcel={() => void handleExport("EXCEL")}
+                onExportCSV={() => void handleExport("CSV")}
+              />
               <ReportRefreshButton
                 onClick={() => setRefreshNonce((n) => n + 1)}
                 loading={loading}

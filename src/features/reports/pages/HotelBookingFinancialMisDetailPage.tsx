@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { ROUTES } from "@/constants";
 import { cn } from "@/lib/utils";
+import { ReportSectionTabs } from "@/components/ui/reportToolbar";
 import {
   AgentPaymentBreakupLedger,
   BreakupRow,
@@ -775,26 +776,15 @@ export default function HotelBookingFinancialMisDetailPage() {
           />
         </div>
 
-        {/* Tabs */}
-        <div className="mb-3 overflow-x-auto rounded-lg border border-slate-200 bg-white px-1.5 py-1.5 shadow-sm">
-          <div className="flex min-w-max gap-1">
-            {detailTabs.map((item) => (
-              <button
-                key={item.value}
-                type="button"
-                onClick={() => setTab(item.value)}
-                className={cn(
-                  "rounded-md px-2.5 py-1.5 text-xs font-medium transition",
-                  tab === item.value
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-slate-100",
-                )}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <ReportSectionTabs
+          className="mb-3"
+          tabs={detailTabs.map((item) => ({
+            id: item.value,
+            label: item.label,
+          }))}
+          activeId={tab}
+          onChange={(id) => setTab(id as DetailTab)}
+        />
 
         {tab === "bookingDetails" ? (
           <div className="grid gap-4 lg:grid-cols-2">

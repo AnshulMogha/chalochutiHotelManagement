@@ -4,19 +4,22 @@ import { ROUTES } from "@/constants";
 import { appendReturnToQuery } from "@/lib/navigationReturn";
 import { cn } from "@/lib/utils";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { DownloadToolbarButton } from "@/components/ui/reportToolbar";
 import { DataTable, formatListCount } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
   formatFinanceMoney,
-  formatReportDate,
   formatStatusLabel,
   exportStatusLabel,
   getTodayIsoDate,
   validateOptionalDateRange,
 } from "@/features/reports/components/reportUiHelpers";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
-import { ReportAppliedRange } from "@/features/reports/components/ReportFilterDrawer";
+import {
+  ReportAppliedFilters,
+  ReportAppliedRange,
+} from "@/features/reports/components/ReportFilterDrawer";
 import type { ExportJobStatus } from "@/features/reports/services/reportExportService";
 import { settlementService } from "../services/settlementService";
 import {
@@ -40,11 +43,9 @@ import {
   AlertTriangle,
   ArrowLeft,
   Building2,
-  Download,
   Eye,
   IndianRupee,
   Landmark,
-  Loader2,
   Search,
   ShieldCheck,
   Users,
@@ -271,6 +272,32 @@ export default function SettlementWorkbenchPage() {
     );
   }, [applied]);
 
+  const appliedFilterItems = useMemo(
+    () =>
+      applied
+        ? [
+            {
+              label: "Component",
+              value: formatStatusLabel(applied.component),
+            },
+            {
+              label: "Settlement cycle",
+              value: applied.cycle
+                ? formatStatusLabel(applied.cycle)
+                : "All",
+            },
+            {
+              label: "Settlement-ready only",
+              value: applied.eligibleOnly ? "Yes" : "No",
+            },
+            applied.search.trim()
+              ? { label: "Supplier name", value: applied.search.trim() }
+              : null,
+          ]
+        : [],
+    [applied],
+  );
+
   const todayIso = getTodayIsoDate();
 
   const columns = useMemo<GridColDef<WorkbenchRow>[]>(() => {
@@ -464,20 +491,6 @@ export default function SettlementWorkbenchPage() {
                   appliedDateRange?.ok ? appliedDateRange.fromDate : null
                 }
                 to={appliedDateRange?.ok ? appliedDateRange.toDate : null}
-                detail={
-                  [
-                    applied ? formatStatusLabel(applied.component) : null,
-                    applied?.cycle ? formatStatusLabel(applied.cycle) : null,
-                    applied?.search.trim() || null,
-                    applied
-                      ? applied.eligibleOnly
-                        ? "Eligible only"
-                        : "All suppliers"
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || null
-                }
               />
               <button
                 type="button"
@@ -487,28 +500,16 @@ export default function SettlementWorkbenchPage() {
                 <ArrowLeft className="h-4 w-4" />
                 Change search
               </button>
-              <button
-                type="button"
+              <DownloadToolbarButton
                 onClick={() => void downloadWorkbench()}
-                disabled={exporting || loading}
-                aria-label={
-                  exportStatus
-                    ? exportStatusLabel(exportStatus)
-                    : "Download workbench"
-                }
-                title={
+                busy={exporting}
+                disabled={loading}
+                tooltip={
                   exportStatus
                     ? exportStatusLabel(exportStatus)
                     : "Download Excel"
                 }
-                className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-              >
-                {exporting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-              </button>
+              />
               <SettlementRefreshButton
                 loading={loading}
                 onClick={() => void loadWorkbench()}
@@ -669,34 +670,7 @@ export default function SettlementWorkbenchPage() {
               <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 Active search
               </span>
-              <span className="rounded-md bg-[#eef2ff] px-2 py-0.5 text-xs font-semibold text-[#2f3d95]">
-                {formatStatusLabel(applied.component)}
-              </span>
-              {applied.cycle ? (
-                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                  {formatStatusLabel(applied.cycle)}
-                </span>
-              ) : null}
-              {applied.search ? (
-                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                  “{applied.search}”
-                </span>
-              ) : null}
-              {appliedDateRange?.ok &&
-              (appliedDateRange.fromDate || appliedDateRange.toDate) ? (
-                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                  {appliedDateRange.fromDate
-                    ? formatReportDate(appliedDateRange.fromDate)
-                    : "…"}{" "}
-                  –{" "}
-                  {appliedDateRange.toDate
-                    ? formatReportDate(appliedDateRange.toDate)
-                    : "…"}
-                </span>
-              ) : null}
-              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                {applied.eligibleOnly ? "Ready only" : "All suppliers"}
-              </span>
+              <ReportAppliedFilters items={appliedFilterItems} />
             </div>
 
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">

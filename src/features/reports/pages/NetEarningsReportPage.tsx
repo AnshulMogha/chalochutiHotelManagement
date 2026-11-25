@@ -902,49 +902,45 @@ export default function NetEarningsReportPage() {
       />
       <div className="min-h-full bg-slate-50">
         <div className="mx-auto max-w-350 px-3 py-4 sm:px-5">
+          {showPaymentsTabs ? (
+            <PaymentsTabNav
+              active="net-earnings"
+              showNetEarnings={showNetEarningsTab}
+              showPayouts={showPayoutsTab}
+              hotelId={hotelId}
+            />
+          ) : null}
           <div className="mb-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-2.5">
-              <div className="flex flex-wrap items-center gap-3">
-                {showPaymentsTabs ? (
-                  <PaymentsTabNav
-                    active="net-earnings"
-                    showNetEarnings={showNetEarningsTab}
-                    showPayouts={showPayoutsTab}
-                    hotelId={hotelId}
-                  />
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <ReportAppliedRange
-                  from={report?.dateRange.fromDate}
-                  to={report?.dateRange.toDate}
-                  detail={
-                    DATE_PRESET_OPTIONS.find(
-                      (option) => option.value === datePreset,
-                    )?.label
-                  }
-                />
-                <ReportFilterButton
-                  onClick={openFilters}
-                  activeCount={activeFilterCount}
-                />
-                <ExportButton
-                  iconOnly
-                  disabled={exporting || loading || customRangeInvalid}
-                  exporting={exporting}
-                  exportingLabel={
-                    exportStatusLabel(exportStatus) || "Exporting…"
-                  }
-                  onExportExcel={() => void downloadExport()}
-                  onExportCSV={() => void downloadExport()}
-                  onExportPDF={() => void downloadExport()}
-                />
-                <ReportRefreshButton
-                  onClick={() => void loadReport()}
-                  loading={loading}
-                  disabled={customRangeInvalid}
-                />
-              </div>
+            <div className="flex flex-wrap items-center justify-end gap-2 border-b border-slate-100 px-4 py-2.5">
+              <ReportAppliedRange
+                from={report?.dateRange.fromDate}
+                to={report?.dateRange.toDate}
+                detail={
+                  DATE_PRESET_OPTIONS.find(
+                    (option) => option.value === datePreset,
+                  )?.label
+                }
+              />
+              <ReportFilterButton
+                onClick={openFilters}
+                activeCount={activeFilterCount}
+              />
+              <ExportButton
+                iconOnly
+                disabled={exporting || loading || customRangeInvalid}
+                exporting={exporting}
+                exportingLabel={
+                  exportStatusLabel(exportStatus) || "Exporting…"
+                }
+                onExportExcel={() => void downloadExport()}
+                onExportCSV={() => void downloadExport()}
+                onExportPDF={() => void downloadExport()}
+              />
+              <ReportRefreshButton
+                onClick={() => void loadReport()}
+                loading={loading}
+                disabled={customRangeInvalid}
+              />
             </div>
 
             <div className="border-b border-slate-100 px-4 py-2">

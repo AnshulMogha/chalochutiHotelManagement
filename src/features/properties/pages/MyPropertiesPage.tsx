@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ReportCustomDateFields } from "@/features/reports/components/ReportCustomDateFields";
 import {
+  ReportAppliedFilters,
+  ReportAppliedRange,
   ReportFilterButton,
   ReportFilterDrawer,
 } from "@/features/reports/components/ReportFilterDrawer";
@@ -330,6 +332,21 @@ export default function MyPropertiesPage() {
     (appliedFilters.submittedAtFrom || appliedFilters.submittedAtTo)
       ? 1
       : 0);
+
+  const appliedFilterItems = [
+    appliedFilters.hotelName.trim()
+      ? { label: "Hotel name", value: appliedFilters.hotelName.trim() }
+      : null,
+    appliedFilters.hotelCode.trim()
+      ? { label: "Hotel code", value: appliedFilters.hotelCode.trim() }
+      : null,
+    appliedFilters.city.trim()
+      ? { label: "City", value: appliedFilters.city.trim() }
+      : null,
+    appliedFilters.requestedBy.trim()
+      ? { label: "Requested by", value: appliedFilters.requestedBy.trim() }
+      : null,
+  ];
 
   const applyFilters = () => {
     const submittedAtIso = parseOptionalReportDate(draftFilters.submittedAt);
@@ -800,9 +817,18 @@ export default function MyPropertiesPage() {
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <ReportAppliedRange
+                from={
+                  appliedFilters.submittedAtFrom ||
+                  appliedFilters.submittedAt ||
+                  null
+                }
+                to={appliedFilters.submittedAtTo || null}
+              />
               <ReportFilterButton
                 onClick={openFilterDrawer}
                 activeCount={activeFilterCount}
+                open={filterOpen}
                 label="Filters"
               />
               {!isScopedPropertyViewer && canOnboard ? (
@@ -828,6 +854,9 @@ export default function MyPropertiesPage() {
                 />
               ) : null}
             </div>
+          </div>
+          <div className="border-t border-slate-100 px-4 py-2">
+            <ReportAppliedFilters items={appliedFilterItems} />
           </div>
         </div>
 

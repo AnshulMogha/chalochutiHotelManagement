@@ -1,36 +1,45 @@
 import type { ReactNode } from "react";
-import { CalendarDays, Filter, Loader2, RefreshCw, X } from "lucide-react";
+import { CalendarDays, ListFilter, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  RefreshToolbarButton,
+  toolbarIconButtonActiveClassName,
+  toolbarIconButtonClassName,
+} from "@/components/ui/reportToolbar";
 import { formatReportDate } from "./reportUiHelpers";
 
 export function ReportFilterButton({
   onClick,
   activeCount = 0,
+  open = false,
   label = "Filter",
   className,
 }: {
   onClick: () => void;
   activeCount?: number;
+  open?: boolean;
   label?: string;
   className?: string;
 }) {
-  const hasActive = activeCount > 0;
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-label={label}
+      title={label}
       className={cn(
-        "inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition",
-        hasActive
-          ? "border-violet-200 bg-violet-50 text-violet-800"
-          : "border-slate-200 bg-white text-slate-700 hover:border-violet-200 hover:bg-violet-50",
+        "relative",
+        toolbarIconButtonClassName,
+        open && toolbarIconButtonActiveClassName,
         className,
       )}
     >
-      <Filter className="h-4 w-4" />
-      {label}
-      {hasActive ? (
-        <span className="rounded-full bg-violet-600 px-1.5 text-[11px] font-bold text-white">
+      <ListFilter
+        className={cn("h-4 w-4", open ? "text-white" : "text-[#3344A5]")}
+        strokeWidth={2.25}
+      />
+      {activeCount > 0 ? (
+        <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold leading-none text-white shadow-sm ring-2 ring-white">
           {activeCount}
         </span>
       ) : null}
@@ -61,10 +70,10 @@ export function ReportAppliedFilters({
       {visible.map((item) => (
         <span
           key={item.label}
-          className="inline-flex max-w-full items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs shadow-sm"
+          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-[#F7F8FC] px-2.5 py-1 text-[12px] font-medium text-[#64748B]"
         >
-          <span className="shrink-0 text-slate-500">{item.label}</span>
-          <span className="truncate font-semibold text-slate-800">
+          <span className="shrink-0">{item.label}</span>
+          <span className="truncate font-semibold text-[#3344A5]">
             {item.value}
           </span>
         </span>
@@ -93,11 +102,11 @@ export function ReportAppliedRange({
   if (!range && !detail) return null;
 
   return (
-    <div className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-bold text-blue-800 shadow-sm">
-      <CalendarDays className="h-4 w-4 shrink-0 text-blue-600" />
-      {range ? <span>{range}</span> : null}
+    <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#3344A5]/20 bg-[#EEF2FF] px-2.5 py-1 text-[12px] font-medium text-[#3344A5]">
+      <CalendarDays className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
+      {range ? <span className="truncate tabular-nums">{range}</span> : null}
       {detail ? (
-        <span className="font-semibold text-blue-600">
+        <span className="truncate opacity-90">
           {range ? `· ${detail}` : detail}
         </span>
       ) : null}
@@ -115,20 +124,7 @@ export function ReportRefreshButton({
   disabled?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled || loading}
-      aria-label="Refresh"
-      title="Refresh"
-      className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-    >
-      {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <RefreshCw className="h-4 w-4" />
-      )}
-    </button>
+    <RefreshToolbarButton onClick={onClick} busy={loading} disabled={disabled} />
   );
 }
 

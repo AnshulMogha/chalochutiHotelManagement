@@ -35,7 +35,7 @@ import type {
 } from "@mui/x-data-grid";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
-  ReportAppliedRange,
+  ReportAppliedFilters,
   ReportFilterButton,
   ReportFilterDrawer,
   ReportRefreshButton,
@@ -916,64 +916,73 @@ export default function UsersPage() {
     1,
     Math.ceil(rowCount / paginationModel.pageSize) || 1,
   );
+  const appliedFilterItems = [
+    {
+      label: "Status",
+      value:
+        STATUS_OPTIONS.find((option) => option.value === statusFilter)?.label ??
+        "All",
+    },
+    {
+      label: "Role",
+      value:
+        FILTER_ROLE_OPTIONS.find((option) => option.value === roleFilter)
+          ?.label ?? "All",
+    },
+    emailFilter.trim()
+      ? { label: "Email", value: emailFilter.trim() }
+      : null,
+  ];
 
   return (
     <>
       <div className="flex h-[calc(100vh-4rem)] min-h-0 flex-col overflow-hidden bg-slate-50">
         <div className="mx-auto flex h-full w-full max-w-350 min-h-0 flex-1 flex-col gap-3 px-3 py-4 sm:px-5">
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-sm">
-            <div className="min-w-0">
-              <h1 className="text-lg font-bold text-slate-900">
-                User Management
-                {!isLoading ? (
-                  <span className="ml-1.5 font-semibold text-slate-500">
-                    ({rowCount.toLocaleString("en-IN")})
-                  </span>
-                ) : null}
-              </h1>
+          <div className="shrink-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+              <div className="min-w-0">
+                <h1 className="text-lg font-bold text-slate-900">
+                  User Management
+                  {!isLoading ? (
+                    <span className="ml-1.5 font-semibold text-slate-500">
+                      ({rowCount.toLocaleString("en-IN")})
+                    </span>
+                  ) : null}
+                </h1>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <ReportFilterButton
+                  onClick={openFilters}
+                  activeCount={activeFilterCount}
+                  open={filterOpen}
+                />
+                <ExportButton
+                  iconOnly
+                  onExportCSV={() => void handleExport("CSV")}
+                  onExportExcel={() => void handleExport("EXCEL")}
+                  onExportPDF={() => void handleExport("PDF")}
+                  exporting={exporting}
+                  exportingLabel={
+                    exportStatusLabel(exportStatus) || "Exporting…"
+                  }
+                  disabled={isLoading && !exporting}
+                />
+                <ReportRefreshButton
+                  onClick={() => void fetchUsers()}
+                  loading={isLoading}
+                />
+                <Button
+                  variant="primary"
+                  onClick={() => navigate(ROUTES.ADMIN.USER_CREATE)}
+                  className="gap-1.5 py-1.5 text-sm"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create User
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <ReportAppliedRange
-                detail={
-                  [
-                    STATUS_OPTIONS.find((option) => option.value === statusFilter)
-                      ?.label,
-                    FILTER_ROLE_OPTIONS.find(
-                      (option) => option.value === roleFilter,
-                    )?.label,
-                    emailFilter.trim() || null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "All users"
-                }
-              />
-              <ReportFilterButton
-                onClick={openFilters}
-                activeCount={activeFilterCount}
-              />
-              <ExportButton
-                iconOnly
-                onExportCSV={() => void handleExport("CSV")}
-                onExportExcel={() => void handleExport("EXCEL")}
-                onExportPDF={() => void handleExport("PDF")}
-                exporting={exporting}
-                exportingLabel={
-                  exportStatusLabel(exportStatus) || "Exporting…"
-                }
-                disabled={isLoading && !exporting}
-              />
-              <ReportRefreshButton
-                onClick={() => void fetchUsers()}
-                loading={isLoading}
-              />
-              <Button
-                variant="primary"
-                onClick={() => navigate(ROUTES.ADMIN.USER_CREATE)}
-                className="gap-1.5 py-1.5 text-sm"
-              >
-                <Plus className="h-4 w-4" />
-                Create User
-              </Button>
+            <div className="border-t border-slate-100 px-4 py-2">
+              <ReportAppliedFilters items={appliedFilterItems} />
             </div>
           </div>
 

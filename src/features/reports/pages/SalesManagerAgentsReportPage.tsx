@@ -35,6 +35,7 @@ import {
   ReportAppliedRange,
   ReportFilterActions,
   ReportFilterButton,
+  ReportRefreshButton,
 } from "../components/ReportFilterDrawer";
 import {
   salesManagerAgentsReportService,
@@ -784,18 +785,11 @@ export default function SalesManagerAgentsReportPage() {
               onExportCSV={() => void handleExport("CSV")}
               onExportPDF={() => void handleExport("PDF")}
             />
-            <button
-              type="button"
+            <ReportRefreshButton
               onClick={() => void loadReport()}
-              disabled={loading || customRangeInvalid}
-              aria-label="Refresh"
-              title="Refresh"
-              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              <RefreshCw
-                className={cn("h-4 w-4", loading && "animate-spin")}
-              />
-            </button>
+              loading={loading}
+              disabled={customRangeInvalid}
+            />
             <Link
               to={ROUTES.REPORTS.SALES_MANAGER_DASHBOARD}
               className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:from-emerald-600 hover:to-teal-700"

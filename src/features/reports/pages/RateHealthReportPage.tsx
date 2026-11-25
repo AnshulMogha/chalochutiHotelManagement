@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { DownloadToolbarButton } from "@/components/ui/reportToolbar";
 import { DataTable, formatListCount } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import { cn } from "@/lib/utils";
@@ -167,10 +168,8 @@ import {
   BedDouble,
   Building2,
   CircleAlert,
-  Download,
   HeartPulse,
   Layers,
-  Loader2,
   Scale,
   X,
 } from "lucide-react";
@@ -583,28 +582,16 @@ export default function RateHealthReportPage() {
                 onClick={openFilters}
                 activeCount={activeFilterCount}
               />
-              <button
-                type="button"
+              <DownloadToolbarButton
                 onClick={handleExport}
-                disabled={exporting || loading || customRangeInvalid}
-                aria-label={
-                  exporting
-                    ? exportStatusLabel(exportStatus) || "Exporting"
-                    : "Download report"
-                }
-                title={
+                busy={exporting}
+                disabled={loading || customRangeInvalid}
+                tooltip={
                   exporting
                     ? exportStatusLabel(exportStatus) || "Exporting…"
                     : "Download"
                 }
-                className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-              >
-                {exporting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-              </button>
+              />
               <ReportRefreshButton
                 onClick={() => setRefreshNonce((n) => n + 1)}
                 loading={loading}

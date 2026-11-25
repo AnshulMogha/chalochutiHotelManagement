@@ -20,7 +20,6 @@ import {
   Copy,
   CreditCard,
   Eye,
-  Download,
   FileText,
   Hash,
   History,
@@ -46,10 +45,12 @@ import {
   canRebuildVendorBeneficiaryMis,
 } from "@/constants/roles";
 import {
-  ReportAppliedRange,
+  ReportAppliedFilters,
   ReportFilterActions,
   ReportFilterButton,
+  ReportRefreshButton,
 } from "@/features/reports/components/ReportFilterDrawer";
+import { DownloadToolbarButton } from "@/components/ui/reportToolbar";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
   formatStatusLabel,
@@ -280,6 +281,30 @@ export default function VendorBeneficiaryMisPage() {
       (applied.search.trim() ? 1 : 0),
     [applied],
   );
+
+  const appliedFilterItems = [
+    {
+      label: "Vendor type",
+      value:
+        VENDOR_TYPE_OPTIONS.find((opt) => opt.value === applied.vendorType)
+          ?.label ?? "All vendors",
+    },
+    {
+      label: "Beneficiary status",
+      value: applied.beneficiaryStatus
+        ? formatStatusLabel(applied.beneficiaryStatus)
+        : "All",
+    },
+    {
+      label: "Internal bank verification",
+      value: applied.internalBankVerificationStatus
+        ? formatStatusLabel(applied.internalBankVerificationStatus)
+        : "All",
+    },
+    applied.search.trim()
+      ? { label: "Search", value: applied.search.trim() }
+      : null,
+  ];
 
   const notifyCopied = useCallback(
     (label: string) => showToast(`${label} copied`, "success"),
@@ -626,26 +651,17 @@ export default function VendorBeneficiaryMisPage() {
                 <Eye className="h-3.5 w-3.5 shrink-0" />
                 View
               </button>
-              <button
-                type="button"
-                disabled={
-                  !canDownloadRow || rowDownloadingId === row.beneficiaryId
-                }
+              <DownloadToolbarButton
                 onClick={() => void downloadRowFile(row)}
-                title={
+                busy={rowDownloadingId === row.beneficiaryId}
+                disabled={!canDownloadRow}
+                tooltip={
                   canDownloadRow
                     ? "Download generated beneficiary file for this vendor"
                     : "No generated file yet — generate a beneficiary file first"
                 }
-                aria-label={`Download file for ${row.vendorName || row.beneficiaryCode}`}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-200 bg-white text-[#2f3d95] transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {rowDownloadingId === row.beneficiaryId ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-              </button>
+                className="shrink-0"
+              />
             </div>
           );
         },
@@ -674,29 +690,10 @@ export default function VendorBeneficiaryMisPage() {
             borderClassName="border-indigo-100"
             actions={
               <div className="flex flex-wrap items-center gap-2">
-                <ReportAppliedRange
-                  from={null}
-                  to={null}
-                  detail={
-                    [
-                      applied.vendorType !== "ALL"
-                        ? formatStatusLabel(applied.vendorType)
-                        : "All vendors",
-                      applied.beneficiaryStatus
-                        ? formatStatusLabel(applied.beneficiaryStatus)
-                        : null,
-                      applied.internalBankVerificationStatus
-                        ? `Bank ${formatStatusLabel(applied.internalBankVerificationStatus)}`
-                        : null,
-                      applied.search.trim() || null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "All beneficiaries"
-                  }
-                />
                 <ReportFilterButton
                   onClick={openFilterDrawer}
                   activeCount={activeFilterCount}
+                  open={filterOpen}
                 />
                 {canGenerate ? (
                   <button
@@ -761,22 +758,15 @@ export default function VendorBeneficiaryMisPage() {
                     Rebuild
                   </button>
                 ) : null}
-                <button
-                  type="button"
+                <ReportRefreshButton
                   onClick={() => void load()}
-                  disabled={loading}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                  title="Refresh"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                </button>
+                  loading={loading}
+                />
               </div>
             }
           />
+
+          <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
           <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
             <SummaryCard

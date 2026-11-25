@@ -8,6 +8,10 @@ import {
 import { useSearchParams } from "react-router";
 import { toPng } from "html-to-image";
 import { Toast, useToast } from "@/components/ui/Toast";
+import {
+  ToolbarIconButton,
+  ToolbarMenu,
+} from "@/components/ui/reportToolbar";
 import { cn } from "@/lib/utils";
 import {
   formatReportDate,
@@ -52,7 +56,6 @@ import {
   Banknote,
   BedDouble,
   Building2,
-  Download,
   Eye,
   FileImage,
   FileSpreadsheet,
@@ -440,7 +443,6 @@ export default function PerformanceDashboardPage() {
   const hotelId = searchParams.get("hotelId");
   const { toast, showToast, hideToast } = useToast();
   const chartRef = useRef<PerformanceSeriesChartHandle>(null);
-  const downloadMenuRef = useRef<HTMLDivElement>(null);
   const pageCaptureRef = useRef<HTMLDivElement>(null);
   const [capturingPage, setCapturingPage] = useState(false);
 
@@ -456,7 +458,6 @@ export default function PerformanceDashboardPage() {
   const [toDate, setToDate] = useState(DEFAULT_FILTER_DRAFT.toDate);
   const [filterOpen, setFilterOpen] = useState(false);
   const [draft, setDraft] = useState<PerformanceFilterDraft>(DEFAULT_FILTER_DRAFT);
-  const [downloadOpen, setDownloadOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [customFromText, setCustomFromText] = useState("");
   const [customToText, setCustomToText] = useState("");
@@ -503,16 +504,6 @@ export default function PerformanceDashboardPage() {
         nextPreset === "CUSTOM" ? overrides?.toDate ?? toDate : undefined,
     };
   };
-
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      if (!downloadMenuRef.current?.contains(e.target as Node)) {
-        setDownloadOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, []);
 
   const loadAll = useCallback(
     async (overrides?: Partial<PerformanceFilterDraft>) => {
@@ -790,7 +781,6 @@ export default function PerformanceDashboardPage() {
     }
 
     downloadRowsAsCsv(rows, `${exportBaseName()}-full-data.csv`);
-    setDownloadOpen(false);
     showToast("Full data CSV downloaded", "success");
   };
 
@@ -810,7 +800,6 @@ export default function PerformanceDashboardPage() {
       ]),
     ];
     downloadRowsAsCsv(rows, `${exportBaseName()}-series.csv`);
-    setDownloadOpen(false);
     showToast("Series CSV downloaded", "success");
   };
 
@@ -820,7 +809,6 @@ export default function PerformanceDashboardPage() {
       return;
     }
     const ok = chartRef.current?.downloadPng(`${exportBaseName()}.png`);
-    setDownloadOpen(false);
     if (ok) {
       showToast("Chart image downloaded", "success");
     } else {
@@ -839,7 +827,6 @@ export default function PerformanceDashboardPage() {
       return;
     }
 
-    setDownloadOpen(false);
     setCapturingPage(true);
     try {
       // Wait a frame so the download menu closes before capture.
@@ -969,72 +956,43 @@ export default function PerformanceDashboardPage() {
                   onClick={openFilters}
                   activeCount={activeFilterCount}
                 />
-                <div
-                  className="relative"
-                  ref={downloadMenuRef}
-                  data-exclude-from-capture="true"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setDownloadOpen((v) => !v)}
-                    disabled={capturingPage}
-                    aria-label={
-                      capturingPage
-                        ? "Capturing"
-                        : `Download ${metricName} report`
-                    }
-                    title={
-                      capturingPage
-                        ? "Capturing…"
-                        : `Download ${metricName} report`
-                    }
-                    className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                  >
-                    {capturingPage ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                  </button>
-                  {downloadOpen ? (
-                    <div className="absolute right-0 z-50 mt-1 w-60 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                      <button
-                        type="button"
-                        onClick={downloadFullPagePng}
-                        disabled={capturingPage || !overview}
-                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                      >
-                        <LayoutDashboard className="h-4 w-4 text-slate-500" />
-                        Full page (PNG)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={downloadFullDataCsv}
-                        disabled={!overview}
-                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                      >
-                        <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                        Full data (CSV)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={downloadChartPng}
-                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                      >
-                        <FileImage className="h-4 w-4 text-sky-600" />
-                        Chart image (PNG)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={downloadSeriesCsv}
-                        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                      >
-                        <FileSpreadsheet className="h-4 w-4 text-slate-400" />
-                        Series data (CSV)
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
+                <ToolbarMenu
+                  excludeFromCapture
+                  busy={capturingPage}
+                  tooltip={
+                    capturingPage
+                      ? "Capturing…"
+                      : `Download ${metricName} report`
+                  }
+                  items={[
+                    {
+                      id: "full-page",
+                      label: "Full page (PNG)",
+                      icon: LayoutDashboard,
+                      onClick: () => void downloadFullPagePng(),
+                      disabled: !overview,
+                    },
+                    {
+                      id: "full-data",
+                      label: "Full data (CSV)",
+                      icon: FileSpreadsheet,
+                      onClick: downloadFullDataCsv,
+                      disabled: !overview,
+                    },
+                    {
+                      id: "chart",
+                      label: "Chart image (PNG)",
+                      icon: FileImage,
+                      onClick: downloadChartPng,
+                    },
+                    {
+                      id: "series",
+                      label: "Series data (CSV)",
+                      icon: FileSpreadsheet,
+                      onClick: downloadSeriesCsv,
+                    },
+                  ]}
+                />
                 <ReportRefreshButton
                   onClick={() => void loadAll()}
                   loading={loading}
@@ -1114,15 +1072,11 @@ export default function PerformanceDashboardPage() {
                   titleIconWrap={metricTheme.iconMuted}
                   titleIconColor={metricTheme.accent}
                   action={
-                    <button
-                      type="button"
+                    <ToolbarIconButton
+                      icon={FileImage}
+                      tooltip="Download chart"
                       onClick={downloadChartPng}
-                      aria-label="Download chart"
-                      title="Download chart"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-                    >
-                      <FileImage className="h-4 w-4" />
-                    </button>
+                    />
                   }
                 >
                   <div className="mb-4 flex flex-wrap items-end gap-3 border-b border-slate-100 pb-4">

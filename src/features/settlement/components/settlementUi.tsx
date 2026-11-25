@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { RefreshToolbarButton } from "@/components/ui/reportToolbar";
 import {
   formatFinanceMoney,
   formatReportDate,
@@ -20,7 +21,6 @@ import {
   ListOrdered,
   Loader2,
   Percent,
-  RefreshCw,
   TrendingUp,
   X,
 } from "lucide-react";
@@ -269,20 +269,11 @@ export function SettlementRefreshButton({
   label?: string;
 }) {
   return (
-    <button
-      type="button"
+    <RefreshToolbarButton
       onClick={onClick}
-      disabled={loading}
-      aria-label={label}
-      title={label}
-      className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-    >
-      {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <RefreshCw className="h-4 w-4" />
-      )}
-    </button>
+      busy={loading}
+      tooltip={label}
+    />
   );
 }
 

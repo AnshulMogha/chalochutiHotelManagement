@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { ROUTES } from "@/constants";
 import { Toast, useToast } from "@/components/ui/Toast";
+import {
+  DownloadToolbarButton,
+  RefreshToolbarButton,
+} from "@/components/ui/reportToolbar";
 import { DataTable } from "@/components/ui";
 import type { GridColDef, GridSortModel } from "@mui/x-data-grid";
 import {
@@ -23,9 +27,7 @@ import {
   CalendarDays,
   CircleDollarSign,
   ClipboardList,
-  Download,
   MapPin,
-  RefreshCw,
   Search,
   Wallet,
   X,
@@ -686,27 +688,11 @@ export default function BookingSummaryPage() {
                   onClick={() => setFilterOpen(true)}
                   activeCount={activeFilterCount}
                 />
-                <button
-                  type="button"
-                  onClick={downloadCsv}
-                  aria-label="Download"
-                  title="Download"
-                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50"
-                >
-                  <Download className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
+                <DownloadToolbarButton onClick={downloadCsv} tooltip="Download" />
+                <RefreshToolbarButton
                   onClick={fetchSummary}
-                  disabled={loading}
-                  aria-label="Refresh"
-                  title="Refresh"
-                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-                >
-                  <RefreshCw
-                    className={cn("h-4 w-4", loading && "animate-spin")}
-                  />
-                </button>
+                  busy={loading}
+                />
               </div>
             </div>
 

@@ -1,6 +1,10 @@
 import { Link, useLocation, useSearchParams } from "react-router";
 import type { GridColDef } from "@mui/x-data-grid";
 import { DataTable, formatListCount } from "@/components/ui";
+import {
+  ReportSectionTabBar,
+  reportSectionTabClass,
+} from "@/components/ui/reportToolbar";
 import { ROUTES } from "@/constants";
 import { cn } from "@/lib/utils";
 import { appendReturnToQuery } from "@/lib/navigationReturn";
@@ -112,16 +116,11 @@ export function PaymentsTabNav({
   const payoutsPath = hotelScopedPath(ROUTES.REPORTS.HOTEL_PAYOUTS, hotelId);
 
   return (
-    <div className="flex items-center gap-1">
+    <ReportSectionTabBar className="mb-3">
       {showNetEarnings ? (
         <Link
           to={netEarningsPath}
-          className={cn(
-            "rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition",
-            active === "net-earnings"
-              ? "bg-[#2f3d95] text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-          )}
+          className={reportSectionTabClass(active === "net-earnings")}
         >
           Net Earnings
         </Link>
@@ -129,17 +128,12 @@ export function PaymentsTabNav({
       {showPayouts ? (
         <Link
           to={payoutsPath}
-          className={cn(
-            "rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition",
-            active === "payouts"
-              ? "bg-[#2f3d95] text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-          )}
+          className={reportSectionTabClass(active === "payouts")}
         >
           Payouts
         </Link>
       ) : null}
-    </div>
+    </ReportSectionTabBar>
   );
 }
 

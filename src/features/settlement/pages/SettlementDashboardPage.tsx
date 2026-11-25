@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ExportButton } from "@/components/ui/ExportButton";
+import { ReportSectionTabs } from "@/components/ui/reportToolbar";
 import { DataTable, formatListCount } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import { HotelLookupFilterField } from "@/features/reports/components/HotelLookupFilterField";
@@ -1174,23 +1175,15 @@ function OverviewTab({
           })}
         </div>
       ) : null}
-      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
-        {(["HOTEL", "PACKAGE"] as const).map((product) => (
-          <button
-            key={product}
-            type="button"
-            onClick={() => setProductSection(product)}
-            className={cn(
-              "rounded-md px-3 py-1 text-sm font-medium",
-              productSection === product
-                ? "bg-[#2f3d95] text-white"
-                : "text-slate-600 hover:bg-slate-50",
-            )}
-          >
-            {formatStatusLabel(product)}
-          </button>
-        ))}
-      </div>
+      <ReportSectionTabs
+        layout="inline"
+        tabs={[
+          { id: "HOTEL", label: "Hotel" },
+          { id: "PACKAGE", label: "Package" },
+        ]}
+        activeId={productSection}
+        onChange={(id) => setProductSection(id as "HOTEL" | "PACKAGE")}
+      />
       {productSection === "HOTEL" ? (
         <SettlementReportSection
           title="Hotel settlement"

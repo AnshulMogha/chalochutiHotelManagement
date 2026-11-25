@@ -36,10 +36,12 @@ import { DataTable, formatListCount } from "@/components/ui";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  ReportAppliedRange,
+  ReportAppliedFilters,
   ReportFilterActions,
   ReportFilterButton,
+  ReportRefreshButton,
 } from "@/features/reports/components/ReportFilterDrawer";
+import { DownloadToolbarButton } from "@/components/ui/reportToolbar";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
   formatStatusLabel,
@@ -689,21 +691,13 @@ export default function VendorBeneficiarySbiImportPage() {
           const downloading = downloadingId === row.importId;
           return (
             <div className="flex items-center justify-end gap-1.5">
-              <button
-                type="button"
-                disabled={downloading}
+              <DownloadToolbarButton
                 onClick={() =>
                   void downloadReport(row.importId, row.originalFileName)
                 }
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-                title="Download report"
-              >
-                {downloading ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-              </button>
+                busy={downloading}
+                tooltip="Download report"
+              />
               <button
                 type="button"
                 onClick={() => void openHistoryItem(row)}
@@ -779,18 +773,26 @@ export default function VendorBeneficiarySbiImportPage() {
   };
 
   const summary = preview?.summary ?? null;
-  const filterDetail = [
-    applied.reconciliationResult
-      ? RESULT_LABELS[applied.reconciliationResult]
+  const appliedFilterItems = [
+    {
+      label: "Reconciliation result",
+      value: applied.reconciliationResult
+        ? (RESULT_LABELS[applied.reconciliationResult] ??
+          formatStatusLabel(applied.reconciliationResult))
+        : "All",
+    },
+    {
+      label: "Import history status",
+      value: applied.historyStatus
+        ? (HISTORY_STATUS_OPTIONS.find(
+            (opt) => opt.value === applied.historyStatus,
+          )?.label ?? formatStatusLabel(applied.historyStatus))
+        : "All",
+    },
+    applied.search.trim()
+      ? { label: "Search preview records", value: applied.search.trim() }
       : null,
-    applied.historyStatus
-      ? formatStatusLabel(applied.historyStatus)
-      : null,
-    applied.search.trim() || null,
-    preview ? preview.importNumber : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  ];
 
   if (!canView) {
     return (
@@ -812,14 +814,10 @@ export default function VendorBeneficiarySbiImportPage() {
             borderClassName="border-emerald-100"
             actions={
               <div className="flex flex-wrap items-center gap-2">
-                <ReportAppliedRange
-                  from={null}
-                  to={null}
-                  detail={filterDetail || "All imports"}
-                />
                 <ReportFilterButton
                   onClick={openFilterDrawer}
                   activeCount={activeFilterCount}
+                  open={filterOpen}
                 />
                 <button
                   type="button"
@@ -881,19 +879,10 @@ export default function VendorBeneficiarySbiImportPage() {
                     Confirm Import
                   </button>
                 ) : null}
-                <button
-                  type="button"
+                <ReportRefreshButton
                   onClick={() => void loadHistory()}
-                  disabled={historyLoading}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                  title="Refresh"
-                >
-                  {historyLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                </button>
+                  loading={historyLoading}
+                />
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -905,6 +894,8 @@ export default function VendorBeneficiarySbiImportPage() {
               </div>
             }
           />
+
+          <ReportAppliedFilters items={appliedFilterItems} className="mb-3" />
 
           {!canImport ? (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-800">

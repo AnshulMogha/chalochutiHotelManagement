@@ -10,6 +10,11 @@ import { Link } from "react-router";
 import { toPng } from "html-to-image";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { ExportButton } from "@/components/ui/ExportButton";
+import {
+  DownloadToolbarButton,
+  ReportSectionTabs,
+  reportSectionTabClass,
+} from "@/components/ui/reportToolbar";
 import { DataTable } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import { cn } from "@/lib/utils";
@@ -35,6 +40,7 @@ import {
   ReportAppliedRange,
   ReportFilterActions,
   ReportFilterButton,
+  ReportRefreshButton,
 } from "../components/ReportFilterDrawer";
 import {
   salesManagerDashboardReportService,
@@ -64,7 +70,6 @@ import {
   BookOpen,
   CalendarDays,
   CircleDollarSign,
-  Download,
   Handshake,
   LayoutDashboard,
   Loader2,
@@ -1086,37 +1091,22 @@ export default function SalesManagerDashboardReportPage() {
               onExportPDF={() => void exportDashboard("PDF")}
             />
             {activeTab === "analytics" ? (
-              <button
-                type="button"
+              <DownloadToolbarButton
                 onClick={() => void downloadAnalyticsPng()}
-                disabled={capturingAnalytics || loading || !report}
-                aria-label={
+                busy={capturingAnalytics}
+                disabled={loading || !report}
+                tooltip={
                   capturingAnalytics
-                    ? "Capturing analytics page"
+                    ? "Capturing…"
                     : "Download analytics page"
                 }
-                title={
-                  capturingAnalytics ? "Capturing…" : "Download analytics page"
-                }
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60"
-              >
-                {capturingAnalytics ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-              </button>
+              />
             ) : null}
-            <button
-              type="button"
+            <ReportRefreshButton
               onClick={() => void loadReport()}
-              disabled={loading || customRangeInvalid}
-              aria-label="Refresh"
-              title="Refresh"
-              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-            </button>
+              loading={loading}
+              disabled={customRangeInvalid}
+            />
             <Link
               to={ROUTES.REPORTS.SALES_MANAGER_AGENTS}
               className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:from-emerald-600 hover:to-teal-700"
@@ -1137,25 +1127,15 @@ export default function SalesManagerDashboardReportPage() {
         </div>
       ) : null}
 
-      <div className="mb-4 overflow-x-auto rounded-lg border border-slate-200 bg-white px-1.5 py-1.5 shadow-sm">
-        <div className="flex min-w-max gap-1">
-          {DASHBOARD_TABS.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              onClick={() => setActiveTab(item.value)}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-xs font-medium transition",
-                activeTab === item.value
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "text-slate-600 hover:bg-slate-100",
-              )}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <ReportSectionTabs
+        className="mb-4"
+        tabs={DASHBOARD_TABS.map((item) => ({
+          id: item.value,
+          label: item.label,
+        }))}
+        activeId={activeTab}
+        onChange={(id) => setActiveTab(id as DashboardTab)}
+      />
 
       {activeTab === "portfolio" ? (
         <div className="mb-4">
@@ -1938,18 +1918,13 @@ export default function SalesManagerDashboardReportPage() {
                 />
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap gap-1.5">
+            <div className="mt-3 flex flex-wrap gap-1">
               {INBOX_TABS.map((tab) => (
                 <button
                   key={tab.value}
                   type="button"
                   onClick={() => setInboxTab(tab.value)}
-                  className={cn(
-                    "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-                    inboxTab === tab.value
-                      ? "bg-emerald-600 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-                  )}
+                  className={reportSectionTabClass(inboxTab === tab.value)}
                 >
                   {tab.label}
                 </button>

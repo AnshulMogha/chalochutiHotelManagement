@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { DataTable, formatListCount } from "@/components/ui";
+import { reportSectionTabClass } from "@/components/ui/reportToolbar";
 import type { GridColDef } from "@mui/x-data-grid";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants";
@@ -688,12 +689,7 @@ export default function HotelBdDashboardPage() {
                 key={tab.value}
                 type="button"
                 onClick={() => setInboxTab(tab.value)}
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-                  inboxTab === tab.value
-                    ? "bg-[#2f3d95] text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-                )}
+                className={reportSectionTabClass(inboxTab === tab.value)}
               >
                 {tab.label}
               </button>

@@ -7,6 +7,7 @@ import { DataTable, formatListCount } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
 import { extractErrorMessage } from "@/features/reports/components/ReportJsonPanel";
 import {
+  ReportAppliedFilters,
   ReportAppliedRange,
   ReportFilterButton,
   ReportRefreshButton,
@@ -85,6 +86,7 @@ type AppliedFilters = {
   bookingRef?: string;
   customerEmail?: string;
   subjectId?: string;
+  subjectLabel?: string;
   rating?: number;
   date?: string;
 };
@@ -101,11 +103,15 @@ function buildAppliedFilters(draft: FilterDraft): AppliedFilters | null {
     return null;
   }
 
+  const subjectId = draft.subjectId.trim() || undefined;
   return {
     bookingType: draft.bookingType || undefined,
     bookingRef: draft.bookingRef.trim() || undefined,
     customerEmail: draft.customerEmail.trim() || undefined,
-    subjectId: draft.subjectId.trim() || undefined,
+    subjectId,
+    subjectLabel: subjectId
+      ? draft.subjectLabel.trim() || undefined
+      : undefined,
     rating,
     date: date || undefined,
   };
@@ -166,10 +172,11 @@ export default function ReviewModerationQueuePage() {
   const loadQueue = useCallback(async () => {
     setLoading(true);
     try {
+      const { subjectLabel: _subjectLabel, ...apiFilters } = filters;
       const data = await reviewModerationService.getFlagQueue({
         page,
         size: PAGE_SIZE,
-        ...filters,
+        ...apiFilters,
       });
       setRows(data.items);
       setTotalElements(data.totalElements);
@@ -209,8 +216,9 @@ export default function ReviewModerationQueuePage() {
     setExporting(true);
     setExportStatus("QUEUED");
     try {
+      const { subjectLabel: _subjectLabel, ...apiFilters } = filters;
       await reviewModerationService.exportFlagQueue(
-        filters,
+        apiFilters,
         format,
         setExportStatus,
       );
@@ -229,6 +237,34 @@ export default function ReviewModerationQueuePage() {
   const pendingCount = rows.filter(
     (row) => row.status.toUpperCase() === "REVIEW_PENDING",
   ).length;
+
+  const appliedFilterItems = [
+    {
+      label: "Booking type",
+      value: filters.bookingType
+        ? formatStatusLabel(filters.bookingType)
+        : "All",
+    },
+    {
+      label: "Overall rating",
+      value:
+        filters.rating != null && Number.isFinite(filters.rating)
+          ? String(filters.rating)
+          : "All",
+    },
+    filters.bookingRef
+      ? { label: "Booking reference", value: filters.bookingRef }
+      : null,
+    filters.customerEmail
+      ? { label: "Customer email", value: filters.customerEmail }
+      : null,
+    filters.subjectId
+      ? {
+          label: "Hotel / Package",
+          value: filters.subjectLabel || "Selected",
+        }
+      : null,
+  ];
 
   const columns = useMemo<GridColDef<ReviewQueueItem>[]>(
     () => [
@@ -414,25 +450,14 @@ export default function ReviewModerationQueuePage() {
             <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
               <ReviewModerationFlowStrip embedded />
               <div className="flex flex-wrap items-center gap-2">
-                <ReportAppliedRange
-                  from={filters.date}
-                  detail={[
-                    queueStatus
-                      ? formatStatusLabel(queueStatus)
-                      : "All statuses",
-                    filters.bookingType
-                      ? formatStatusLabel(filters.bookingType)
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                />
+                <ReportAppliedRange from={filters.date} />
                 <ReportFilterButton
                   onClick={() => {
                     setDraft(filtersToDraft(filters));
                     setFilterOpen(true);
                   }}
                   activeCount={activeFilterCount}
+                  open={filterOpen}
                 />
                 <ExportButton
                   iconOnly
@@ -450,6 +475,9 @@ export default function ReviewModerationQueuePage() {
                   loading={loading}
                 />
               </div>
+            </div>
+            <div className="border-t border-slate-100 px-4 py-2">
+              <ReportAppliedFilters items={appliedFilterItems} />
             </div>
           </div>
 
@@ -657,7 +685,7 @@ function filtersToDraft(filters: AppliedFilters): FilterDraft {
     bookingRef: filters.bookingRef || "",
     customerEmail: filters.customerEmail || "",
     subjectId: filters.subjectId || "",
-    subjectLabel: "",
+    subjectLabel: filters.subjectLabel || "",
     rating:
       filters.rating != null && Number.isFinite(filters.rating)
         ? String(filters.rating)

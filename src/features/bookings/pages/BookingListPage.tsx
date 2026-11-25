@@ -23,8 +23,11 @@ import { ExportButton } from "@/components/ui/ExportButton";
 import type { GridColDef } from "@mui/x-data-grid";
 import { HotelLookupMultiSelectField } from "@/features/reports/components/HotelLookupFilterField";
 import {
+  ReportAppliedFilters,
+  ReportAppliedRange,
   ReportFilterButton,
   ReportFilterDrawer,
+  ReportRefreshButton,
 } from "@/features/reports/components/ReportFilterDrawer";
 import type {
   ExportJobStatus,
@@ -41,7 +44,6 @@ import {
   CalendarDays,
   Layers,
   Loader2,
-  RefreshCw,
   FileText,
   Radio,
 } from "lucide-react";
@@ -649,6 +651,56 @@ export default function BookingListPage() {
     (orderBy !== "bookingDate" || sortDir !== "desc" ? 1 : 0) +
     (drillView ? 1 : 0);
 
+  const datePresetLabel =
+    DATE_PRESET_OPTIONS.find((option) => option.value === datePreset)?.label ??
+    null;
+  const dateAxisLabel =
+    DATE_AXIS_OPTIONS.find((option) => option.value === dateAxis)?.label ??
+    "Any date";
+  const bookingStatusLabel =
+    BOOKING_STATUS_OPTIONS.find((option) => option.value === bookingStatus)
+      ?.label ?? "Any status";
+  const sortLabel = `${
+    BOOKING_ORDER_OPTIONS.find((option) => option.value === orderBy)?.label ??
+    "Booking date"
+  } · ${sortDir === "asc" ? "Oldest first" : "Newest first"}`;
+
+  const appliedFilterItems = [
+    {
+      label: "Date type",
+      value: dateAxisLabel,
+    },
+    {
+      label: "Status",
+      value: bookingStatus.trim() ? bookingStatusLabel : "All",
+    },
+    seesAllBookings
+      ? {
+          label: "Hotels",
+          value: selectedHotelIds.length
+            ? selectedHotelIds.length === 1
+              ? "1 hotel"
+              : `${selectedHotelIds.length} hotels`
+            : "All",
+        }
+      : null,
+    guestName.trim()
+      ? { label: "Guest", value: guestName.trim() }
+      : null,
+    bookingId.trim()
+      ? { label: "Booking ID", value: bookingId.trim() }
+      : null,
+    drillView
+      ? {
+          label: "View",
+          value: drillViewLabel || drillView,
+        }
+      : null,
+    orderBy !== "bookingDate" || sortDir !== "desc"
+      ? { label: "Sort", value: sortLabel }
+      : null,
+  ];
+
   const totalPages = Math.max(
     1,
     Math.ceil(rowCount / Math.max(1, paginationModel.pageSize)),
@@ -1108,9 +1160,21 @@ export default function BookingListPage() {
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <ReportAppliedRange
+                  from={hasDateFilter ? dateFilterParams.fromDate : null}
+                  to={hasDateFilter ? dateFilterParams.toDate : null}
+                  detail={
+                    hasDateFilter
+                      ? [dateAxisLabel, datePresetLabel]
+                          .filter(Boolean)
+                          .join(" · ")
+                      : "Any date"
+                  }
+                />
                 <ReportFilterButton
                   onClick={openBookingFilters}
                   activeCount={activeFilterCount}
+                  open={bookingFilterOpen}
                   label="Filters"
                 />
                 {hasActiveFilters ? (
@@ -1131,19 +1195,14 @@ export default function BookingListPage() {
                   onExportCSV={() => void handleExport("CSV")}
                   onExportPDF={() => void handleExport("PDF")}
                 />
-                <button
-                  type="button"
+                <ReportRefreshButton
                   onClick={() => void fetchBookings()}
-                  disabled={loading}
-                  title="Refresh"
-                  aria-label="Refresh bookings"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60"
-                >
-                  <RefreshCw
-                    className={cn("h-4 w-4", loading && "animate-spin")}
-                  />
-                </button>
+                  loading={loading}
+                />
               </div>
+            </div>
+            <div className="border-t border-slate-100 px-4 py-2">
+              <ReportAppliedFilters items={appliedFilterItems} />
             </div>
           </div>
 
