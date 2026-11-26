@@ -17,9 +17,10 @@ import {
 } from "date-fns";
 import { toPng } from "html-to-image";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { ExportButton } from "@/components/ui/ExportButton";
 import {
+  DownloadToolbarButton,
   RefreshToolbarButton,
-  ToolbarMenu,
 } from "@/components/ui/reportToolbar";
 import { DataTable, formatListCount } from "@/components/ui";
 import type { GridColDef } from "@mui/x-data-grid";
@@ -61,7 +62,10 @@ import {
   ReportFilterButton,
 } from "../components/ReportFilterDrawer";
 import { HotelLookupFilterField } from "../components/HotelLookupFilterField";
-import type { ExportJobStatus } from "../services/reportExportService";
+import type {
+  ExportJobStatus,
+  ReportExportFormat,
+} from "../services/reportExportService";
 import {
   hotelBookingFinancialMisService,
   type HotelFinancialMisBookingRow,
@@ -79,10 +83,8 @@ import {
   Building2,
   CircleDollarSign,
   Eye,
-  FileSpreadsheet,
   HandCoins,
   Landmark,
-  LayoutDashboard,
   Loader2,
   Receipt,
   RotateCcw,
@@ -579,25 +581,6 @@ function resolveApiDateRange(draft: FilterDraft): {
   };
 }
 
-function csvEscape(value: string | number | null | undefined) {
-  const text = value == null ? "" : String(value);
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
-function downloadRowsAsCsv(
-  rows: (string | number | null | undefined)[][],
-  filename: string,
-) {
-  const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 function FilterField({
   label,
   children,
@@ -871,156 +854,26 @@ export default function HotelBookingFinancialMisPage() {
     return `hotel-booking-financial-mis-${from}-${to}`;
   };
 
-  const downloadMisExcel = async () => {
+  const downloadMis = async (format: ReportExportFormat) => {
     if (customInvalid) return;
     setExporting(true);
     setExportStatus("QUEUED");
     try {
       await hotelBookingFinancialMisService.exportReport({
         params: reportParams(),
-        format: "EXCEL",
+        format,
         defaultFileName: exportBaseName(),
         onStatus: setExportStatus,
       });
-      showToast("MIS Excel downloaded", "success");
+      const label =
+        format === "PDF" ? "PDF" : format === "CSV" ? "CSV" : "Excel";
+      showToast(`MIS ${label} downloaded`, "success");
     } catch (err) {
       showToast(extractErrorMessage(err), "error");
     } finally {
       setExporting(false);
       setExportStatus(null);
     }
-  };
-
-  const downloadCurrentViewCsv = () => {
-    if (!report) {
-      showToast("Load the report before downloading", "error");
-      return;
-    }
-    const summary = report.summary;
-    const rows: (string | number | null | undefined)[][] = [
-      ["Section", "Field", "Value"],
-      [
-        "Filters",
-        "Date range",
-        `${report.dateRange.fromDate ?? ""} to ${report.dateRange.toDate ?? ""}`,
-      ],
-      ["Filters", "Date axis", report.dateAxis ?? filters.dateAxis],
-      ["Filters", "Booking status", filters.bookingStatus],
-      ["Filters", "Payment status", filters.paymentStatus],
-      ["Filters", "Refund status", filters.refundStatus],
-      ["Summary", "Total bookings", summary.totalBookings],
-      [
-        "Summary",
-        "Gross booking value",
-        formatFinanceMoney(summary.grossBookingValue),
-      ],
-      [
-        "Summary",
-        "Amount collected",
-        formatFinanceMoney(summary.amountCollected),
-      ],
-      ["Summary", "Hotel payout", formatFinanceMoney(summary.hotelPayout)],
-      ["Summary", "TDS", formatFinanceMoney(summary.tds)],
-      ["Summary", "TCS", formatFinanceMoney(summary.tcs)],
-      ["Summary", "Net OTA revenue", formatFinanceMoney(summary.otaRevenue)],
-      ["Summary", "OTA GST", formatFinanceMoney(summary.otaRevenueGst)],
-      [
-        "Summary",
-        "OTA incl. GST",
-        formatFinanceMoney(summary.otaRevenueInclusiveGst),
-      ],
-      [
-        "Summary",
-        "Agency commission",
-        formatFinanceMoney(summary.agencyCommission),
-      ],
-      ["Summary", "Agency TDS", formatFinanceMoney(summary.agentTdsAmount)],
-      [
-        "Summary",
-        "Agency net commission",
-        formatFinanceMoney(summary.agentNetCommission),
-      ],
-      ["Summary", "Cancelled bookings", summary.totalCancellation],
-      [
-        "Summary",
-        "Cancellation",
-        formatFinanceMoney(summary.cancellationAmount),
-      ],
-      ["Summary", "Refunded", formatFinanceMoney(summary.refundAmount)],
-      [
-        "Summary",
-        "Outstanding payout",
-        formatFinanceMoney(summary.outstandingHotelPayout),
-      ],
-      [
-        "Summary",
-        "Outstanding refund",
-        formatFinanceMoney(summary.outstandingCustomerRefund),
-      ],
-      [],
-      [
-        "Booking ref",
-        "Booking ID",
-        "Customer",
-        "Hotel",
-        "Hotel code",
-        "City",
-        "State",
-        "Booking date",
-        "Check-in",
-        "Check-out",
-        "Nights",
-        "Source",
-        "Booked by",
-        "Owner name",
-        "Owner email",
-        "Agency",
-        "Customer selling price",
-        "Agent customer price",
-        "Agent selling markup",
-        "Hotel payout",
-        "TDS",
-        "TCS",
-        "OTA revenue",
-        "Status",
-        "Payment",
-        "Collected",
-        "Cancellation",
-        "Refund",
-      ],
-      ...report.bookings.map((row) => [
-        row.bookingRef,
-        row.bookingId,
-        row.customerName,
-        row.hotelName,
-        row.hotelCode,
-        row.hotelCity,
-        row.hotelState,
-        row.bookingDate,
-        row.checkIn,
-        row.checkOut,
-        row.nights,
-        row.bookingSource,
-        row.bookedBy,
-        row.bookingOwner?.name,
-        row.bookingOwner?.email,
-        row.bookingOwner?.agencyName,
-        formatFinanceMoney(row.customerSellingPrice),
-        formatFinanceMoney(getHotelFinancialMisAgentCustomerSellingPrice(row)),
-        formatFinanceMoney(row.agentSellingMarkupAmount),
-        formatFinanceMoney(row.hotelPayout),
-        formatFinanceMoney(row.tds),
-        formatFinanceMoney(row.tcs),
-        formatFinanceMoney(row.otaRevenue),
-        row.bookingStatus,
-        row.paymentStatus,
-        formatFinanceMoney(row.amountCollected),
-        formatFinanceMoney(row.cancellationCharge),
-        formatFinanceMoney(row.refundAmount),
-      ]),
-    ];
-    downloadRowsAsCsv(rows, `${exportBaseName()}-current-view.csv`);
-    showToast("Current view CSV downloaded", "success");
   };
 
   const downloadFullPagePng = async () => {
@@ -1173,41 +1026,27 @@ export default function HotelBookingFinancialMisPage() {
                   }}
                   activeCount={activeFilterCount}
                 />
-                <ToolbarMenu
-                  excludeFromCapture
-                  busy={exporting || capturingPage}
-                  disabled={customInvalid}
-                  tooltip={
-                    exporting
-                      ? exportStatusLabel(exportStatus) || "Exporting…"
-                      : capturingPage
-                        ? "Capturing…"
-                        : "Download MIS"
-                  }
-                  items={[
-                    {
-                      id: "excel",
-                      label: "Download MIS (Excel)",
-                      icon: FileSpreadsheet,
-                      onClick: () => void downloadMisExcel(),
-                      disabled: !report,
-                    },
-                    {
-                      id: "png",
-                      label: "Full page (PNG)",
-                      icon: LayoutDashboard,
-                      onClick: () => void downloadFullPagePng(),
-                      disabled: !report,
-                    },
-                    {
-                      id: "csv",
-                      label: "Current view (CSV)",
-                      icon: FileSpreadsheet,
-                      onClick: downloadCurrentViewCsv,
-                      disabled: !report,
-                    },
-                  ]}
-                />
+                <div data-exclude-from-capture="true" className="flex items-center gap-2">
+                  <ExportButton
+                    iconOnly
+                    disabled={!report || customInvalid || capturingPage}
+                    exporting={exporting}
+                    exportingLabel={
+                      exportStatusLabel(exportStatus) || "Exporting…"
+                    }
+                    onExportExcel={() => void downloadMis("EXCEL")}
+                    onExportCSV={() => void downloadMis("CSV")}
+                    onExportPDF={() => void downloadMis("PDF")}
+                  />
+                  <DownloadToolbarButton
+                    onClick={() => void downloadFullPagePng()}
+                    busy={capturingPage}
+                    disabled={!report || exporting || customInvalid}
+                    tooltip={
+                      capturingPage ? "Capturing…" : "Download full page (PNG)"
+                    }
+                  />
+                </div>
                 <RefreshToolbarButton
                   onClick={() => void loadReport()}
                   busy={loading}
