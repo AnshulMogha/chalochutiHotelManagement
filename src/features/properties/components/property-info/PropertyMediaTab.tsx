@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback, useRef, type DragEvent } from "react";
+import { useState, useEffect, useCallback, useRef, type DragEvent, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { adminService, type HotelMediaItem, type HotelRoom } from "@/features/admin/services/adminService";
-import { Building2, Image as ImageIcon, Plus, Upload, X, Check, Tag, Play, Trash2, Star, ChevronDown, ChevronRight, MoreVertical, ArrowUp, ArrowDown, CheckSquare, Square, Loader2, BedDouble, Camera } from "lucide-react";
+import { Building2, Image as ImageIcon, Plus, Upload, X, Check, Tag, Play, Trash2, Star, ChevronDown, ChevronRight, MoreVertical, ArrowUp, ArrowDown, CheckSquare, Square, Loader2, BedDouble, Camera, Eye } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
+import { isVideoMediaUrl } from "@/features/properties/utils/mediaPreview";
 import { MEDIA_TAGS } from "@/features/properties/components/steps/PhotosAndVideosStep/constants";
 import type { MediaTag } from "@/features/properties/components/steps/PhotosAndVideosStep/types";
 import { UploadModal } from "@/features/properties/components/steps/PhotosAndVideosStep/UploadModal";
@@ -1161,20 +1163,60 @@ function MediaItem({
 }: MediaItemProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const isVideo = item.imageUrl.toLowerCase().includes('.mp4') || 
-                  item.imageUrl.toLowerCase().includes('.mov') ||
-                  item.imageUrl.toLowerCase().includes('.webm');
-  
+  const isVideo =
+    isVideoMediaUrl(item.imageUrl) || isVideoMediaUrl(item.thumbnailUrl);
+
+  useEffect(() => {
+    if (!isPreviewOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsPreviewOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isPreviewOpen]);
+
+  const openPreview = (event?: MouseEvent) => {
+    event?.stopPropagation();
+    setIsPreviewOpen(true);
+  };
+
   return (
     <>
       <div className="relative group overflow-hidden rounded-xl border-2 border-white bg-slate-100 shadow-md shadow-[#2f3d95]/8 transition-all hover:shadow-lg hover:shadow-[#2f3d95]/15">
         <button
           type="button"
           className="w-full text-left"
-          onClick={() => setIsPreviewOpen(true)}
+          onClick={openPreview}
           title={isVideo ? "Preview video" : "Preview image"}
         >
-          {!isVideo ? (
+          {isVideo ? (
+            <div className="aspect-video relative bg-gray-900">
+              {item.thumbnailUrl && !isVideoMediaUrl(item.thumbnailUrl) ? (
+                <img
+                  src={item.thumbnailUrl}
+                  alt={item.category || "Video"}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <video
+                  src={item.imageUrl}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-cover"
+                />
+              )}
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35">
+                <Play className="h-12 w-12 text-white opacity-90" />
+              </div>
+            </div>
+          ) : (
             <div className="aspect-square relative">
               <img
                 src={item.thumbnailUrl || item.imageUrl}
@@ -1183,43 +1225,39 @@ function MediaItem({
                 loading="lazy"
               />
             </div>
-          ) : (
-            <div className="aspect-video relative bg-gray-900">
-              <div className="w-full h-full flex items-center justify-center">
-                <Play className="w-12 h-12 text-white opacity-70" />
-              </div>
-            </div>
           )}
         </button>
 
-        {showActions && (
+        {showActions ? (
           <>
-            <div className="pointer-events-none absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto">
-              {onSetCover && !item.cover && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/50 group-hover:opacity-100">
+              {onSetCover && !item.cover ? (
                 <button
                   type="button"
-                  onClick={onSetCover}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSetCover();
+                  }}
                   disabled={isProcessing}
-                  className="p-2 bg-yellow-600 text-white rounded-full hover:bg-yellow-700 transition-colors disabled:opacity-50"
+                  className="pointer-events-auto rounded-full bg-yellow-600 p-2 text-white transition-colors hover:bg-yellow-700 disabled:opacity-50"
                   title="Set as cover"
                 >
                   <Star className="w-4 h-4" />
                 </button>
-              )}
-              {item.cover && (
-                <div className="p-2 bg-yellow-600 text-white rounded-full">
+              ) : null}
+              {item.cover ? (
+                <div className="rounded-full bg-yellow-600 p-2 text-white">
                   <Star className="w-4 h-4 fill-current" />
                 </div>
-              )}
+              ) : null}
             </div>
-            
-            {/* Actions Menu */}
-            <div className="absolute top-2 right-2">
+
+            <div className="absolute top-2 right-2 z-20">
               <DropdownMenu open={showMenu} onOpenChange={setShowMenu}>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="p-1.5 bg-white/90 hover:bg-white rounded-full shadow-md transition-colors"
+                    className="rounded-full bg-white/90 p-1.5 shadow-md transition-colors hover:bg-white"
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowMenu(true);
@@ -1229,35 +1267,44 @@ function MediaItem({
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  {onAssignTag && (
+                  {onAssignTag ? (
                     <DropdownMenuItem onClick={onAssignTag}>
                       <Tag className="w-4 h-4 mr-2" />
                       Change Tag
                     </DropdownMenuItem>
-                  )}
-                  {onMoveUp && canMoveUp && (
+                  ) : null}
+                  {onMoveUp && canMoveUp ? (
                     <DropdownMenuItem onClick={onMoveUp} disabled={isProcessing}>
                       <ArrowUp className="w-4 h-4 mr-2" />
                       Move Up
                     </DropdownMenuItem>
-                  )}
-                  {onMoveDown && canMoveDown && (
+                  ) : null}
+                  {onMoveDown && canMoveDown ? (
                     <DropdownMenuItem onClick={onMoveDown} disabled={isProcessing}>
                       <ArrowDown className="w-4 h-4 mr-2" />
                       Move Down
                     </DropdownMenuItem>
-                  )}
-                  {onDetach && (
+                  ) : null}
+                  {onDetach ? (
                     <DropdownMenuItem onClick={onDetach} className="text-red-600">
                       <Trash2 className="w-4 h-4 mr-2" />
                       Detach
                     </DropdownMenuItem>
-                  )}
+                  ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </>
-        )}
+        ) : null}
+
+        <button
+          type="button"
+          onClick={openPreview}
+          className="absolute bottom-2 right-2 z-20 rounded-md border border-gray-200 bg-white/95 p-2 text-gray-800 shadow-lg transition-colors hover:bg-white"
+          title={isVideo ? "Preview video" : "Preview image"}
+        >
+          <Eye className="h-3.5 w-3.5" />
+        </button>
         
         {item.category ? (
           <div
@@ -1285,52 +1332,61 @@ function MediaItem({
         ) : null}
       </div>
 
-      {isPreviewOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm"
-          onClick={() => setIsPreviewOpen(false)}
-        >
-          <div
-            className="flex h-full w-full flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-white/15 px-5 py-4 text-white">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">
-                  {item.category ? item.category.replace("_", " ") : "Media preview"}
-                </p>
-                <p className="text-xs text-white/70">
-                  {isVideo ? "Video" : "Image"} - full screen preview
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPreviewOpen(false)}
-                className="rounded-full border border-white/25 bg-white/10 p-2 text-white hover:bg-white/20"
-                aria-label="Close preview"
+      {isPreviewOpen
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm"
+              onClick={() => setIsPreviewOpen(false)}
+              role="dialog"
+              aria-modal="true"
+              aria-label={isVideo ? "Video preview" : "Image preview"}
+            >
+              <div
+                className="flex h-full w-full flex-col"
+                onClick={(e) => e.stopPropagation()}
               >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+                <div className="flex items-center justify-between border-b border-white/15 px-5 py-4 text-white">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">
+                      {item.category
+                        ? item.category.replace("_", " ")
+                        : "Media preview"}
+                    </p>
+                    <p className="text-xs text-white/70">
+                      {isVideo ? "Video" : "Image"} — full screen preview
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsPreviewOpen(false)}
+                    className="rounded-full border border-white/25 bg-white/10 p-2 text-white hover:bg-white/20"
+                    aria-label="Close preview"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
 
-            <div className="flex min-h-0 flex-1 items-center justify-center p-4 md:p-8">
-              {!isVideo ? (
-                <img
-                  src={item.imageUrl}
-                  alt={item.category || "Media preview"}
-                  className="max-h-full max-w-full object-contain"
-                />
-              ) : (
-                <video
-                  src={item.imageUrl}
-                  controls
-                  className="max-h-full max-w-full rounded-lg bg-black"
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+                <div className="flex min-h-0 flex-1 items-center justify-center p-4 md:p-8">
+                  {isVideo ? (
+                    <video
+                      src={item.imageUrl}
+                      controls
+                      autoPlay
+                      className="max-h-full max-w-full rounded-lg bg-black"
+                    />
+                  ) : (
+                    <img
+                      src={item.imageUrl}
+                      alt={item.category || "Media preview"}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
@@ -1405,9 +1461,9 @@ function AssignModal({
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {hotelMedia.map((item) => {
                 const imageUrl = item.thumbnailUrl || item.imageUrl;
-                const isVideo = imageUrl?.toLowerCase().includes('.mp4') || 
-                                imageUrl?.toLowerCase().includes('.mov') ||
-                                imageUrl?.toLowerCase().includes('.webm');
+                const isVideo =
+                  isVideoMediaUrl(item.imageUrl) ||
+                  isVideoMediaUrl(item.thumbnailUrl);
                 const isSelected = selectedIds.includes(item.imageId);
                 
                 return (
